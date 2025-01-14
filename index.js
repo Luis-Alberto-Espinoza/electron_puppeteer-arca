@@ -1,4 +1,3 @@
-// Refactorizando el JavaScript para consolidar y organizar el código
 
 document.addEventListener('DOMContentLoaded', function () {
     // === Referencias generales ===
@@ -22,9 +21,69 @@ document.addEventListener('DOMContentLoaded', function () {
     const inputContainerTotal = document.getElementById('inputContainerTotal');
     const inputMontoTotal = document.getElementById('montoTotalInput');
 
+    const ingresoManual = document.getElementById('ingresoManual');
+    const ingresoMasivo = document.getElementById('ingresoMasivo');
+    const seccionManual = document.getElementById('seccionManual');
+    const seccionMasiva = document.getElementById('seccionMasiva');
+    const procesarDatosBtn = document.getElementById('procesarDatos');
+    const procesarBtn = document.querySelector('button[type="submit"]');
+    const textareaFechas = document.getElementById('textareaFechas');
+    const textareaMontos = document.getElementById('textareaMontos');
+    const tablaDatosProcesados = document.getElementById('tablaDatosProcesados');
+    const resultadoProcesamiento = document.getElementById('resultadoProcesamiento');
+    let datosMasivos = [];
+    let flatpickrInstance;
+    let usandoDatosMasivos = false;
+    let datosValidados = false;
+
+    // === Función para procesar y validar datos ===
+    function procesarYValidarDatos() {
+        const fechas = textareaFechas.value.split('\n').map(linea => linea.trim()).filter(linea => linea !== '');
+        const montos = textareaMontos.value.split('\n').map(linea => linea.trim()).filter(linea => linea !== '');
+
+        if (fechas.length !== montos.length) {
+            alert('El número de fechas y montos debe coincidir.');
+            datosValidados = false;
+            return false;
+        }
+
+        // Crear array de datos combinados
+        datosMasivos = fechas.map((fecha, index) => ({
+            fecha: fecha,
+            monto: montos[index]
+        }));
+
+        // Validar formato de las fechas y montos
+        const errores = [];
+        datosMasivos.forEach(({ fecha, monto }, i) => {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                errores.push(`La fecha en la línea ${i + 1} no tiene el formato válido (YYYY-MM-DD).`);
+            }
+            if (isNaN(parseFloat(monto))) {
+                errores.push(`El monto en la línea ${i + 1} no es un número válido.`);
+            }
+        });
+        if (errores.length > 0) {
+            alert(errores.join('\n'));
+            datosValidados = false;
+            return false;
+        }
+
+        // Mostrar los datos en la tabla
+        tablaDatosProcesados.innerHTML = datosMasivos.map(({ fecha, monto }) => `
+            <tr>
+                <td>${fecha}</td>
+                <td>${monto}</td>
+            </tr>
+        `).join('');
+        resultadoProcesamiento.style.display = 'block';
+        datosValidados = true;
+        return true;
+    }
+
     // === Inicialización de Flatpickr ===
     if (datepicker) {
-        flatpickr(datepicker, {
+        flatpickrInstance = flatpickr(datepicker, {
             mode: "multiple",
             dateFormat: "Y-m-d",
             onChange: function (selectedDates) {
@@ -53,6 +112,14 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // === Procesar Datos Masivos ===
+    procesarDatosBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        procesarYValidarDatos();
+    });
+
+    // === Procesar Envío de Datos (Formulario o Masivo) ===
+
     // === Manejo del Formulario de Facturas ===
     if (facturasForm) {
         facturasForm.addEventListener('submit', (event) => {
@@ -62,38 +129,140 @@ document.addEventListener('DOMContentLoaded', function () {
             const data = Object.fromEntries(formData.entries());
             let errores = [];
 
-            // Validaciones
+            // Si estamos usando datos masivos procesados
+            if (data.metodoIngreso === 'masivo') {
+                // Validar que los datos hayan sido procesados
+                if (!datosValidados || datosMasivos.length === 0) {
+                    alert('Debe procesar los datos antes de enviarlos.');
+                    return;
+                }
+                // Solo validar tipo de contribuyente y actividad
+                if (!data.tipoContribuyente) errores.push("Debe seleccionar un tipo de contribuyente.");
+                if (!data.Actividad) errores.push("Debe seleccionar un tipo de Actividad.");
+                if (errores.length > 0) {
+                    alert(errores.join('\n'));
+                    return;
+                }
+                // Enviar los datos masivos procesados
+                const datosMasivosParaEnviar = {
+                    tipo: 'masivo',
+                    tipoContribuyente: data.tipoContribuyente,
+                    Actividad: data.Actividad,
+                    datos: datosMasivos
+                };
+                console.log("Enviando datos masivos:", datosMasivosParaEnviar);
+                window.electronAPI.sendFormData(datosMasivosParaEnviar);
+                return;
+            }
+
+            // Validaciones para el formulario tradicional
+
             if (!data.tipoContribuyente) errores.push("Debe seleccionar un tipo de contribuyente.");
             if (!data.Actividad) errores.push("Debe seleccionar un tipo de Actividad.");
             if (!data.mes) errores.push("Debe seleccionar un mes.");
             if (!data.anio) errores.push("Debe seleccionar un año.");
 
-            if (data.periodoFacturacion === 'manual' && !data.fechasFacturas) {
-                errores.push("Debe ingresar las fechas de facturación.");
+            // Validaciones específicas según el método de ingreso
+            if (data.metodoIngreso === 'manual') {
+                if (!data.fechasFacturas) {
+                    errores.push("Debe ingresar las fechas de facturación.");
+                }
+
+                // Validaciones del tipo de monto
+                if (!data.tipoMonto && data.periodoFacturacion === 'manual') {
+                    errores.push("Debe seleccionar un tipo de monto.");
+                } else if (data.tipoMonto === 'montoTotal' && !data.montoTotalInput) {
+                    errores.push("Debe ingresar un monto total.");
+                } else if (data.tipoMonto === 'montoManual' && !data.montoManual) {
+                    errores.push("Debe ingresar montos manuales.");
+                }
             }
 
-            if (!data.tipoMonto) {
-                errores.push("Debe seleccionar un tipo de monto.");
-            } else if (data.tipoMonto === 'montoTotal' && !data.montoTotalInput) {
-                errores.push("Debe ingresar un monto total.");
-            } else if (data.tipoMonto === 'montoManual' && !data.montoManual) {
-                errores.push("Debe ingresar montos manuales.");
-            }
-
+            // Mostrar errores si los hay
             if (errores.length > 0) {
                 alert(errores.join('\n'));
                 return;
             }
 
-            // Limpieza de datos
-            if (data.periodoFacturacion !== 'manual') delete data.fechasFacturas;
-            if (data.tipoMonto !== 'montoManual') delete data.montoManual;
-            if (data.tipoMonto !== 'montoTotal') delete data.montoTotalInput;
+            // Limpieza de datos para modo manual
+            const datosParaEnviar = { ...data };
+            delete datosParaEnviar.textareaFechas;
+            delete datosParaEnviar.textareaMontos;
 
-            console.log("Datos del formulario (validados y limpios):", data);
-            window.electronAPI.sendFormData(data);
+            if (datosParaEnviar.tipoMonto !== 'montoManual') delete datosParaEnviar.montoManual;
+            if (datosParaEnviar.tipoMonto !== 'montoTotal') delete datosParaEnviar.montoTotalInput;
+
+            console.log("Datos del formulario manual:", datosParaEnviar);
+            window.electronAPI.sendFormData(datosParaEnviar);
         });
     }
+
+    // Mostrar/ocultar secciones según el método de ingreso seleccionado
+    function actualizarMetodoIngreso() {
+        if (ingresoManual.checked) {
+            seccionManual.style.display = 'block';
+            seccionMasiva.style.display = 'none';
+        } else if (ingresoMasivo.checked) {
+            seccionManual.style.display = 'none';
+            seccionMasiva.style.display = 'block';
+        }
+    }
+
+    ingresoManual.addEventListener('change', actualizarMetodoIngreso);
+    ingresoMasivo.addEventListener('change', actualizarMetodoIngreso);
+
+    // Procesar los datos ingresados en los textareas
+    function procesarDatosTextareas() {
+        const textareaFechas = document.getElementById('textareaFechas');
+        const textareaMontos = document.getElementById('textareaMontos');
+
+        if (!textareaFechas || !textareaMontos) {
+            return { errores: ["Faltan elementos del DOM"], datos: [] };
+        }
+
+        const fechas = textareaFechas.value.split('\n').map(linea => linea.trim()).filter(linea => linea !== '');
+        const montos = textareaMontos.value.split('\n').map(linea => linea.trim()).filter(linea => linea !== '');
+
+        const errores = [];
+
+        // Validar que ambos campos tengan el mismo número de líneas
+        if (fechas.length !== montos.length) {
+            errores.push('El número de fechas no coincide con el número de montos.');
+        }
+
+        // Validar formato de fechas y montos
+        fechas.forEach((fecha, index) => {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                errores.push(`La fecha en la línea ${index + 1} no tiene el formato correcto (YYYY-MM-DD).`);
+            }
+        });
+
+        montos.forEach((monto, index) => {
+            if (isNaN(parseFloat(monto))) {
+                errores.push(`El monto en la línea ${index + 1} no es un número válido.`);
+            }
+        });
+
+        if (errores.length > 0) {
+            return { errores: errores, datos: [] };
+        }
+
+        const datos = fechas.map((fecha, index) => ({ fecha, monto: parseFloat(montos[index]) }));
+        return { errores: [], datos: datos };
+    }
+
+    procesarDatosBtn.addEventListener('click', () => {
+        const resultado = procesarDatosTextareas();
+        if (resultado.errores.length > 0) {
+            alert(resultado.errores.join('\n'));
+            return;
+        }
+
+        datosMasivos = resultado.datos;
+        // Mostrar datos procesados
+        tablaDatosProcesados.innerHTML = datosMasivos.map(({ fecha, monto }) => `<tr><td>${fecha}</td><td>${monto}</td></tr>`).join('');
+        resultadoProcesamiento.style.display = 'block';
+    });
 
     // === Generar Selects de Meses y Años ===
     if (selectMes && selectAnio) {
@@ -118,10 +287,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-
-
-
-
     if (datepicker) {
         flatpickrInstance = flatpickr(datepicker, {
             mode: "multiple",
@@ -136,14 +301,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Función para actualizar la vista inicial del calendario
     function actualizarCalendario() {
-        const mes = selectMes.value; // Valor del mes seleccionado (1-12)
-        const anio = selectAnio.value; // Valor del año seleccionado
+        const mes = selectMes.value;
+        const anio = selectAnio.value;
 
-        if (mes && anio) {
+        if (mes && anio && flatpickrInstance) {
             // Establecer la fecha inicial del calendario
-            const nuevaFecha = new Date(anio, mes - 1, 1); // Año, Mes (0-11), Día
-            flatpickrInstance.setDate(nuevaFecha, false); // Actualiza la fecha sin disparar eventos
-            flatpickrInstance.jumpToDate(nuevaFecha); // Cambia la vista inicial
+            const nuevaFecha = new Date(anio, mes - 1, 1);
+            flatpickrInstance.setDate(nuevaFecha, false);
+            flatpickrInstance.jumpToDate(nuevaFecha);
         }
     }
 
@@ -151,11 +316,8 @@ document.addEventListener('DOMContentLoaded', function () {
     if (selectMes && selectAnio) {
         selectMes.addEventListener('change', actualizarCalendario);
         selectAnio.addEventListener('change', actualizarCalendario);
+        if (flatpickrInstance) actualizarCalendario();
     }
-
-
-
-    
 
     // === Manejo del Período Manual ===
     if (periodoManual) {
@@ -182,6 +344,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (montoManualRadio && montoTotalRadio) {
         montoManualRadio.addEventListener('change', handleMontoChange);
         montoTotalRadio.addEventListener('change', handleMontoChange);
-        handleMontoChange(); // Inicializa el estado
+        handleMontoChange();
     }
 });
