@@ -20,6 +20,7 @@
     <button id="facturasBtn">Realizar Facturas</button>
     <div id="facturasDiv" style="display: none;">
         <form id="facturasForm">
+            <input type="hidden" name="servicio" value="factura">
             <div id="tipoContribuyenteDiv">
                 <h2>Tipo de Contribuyente</h2>
                 <div>
@@ -140,7 +141,7 @@
         </form>
     </div>
     <div id="resultado"></div>
-    <script src="index.js"></script>
+    <script type="module" src="./frontend_js/controlador.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="renderer.js"></script>
 </body>
