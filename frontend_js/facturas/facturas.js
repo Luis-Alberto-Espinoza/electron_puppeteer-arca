@@ -51,6 +51,8 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
         || datosParaEnviar.periodoFacturacion === "total" )delete datosParaEnviar.fechasFacturas;
     
     if (datosParaEnviar.tipoMonto !== 'montoTotal') delete datosParaEnviar.montoTotalInput;
+  
+    datosParaEnviar.servicio = 'factura'; // agrega el titulo del formulario 
 
     enviarDatosFacturaAlBackend(datosParaEnviar);
 }
