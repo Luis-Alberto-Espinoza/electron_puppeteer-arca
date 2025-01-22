@@ -1,0 +1,78 @@
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependency directories
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.*
+
+# Compiled source
+dist/
+build/
+coverage/
+
+# Laravel specific
+/public/storage
+/storage/*.key
+/storage/*.log
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/logs/*
+
+# Ignorar imágenes y PDFs subidos al proyecto
+public/imgs/*
+!public/imgs/.gitkeep
+
+# Composer files
+composer.lock
+
+# IDE Specific files
+.idea/
+*.sublime-workspace
+*.vscode/
+
+# OS Generated Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.swp
+*.bak
+*.tmp
+
+# Ignore deployment-related files
+/.env.production
+/.env.staging
+
+# Specific for Docker
+docker-compose.override.yml
+docker-compose-dev.yml
+
+# Angular files (si se usa en el proyecto)
+.angular/*
+.angular/cache/
+
+# Ignorar backups
+*.bak
+*.backup
+
+# Otros archivos específicos de tu proyecto
+/resources/js/temp/  # Ajustar si aplica
+/public/temp/         # Carpeta temporal en public
+
+# Excepciones para incluir directorios vacíos
+!storage/logs/.gitkeep
+!storage/framework/cache/.gitkeep
+!storage/framework/sessions/.gitkeep
+!storage/framework/views/.gitkeep
+
+# Excluir archivos generados por builds personalizados
+custom_build/
