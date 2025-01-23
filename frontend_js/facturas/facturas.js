@@ -26,7 +26,8 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
             return;
         }
         const datosMasivosParaEnviar = {
-            tipo: 'masivo',
+            servicio: 'factura', // agrega el titulo del formulario 
+            metodoIngreso: 'masivo',
             tipoContribuyente: data.tipoContribuyente,
             Actividad: data.Actividad,
             datos: datosMasivos
@@ -44,15 +45,19 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
 
     let validador = false;
     const datosParaEnviar = { ...data };
-    console.dir(data);
-    if (datosParaEnviar.tipoMonto !== 'montoManual') delete datosParaEnviar.montoManual;
-    // if (datosParaEnviar.tipoMonto !== 'montoManual' && radioSeleccionado.value === "habiles") console.log(datosParaEnviar +" soy el validador") //delete datosParaEnviar.montoManual;
-    if (datosParaEnviar.periodoFacturacion === "habiles" 
-        || datosParaEnviar.periodoFacturacion === "total" )delete datosParaEnviar.fechasFacturas;
-    
-    if (datosParaEnviar.tipoMonto !== 'montoTotal') delete datosParaEnviar.montoTotalInput;
-  
-    datosParaEnviar.servicio = 'factura'; // agrega el titulo del formulario 
+    // console.dir(data);
+    if (datosParaEnviar.tipoMonto !== 'montoManual')
+        datosParaEnviar.monto = datosParaEnviar.montoTotalInput;
+    if (datosParaEnviar.periodoFacturacion === "habiles"
+        || datosParaEnviar.periodoFacturacion === "total") 
+        delete datosParaEnviar.fechasFacturas;
+    if (datosParaEnviar.tipoMonto !== 'montoTotal')
+        datosParaEnviar.monto = datosParaEnviar.montoManual;
+
+    delete datosParaEnviar.montoManual;
+    delete datosParaEnviar.montoTotalInput;
+
+    datosParaEnviar.servicio = 'factura'; 
 
     enviarDatosFacturaAlBackend(datosParaEnviar);
 }
