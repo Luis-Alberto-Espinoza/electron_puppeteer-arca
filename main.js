@@ -33,35 +33,15 @@ app.on('window-all-closed', () => {
 
 
 ipcMain.on('formulario-enviado', (event, data) => {
-    console.log('Datos del formulario recibidos en main.js:', data);
+     console.log('Datos del formulario recibidos en main.js:', data);
     // Aquí procesas los datos (guardar en base de datos, etc.)
     event.reply('formulario-recibido', 'Datos recibidos y procesados en el backend.');
 
-    console.log('Datos recibidos del frontend:', data);
+    // console.log('Datos recibidos del frontend:', data);
 
     if (data.servicio === 'factura') {
         const resultado = procesarDatosFactura(data);
-        console.log("Resultado del procesamiento de la factura", resultado);
+        // console.log("Resultado del procesamiento de la factura", resultado);
     }
 
 });
-
-
-
-/*
-function getDiasHabiles(mes, anio) {
-    const diasEnMes = new Date(anio, mes, 0).getDate();
-    let diasHabiles = 0;
-    
-    for (let dia = 1; dia <= diasEnMes; dia++) {
-        const fecha = new Date(anio, mes - 1, dia);
-        const diaSemana = fecha.getDay();
-        
-        // 0 es domingo, 6 es sábado
-        if (diaSemana !== 0 && diaSemana !== 6) {
-            diasHabiles++;
-        }
-    }
-    
-    return diasHabiles;
-}*/
