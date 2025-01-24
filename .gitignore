@@ -76,3 +76,6 @@ docker-compose-dev.yml
 
 # Excluir archivos generados por builds personalizados
 custom_build/
+
+# Excluir carpeta zBorrador
+zBorrador/
