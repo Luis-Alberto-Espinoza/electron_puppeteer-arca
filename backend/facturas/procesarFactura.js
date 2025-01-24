@@ -4,13 +4,13 @@ const { getDiasHabiles, getDiasXmes, limpiarMontos,
     convertirStringAArrayDeFechasString, generarMontosAleatorios, combinarFechasMontosConMap } = require('../utils');
 
 function procesarDatosFactura(data) {
-
-    let facturas = {}
+    let facturas = {};
     let montoFechas = [];
-
-    facturas.tipoContribuyente = data.tipoContribuyente;
+    
     facturas.tipoActividad = data.Actividad;
-
+    facturas.tipoContribuyente = data.tipoContribuyente;
+    
+    let respuesta = {} ;
     if (data.metodoIngreso === "manual") {
         facturas.periodoFacturacion = data.periodoFacturacion;
 
@@ -46,21 +46,44 @@ function procesarDatosFactura(data) {
             }
             facturas.arrayResultante = combinarFechasMontosConMap(facturas.fechas, montosGenerados.montos);
         }
+        respuesta = procesarDatos(facturas.arrayResultante);
+        let ojeto = Object.entries(respuesta);
+        let conkeys = Object.keys(respuesta);
 
-        facturas.arrayResultante = procesarDatos(facturas.arrayResultante);
-        facturas.arrayResultante.forEach(element => {
-            console.log(element)
-        });
+        // console.log("conkeys " + conkeys);
+
+        // conkeys tiene: facturasGeneradas,resultadoFinal,sumaOriginal,sumador,facturasCorrectas,facturasIncorrectas,resultadoFacturas
+
+        //console.log("ojeto "+ ojeto );
+        facturas.arrayResultante = respuesta.resultadoFacturas;
+        //console.log("\n\n elementos inicio \n")
+        // facturas.arrayResultante.forEach(element => {
+        //  //   console.log(element)
+        // });
+        //console.log("\n elementos fin\n\n")
     }
-
+    /**
+     * 
+            facturas.arrayResultante = procesarDatos(facturas.arrayResultante);
+            facturas.arrayResultante.forEach(element => {
+                console.log(element)
+            });
+    
+     */
 
     if (data.metodoIngreso === "masivo") {
         data.datos.forEach(element => {
             montoFechas.push([element.fecha, element.monto]);
         });
+
+        respuesta = procesarDatos(montoFechas);
+        let conkeys = Object.keys(respuesta);
+      //  console.log("conkeys " + conkeys);
+        facturas.arrayResultante = respuesta.resultadoFacturas;
     }
-    facturas.arrayResultante = procesarDatos(montoFechas);
-    console.log("inicio\n", facturas, "\nfin")
+    //console.log("\n\ninicio\n", facturas, "\nfin\n\n")
+    facturas.montoResultados = respuesta;
+    return facturas;
 }
 
 

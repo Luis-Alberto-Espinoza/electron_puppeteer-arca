@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { procesarDatosFactura } = require('./backend')
+const { comunicacionConFactura } = require('./backend/index')
+const { pStorage } = require('./backend/facturas/paraStorage')
 
 let mainWindow;
 
@@ -31,17 +32,24 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-
 ipcMain.on('formulario-enviado', (event, data) => {
-     console.log('Datos del formulario recibidos en main.js:', data);
-    // Aquí procesas los datos (guardar en base de datos, etc.)
-    event.reply('formulario-recibido', 'Datos recibidos y procesados en el backend.');
-
-    // console.log('Datos recibidos del frontend:', data);
 
     if (data.servicio === 'factura') {
-        const resultado = procesarDatosFactura(data);
-        // console.log("Resultado del procesamiento de la factura", resultado);
-    }
+        const facturaProcesada = comunicacionConFactura(data);
+        if (facturaProcesada.error) { // manejo de error en caso de que exista
+            console.error("Error al generar factura", facturaProcesada.error)
+            event.reply("codigoLocalStorageGenerado", facturaProcesada)
+            return
+        }
+        const resultadoCodigo = pStorage(facturaProcesada);
+        if (resultadoCodigo.error) {
+            console.error("Error al generar codigo de local storage", resultadoCodigo.error)
+            event.reply("codigoLocalStorageGenerado", resultadoCodigo)
+            return
+        }
 
+        event.reply('codigoLocalStorageGenerado', resultadoCodigo);
+    } else {
+        event.reply('formulario-recibido', 'Datos recibidos y procesados en el backend.');
+    }
 });

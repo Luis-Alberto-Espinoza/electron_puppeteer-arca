@@ -1,6 +1,6 @@
 
 function procesarDatos(montoFactura) {
-
+    let ProcesarDatos = {};
     const configuracion = {
         montoMaximo: 344000,
     };
@@ -42,7 +42,7 @@ function procesarDatos(montoFactura) {
                 if (!resultadoFacturas[contador]) {
                     resultadoFacturas[contador] = [];
                 }
-                resultadoFacturas[contador][0] = `${arrayMonto[i][0]}`; 
+                resultadoFacturas[contador][0] = `${arrayMonto[i][0]}`;
                 resultadoFacturas[contador][1] = arrayMonto[i][j];
                 contador++;
             }
@@ -50,29 +50,38 @@ function procesarDatos(montoFactura) {
     }
 
     function presentarResultados(arrayResultado, sumaOriginal, sumador) {
-        let resltadoFinal = "";
+        let resultadoFinal = "";
         let errorFactras = "";
 
         for (let i = 0; i < arrayResultado.length; i++) {
-            resltadoFinal += `[${arrayResultado[i][0]}, ${arrayResultado[i][1]}],\n`;
+            resultadoFinal += `[${arrayResultado[i][0]}, ${arrayResultado[i][1]}],\n`;
             if (arrayResultado[i][1] > configuracion.montoMaximo) {
                 errorFactras += `Factura ${i + 1} monto => ${arrayResultado[i][1]} Corresponde a la fecha => ${arrayResultado[i][0]}\n`;
             }
         }
+        ProcesarDatos.resultadoFinal = resultadoFinal;
+        ProcesarDatos.sumaOriginal = sumaOriginal; //"Suma original =";
+        ProcesarDatos.sumador = sumador; //"Suma final =";
+        ProcesarDatos.facturasCorrectas = arrayResultado.length; //"Facturas correctas =";
+        ProcesarDatos.facturasIncorrectas = arrayResultado.filter(item => item[1] > configuracion.montoMaximo).length; //"Facturas incorrectas =";
         if (errorFactras != "") {
+            ProcesarDatos.errorFactraslímiteSuperado = errorFactras;
         }
+
     }
 
     function realizarPruebas(arrayResultado) {
         return arrayResultado.reduce((sum, factura) => sum + factura[1], 0);
     }
     generarSubFacturas(montoFactura);
+    ProcesarDatos.facturasGeneradas = arrayFacturasGeneradas;
+
     agregarFechas(arrayFacturasGeneradas);
 
     let sumadorFinal = realizarPruebas(resultadoFacturas);
     presentarResultados(resultadoFacturas, suma, sumadorFinal);
-
-return resultadoFacturas;
+    ProcesarDatos.resultadoFacturas = resultadoFacturas
+    return ProcesarDatos;
 }
 
 module.exports = {

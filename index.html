@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -75,7 +76,7 @@
                     <div>
                         <input type="radio" name="periodoFacturacion" value="habiles" id="periodoDiasHabiles">
                         <label for="periodoDiasHabiles">Días Hábiles</label>
-                    </div>                  
+                    </div>
                     <div>
                         <input type="radio" name="periodoFacturacion" value="manual" id="periodoManual">
                         <label for="periodoManual">Ingreso de días manual</label>
@@ -93,7 +94,8 @@
                             <div id="inputContainerTotal" style="display: none;">
                                 <br>
                                 Ingrese el monto a facturar:
-                                <input type="number" id="montoTotalInput" name="montoTotalInput" placeholder="Monto Total" />
+                                <input type="number" id="montoTotalInput" name="montoTotalInput"
+                                    placeholder="Monto Total" />
                             </div>
                         </div>
                         <div>
@@ -114,7 +116,8 @@
                     <textarea id="textareaFechas" rows="10" cols="30" placeholder="YYYY-MM-DD"></textarea>
                     <br>
                     <label for="textareaMontos">Montos (uno por línea):</label>
-                    <textarea id="textareaMontos" rows="10" cols="30" placeholder="Monto correspondiente a cada fecha"></textarea>
+                    <textarea id="textareaMontos" rows="10" cols="30"
+                        placeholder="Monto correspondiente a cada fecha"></textarea>
                     <br>
                     <button id="procesarDatos">Procesar datos</button>
                     <div id="resultadoProcesamiento" style="margin-top: 20px; display: none;">
@@ -130,9 +133,14 @@
                         </table>
                     </div>
                 </div>
-            </div>          
+            </div>
             <button type="submit">Procesar </button>
         </form>
+        <div id="respuesta">
+            <textarea id="codigoLocalStorage"
+                style="display: none; width: 100%; height: 200px; resize: vertical;"></textarea>
+            <button id="copiarCodigo" style="display: none;">Copiar Código</button>
+        </div>
     </div>
     <button id="recibosBtn">Realizar Recibos</button>
     <div id="recibosDiv" style="display: none;">

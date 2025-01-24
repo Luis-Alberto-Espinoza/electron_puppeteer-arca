@@ -1,7 +1,13 @@
-const { procesarDatosFactura } = require ('./facturas/procesarFactura.js');
-// import { procesarDatosRecibo } from './recibos/procesarRecibo.js';
+const { procesarDatosFactura } = require('./facturas/procesarFactura.js');
+const { pStorage } = require('./facturas/paraStorage.js');
 
+function comunicacionConFactura(data) {
+
+    let elRetorno = procesarDatosFactura(data)
+
+    return elRetorno;
+}
 // export { procesarDatosFactura, procesarDatosRecibo };
 module.exports = {
-    procesarDatosFactura
+    comunicacionConFactura
 };
