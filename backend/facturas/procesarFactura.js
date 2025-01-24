@@ -1,4 +1,3 @@
-const { validarDatosFacturaBackend, validarDatos } = require('./validacionesFacturaBackend');
 const { procesarDatos } = require('./estructuradorDeDatos');
 const { getDiasHabiles, getDiasXmes, limpiarMontos,
     convertirStringAArrayDeFechasString, generarMontosAleatorios, combinarFechasMontosConMap } = require('../utils');
