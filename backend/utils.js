@@ -91,8 +91,8 @@ function generarMontosAleatorios(montoTotal, fechas) {
     const numDias = fechas.length;
     const promedioDiario = montoTotal / numDias;
 
-console.log("numDias", numDias)
-console.log("promedioDiario", promedioDiario)
+// console.log("numDias", numDias)
+// console.log("promedioDiario", promedioDiario)
 
     const montos = [];
     let sumaMontos = 0;
