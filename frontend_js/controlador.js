@@ -1,9 +1,7 @@
-import { inicializarInterfazFacturas } from './facturas/interfazFacturas.js'; // Usa require
-//import { inicializarInterfazRecibos } from './recibos/interfazRecibos.js';
+import { inicializarInterfazFacturas } from './facturas/interfazFacturas.js'; 
 
 document.addEventListener('DOMContentLoaded', () => {
     inicializarInterfazFacturas();
-  //  inicializarInterfazRecibos();
 });
 
 

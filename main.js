@@ -1,8 +1,9 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { comunicacionConFactura } = require('./backend/index')
-const { pStorage } = require('./backend/facturas/paraStorage')
-const puppeteer = require('puppeteer-core');
+const { comunicacionConFactura } = require('./backend/index');
+const { pStorage } = require('./backend/facturas/paraStorage');
+const puppeteerManager = require('./puppeteer/puppeteer-manager'); // Importamos el manager
+
 let mainWindow;
 
 function createWindow() {
@@ -12,7 +13,11 @@ function createWindow() {
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false, // Recomendado: false para seguridad
-            contextIsolation: true // Recomendado: true para seguridad
+            contextIsolation: true, // Recomendado: true para seguridad
+            webSecurity: false,
+            sandbox: false,
+            allowRunningInsecureContent: false,
+            experimentalFeatures: true  // Añade esta línea
         }
     });
 
@@ -35,54 +40,88 @@ app.on('window-all-closed', () => {
 ipcMain.on('formulario-enviado', (event, data) => {
 
     if (data.servicio === 'factura') {
-        const facturaProcesada = comunicacionConFactura(data);
-        if (facturaProcesada.error){ // manejo de error en caso de que exista
-            console.error("Error al generar factura", facturaProcesada.error)
-            event.reply("codigoLocalStorageGenerado", facturaProcesada)
-            return
-        }
-        const resultadoCodigo = pStorage(facturaProcesada);
-        if (resultadoCodigo.error){
+    
+        const resultadoCodigo = comunicacionConFactura(data);
+        if (resultadoCodigo.error) {
             console.error("Error al generar codigo de local storage", resultadoCodigo.error)
             event.reply("codigoLocalStorageGenerado", resultadoCodigo)
             return
         }
-       
+
         event.reply('codigoLocalStorageGenerado', resultadoCodigo);
     } else {
         event.reply('formulario-recibido', 'Datos recibidos y procesados en el backend.');
     }
 });
 
-async function ejecutarPuppeteer(url, encabezados) {
+
+ipcMain.on('ejecutar-automatizacion', async (event, tipoAutomatizacion, datosDelFormulario) => {
     try {
-        const browser = await puppeteer.launch({
-            executablePath: '/snap/bin/chromium', // Ruta directa que ya conoces
-            headless: false,
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-web-security'
-            ]
-        });
-        const page = await browser.newPage();
-        if (encabezados){
-            await page.setExtraHTTPHeaders(encabezados);
+        const datosProcesados = comunicacionConFactura(datosDelFormulario);
+        if (datosProcesados.error) {
+            event.reply('puppeteer-finished', { success: false, error: datosProcesados.error });
+            return;
         }
-        await page.goto(url);
-        return page;
+
+        const [tipoPrincipal, accion] = tipoAutomatizacion.split('/');
+        let manager;
+
+        switch (tipoPrincipal) {
+            case 'facturas':
+                manager = require('./automatizaciones/facturas/facturaManager');
+                break;
+            // ... otros casos ...
+            default:
+                throw new Error('Tipo de automatización no válido.');
+        }
+        const page = await puppeteerManager.nuevaPagina('URL_DESPUES_DEL_LOGIN');
+        // *** PASAMOS datosProcesados AL MANAGER ***
+        const resultado = await manager[accion](page, datosProcesados);
+        await puppeteerManager.cerrarNavegador();
+        event.reply('automatizacion-completada', resultado);
     } catch (error) {
-        console.error("Error al ejecutar Puppeteer:", error);
-        throw error;
+        // ... manejo de errores ...
     }
-}
+});
 
-
-ipcMain.on('abrir-navegador', async (_event, url, encabezados) => { // Recibe la URL
+ipcMain.on('iniciar-sesion', async (event, url, credenciales) => {
     try {
-        await ejecutarPuppeteer(url, encabezados);
+        const page = await puppeteerManager.nuevaPagina(url); // Abre la página de login
+
+        // Automatización del inicio de sesión (ejemplo)
+        await page.waitForSelector('#usuario', {timeout: 5000}); // Espera a que el campo de usuario esté disponible
+        await page.type('#usuario', credenciales.usuario);
+        await page.type('#contrasena', credenciales.contrasena);
+        await page.click('#boton-login');
+
+        await page.waitForNavigation({waitUntil: 'networkidle2'}); // Espera a que la navegación se complete
+
+        // Obtener información después del login (opcional)
+        const loggedIn = await page.evaluate(() => {
+          return document.querySelector('#elemento-que-aparece-despues-del-login') !== null;
+        })
+
+        if(loggedIn){
+          event.reply('sesion-iniciada', { success: true, message: "Sesion iniciada correctamente" });
+        }else{
+          event.reply('sesion-iniciada', { success: false, message: "Credenciales incorrectas" });
+        }
+    } catch (error) {
+        console.error("Error en el inicio de sesión:", error);
+        event.reply('sesion-iniciada', { success: false, error: error.message });
+    } finally {
+        await puppeteerManager.cerrarNavegador();
+    }
+});
+
+
+
+ipcMain.on('abrir-navegador', async (event, url, encabezados) => { // Recibe la URL
+    try {
+        const page = await puppeteerManager.nuevaPagina(url, encabezados); // Usamos el manager para abrir la página
+        event.reply('navegador-abierto'); // Informa al frontend que el navegador se abrió
     } catch (error) {
         console.error("Error al abrir el navegador:", error);
-        //Aquí se podria enviar un mensaje de error al frontend
+        event.reply('abrir-navegador-error', error.message); // Envia el error al frontend
     }
 });

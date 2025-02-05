@@ -11,3 +11,4 @@ window.electronAPI.onFormularioRecibido((event, mensaje) => {
     console.log(mensaje);
     alert(mensaje); // O cualquier otra acción que quieras realizar
 });
+

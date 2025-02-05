@@ -1,6 +1,7 @@
 import { procesarDatosTextareas } from './procesarDatosMasivos.js';
 import { realizarAccionFacturacion, procesarFormularioFactura } from './facturas.js';
 
+
 let datosMasivos = [];
 let datosValidados = false;
 let flatpickrInstance;

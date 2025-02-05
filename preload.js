@@ -8,4 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     abrirNavegadorPuppeteer: (url, encabezados) => ipcRenderer.send('abrir-navegador', url, encabezados), // Nueva función
 
+    iniciarSesion: (url, credenciales) => ipcRenderer.send('iniciar-sesion', url, credenciales),
+    onSesionIniciada: (callback) => ipcRenderer.on('sesion-iniciada', callback)
 });
+
