@@ -1,9 +1,9 @@
+require('dotenv').config(); // Cargar variables de entorno desde .env
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { comunicacionConFactura } = require('./backend/index');
-const { pStorage } = require('./backend/facturas/paraStorage');
 const puppeteerManager = require('./puppeteer/puppeteer-manager'); // Importamos el manager
-const loginAutomation = require('./puppeteer/login-automation'); // Importa el archivo externo
+const facturaManager = require('./puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
 
 let mainWindow;
 
@@ -54,7 +54,7 @@ ipcMain.on('formulario-enviado', async (event, data) => {
                 message: 'Iniciando navegador...'
             });
 
-            const resultado = await loginAutomation.automatizarLogin(data.url, data.credenciales);
+            const resultado = await facturaManager.iniciarProceso(data.url, data.credenciales, data);
 
             mainWindow.webContents.send('status-update', {
                 status: 'completado',
@@ -84,7 +84,7 @@ ipcMain.on('ejecutar-automatizacion', async (event, tipoAutomatizacion, datosDel
 
         switch (tipoPrincipal) {
             case 'facturas':
-                manager = require('./automatizaciones/facturas/facturaManager');
+                manager = require('./puppeteer/facturas/codigo/facturaManager');
                 break;
             // ... otros casos ...
             default:
@@ -130,9 +130,9 @@ ipcMain.on('iniciar-sesion', async (event, url, credenciales) => {
     }
 });
 
-    ipcMain.on('automatizar-login', async (event, url, credenciales) => {
+ipcMain.on('automatizar-login', async (event, url, credenciales) => {
     try {
-        const resultado = await loginAutomation.automatizarLogin(url, credenciales);
+        const resultado = await facturaManager.iniciarProceso(url, credenciales);
         event.reply('login-automatizado', resultado);
     } catch (error) {
         console.error("Error en la automatización de login:", error);

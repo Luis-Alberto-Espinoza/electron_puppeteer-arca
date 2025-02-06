@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    const abrirNavegadorBtn = document.getElementById('abrirNavegadorBtn');
+    // const abrirNavegadorBtn = document.getElementById('abrirNavegadorBtn');
     const loginButton = document.getElementById('loginButton');
     const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
     const encabezados = {
@@ -13,14 +13,14 @@ document.addEventListener('DOMContentLoaded', () => {
         'Referer': 'https://google.com'
     };
 
-    abrirNavegadorBtn.addEventListener('click', () => {
-        window.electronAPI.abrirNavegadorPuppeteer(url, encabezados);
-    });
+    // abrirNavegadorBtn.addEventListener('click', () => {
+    //     window.electronAPI.abrirNavegadorPuppeteer(url, encabezados);
+    // });
 
-    loginButton.addEventListener('click', () => {
+    loginButton.addEventListener('click', async () => {
         const credenciales = {
-            usuario: '27334617977',
-            contrasena: 'MiPerro2024'
+            usuario: await window.electronAPI.getEnv('AFIP_USUARIO'),
+            contrasena: await window.electronAPI.getEnv('AFIP_CONTRASENA')
         };
 
         window.electronAPI.sendFormData({ servicio: 'login', url, credenciales });

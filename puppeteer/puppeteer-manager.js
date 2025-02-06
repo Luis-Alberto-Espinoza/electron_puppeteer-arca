@@ -1,30 +1,24 @@
 // puppeteer-manager.js
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 
 let browser = null; // Variable para almacenar la instancia del navegador
 
 async function nuevaPagina(url, encabezados) {
     try {
-        if (!browser) { // Solo lanza el navegador si no existe uno
-            browser = await puppeteer.launch({
-                executablePath: '/snap/bin/chromium',
-                headless: false, // Cambiar a true en producción
-                args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-web-security'
-                ]
-            });
-        }
+        browser = await puppeteer.launch({
+            headless: false,
+            defaultViewport: null
+        });
+
         const page = await browser.newPage();
         if (encabezados) {
             await page.setExtraHTTPHeaders(encabezados);
         }
-        await page.goto(url, {waitUntil: 'networkidle2'}); //Espera a que la pagina carge
+        await page.goto(url, { waitUntil: 'networkidle2' });
         return page;
     } catch (error) {
-        console.error("Error al iniciar Puppeteer o navegar:", error);
-        throw error; // Re-lanza el error para que se maneje en main.js
+        console.error("Error al abrir una nueva página:", error);
+        throw error;
     }
 }
 

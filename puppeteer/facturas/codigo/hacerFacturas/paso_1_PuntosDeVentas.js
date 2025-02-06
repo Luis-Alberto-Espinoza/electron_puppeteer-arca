@@ -1,8 +1,8 @@
-async function paso_1_seleccionarPuntoDeVenta(newPage) {
+async function paso_1_seleccionarPuntoDeVenta(newPage, datos) {
     try {
         await newPage.goto(newPage.url(), { waitUntil: 'networkidle2' });
 
-        await newPage.evaluate(() => {
+        await newPage.evaluate((datos) => {
             if (window.location.href.includes('buscarPtosVtas')) {
                 const listaPuntosDeVentas = document.querySelector("#puntodeventa");
                 if (listaPuntosDeVentas) {
@@ -41,9 +41,9 @@ async function paso_1_seleccionarPuntoDeVenta(newPage) {
                 console.error("No se encontró la lista de puntos de venta");
             }
 
-        });
+        }, datos);
 
-        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 });
+        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); // Aumenta el tiempo de espera a 120000 ms
 
         console.log("Script ejecutado correctamente.");
         return { success: true, message: "Punto de venta y tipo de comprobante seleccionados" };
