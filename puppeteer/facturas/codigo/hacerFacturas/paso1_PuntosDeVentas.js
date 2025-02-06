@@ -3,6 +3,10 @@ if (window.location.href.includes('buscarPtosVtas')) {
     const listaPuntosDeVentas = document.querySelector("#puntodeventa")
     listaPuntosDeVentas.selectedIndex = 1
     listaPuntosDeVentas.onchange(1)
+    let tipoComprobante = document.getElementById("universocomprobante");
+    tipoComprobante.value = 19
+    tipoComprobante.onchange(19)
+
     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)")
     setTimeout(function () {
         btnContinuar.click()

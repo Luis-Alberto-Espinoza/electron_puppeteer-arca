@@ -3,6 +3,7 @@ const path = require('path');
 const { comunicacionConFactura } = require('./backend/index');
 const { pStorage } = require('./backend/facturas/paraStorage');
 const puppeteerManager = require('./puppeteer/puppeteer-manager'); // Importamos el manager
+const loginAutomation = require('./puppeteer/login-automation'); // Importa el archivo externo
 
 let mainWindow;
 
@@ -37,23 +38,38 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
-ipcMain.on('formulario-enviado', (event, data) => {
-
+ipcMain.on('formulario-enviado', async (event, data) => {
     if (data.servicio === 'factura') {
-    
         const resultadoCodigo = comunicacionConFactura(data);
         if (resultadoCodigo.error) {
-            console.error("Error al generar codigo de local storage", resultadoCodigo.error)
-            event.reply("codigoLocalStorageGenerado", resultadoCodigo)
-            return
+            console.error("Error al generar codigo de local storage", resultadoCodigo.error);
+            event.reply("codigoLocalStorageGenerado", resultadoCodigo);
+            return;
         }
-
         event.reply('codigoLocalStorageGenerado', resultadoCodigo);
+    } else if (data.servicio === 'login') {
+        try {
+            mainWindow.webContents.send('status-update', {
+                status: 'iniciando',
+                message: 'Iniciando navegador...'
+            });
+
+            const resultado = await loginAutomation.automatizarLogin(data.url, data.credenciales);
+
+            mainWindow.webContents.send('status-update', {
+                status: 'completado',
+                message: resultado.message
+            });
+
+            event.reply('login-automatizado', resultado);
+        } catch (error) {
+            console.error("Error en la automatización de login:", error);
+            event.reply('login-automatizado', { success: false, error: error.message });
+        }
     } else {
         event.reply('formulario-recibido', 'Datos recibidos y procesados en el backend.');
     }
 });
-
 
 ipcMain.on('ejecutar-automatizacion', async (event, tipoAutomatizacion, datosDelFormulario) => {
     try {
@@ -114,7 +130,15 @@ ipcMain.on('iniciar-sesion', async (event, url, credenciales) => {
     }
 });
 
-
+    ipcMain.on('automatizar-login', async (event, url, credenciales) => {
+    try {
+        const resultado = await loginAutomation.automatizarLogin(url, credenciales);
+        event.reply('login-automatizado', resultado);
+    } catch (error) {
+        console.error("Error en la automatización de login:", error);
+        event.reply('login-automatizado', { success: false, error: error.message });
+    }
+});
 
 ipcMain.on('abrir-navegador', async (event, url, encabezados) => { // Recibe la URL
     try {
