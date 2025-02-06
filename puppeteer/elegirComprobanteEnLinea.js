@@ -18,7 +18,7 @@ async function autoScroll(page) {
     });
 }
 
-async function elegirComprobanteEnLinea(browser, page) {
+async function elegirComprobanteEnLinea(page) {
     try {
         //await page.waitForTimeout(5000); // Reemplaza page.waitFor con page.waitForTimeout
 
@@ -32,7 +32,7 @@ async function elegirComprobanteEnLinea(browser, page) {
 
         // Configurar listener para nueva pestaña antes de hacer clic
         const newPagePromise = new Promise(resolve => {
-            browser.once('targetcreated', async (target) => {
+            page.browser().once('targetcreated', async (target) => {
                 const newPage = await target.page();
                 resolve(newPage);
             });

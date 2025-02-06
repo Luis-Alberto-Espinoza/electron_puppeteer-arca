@@ -1,5 +1,5 @@
-const { paso_0_generaComprobante } = require('./paso_0_generaComprobante');
-const { paso_1_seleccionarPuntoDeVenta } = require('./paso_1_PuntosDeVentas');
+const { paso_0_generaComprobante } = require('./facturas/codigo/hacerFacturas/paso_0_generaComprobante');
+const { paso_1_seleccionarPuntoDeVenta } = require('./facturas/codigo/hacerFacturas/paso_1_PuntosDeVentas');
 
 async function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));

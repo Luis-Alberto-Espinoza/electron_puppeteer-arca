@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require('electron');
+require('dotenv').config(); // Cargar variables de entorno desde .env
 
 contextBridge.exposeInMainWorld('electronAPI', {
     sendFormData: (data) => ipcRenderer.send('formulario-enviado', data),
@@ -10,6 +11,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     iniciarSesion: (url, credenciales) => ipcRenderer.send('iniciar-sesion', url, credenciales),
     onSesionIniciada: (callback) => ipcRenderer.on('sesion-iniciada', callback),
-    onStatusUpdate: (callback) => ipcRenderer.on('status-update', callback) // Nueva función para recibir actualizaciones de estado
+    onStatusUpdate: (callback) => ipcRenderer.on('status-update', callback), // Nueva función para recibir actualizaciones de estado
+    getEnv: (key) => process.env[key] // Exponer variables de entorno al frontend
 });
 

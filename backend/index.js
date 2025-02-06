@@ -2,18 +2,11 @@ const { procesarDatosFactura } = require('./facturas/procesarFactura.js');
 const { pStorage } = require('./facturas/paraStorage.js');
 
 function comunicacionConFactura(data) {
-
-    let elRetorno = procesarDatosFactura(data)
-    // console.log("elRetorno", elRetorno);
-    // console.dir(elRetorno, { depth: null }); // Profundidad infinita
-    console.log("elRetorno", elRetorno);
+    let elRetorno = procesarDatosFactura(data);
     let losDatosDelStorage = pStorage(elRetorno);
-
-    return losDatosDelStorage; //contiene los datos procesados del formulario 
+    return losDatosDelStorage; // Contiene los datos procesados del formulario
 }
 
-// export { procesarDatosFactura, procesarDatosRecibo };
 module.exports = {
     comunicacionConFactura
-    
 };
