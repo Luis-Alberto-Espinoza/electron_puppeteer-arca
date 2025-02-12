@@ -1,5 +1,3 @@
-const { elegirPuntoDeVenta } = require('./elegirPuntoDeVenta');
-
 async function autoScroll(page) {
     await page.evaluate(async () => {
         await new Promise((resolve) => {
@@ -51,10 +49,9 @@ async function elegirComprobanteEnLinea(page) {
                 throw new Error('No se encontró el enlace de COMPROBANTES EN LÍNEA');
             }
         });
-
         const newPage = await newPagePromise;
-        const resultado = await elegirPuntoDeVenta(newPage);
-        return resultado;
+        return newPage; // Devuelve la nueva página, no llama a elegirPuntoDeVenta
+   
     } catch (error) {
         console.error("Error en elegirComprobanteEnLinea:", error);
         throw error;
