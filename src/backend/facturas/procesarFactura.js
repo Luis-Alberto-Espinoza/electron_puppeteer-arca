@@ -80,8 +80,8 @@ function procesarDatosFactura(data) {
       //  console.log("conkeys " + conkeys);
         facturas.arrayResultante = respuesta.resultadoFacturas;
     }
-    //console.log("\n\ninicio\n", facturas, "\nfin\n\n")
     facturas.montoResultados = respuesta;
+    console.log("\n\ninicio 8888\n", facturas, "\nfin 888\n\n")
     return facturas;
 }
 
