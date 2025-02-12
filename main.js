@@ -1,9 +1,9 @@
 require('dotenv').config(); // Cargar variables de entorno desde .env
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { comunicacionConFactura } = require('./backend/index');
-const puppeteerManager = require('./puppeteer/puppeteer-manager'); // Importamos el manager
-const facturaManager = require('./puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
+const { comunicacionConFactura } = require('./src/backend/index');
+const puppeteerManager = require('./src/backend/puppeteer/puppeteer-manager'); // Importamos el manager
+const facturaManager = require('./src/backend/puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
 
 let mainWindow;
 
@@ -84,7 +84,7 @@ ipcMain.on('ejecutar-automatizacion', async (event, tipoAutomatizacion, datosDel
 
         switch (tipoPrincipal) {
             case 'facturas':
-                manager = require('./puppeteer/facturas/codigo/facturaManager');
+                manager = require('./src/backend/puppeteer/facturas/codigo/facturaManager');
                 break;
             // ... otros casos ...
             default:

@@ -1,7 +1,7 @@
 {
   "name": "afip_electron",
   "version": "1.0.0",
-  "main": "main.js",
+  "main": "src/backend/home/main.js",
   "scripts": {
     "start": "electron ."
   },
