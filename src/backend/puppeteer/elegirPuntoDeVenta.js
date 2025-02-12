@@ -1,6 +1,3 @@
-const { paso_0_generaComprobante } = require('./facturas/codigo/hacerFacturas/paso_0_generaComprobante');
-const { paso_1_seleccionarPuntoDeVenta } = require('./facturas/codigo/hacerFacturas/paso_1_PuntosDeVentas');
-
 async function wait(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -42,13 +39,7 @@ async function elegirPuntoDeVenta(newPage) {
         // Esperar un tiempo adicional después del clic
         await wait(2000);
 
-        const resultadoComprobante = await paso_0_generaComprobante(newPage);
-        if (resultadoComprobante.success) {
-            const resultadoPuntoDeVenta = await paso_1_seleccionarPuntoDeVenta(newPage);
-            return resultadoPuntoDeVenta;
-        } else {
-            throw new Error("Error al generar el comprobante.");
-        }
+        return newPage; // Devuelve la página después de seleccionar la empresa
     } catch (error) {
         console.error("Error en elegirPuntoDeVenta:", error);
         throw error;

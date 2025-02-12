@@ -1,5 +1,4 @@
 import { validarFormularioFacturaManual } from './validacionesFacturas.js';
-import { enviarDatosFacturaAlBackend } from '../api.js'
 
 export function realizarAccionFacturacion() {
     console.log("Se ha hecho clic en el botón de Facturas. Mostrando formulario.");
@@ -32,7 +31,7 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
             Actividad: data.Actividad,
             datos: datosMasivos
         };
-        enviarDatosFacturaAlBackend(datosMasivosParaEnviar);
+        window.electronAPI.sendFormData(datosMasivosParaEnviar);
         return;
     }
 
@@ -59,5 +58,5 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
 
     datosParaEnviar.servicio = 'factura'; 
 
-    enviarDatosFacturaAlBackend(datosParaEnviar);
+    window.electronAPI.sendFormData(datosParaEnviar);
 }

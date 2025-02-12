@@ -1,3 +1,5 @@
+// src/backend/facturas/procesarFactura.js
+
 const { procesarDatos } = require('./estructuradorDeDatos');
 const { getDiasHabiles, getDiasXmes, limpiarMontos,
     convertirStringAArrayDeFechasString, generarMontosAleatorios, combinarFechasMontosConMap } = require('../utils');
@@ -5,11 +7,11 @@ const { getDiasHabiles, getDiasXmes, limpiarMontos,
 function procesarDatosFactura(data) {
     let facturas = {};
     let montoFechas = [];
-    
+
     facturas.tipoActividad = data.Actividad;
     facturas.tipoContribuyente = data.tipoContribuyente;
-    
-    let respuesta = {} ;
+
+    let respuesta = {};
     if (data.metodoIngreso === "manual") {
         facturas.periodoFacturacion = data.periodoFacturacion;
 
@@ -77,7 +79,7 @@ function procesarDatosFactura(data) {
 
         respuesta = procesarDatos(montoFechas);
         let conkeys = Object.keys(respuesta);
-      //  console.log("conkeys " + conkeys);
+        //  console.log("conkeys " + conkeys);
         facturas.arrayResultante = respuesta.resultadoFacturas;
     }
     facturas.montoResultados = respuesta;

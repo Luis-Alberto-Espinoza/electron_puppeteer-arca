@@ -1,4 +1,4 @@
-// automatizaciones/facturas/facturaManager.js
+// puppeteer/facturas/codigo/facturaManager.js
 
 const puppeteerManager = require('../../puppeteer-manager');
 const hacerFacturas = require('./hacerFacturas');
@@ -26,12 +26,7 @@ async function iniciarProceso(url, credenciales, datosProcesados) {
             return document.querySelector('#serviciosMasUtilizados > div > div > div > div:nth-child(5) > div > a') !== null;
         });
 
-        if (loggedIn) {
-            const resultado = await hacerFacturas.ejecutar(page, datosProcesados);
-            return resultado;
-        } else {
-            return { success: false, message: "Credenciales incorrectas" };
-        }
+
     } catch (error) {
         console.error("Error en iniciarProceso:", error);
         throw error;
@@ -40,34 +35,18 @@ async function iniciarProceso(url, credenciales, datosProcesados) {
     }
 }
 
+async function hacerFacturas(page, datosProcesados) {
+    try {
+        await hacerFacturas.ejecutar(page, datos);
+        return { success: true, message: "Facturas generadas correctamente." };
+
+    } catch (error) {
+        console.error("Error en la automatización de facturas:", error);
+        return { success: false, error: error.message };
+    }
+}
+
 module.exports = {
     iniciarProceso,
-    // *** AHORA RECIBE datosProcesados COMO ARGUMENTO ***
-    hacerFacturas: async (page, datosProcesados) => {
-        try {
-            console.log("########### datosProcesados ", datosProcesados);
-
-            let iterador = 0;
-            async function pasos(page, datos, iterador) {
-                console.log("########### datos ", datos);
-
-                try {
-                    await hacerFacturas.ejecutar(page, datos, iterador);
-                    if (datos.arrayDatos && datos.arrayDatos.length > iterador + 1) {
-                        iterador++;
-                        await pasos(page, datos, iterador);
-                    }
-                } catch (error) {
-                    console.error("Error en una automatización:", error);
-                    throw error;
-                }
-            }
-            await pasos(page, datosProcesados, iterador);
-            return { success: true, message: "Facturas generadas correctamente." };
-        } catch (error) {
-            console.error("Error en la automatización de facturas:", error);
-            return { success: false, error: error.message };
-        }
-    },
-    // ... otras funciones ...
+    hacerFacturas
 };

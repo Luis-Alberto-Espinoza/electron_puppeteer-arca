@@ -1,3 +1,5 @@
+// src/backend/index.js
+
 const { procesarDatosFactura } = require('./facturas/procesarFactura.js');
 const { pStorage } = require('./facturas/paraStorage.js');
 

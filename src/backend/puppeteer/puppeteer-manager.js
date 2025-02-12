@@ -1,4 +1,5 @@
 // puppeteer-manager.js
+// src/backend/puppeteer/puppeteer-manager.js
 const puppeteer = require('puppeteer');
 
 let browser = null; // Variable para almacenar la instancia del navegador
