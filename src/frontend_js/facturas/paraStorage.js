@@ -1,8 +1,8 @@
-function pStorage(data) {
-
-    let arrayDatos = data.arrayResultante
+// paraStorage.js
+export function pStorage(data) {
+    let arrayDatos = data.arrayResultante;
     let datosDeEmision = data.tipoActividad;
-    let datosDeOperacion = data.tipoContribuyente
+    let datosDeOperacion = data.tipoContribuyente;
 
     const codigoLocalStorage = `
     let iterador = localStorage.getItem('iterador');
@@ -10,7 +10,7 @@ function pStorage(data) {
     if (iterador === null || isNaN(parseInt(iterador))) {
         iterador = 0;
     } else {
-        iterador = parseInt(iterador)
+        iterador = parseInt(iterador);
     }
 
     localStorage.setItem('arrayDatos', JSON.stringify(${JSON.stringify(arrayDatos)}));
@@ -21,10 +21,5 @@ function pStorage(data) {
     };
     `;
 
-    // return { codigo: codigoLocalStorage };
     return codigoLocalStorage;
 }
-
-module.exports = {
-    pStorage
-};

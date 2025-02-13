@@ -1,7 +1,4 @@
 async function paso_0_generaComprobante(newPage, datos) {
-      console.log("============inicio desde paso_0_generaComprobante===========")
-    console.dir(datos);
-    console.log("////////////fin===========")
     try {
         await newPage.goto(newPage.url(), { waitUntil: 'networkidle2' }); // Espera a que la página cargue
 

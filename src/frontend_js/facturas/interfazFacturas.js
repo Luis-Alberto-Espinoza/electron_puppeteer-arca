@@ -1,11 +1,11 @@
 import { procesarDatosTextareas } from './procesarDatosMasivos.js';
 import { realizarAccionFacturacion, procesarFormularioFactura } from './facturas.js';
+import { pStorage } from './paraStorage.js';
 
 
 let datosMasivos = [];
 let datosValidados = false;
 let flatpickrInstance;
-console.log("luis llegaste");
 export function inicializarInterfazFacturas() {
     const facturasForm = document.getElementById('facturasForm');
 
@@ -168,7 +168,7 @@ export function inicializarInterfazFacturas() {
             alert("Error al mostrar el código. Asegúrate de que exista el textarea en el HTML."); //Mensaje de error mas descriptivo.
             return;
         }
-
+        codigo = pStorage(codigo); // <-- Llama a la    función pStorage    
         codigoLocalStorageTextArea.value = codigo; // Asigna el código al textarea
 
         //Para que el textarea sea visible

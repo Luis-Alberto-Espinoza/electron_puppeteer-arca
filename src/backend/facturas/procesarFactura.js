@@ -51,26 +51,8 @@ function procesarDatosFactura(data) {
         let ojeto = Object.entries(respuesta);
         let conkeys = Object.keys(respuesta);
 
-        // console.log("conkeys " + conkeys);
-
-        // conkeys tiene: facturasGeneradas,resultadoFinal,sumaOriginal,sumador,facturasCorrectas,facturasIncorrectas,resultadoFacturas
-
-        //console.log("ojeto "+ ojeto );
         facturas.arrayResultante = respuesta.resultadoFacturas;
-        //console.log("\n\n elementos inicio \n")
-        // facturas.arrayResultante.forEach(element => {
-        //  //   console.log(element)
-        // });
-        //console.log("\n elementos fin\n\n")
     }
-    /**
-     * 
-            facturas.arrayResultante = procesarDatos(facturas.arrayResultante);
-            facturas.arrayResultante.forEach(element => {
-                console.log(element)
-            });
-    
-     */
 
     if (data.metodoIngreso === "masivo") {
         data.datos.forEach(element => {
@@ -79,11 +61,9 @@ function procesarDatosFactura(data) {
 
         respuesta = procesarDatos(montoFechas);
         let conkeys = Object.keys(respuesta);
-        //  console.log("conkeys " + conkeys);
         facturas.arrayResultante = respuesta.resultadoFacturas;
     }
     facturas.montoResultados = respuesta;
-    console.log("\n\ninicio 8888\n", facturas, "\nfin 888\n\n")
     return facturas;
 }
 
