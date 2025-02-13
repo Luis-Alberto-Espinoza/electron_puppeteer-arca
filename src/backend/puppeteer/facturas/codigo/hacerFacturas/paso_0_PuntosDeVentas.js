@@ -1,4 +1,4 @@
-async function paso_1_seleccionarPuntoDeVenta(newPage, datos) {
+async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
     try {
         await newPage.goto(newPage.url(), { waitUntil: 'networkidle2' });
 
@@ -45,7 +45,7 @@ async function paso_1_seleccionarPuntoDeVenta(newPage, datos) {
 
         await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); // Aumenta el tiempo de espera a 120000 ms
 
-        console.log("Script ejecutado correctamente.");
+        console.log("Script _0_ ejecutado correctamente.");
         return { success: true, message: "Punto de venta y tipo de comprobante seleccionados" };
     } catch (error) {
         console.error("Error al ejecutar el script:", error);
@@ -53,4 +53,4 @@ async function paso_1_seleccionarPuntoDeVenta(newPage, datos) {
     }
 }
 
-module.exports = { paso_1_seleccionarPuntoDeVenta };
+module.exports = { paso_0_seleccionarPuntoDeVenta };
