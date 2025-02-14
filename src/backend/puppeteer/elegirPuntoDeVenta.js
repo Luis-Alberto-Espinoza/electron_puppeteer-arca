@@ -18,18 +18,22 @@ async function elegirPuntoDeVenta(newPage) {
         await wait(2000);
 
         // Trabajar con la nueva pestaña
-        await newPage.screenshot({ path: 'nueva_pestana.png' });
+       // await newPage.screenshot({ path: 'nueva_pestana.png' });
+
+       let empresaAElegir = '.btn_empresa'; // selector de clase
 
         // Debug y selección de empresa en la nueva pestaña
-        let empresaAElegir = 'input[value="EL PAPI TU TIENDA EXPRESS S. A. S."]';
-
         await newPage.waitForSelector(empresaAElegir, { timeout: 20000 });
-        await newPage.click(empresaAElegir);
 
-        // Esperar un tiempo adicional después del clic
-        await wait(2000);
+        // Opción 1: Por className y índice (para seleccionar la primera o segunda empresa)
+        const botones = await newPage.$$(empresaAElegir);
+        await botones[0]; // [0] para primera empresa, [1] para segunda
+        console.log(botones[0]);
 
-        return newPage; // Devuelve la página después de seleccionar la empresa
+        // Click en el botón de la empresa  
+        await botones[0].click();     // Click en el botón de la empresa
+        await newPage.waitForNavigation({ waitUntil: 'networkidle0' }).catch(e => console.log('Navegación completada'));
+        return newPage;
     } catch (error) {
         console.error("Error en elegirPuntoDeVenta:", error);
         throw error;

@@ -10,17 +10,12 @@ const { elegirPuntoDeVenta } = require('../../../elegirPuntoDeVenta');
 async function ejecutar(page, datos) {
     try {
 
-        console.log("Iniciando proceso de facturación...");
-        console.dir(datos, { depth: null });
-        console.log("Iniciando proceso de facturación...");
-        console.log(datos.montoResultados.resultadoFacturas);
-        console.log("aca esta la magnitud", datos.montoResultados.resultadoFacturas.length)
-        let cantidad = datos.montoResultados.resultadoFacturas.length;
+        let cantidad = datos.montoResultados.facturasGeneradas.length;
         let i = 0;
         const newPage = await elegirComprobanteEnLinea(page);
         const pagePuntoDeVenta = await elegirPuntoDeVenta(newPage);
-        do {
-            const factura = datos.montoResultados.resultadoFacturas[i]; // Obtén los datos de la factura actual
+       // do {
+            const factura = datos.montoResultados.facturasGeneradas[i]; // Obtén los datos de la factura actual
             console.log("Factura actual:", factura);
 
             await menuPrincipal(pagePuntoDeVenta, factura); // Pasa 'factura' en lugar de 'datos'
@@ -32,12 +27,12 @@ async function ejecutar(page, datos) {
             } else if (datos.tipoActividad === 'Servicio') {
                 await paso_1_DatosDeEmision_Servicio(pagePuntoDeVenta, datos, factura);
                 console.log("Datos de emisión (servicio) completados");
-            } else {
-                throw new Error("Tipo de factura no válido");
-            }
+            } 
+
+
 
             i++;
-        } while (i < cantidad);
+      // } while (i < cantidad);
 
         console.log("Factura generada correctamente.");
         return { success: true };

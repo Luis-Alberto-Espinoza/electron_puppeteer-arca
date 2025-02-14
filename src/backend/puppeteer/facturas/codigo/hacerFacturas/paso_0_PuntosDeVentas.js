@@ -3,47 +3,49 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
         await newPage.goto(newPage.url(), { waitUntil: 'networkidle2' });
 
         await newPage.evaluate((datos) => {
-            if (window.location.href.includes('buscarPtosVtas')) {
-                const listaPuntosDeVentas = document.querySelector("#puntodeventa");
-                if (listaPuntosDeVentas) {
-                    listaPuntosDeVentas.selectedIndex = 1;
 
-                    // Disparar el evento 'change' (más robusto)
-                    const changeEventPtoVenta = new Event('change');
-                    listaPuntosDeVentas.dispatchEvent(changeEventPtoVenta);
-                    const tipoComprobante = document.getElementById("universocomprobante");
-                    setTimeout(() => {
 
-                    }, 700);
-                    for (let i = 0; i < tipoComprobante.options.length; i++) {
-                        if (tipoComprobante.options[i].text === "Factura B") {
-                            tipoComprobante.selectedIndex = i;
+            function esperarElementoEnDOM(selector, maxIntentos = 10, intervalo = 500) {
+                return new Promise((resolve, reject) => {
+                    let intentos = 0;
 
-                            // Disparar el evento 'change' (recomendado)
-                            const changeEvent = new Event('change');
-                            tipoComprobante.dispatchEvent(changeEvent);
-                            break; // Importante: Detener el bucle una vez encontrada la opción
+                    function verificarElemento() {
+                        let elemento = document.querySelector(selector);
+                        if (elemento) {
+                            resolve(elemento);
+                        } else {
+                            intentos++;
+                            if (intentos >= maxIntentos) {
+                                reject(new Error(`Elemento ${selector} no encontrado después de ${maxIntentos} intentos`));
+                            } else {
+                                setTimeout(verificarElemento, intervalo);
+                            }
                         }
                     }
-
-                    const btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
-                    if (btnContinuar) {
-                        setTimeout(() => {
-                            btnContinuar.click();
-                        }, 500);
-                    } else {
-                        console.error("No se encontró el botón 'Continuar'");
-                    }
-                } else {
-                    console.error("No se encontró el tipo de comprobante");
-                }
-            } else {
-                console.error("No se encontró la lista de puntos de venta");
+                    verificarElemento();
+                });
             }
 
+
+            if (window.location.href.includes('buscarPtosVtas')) {
+
+                esperarElementoEnDOM("#puntodeventa")
+                    .then((elemento) => {
+                        const listaPuntosDeVentas = elemento
+                        listaPuntosDeVentas.selectedIndex = 1
+                        listaPuntosDeVentas.onchange(1)
+                        let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)")
+                        setTimeout(function () {
+                            btnContinuar.click()
+                        }, 500);
+                    })
+                    .catch((error) => {
+                        console.error(error);
+                    });
+            }
         }, datos);
 
-        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); // Aumenta el tiempo de espera a 120000 ms
+       await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); // Aumenta el tiempo de espera a 120000 ms
 
         console.log("Script _0_ ejecutado correctamente.");
         return { success: true, message: "Punto de venta y tipo de comprobante seleccionados" };
