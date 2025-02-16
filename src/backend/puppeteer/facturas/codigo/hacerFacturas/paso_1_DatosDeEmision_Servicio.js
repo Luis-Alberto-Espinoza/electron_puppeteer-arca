@@ -1,19 +1,19 @@
 // path del archivo original: src/backend/puppeteer/facturas/codigo/hacerFacturas/paso_1_DatosDeEmision_Servicio.js
-
+const fecha = require('./utils.js');
 async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
     try {
-        await newPage.evaluate((datos) => {
+        await newPage.evaluate((datos, fecha) => {
             try {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Servicio') {
 
                     let referencia = document.querySelector("#refComEmisor");
                     let inputFechas = document.querySelector("#fc");
-                    let itemElegido = 3; // Valor fijo, según el código original
+                    let itemElegido = 3;
 
                     let fechaEmision = datos.arrayDatos && datos.arrayDatos.length > 0 ? datos.arrayDatos[datos.arrayDatos.length - 1][0] : '';
 
                     //inputFechas.value = fechaEmision; // Asigna la fecha de emisión
-                    inputFechas.value = "13/02/2025"; // Asigna la fecha de emisión
+                    inputFechas.value = fecha; // Asigna la fecha de emisión
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
                     conceptoAincluir.value = itemElegido;
@@ -31,9 +31,9 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
                     vto.value = fechaEmision;
                     */
 
-                    desde.value = "13/02/2025";
-                    hasta.value = "13/02/2025";
-                    vto.value = "13/02/2025";
+                    desde.value = fecha;
+                    hasta.value = fecha;
+                    vto.value = fecha;
                     referencia.value = ""; 
 
                     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
@@ -46,7 +46,7 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
             } catch (error) {
                 console.error("Error dentro de evaluate:", error);
             }
-        }, datos);
+        }, datos, fecha);
 
         await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); 
 

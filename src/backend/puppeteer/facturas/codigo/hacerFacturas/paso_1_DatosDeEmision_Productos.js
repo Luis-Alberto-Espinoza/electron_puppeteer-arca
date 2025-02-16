@@ -9,7 +9,6 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura) {
             try {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Producto') {
                     // Obtener la fecha actual
-                    console.log("Obteniendo la fecha actual...");
                     const fecha = new Date();
 
                     // Obtener el día, mes y año
@@ -20,17 +19,12 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura) {
                     // Formatear la fecha en dd/mm/YYYY
                     const fechaFormateada = `${dia}/${mes}/${año}`;
 
-                    // Mostrar la fecha en la consola
-                    console.log(fechaFormateada);
-
                     let inputFechas = document.querySelector("#fc");
                     inputFechas.value = fechaFormateada  // fecha provisora de prueba
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
                     conceptoAincluir.children[1].selected = true;
 
-                    let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
-                    btnContinuar.click();
                 } else {
                     console.log("Condiciones no cumplidas: window.location.href:", window.location.href, "datosDeEmision:", datos.datosDeEmision);
                 }
@@ -39,7 +33,14 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura) {
             }
         }, datos);
 
-       
+        // Esperar la navegación después de hacer clic en el botón
+        await Promise.all([
+            newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }), // Espera la navegación
+            newPage.evaluate(() => {
+                let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
+                btnContinuar.click(); // Haz clic en el botón
+            })
+        ]);
 
         console.log("Script _1_Producto_ ejecutado correctamente.");
         return { success: true, message: "Datos de emisión (producto) completados" };

@@ -71,6 +71,8 @@ ipcMain.on('formulario-enviado', async (event, data) => {
     }
 });
 
+
+/*
 ipcMain.on('ejecutar-automatizacion', async (event, tipoAutomatizacion, datosDelFormulario) => {
     try {
         const datosProcesados = comunicacionConFactura(datosDelFormulario);
@@ -149,3 +151,5 @@ ipcMain.on('abrir-navegador', async (event, url, encabezados) => { // Recibe la 
         event.reply('abrir-navegador-error', error.message); // Envia el error al frontend
     }
 });
+
+*/

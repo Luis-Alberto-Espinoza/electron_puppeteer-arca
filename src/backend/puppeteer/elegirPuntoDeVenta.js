@@ -28,7 +28,6 @@ async function elegirPuntoDeVenta(newPage) {
         // Opción 1: Por className y índice (para seleccionar la primera o segunda empresa)
         const botones = await newPage.$$(empresaAElegir);
         await botones[0]; // [0] para primera empresa, [1] para segunda
-        console.log(botones[0]);
 
         // Click en el botón de la empresa  
         await botones[0].click();     // Click en el botón de la empresa
