@@ -12,20 +12,25 @@ const { paso_4_ConfirmarFactura } = require('./paso_4_ConfirmarFactura');
 
 const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea');
 const { elegirPuntoDeVenta } = require('../../../elegirPuntoDeVenta');
-
-async function ejecutar(page, datos) {
+const ejecutar = async (page, datos) => {
     try {
         const cantidad = datos.montoResultados.facturasGeneradas.length;
-        let i = 0;
+        
+        // Función auxiliar para esperar
+        const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
         
         // Función auxiliar para esperar y verificar
         const ejecutarPasoConVerificacion = async (nombrePaso, funcion, ...args) => {
             try {
                 console.log(`Iniciando ${nombrePaso}...`);
+                
+                // Espera antes de ejecutar el paso
+                await esperar(1000);
+                
                 const resultado = await funcion(...args);
                 
-                // Espera adicional para asegurar que la página se ha actualizado
-                await new Promise(resolve => setTimeout(resolve, 2000));
+                // Espera después de la ejecución
+                await esperar(2000);
                 
                 // Verificar que no hay errores en la página
                 const hayError = await args[0].evaluate(() => {
@@ -34,7 +39,19 @@ async function ejecutar(page, datos) {
                 });
 
                 if (hayError) {
-                    throw new Error(`Se encontró un error en la página durante ${nombrePaso}`);
+                    // Si hay error, intentar recuperarse
+                    console.log(`Detectado error en ${nombrePaso}, intentando recuperar...`);
+                    await esperar(3000);
+                    
+                    // Verificar si el error persiste
+                    const errorPersiste = await args[0].evaluate(() => {
+                        const mensajesError = document.querySelectorAll('.error, .alert-danger');
+                        return mensajesError.length > 0;
+                    });
+
+                    if (errorPersiste) {
+                        throw new Error(`Error persistente en ${nombrePaso}`);
+                    }
                 }
 
                 console.log(`${nombrePaso} completado exitosamente`);
@@ -45,6 +62,7 @@ async function ejecutar(page, datos) {
             }
         };
 
+        // Inicialización única
         const newPage = await ejecutarPasoConVerificacion(
             'Elegir Comprobante en Línea',
             elegirComprobanteEnLinea,
@@ -57,10 +75,15 @@ async function ejecutar(page, datos) {
             newPage
         );
 
-        do {
-            console.log(`Procesando factura ${i + 1} de ${cantidad}`);
+        // Procesar cada factura de manera secuencial
+        for (let i = 0; i < cantidad; i++) {
+            console.log(`\n=== Procesando factura ${i + 1} de ${cantidad} ===\n`);
             const factura = datos.montoResultados.facturasGeneradas[i];
 
+            // Asegurarse de que la página está en un estado limpio
+            await esperar(2000);
+
+            // Ejecutar los pasos para cada factura
             await ejecutarPasoConVerificacion(
                 'Menú Principal',
                 menuPrincipal,
@@ -109,7 +132,6 @@ async function ejecutar(page, datos) {
                     i
                 );
             } else if (datos.tipoContribuyente === 'C') {
-            
                 await ejecutarPasoConVerificacion(
                     'Datos de Operación - Factura C',
                     paso_3_DatosDeOperacion_Factura_C,
@@ -125,14 +147,16 @@ async function ejecutar(page, datos) {
                 pagePuntoDeVenta
             );
 
-            i++;
-        } while (i < cantidad);
+            // Espera adicional entre facturas
+            await esperar(3000);
+        }
 
-            console.log("Flujo completado correctamente.");
-            return { success: true, message: "Flujo completado" };
+        console.log("Proceso de facturación completado correctamente.");
+        return { success: true, message: "Proceso completado" };
     } catch (error) {
         console.error("Error en ejecutar:", error);
         throw error;
     }
-}
+};
+
 module.exports = { ejecutar };
