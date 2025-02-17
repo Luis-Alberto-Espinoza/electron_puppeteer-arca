@@ -34,7 +34,7 @@ async function paso_3_DatosDeOperacion_Factura_C(newPage, datos, iterador) {
 					// precioUnitario.dispatchEvent(new Event('change'));
 
 					if (typeof validarCampos === 'function') {
-						validarCampos();
+						//validarCampos();
 					}
 				} else {
 					console.log("Condiciones no cumplidas: window.location.href:", window.location.href, "datosDeOperacion:", datos.datosDeOperacion);

@@ -36,10 +36,10 @@ async function paso_2_DatosDelReceptor(newPage, datos) {
           let formu = document.getElementById('formulario');
           formu[0].value = 5;
           formu[7].checked = true;
-          formu[15].checked = true;
-          setTimeout(function () {
-            validarCampos()
-          }, 500);
+            formu[15].checked = true;
+            setTimeout(function () {
+             formu[38].click();
+            }, 2500);
           console.log("Formulario llenado correctamente.");
         } catch (error) {
           console.error("Error en evaluate:", error);
