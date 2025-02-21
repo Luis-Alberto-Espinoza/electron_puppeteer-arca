@@ -34,13 +34,17 @@ async function paso_2_DatosDelReceptor(newPage, datos) {
           const elemento = await esperarElementoEnDOM("#idtipodocreceptor");
           console.log("Elemento encontrado, llenando formulario...");
           let formu = document.getElementById('formulario');
-          formu[0].value = 5;
+          let selectIva = document.getElementById('idivareceptor');
+          selectIva.value = 5;
+          selectIva.dispatchEvent(new Event('change'));
+
+          //para factura del tipo B es necesario que se seleccione el tipo de documento a cuit 
+          formu[1].value = 80
           formu[7].checked = true;
-            formu[15].checked = true;
-            setTimeout(function () {
-             formu[38].click();
-            }, 2500);
-          console.log("Formulario llenado correctamente.");
+          formu[15].checked = true;
+          setTimeout(function () {
+            validarCampos();
+          }, 2500);
         } catch (error) {
           console.error("Error en evaluate:", error);
         }

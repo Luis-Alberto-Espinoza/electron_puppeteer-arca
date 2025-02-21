@@ -2,7 +2,9 @@
 const fecha = require('./utils.js');
 async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
     try {
-        await newPage.evaluate((datos, fecha) => {
+        let hoy = fecha.formatearFecha();
+
+        await newPage.evaluate((datos, hoy, factura) => {
             try {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Servicio') {
 
@@ -10,10 +12,18 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
                     let inputFechas = document.querySelector("#fc");
                     let itemElegido = 3;
 
-                    let fechaEmision = datos.arrayDatos && datos.arrayDatos.length > 0 ? datos.arrayDatos[datos.arrayDatos.length - 1][0] : '';
+                    // let fechaEmision = datos.arrayDatos && datos.arrayDatos.length > 0 ? datos.arrayDatos[datos.arrayDatos.length - 1][0] : '';
+                    let fechaDeHoy = hoy;
 
                     //inputFechas.value = fechaEmision; // Asigna la fecha de emisión
-                    inputFechas.value = fecha; // Asigna la fecha de emisión
+
+                    const ultimaFecha1 = datos.montoResultados.facturasGeneradas[datos.montoResultados.facturasGeneradas.length - 1][0];
+                    const ultimaFecha2 = datos.montoResultados.facturasGeneradas.at(-1)[0];
+                    const ultimaFecha3 = datos.montoResultados.facturasGeneradas.slice(-1)[0][0];
+                    
+                    let longitudArray = datos.montoResultados.facturasGeneradas.length; // Asigna la fecha de emisión
+                    let ultimaFecha = datos.montoResultados.facturasGeneradas[0][longitudArray - 1];
+                    inputFechas.value = fechaDeHoy; // Asigna la fecha de emisión    
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
                     conceptoAincluir.value = itemElegido;
@@ -23,19 +33,14 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
                     const hasta = document.querySelector("#fsh");
                     const vto = document.querySelector("#vencimientopago");
 
-                    const fechaDesde = datos.arrayDatos && datos.arrayDatos.length > datos.iterador ? datos.arrayDatos[datos.iterador][0] : '';
+                    // const fechaDesde = datos.arrayDatos && datos.arrayDatos.length > datos.iterador ? datos.arrayDatos[datos.iterador][0] : '';
+                    const fechaDesde = factura[0];
+               
+                    desde.value = factura[0];
+                    hasta.value = factura[0];
+                    vto.value = fechaDeHoy;
 
-                    /*
-                    desde.value = fechaDesde;
-                    hasta.value = fechaDesde;
-                    vto.value = fechaEmision;
-                    */
-
-                    desde.value = fecha;
-                    hasta.value = fecha;
-                    vto.value = fecha;
                     referencia.value = ""; 
-
                     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
 
                     btnContinuar.click();
@@ -46,7 +51,7 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
             } catch (error) {
                 console.error("Error dentro de evaluate:", error);
             }
-        }, datos, fecha);
+        }, datos, hoy, factura);
 
         await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); 
 

@@ -34,6 +34,14 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
                         const listaPuntosDeVentas = elemento
                         listaPuntosDeVentas.selectedIndex = 1
                         listaPuntosDeVentas.onchange(1)
+                        let tipoDeComprobante = document.querySelector("#universocomprobante")
+                        if (datos.tipoContribuyente === "B") {
+                            setTimeout(function () {
+                                tipoDeComprobante.value = 19
+                            }, 500);
+                        }
+                        tipoDeComprobante.onchange()
+
                         let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)")
                         setTimeout(function () {
                             btnContinuar.click()
@@ -45,7 +53,7 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
             }
         }, datos);
 
-       await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); // Aumenta el tiempo de espera a 120000 ms
+        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }); // Aumenta el tiempo de espera a 120000 ms
 
         console.log("Script _0_ ejecutado correctamente.");
         return { success: true, message: "Punto de venta y tipo de comprobante seleccionados" };

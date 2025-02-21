@@ -19,7 +19,7 @@ async function paso_3_DatosDeOperacion_Factura_B(newPage, datos, iterador) {
             try {
 
 
-                if (window.location.href.includes('genComDatosOperacion') && datos.tipoContribuyente === 'C') {
+                if (window.location.href.includes('genComDatosOperacion') && datos.tipoContribuyente === 'B') {
                     const productosServicio = document.getElementById("detalle_descripcion1");
                     const detalleDescripcion = document.querySelector('#detalle_medida1');
                     const precioUnitario =  document.getElementById('detalle_precio1');
@@ -29,6 +29,10 @@ async function paso_3_DatosDeOperacion_Factura_B(newPage, datos, iterador) {
                     detalleDescripcion.lastChild.selected = true;
                     precioUnitario.value = datos.montoResultados.facturasGeneradas[iterador][1];
                     alicuotaIva.value = 5;
+
+					setTimeout(function () {
+						precioUnitario.dispatchEvent(new Event('keyup'));
+					}, 1000);
 
                     // // Disparar eventos para validar los campos
                     precioUnitario.dispatchEvent(new Event('keyup'));

@@ -95,6 +95,7 @@ const ejecutar = async (page, datos) => {
                 'Selección Punto de Venta',
                 paso_0_seleccionarPuntoDeVenta,
                 pagePuntoDeVenta,
+                datos,
                 factura
             );
 
@@ -113,6 +114,7 @@ const ejecutar = async (page, datos) => {
                     pagePuntoDeVenta,
                     datos,
                     factura
+                    
                 );
             }
 
