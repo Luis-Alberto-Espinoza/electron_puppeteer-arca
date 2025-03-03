@@ -153,6 +153,21 @@
             <!-- Contenido del formulario de recibos -->
         </form>
     </div>
+
+
+    <button id="btnLibroIVA">Libro IVA</button>
+    <div id="libroIvaDiv" style="display: block;">
+        <form id="libroIvaForm">
+            <div id="informeDiv"> 
+                <input type="checkbox" name="informe" id="informe">
+                <label for="informe">Analizar el libro IVA</label>
+            </div>
+            <!-- Contenido del formulario de libro IVA -->
+            <button type="submit" id="procesarLibroIvaBtn">Procesar Libro IVA</button>
+        </form>
+    </div>
+
+
     <div id="resultado"></div>
     <!-- <button id="loginButton">Iniciar Sesión</button> -->
     <script type="module" src="../controlador.js"></script>

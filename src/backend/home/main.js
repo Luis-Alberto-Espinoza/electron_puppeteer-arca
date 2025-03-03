@@ -1,7 +1,7 @@
 require('dotenv').config(); // Cargar variables de entorno desde .env
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { comunicacionConFactura } = require('../index.js');
+const { comunicacionConFactura, comunicacionConLibroIVA } = require('../index.js');
 const facturaManager = require('../puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
 
 let mainWindow;
@@ -35,6 +35,7 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
+
 
 
 let resultadoCodigo;
@@ -74,3 +75,18 @@ ipcMain.on('formulario-enviado', async (event, data) => {
         event.reply('formulario-recibido', 'Datos recibidos y procesados en el backend.');
     }
 });
+
+// Nuevo método para procesar el libro IVA
+ipcMain.on('procesar-libro-iva', async (event, data) => {
+    try {
+        // Aquí puedes agregar la lógica para procesar el libro IVA
+        // Por ejemplo, llamar a un módulo específico para manejar el libro IVA
+        const resultado = await comunicacionConLibroIVA(data);
+
+        event.reply('libro-iva-procesado', { success: true, message: 'Libro IVA procesado correctamente', data: resultado });
+    } catch (error) {
+        console.error("Error al procesar el libro IVA:", error);
+        event.reply('libro-iva-procesado', { success: false, error: error.message });
+    }
+});
+

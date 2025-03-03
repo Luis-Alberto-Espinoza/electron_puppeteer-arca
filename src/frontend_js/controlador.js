@@ -26,7 +26,20 @@ document.addEventListener('DOMContentLoaded', () => {
         window.electronAPI.sendFormData({ servicio: 'login', url, credenciales });
     });
 
-    window.electronAPI.onStatusUpdate((event, status) => {
-        console.log(status.message);
-    });
+    // window.electronAPI.onStatusUpdate((event, status) => {
+    //     console.log(status.message);
+    // });
+
+    // Nuevo método para el botón "Procesar Libro IVA"
+  
+});
+
+const procesarLibroIvaBtn = document.getElementById('procesarLibroIvaBtn');
+procesarLibroIvaBtn.addEventListener('click', async (event) => {
+    alert('btn apretado')
+    event.preventDefault();
+    const libroIvaData = new FormData(document.getElementById('libroIvaForm'));
+    const data = Object.fromEntries(libroIvaData.entries());
+
+    window.electronAPI.procesarLibroIva(data);
 });

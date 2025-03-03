@@ -30,20 +30,24 @@ document.addEventListener('DOMContentLoaded', function () {
     }, 100); // Un retraso de 100 milisegundos suele ser suficiente.  Ajusta si es necesario.
 
     setTimeout(function () {
-      // Selecciona el tipo de contribuyente C
+      // Selecciona el tipo de contribuyente 
       document.getElementById('tipoContribuyenteC').checked = true;
+      // document.getElementById('tipoContribuyenteB').checked = true;
+
+
 
       // Selecciona la actividad de producto
       document.getElementById('producto').checked = true;
+      // document.getElementById('servicio').checked = true;
 
       // Selecciona el ingreso manual
       document.getElementById('ingresoManual').checked = true;
 
       // Selecciona el mes de julio
-      document.getElementById('selectMes').value = 7;
+      document.getElementById('selectMes').value = 2;
 
       // Selecciona el año 2026
-      document.getElementById('selectAnio').value = '2026';
+      document.getElementById('selectAnio').value = '2025';
 
       // Selecciona periodo días hábiles
       document.getElementById('periodoDiasHabiles').checked = true;
@@ -55,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('montoTotalInput').value = '235689';
 
       // Simula el envío del formulario (opcional)
-      // facturasForm.submit();
-    }, 1500); // Espera 3 segundos antes de completar el formulario
+      procesarBtn.click();
+    }, 500); // Espera 3 segundos antes de completar el formulario
   });
 });

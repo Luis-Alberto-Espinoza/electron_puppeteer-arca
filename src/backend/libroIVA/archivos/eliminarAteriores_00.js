@@ -2,10 +2,10 @@ const fs = require('fs');
 const path = require('path');
 
 function compararComprobantes() {
-    const rutaComprobantes = path.join(__dirname, 'copias', 'CBTE.TXT');
-    const rutaArchivoAlicuotas = path.join(__dirname, 'copias', 'ALICUOTAS.txt');
+    const rutaComprobantes = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.txt');
+    const rutaArchivoAlicuotas = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt');
 
-    const lineaBuscada = 70;
+    const lineaBuscada = 0;
 
     try {
         const contenidoComprobante = fs.readFileSync(rutaComprobantes, 'utf8');
@@ -20,16 +20,19 @@ function compararComprobantes() {
         let puntoDeVentaComprobante;
 
         comprobante.forEach((linea, index) => {
-            if (index + 1 >= lineaBuscada) {
-                if (index + 1 === lineaBuscada) {
+            if (index  >= lineaBuscada-1) {
+                if (index  === lineaBuscada-1) {
                     nroComprobante = linea.substring(17, 36).trim();
                     puntoDeVentaComprobante = linea.substring(12, 16).trim();
                     numeroComprobanteEnComprobante = nroComprobante;
                     puntoDeVentaEnComprobante = puntoDeVentaComprobante;
+                    console.log(`Comprobante: ${nroComprobante}, Punto de Venta: ${puntoDeVentaComprobante}`);
+                    console.log('Linea:', linea);   
                 }
                 restoDocumentComprobante += linea + '\n';
             }
         });
+
 
         const lineasAlicuotas = contenidoAlicuotas.split('\n');
         let restoDelDocumentoAlicuota = "";
