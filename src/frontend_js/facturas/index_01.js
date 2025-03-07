@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const seccionManual = document.getElementById('seccionManual');
     const seccionMasiva = document.getElementById('seccionMasiva');
     const procesarDatosBtn = document.getElementById('procesarDatos');
-    const procesarBtn = document.querySelector('button[type="submit"]');
+    const procesarBtn = document.getElementById('procesarFacturas');
     const textareaFechas = document.getElementById('textareaFechas');
     const textareaMontos = document.getElementById('textareaMontos');
     const tablaDatosProcesados = document.getElementById('tablaDatosProcesados');

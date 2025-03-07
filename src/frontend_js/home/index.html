@@ -135,7 +135,7 @@
                     </div>
                 </div>
             </div>
-            <button type="submit">Procesar </button>
+            <button id="procesarFacturas" type="submit">Procesar </button>
         </form>
         <div id="respuesta">
             <textarea id="codigoLocalStorage"
@@ -154,22 +154,47 @@
         </form>
     </div>
 
-
     <button id="btnLibroIVA">Libro IVA</button>
     <div id="libroIvaDiv" style="display: block;">
         <form id="libroIvaForm">
             <div id="informeDiv"> 
-                <input type="checkbox" name="informe" id="informe">
+                <input type="radio" name="case" value="informe" id="informe" required>
                 <label for="informe">Analizar el libro IVA</label>
             </div>
-            <!-- Contenido del formulario de libro IVA -->
+    
+            <div id="modificarSegunInformeDiv" style="display: none;">
+                <input type="radio" name="case" value="modificarSegunInforme" id="modificarSegunInforme">
+                <label for="modificarSegunInforme">Modificar según el informe el libro</label>
+            </div>
+    
+            <div>
+                <input type="radio" name="case" value="eliminarAnteriores" id="eliminarAnteriores" required>
+                <label for="eliminarAnteriores">Eliminar anteriores</label>
+            </div>
+    
+            <div>
+                <input type="radio" name="case" value="todoAnterior" id="todoAnterior" required>
+                <label for="todoAnterior">Todo lo anterior</label>
+            </div>
+    
+            <button type="button" id="seleccionarArchivoComprobanteBtn">Seleccionar Archivo de Comprobante</button>
+            <div id="archivoComprobanteSeleccionado">
+                <p>Archivo de Comprobante seleccionado:</p>
+                <p id="nombreArchivoComprobante"></p>
+                <p id="rutaArchivoComprobante"></p>
+            </div>
+            <button type="button" id="seleccionarArchivoAlicuotasBtn">Seleccionar Archivo de Alícuotas</button>
+            <div id="archivoAlicuotasSeleccionado">
+                <p>Archivo de Alícuotas seleccionado:</p>
+                <p id="nombreArchivoAlicuotas"></p>
+                <p id="rutaArchivoAlicuotas"></p>
+            </div>
             <button type="submit" id="procesarLibroIvaBtn">Procesar Libro IVA</button>
         </form>
     </div>
 
+    <div id="resultado"></div> <!-- Añadir este div para mostrar los resultados -->
 
-    <div id="resultado"></div>
-    <!-- <button id="loginButton">Iniciar Sesión</button> -->
     <script type="module" src="../controlador.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="../../../renderer.js"></script>

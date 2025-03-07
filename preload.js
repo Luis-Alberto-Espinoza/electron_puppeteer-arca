@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     abrirNavegadorPuppeteer: (url, encabezados) => ipcRenderer.send('abrir-navegador', url, encabezados), 
 
-    iniciarSesion: (url, credenciales) => ipcRenderer.send('iniciar-sesion', url, credenciales),
+    iniciarSesion: (url, credenciales) => ipcRenderer.send('formulario-enviado', { servicio: 'login', url, credenciales }),
     onSesionIniciada: (callback) => ipcRenderer.on('sesion-iniciada', callback),
 
 
@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // Métodos específicos para libro IVA
     procesarLibroIva: (data) => ipcRenderer.send('procesar-libro-iva', data),
-    onLibroIvaProcesado: (callback) => ipcRenderer.on('libro-iva-procesado', callback)
+    onLibroIvaProcesado: (callback) => ipcRenderer.on('libro-iva-procesado', callback),
+    seleccionarArchivos: () => ipcRenderer.invoke('seleccionar-archivos'),
+    getEnv: (key) => process.env[key]
 });
 

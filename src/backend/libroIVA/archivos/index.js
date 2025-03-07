@@ -1,34 +1,47 @@
-//const actualizadorDeArchivos = require("./actualizarImporte-00.js");
 const generadorDeInforme = require('./generarInforme-00.js');
-//const eliminadorDeAnteriores = require('./eliminarAteriores_00.js');
 
 function libroIVAManager(data) {
+  //  console.log("Datos recibidos en libroIVAManager:", data);
+    const validCases = ['informe', 'modificarSegunInforme', 'eliminarAnteriores', 'todoAnterior'];
+    if (!validCases.includes(data.case)) {
+        throw new Error('Debe seleccionar una y solo una opción válida.');
+    }
+    
+
     switch (data.case) {
-        case 1:
+        case 'informe':
             return analizarArchivos(data.archivos);
-        case 2:
+        case 'modificarSegunInforme':
             return actualizarArchivos(data.archivos);
-        case 3:
+        case 'eliminarAnteriores':
             return eliminarArchivosAnteriores(data.archivos);
-        case 4:
+        case 'todoAnterior':
             return mostrarInforme(data.archivos);
         default:
-            throw new Error('Caso no reconocido');
+            throw new Error('Caso no reconocido: ' + data.case);
     }
 }
 
+
+function mostrarEstructura(objeto) {
+    return Object.keys(objeto);
+  }
+  
+
+
+
 function analizarArchivos(archivos) {
-    // Implementar lógica para analizar los archivos de libro IVA
-    // Revisar que sean CUIT válidos, la sumatoria, etc.
-const lineasCorregidas = generadorDeInforme().lineasCorregidas;
-const mesajeRetorno = generadorDeInforme().message;
-console.log('lineasCorregidas',lineasCorregidas);M
-console.log('mesajeRetorno',mesajeRetorno);
-
-
-
-
-    return { message: 'Archivos analizados correctamente', archivos };
+    const informe = generadorDeInforme(archivos);
+    //console.dir(informe, {depth: null})
+    let resultado //= mostrarEstructura(informe)
+    resultado = mostrarEstructura(informe)
+    console.log(resultado);
+    //console.log(informe.diferencias[2].importeAlicuota);
+    const lineasCorregidas = informe.libroActualizado;
+    const mesajeRetorno = informe.mensaje;
+    // console.log("que es archivo ", Object.keys(archivos));
+    // console.log("que es archivo ", archivos);
+    return { message: 'Archivos analizados correctamente', archivos, informe };
 }
 
 function actualizarArchivos(archivos) {
@@ -37,17 +50,14 @@ function actualizarArchivos(archivos) {
 }
 
 function eliminarArchivosAnteriores(archivos) {
-    // Implementar lógica para eliminar archivos anteriores
     return { message: 'Archivos anteriores eliminados correctamente', archivos };
 }
 
 function mostrarInforme(archivos) {
-    // Implementar lógica para mostrar un informe de los archivos
     return { message: 'Informe generado correctamente', archivos };
 }
 
 module.exports = { libroIVAManager };
-
 /*
 Manejamos lo relacionado a los LIBRO IVA
 Crear una solucion para procesar la estructura para 
@@ -58,3 +68,23 @@ Crear una solucion para procesar la estructura para
 
 
 */
+let consulta= {
+    case: 'informe',
+  archivos: [
+
+    '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.TXT',
+    '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt'
+    // '/home/pinchechita/Descargas/20-31747354-1_2022-6_1_Compras__rg3685_comprobantes.txt',
+    // '/home/pinchechita/Descargas/20-31747354-1_2022-6_2_Compras__rg3685_alicuotas.txt'
+  ]
+
+}
+
+
+//let retorno = libroIVAManager(consulta);
+// console.log(retorno);
+// console.dir(retorno, { depth: null });
+
+
+//  '/home/pinchechita/Descargas/20-31747354-1_2022-6_1_Compras__rg3685_comprobantes.txt',
+// '/home/pinchechita/Descargas/20-31747354-1_2022-6_2_Compras__rg3685_alicuotas.txt'
