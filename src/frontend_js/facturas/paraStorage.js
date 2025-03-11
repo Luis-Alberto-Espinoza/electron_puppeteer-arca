@@ -13,13 +13,13 @@ export function pStorage(data) {
         iterador = parseInt(iterador);
     }
 
-    localStorage.setItem('arrayDatos', JSON.stringify(${JSON.stringify(arrayDatos)}));
-    localStorage.setItem('datosDeEmision', '${datosDeEmision}');
-    localStorage.setItem('datosDeOperacion', '${datosDeOperacion}');
-    if (localStorage.getItem('iterador') === null || localStorage.getItem('iterador') !== '0') {
+    localStorage.setItem('arrayDatos', ${JSON.stringify(data.montoResultados.facturasGeneradas)});
+    \nlocalStorage.setItem('datosDeEmision', '${datosDeEmision}');
+    \nlocalStorage.setItem('datosDeOperacion', '${datosDeOperacion}');
+    \nif (localStorage.getItem('iterador') === null || localStorage.getItem('iterador') !== '0') {
         localStorage.setItem('iterador', 0);
     };
     `;
-
+console.log(data)
     return codigoLocalStorage;
 }

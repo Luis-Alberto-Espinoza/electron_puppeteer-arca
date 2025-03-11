@@ -11,7 +11,7 @@ async function paso_3_DatosDeOperacion_Factura_C(newPage, datos, iterador) {
 		}
 
 		// Esperar a que los elementos estén disponibles
-		await newPage.waitForSelector('#detalle_medida1', { timeout: 120000 });
+		//await newPage.waitForSelector('#detalle_medida1', { timeout: 120000 });
 
 		// Ejecutar el código dentro de la página
 		await newPage.evaluate((datos, iterador) => {
@@ -33,9 +33,9 @@ async function paso_3_DatosDeOperacion_Factura_C(newPage, datos, iterador) {
 					// // Disparar eventos para validar los campos
 					// precioUnitario.dispatchEvent(new Event('change'));
 
-					if (typeof validarCampos === 'function') {
+					setTimeout(function () {
 						validarCampos();
-					}
+					  }, 1500);
 				} else {
 					console.log("Condiciones no cumplidas: window.location.href:", window.location.href, "datosDeOperacion:", datos.datosDeOperacion);
 				}

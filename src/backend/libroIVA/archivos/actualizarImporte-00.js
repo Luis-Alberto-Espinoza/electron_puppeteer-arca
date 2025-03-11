@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
-function actualizarImporte(lineasModificadas) {
-    const rutaArchivoComprobante = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.txt');
-    const rutaArchivoAlicuotas = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt');
+function actualizarImporte(informe) {
+    console.log('\n\t ###############', informe);
+    const { archivos, libroActualizado: lineasModificadas } = informe;
+
     const rutaArchivoResultados = path.join(__dirname, 'copias', 'resultadosDEComparar.txt');
 
     try {

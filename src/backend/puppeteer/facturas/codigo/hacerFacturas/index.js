@@ -23,14 +23,15 @@ const ejecutar = async (page, datos) => {
         const ejecutarPasoConVerificacion = async (nombrePaso, funcion, ...args) => {
             try {
                 console.log(`Iniciando ${nombrePaso}...`);
+                console.time(nombrePaso);
                 
-                // Espera antes de ejecutar el paso
-                await esperar(1000);
+                // Reducir el tiempo de espera antes de ejecutar el paso
+                await esperar(500);
                 
                 const resultado = await funcion(...args);
                 
-                // Espera después de la ejecución
-                await esperar(2000);
+                // Reducir el tiempo de espera después de la ejecución
+                await esperar(1000);
                 
                 // Verificar que no hay errores en la página
                 const hayError = await args[0].evaluate(() => {
@@ -41,7 +42,7 @@ const ejecutar = async (page, datos) => {
                 if (hayError) {
                     // Si hay error, intentar recuperarse
                     console.log(`Detectado error en ${nombrePaso}, intentando recuperar...`);
-                    await esperar(3000);
+                    await esperar(2000);
                     
                     // Verificar si el error persiste
                     const errorPersiste = await args[0].evaluate(() => {
@@ -55,9 +56,11 @@ const ejecutar = async (page, datos) => {
                 }
 
                 console.log(`${nombrePaso} completado exitosamente`);
+                console.timeEnd(nombrePaso);
                 return resultado;
             } catch (error) {
                 console.error(`Error en ${nombrePaso}:`, error);
+                console.timeEnd(nombrePaso);
                 throw error;
             }
         };
@@ -80,8 +83,8 @@ const ejecutar = async (page, datos) => {
             console.log(`\n=== Procesando factura ${i + 1} de ${cantidad} ===\n`);
             const factura = datos.montoResultados.facturasGeneradas[i];
 
-            // Asegurarse de que la página está en un estado limpio
-            await esperar(2000);
+            // Reducir el tiempo de espera entre facturas
+            await esperar(500);
 
             // Ejecutar los pasos para cada factura
             await ejecutarPasoConVerificacion(
@@ -114,7 +117,6 @@ const ejecutar = async (page, datos) => {
                     pagePuntoDeVenta,
                     datos,
                     factura
-                    
                 );
             }
 
@@ -149,8 +151,8 @@ const ejecutar = async (page, datos) => {
                 pagePuntoDeVenta
             );
 
-            // Espera adicional entre facturas
-            await esperar(3000);
+            // Reducir la espera adicional entre facturas
+            await esperar(1000);
         }
 
         console.log("Proceso de facturación completado correctamente.");

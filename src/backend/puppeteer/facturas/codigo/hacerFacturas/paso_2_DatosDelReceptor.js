@@ -39,12 +39,12 @@ async function paso_2_DatosDelReceptor(newPage, datos) {
           selectIva.dispatchEvent(new Event('change'));
 
           //para factura del tipo B es necesario que se seleccione el tipo de documento a cuit 
-          formu[1].value = 80
-          formu[7].checked = true;
-          formu[15].checked = true;
+          //formu[1].value = 80
+          //formu[7].checked = true;
+          formu[16].checked = true;
           setTimeout(function () {
             validarCampos();
-          }, 2500);
+          }, 1500);
         } catch (error) {
           console.error("Error en evaluate:", error);
         }

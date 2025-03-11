@@ -5,7 +5,7 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
         await newPage.evaluate((datos) => {
 
 
-            function esperarElementoEnDOM(selector, maxIntentos = 10, intervalo = 500) {
+            function esperarElementoEnDOM(selector, maxIntentos = 10, intervalo = 100) {
                 return new Promise((resolve, reject) => {
                     let intentos = 0;
 
