@@ -162,13 +162,8 @@
                 <label for="informe">Analizar el libro IVA</label>
             </div>
     
-            <div id="modificarSegunInformeDiv" style="display: none;">
-                <input type="radio" name="case" value="modificarSegunInforme" id="modificarSegunInforme">
-                <label for="modificarSegunInforme">Modificar según el informe el libro</label>
-            </div>
-    
-            <div>
-                <input type="radio" name="case" value="eliminarAnteriores" id="eliminarAnteriores" required>
+            <div id="eliminarAnterioresDiv">
+                <input type="radio" name="case" value="eliminarAnteriores" id="eliminarAnteriores">
                 <label for="eliminarAnteriores">Eliminar anteriores</label>
             </div>
     
@@ -194,6 +189,10 @@
     </div>
 
     <div id="resultado"></div> <!-- Añadir este div para mostrar los resultados -->
+    
+    <div id="modificarSegunInformeDiv" style="display: none;">
+        <button type="button" name="modificarSegunInforme" value="modificarSegunInforme" id="modificarSegunInforme">Modificar según el informe el libro</button>
+    </div>
 
     <script type="module" src="../controlador.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

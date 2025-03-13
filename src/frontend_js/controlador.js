@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seleccionarArchivoComprobanteBtn = document.getElementById('seleccionarArchivoComprobanteBtn');
     const seleccionarArchivoAlicuotasBtn = document.getElementById('seleccionarArchivoAlicuotasBtn');
     const procesarLibroIvaBtn = document.getElementById('procesarLibroIvaBtn');
+    const modificarSegunInforme = document.getElementById('modificarSegunInforme');
     const loginButton = document.getElementById('loginButton');
     let archivoComprobanteSeleccionado = '';
     let archivoAlicuotasSeleccionado = '';
@@ -71,5 +72,19 @@ document.addEventListener('DOMContentLoaded', () => {
             <pre>Diferencia: ${resultado.data.informe.diferencias[1].diferencia}</pre>
         `;
         document.getElementById('modificarSegunInformeDiv').style.display = 'block';
+        //document.getElementById('eliminarAnterioresDiv').style.display = 'block'; // Mostrar el div
     });
+
+    modificarSegunInforme.addEventListener('click', async (event) => {
+        event.preventDefault();
+        console.log("\t\t ========  \n\n")
+        const libroIvaForm = document.getElementById('libroIvaForm');
+        const libroIvaData = new FormData(libroIvaForm);
+        const data = Object.fromEntries(libroIvaData.entries());
+        data.archivos = [archivoComprobanteSeleccionado, archivoAlicuotasSeleccionado];
+        data.case = 'modificarSegunInforme';
+        console.log("Datos enviados para modificar según informe:", data);
+        window.electronAPI.modificarSegunInforme(data);
+    });
+
 });

@@ -21,6 +21,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     procesarLibroIva: (data) => ipcRenderer.send('procesar-libro-iva', data),
     onLibroIvaProcesado: (callback) => ipcRenderer.on('libro-iva-procesado', callback),
     seleccionarArchivos: () => ipcRenderer.invoke('seleccionar-archivos'),
+    modificarSegunInforme:(data) => ipcRenderer.send('actualizar-segun-informe', data),
     getEnv: (key) => process.env[key]
 });
 

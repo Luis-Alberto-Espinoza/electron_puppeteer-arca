@@ -1,18 +1,23 @@
-const generadorDeInforme = require('./generarInforme-00.js');
-
+const fs = require('fs');
+const path = require('path');
+const generarInforme = require('./generarInforme-00.js');
+const { actualizarImporte } = require('./actualizarImporte-00.js');
+let informe ={};
 function libroIVAManager(data) {
-  //  console.log("Datos recibidos en libroIVAManager:", data);
+      // console.log("Datos recibidos en libroIVAManager:", data);
     const validCases = ['informe', 'modificarSegunInforme', 'eliminarAnteriores', 'todoAnterior'];
     if (!validCases.includes(data.case)) {
         throw new Error('Debe seleccionar una y solo una opción válida.');
     }
-    
+
 
     switch (data.case) {
         case 'informe':
-            return analizarArchivos(data.archivos);
+            informe = analizarArchivos(data.archivos);
+            return informe;
         case 'modificarSegunInforme':
-            return actualizarArchivos(data.archivos);
+           // console.log("$$$$$$ ", rutasArchivos)
+            return actualizarArchivos(informe);
         case 'eliminarAnteriores':
             return eliminarArchivosAnteriores(data.archivos);
         case 'todoAnterior':
@@ -25,17 +30,18 @@ function libroIVAManager(data) {
 
 function mostrarEstructura(objeto) {
     return Object.keys(objeto);
-  }
-  
+}
+
 
 
 
 function analizarArchivos(archivos) {
-    const informe = generadorDeInforme(archivos);
+    informe = generarInforme(archivos);
     //console.dir(informe, {depth: null})
+    // console.dir(informe)
     let resultado //= mostrarEstructura(informe)
     resultado = mostrarEstructura(informe)
-    console.log(resultado);
+    //console.log(resultado);
     //console.log(informe.diferencias[2].importeAlicuota);
     const lineasCorregidas = informe.libroActualizado;
     const mesajeRetorno = informe.mensaje;
@@ -44,9 +50,13 @@ function analizarArchivos(archivos) {
     return { message: 'Archivos analizados correctamente', archivos, informe };
 }
 
-function actualizarArchivos(archivos) {
-    // Implementar lógica para actualizar los archivos con datos limpios
-   // return { message: 'Archivos actualizados correctamente', archivos };
+function actualizarArchivos(informe) {
+   // console.log("Llegue a modificar segun informe");
+   // console.log("llegue al metodo esto tiene archivos ", informe);
+
+    actualizarImporte(informe);
+
+    return { message: 'Archivos actualizados correctamente', archivos: informe.archivos };
 }
 
 function eliminarArchivosAnteriores(archivos) {
@@ -68,15 +78,15 @@ Crear una solucion para procesar la estructura para
 
 
 */
-let consulta= {
+let consulta = {
     case: 'informe',
-  archivos: [
+    archivos: [
 
-    '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.TXT',
-    '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt'
-    // '/home/pinchechita/Descargas/20-31747354-1_2022-6_1_Compras__rg3685_comprobantes.txt',
-    // '/home/pinchechita/Descargas/20-31747354-1_2022-6_2_Compras__rg3685_alicuotas.txt'
-  ]
+        '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.TXT',
+        '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt'
+        // '/home/pinchechita/Descargas/20-31747354-1_2022-6_1_Compras__rg3685_comprobantes.txt',
+        // '/home/pinchechita/Descargas/20-31747354-1_2022-6_2_Compras__rg3685_alicuotas.txt'
+    ]
 
 }
 
