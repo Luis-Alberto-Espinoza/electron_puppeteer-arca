@@ -9,7 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
     abrirNavegadorPuppeteer: (url, encabezados) => ipcRenderer.send('abrir-navegador', url, encabezados), 
 
-    iniciarSesion: (url, credenciales) => ipcRenderer.send('formulario-enviado', { servicio: 'login', url, credenciales }),
+    iniciarSesion: (url, credenciales, test) => ipcRenderer.send('formulario-enviado', { servicio: 'login', url, credenciales, test }),
     onSesionIniciada: (callback) => ipcRenderer.on('sesion-iniciada', callback),
 
 

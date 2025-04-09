@@ -2,13 +2,13 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f4f4f9;
-    color: #333;
+    background-color: #1e1e2f; /* Fondo oscuro */
+    color: #f4f4f9; /* Texto claro */
 }
 
 h2 {
-    color: #444;
-    border-bottom: 2px solid #ddd;
+    color: #f4f4f9;
+    border-bottom: 2px solid #444;
     padding-bottom: 5px;
     margin-bottom: 10px;
 }
@@ -17,8 +17,8 @@ h2 {
     margin: 20px auto;
     padding: 20px;
     max-width: 600px;
-    background-color: #fff;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #2a2a3b; /* Fondo de los contenedores */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     border-radius: 8px;
 }
 
@@ -26,9 +26,11 @@ input[type="text"], select, textarea {
     width: 100%;
     padding: 10px;
     margin: 10px 0;
-    border: 1px solid #ccc;
+    border: 1px solid #555;
     border-radius: 4px;
     box-sizing: border-box;
+    background-color: #333;
+    color: #f4f4f9;
 }
 
 input[type="radio"] {
@@ -38,6 +40,7 @@ input[type="radio"] {
 label {
     display: inline-block;
     margin-bottom: 5px;
+    color: #f4f4f9;
 }
 
 .periodo-selects > div {
@@ -52,18 +55,35 @@ label {
 
 button {
     display: inline-block;
-    background-color: #007bff;
-    color: #fff;
     padding: 10px 20px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-size: 16px;
     margin-top: 10px;
+    transition: background-color 0.3s ease;
 }
 
 button:hover {
+    opacity: 0.9;
+}
+
+#loginButton {
+    background-color: #007bff; /* Azul */
+    color: #fff;
+}
+
+#loginButton:hover {
     background-color: #0056b3;
+}
+
+#testButton {
+    background-color: #28a745; /* Verde */
+    color: #fff;
+}
+
+#testButton:hover {
+    background-color: #218838;
 }
 
 #textareaContainer {
@@ -72,6 +92,8 @@ button:hover {
 
 textarea {
     min-height: 80px;
+    background-color: #333;
+    color: #f4f4f9;
 }
 
 form > div {
@@ -82,4 +104,20 @@ form > div {
     text-align: center;
     display: block;
     margin: 20px auto;
+}
+
+#ejecutaNavegador {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+#copiarCodigo {
+    background-color: #ffc107; /* Amarillo */
+    color: #333;
+}
+
+#copiarCodigo:hover {
+    background-color: #e0a800;
 }

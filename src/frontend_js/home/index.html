@@ -143,7 +143,7 @@
             <button id="copiarCodigo" style="display: none;">Copiar Código</button>
         </div>
         <div id="ejecutaNavegador">
-            <!-- <button id="abrirNavegadorBtn">Abrir AFIP con Puppeteer</button> -->
+            <button id="testButton">Abrir AFIP en Modo Test</button>
             <button id="loginButton">Abrir AFIP con Puppeteer</button>
         </div>
     </div>
@@ -185,6 +185,9 @@
                 <p id="rutaArchivoAlicuotas"></p>
             </div>
             <button type="submit" id="procesarLibroIvaBtn">Procesar Libro IVA</button>
+            <div id="lineasExcedidas" style="display: block;"></div>
+            <!-- Add this button to open the modal -->
+            <button id="btnEditarLineasExcedidas" style="display: none;">Editar Línea Excedida</button>
         </form>
     </div>
 
@@ -193,6 +196,20 @@
     <div id="modificarSegunInformeDiv" style="display: none;">
         <button type="button" name="modificarSegunInforme" value="modificarSegunInforme" id="modificarSegunInforme">Modificar según el informe el libro</button>
     </div>
+
+    <!-- Modal de edición -->
+    <div id="modalEdicion" style="display: none; position: fixed; top: 50%; left: 50%;
+         transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 1em; z-index: 1000;">
+        <h3>Editar Línea Excedida</h3>
+        <p id="modalMensaje"></p>
+        <textarea id="txtLineaEdicion" rows="5" cols="60"></textarea>
+        <br>
+        <button id="btnGuardarEdicion">Guardar</button>
+        <button id="btnCerrarModal">Cerrar</button>
+    </div>
+    <!-- Fondo del modal -->
+    <div id="modalFondo" style="display: none; position: fixed; top: 0; left: 0;
+         width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 900;"></div>
 
     <script type="module" src="../controlador.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>

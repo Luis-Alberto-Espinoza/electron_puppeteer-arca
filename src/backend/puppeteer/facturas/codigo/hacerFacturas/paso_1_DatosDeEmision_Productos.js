@@ -5,16 +5,19 @@ const fecha = require('./utils.js');
 
 // Obtener la fecha actual
 
-async function paso_1_DatosDeEmision_Productos(newPage, datos, hoy) {
+async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, test) {
+    console.log("test", test)
+
     try {
-        let hoy = fecha.formatearFecha();
-        await newPage.evaluate((datos, hoy) => {
-            // await newPage.evaluate((datos, formatDate, DD_MM_YYYY, YYYY_MM_DD_HH_MM_SS)=> {
+        await newPage.evaluate((datos, test) => {
             try {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Producto') {
 
                     let inputFechas = document.querySelector("#fc");
-                    inputFechas.value = hoy  // fecha provisora de prueba
+                    let ultimoArray = datos.montoResultados.facturasGeneradas[datos.montoResultados.facturasGeneradas.length - 1];
+                    let ultimaFecha = ultimoArray[0];
+                    inputFechas.value = "09/04/2025";
+                    // inputFechas.value = ultimaFecha;
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
                     conceptoAincluir.children[1].selected = true;
@@ -25,7 +28,17 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, hoy) {
             } catch (error) {
                 console.error("Error dentro de evaluate:", error);
             }
-        }, datos, hoy);
+        }, datos, test);
+
+        if (test) {
+            console.log("Ejecutando en modo test, que tiene test.", test);
+            await newPage.screenshot({ path: `fecha_de_Emision_26.png` });
+        }
+
+        // Toma una captura de pantalla antes de hacer clic en el botón
+        // const screenshotPath = `screenshots/${ultimaFecha}_paso1_producto.png`;
+        // await newPage.screenshot({ path: screenshotPath });
+        // console.log(`Captura de pantalla guardada en: ${screenshotPath}`);
 
         // Esperar la navegación después de hacer clic en el botón
         await Promise.all([

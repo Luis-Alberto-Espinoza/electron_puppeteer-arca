@@ -12,7 +12,7 @@ const { paso_4_ConfirmarFactura } = require('./paso_4_ConfirmarFactura');
 
 const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea');
 const { elegirPuntoDeVenta } = require('../../../elegirPuntoDeVenta');
-const ejecutar = async (page, datos) => {
+const ejecutar = async (page, datos, test) => {
     try {
         const cantidad = datos.montoResultados.facturasGeneradas.length;
         
@@ -103,20 +103,25 @@ const ejecutar = async (page, datos) => {
             );
 
             if (datos.tipoActividad === 'Producto') {
+                //console.log("test", test)
                 await ejecutarPasoConVerificacion(
                     'Datos de Emisión - Productos',
                     paso_1_DatosDeEmision_Productos,
                     pagePuntoDeVenta,
                     datos,
-                    factura
+                    factura, 
+                    test
                 );
             } else if (datos.tipoActividad === 'Servicio') {
+                console.log("test:1212 ", test)
+
                 await ejecutarPasoConVerificacion(
                     'Datos de Emisión - Servicio',
                     paso_1_DatosDeEmision_Servicio,
                     pagePuntoDeVenta,
                     datos,
-                    factura
+                    factura,
+                    test
                 );
             }
 
@@ -148,7 +153,8 @@ const ejecutar = async (page, datos) => {
             await ejecutarPasoConVerificacion(
                 'Confirmar Factura',
                 paso_4_ConfirmarFactura,
-                pagePuntoDeVenta
+                pagePuntoDeVenta,
+                test
             );
 
             // Reducir la espera adicional entre facturas

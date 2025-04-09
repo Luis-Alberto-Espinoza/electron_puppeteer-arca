@@ -1,8 +1,8 @@
 // path del archivo original: src/backend/puppeteer/facturas/codigo/hacerFacturas/paso_1_DatosDeEmision_Servicio.js
 const fecha = require('./utils.js');
-async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
+async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, test = false) {
     try {
-        await newPage.evaluate((datos, factura) => {
+        await newPage.evaluate((datos, factura, test) => {
             try {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Servicio') {
 
@@ -31,6 +31,12 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
                     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
 
                     setTimeout(function () {
+                        // Toma una captura de pantalla antes de hacer clic en el botón
+                         const screenshotPath = `screenshots/${ultimaFecha}_paso1_servicio.png`;
+
+                        newPage.screenshot({ path: screenshotPath });
+                        console.log(`Captura de pantalla guardada en: ${screenshotPath}`);
+                        // Haz clic en el botón
                         btnContinuar.click();
                       }, 300);
 
@@ -40,7 +46,7 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura) {
             } catch (error) {
                 console.error("Error dentro de evaluate:", error);
             }
-        }, datos, factura);
+        }, datos, factura, test);
 
         await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
 

@@ -53,7 +53,7 @@ ipcMain.on('formulario-enviado', async (event, data) => {
         event.reply('codigoLocalStorageGenerado', resultadoCodigo);
     } else if (data.servicio === 'login') {
         try {
-            const resultado = await facturaManager.iniciarProceso(data.url, data.credenciales, resultadoCodigo);
+            const resultado = await facturaManager.iniciarProceso(data.url, data.credenciales, resultadoCodigo, data.test || false);
             event.reply('login-automatizado', resultado);
         } catch (error) {
             event.reply('login-automatizado', { success: false, error: error.message });
