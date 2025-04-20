@@ -16,7 +16,7 @@ function libroIVAManager(data) {
             informe = analizarArchivos(data.archivos);
             return informe;
         case 'modificarSegunInforme':
-           // console.log("$$$$$$ ", rutasArchivos)
+            console.log("$$$$$$ ", data)
             return actualizarArchivos(informe);
         case 'eliminarAnteriores':
             return eliminarArchivosAnteriores(data.archivos);

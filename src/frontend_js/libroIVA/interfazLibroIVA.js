@@ -5,68 +5,106 @@ para que al main lleguen los datos lo mas limpío posible
 
 */
 
-export function procesarLibroIva (libroIvaData){
+export function procesarLibroIva(libroIvaData) {
+    // Obtener referencias a los elementos
+    console.log('Cargando el script de libro IVA...'); // Depuración
+    const mostrarEliminarAnterioresBtn = document.getElementById('mostrarEliminarAnterioresBtn');
+    const numeroEliminarContainer = document.getElementById('numeroEliminarContainer');
+    const numeroEliminarInput = document.getElementById('numeroEliminar');
+    const numeroConfirmadoSpan = document.getElementById('numeroConfirmado');
+    let numeroConfirmado = false;
 
-document.getElementById('libroIvaForm').addEventListener('submit', function (event) {
-    event.preventDefault(); // Evita el envío tradicional del formulario
+    // Mostrar el contenedor al hacer clic en el botón
+    // mostrarEliminarAnterioresBtn.addEventListener('click', () => {
+    //     //console.log('Botón "Eliminar anteriores" presionado'); // Depuración
+    //     numeroEliminarContainer.style.display = 'block';
+    // });
 
-    // Obtener los valores del formulario
-    const informe = document.getElementById('informe').checked;
-    const eliminarAnteriores = document.getElementById('eliminarAnteriores').checked;
-    const todoAnterior = document.getElementById('todoAnterior').checked;
+ 
 
-    // Determinar el caso a ejecutar
-    let caseValue = 0;
-    if (informe) caseValue = "informe";
-    if (eliminarAnteriores) caseValue = "eliminarAnteriores";
-    if (todoAnterior) caseValue = "todoAnterior";
+    // Evento submit del formulario
+    document.getElementById('libroIvaForm').addEventListener('submit', function (event) {
+        event.preventDefault();
 
-    // Validar que se haya seleccionado al menos una opción
-    if (caseValue === 0) {
-        alert('Por favor, selecciona al menos una opción.');
-        return;
-    }
+        const data = {
+            case: '',
+            archivos: []
+        };
 
-    // Estructurar los datos para enviar
-    const data = {
-        case: caseValue,
-        archivos: [] // Aquí puedes agregar los archivos o datos necesarios
-    };
+        // Validar si el número fue confirmado
+        if (numeroEliminarContainer.style.display === 'block') {
+            if (!numeroConfirmado) {
+                alert('Por favor, confirme el número antes de enviar el formulario.');
+                return;
+            }
+            data.case = 'eliminarAnteriores';
+            data.numeroEliminar = numeroEliminarInput.value;
+        } else if (document.getElementById('informe').checked) {
+            data.case = 'informe';
+        } else if (document.getElementById('todoAnterior').checked) {
+            data.case = 'todoAnterior';
+        }
 
-    // Llamar a la función libroIVAManager
-    try {
-        const resultado = libroIVAManager(data);
-        console.log('Resultado:', resultado);
-        alert('Procesamiento completado con éxito.');
-    } catch (error) {
-        console.error('Error al procesar el libro IVA:', error.message);
-        alert('Error al procesar el libro IVA: ' + error.message);
-    }
-    window.electronAPI.procesarLibroIva(data);
-});
+        // Enviar los datos al backend
+        console.log('Datos a enviar:', data);
+        window.electronAPI.procesarLibroIva(data);
+    });
 
-document.getElementById('modificarSegunInforme').addEventListener('click', function (event) {
-    event.preventDefault(); // Evita el comportamiento predeterminado del botón
-    console.log("\n\nhola\n\n");
+    // Manejar la visibilidad del contenedor extra al elegir "eliminarAnteriores"
+    const mensajeArchivos = document.getElementById('mensajeArchivos');
+    const trabajarConAnterioresRadio = document.getElementById('trabajarConAnteriores');
+    const numeroLineasContainer = document.getElementById('numeroLineasContainer');
 
-    // Obtener los valores del formulario
-    const libroIvaForm = document.getElementById('libroIvaForm');
-    const libroIvaData = new FormData(libroIvaForm);
-    const data = Object.fromEntries(libroIvaData.entries());
-    data.archivos = []; // Aquí puedes agregar los archivos o datos necesarios
+    trabajarConAnterioresRadio.addEventListener('change', function () {
+        if (trabajarConAnterioresRadio.checked) {
+            numeroEliminarContainer.style.display = 'none';
+            mensajeArchivos.style.display = 'none';
+        }
+        numeroLineasContainer.style.display = this.checked ? 'block' : 'none';
+    });
 
-    // Estructurar los datos para enviar
-    data.case = 'modificarSegunInforme';
+    // Si se seleccionan otras opciones, ocultar el contenedor extra
+    const informeRadio = document.getElementById('informe');
+    const todoAnteriorRadio = document.getElementById('todoAnterior');
+    informeRadio.addEventListener('change', function () {
+        numeroEliminarContainer.style.display = 'none';
+        mensajeArchivos.style.display = 'none';
+    });
+    todoAnteriorRadio.addEventListener('change', function () {
+        numeroEliminarContainer.style.display = 'none';
+        mensajeArchivos.style.display = 'none';
+    });
 
-    // Llamar a la función modificarSegunInforme
-    try {
-        const resultado = modificarSegunInforme(data);
-        console.log('Resultado:', resultado);
-        alert('Modificación completada con éxito.');
-    } catch (error) {
-        console.error('Error al modificar según informe:', error.message);
-        alert('Error al modificar según informe: ' + error.message);
-    }
-    window.electronAPI.modificarSegunInforme(data);
-});
+    // Ocultar el campo numérico cuando se seleccionan otras opciones
+    [informeRadio, mostrarEliminarAnterioresBtn, todoAnteriorRadio].forEach(radio => {
+        radio.addEventListener('change', function () {
+            numeroLineasContainer.style.display = 'none';
+        });
+    });
+
+    document.getElementById('modificarSegunInforme').addEventListener('click', function (event) {
+        event.preventDefault(); // Evita el comportamiento predeterminado del botón
+        console.log("\n\nhola\n\n");
+
+        // Obtener los valores del formulario
+        const libroIvaForm = document.getElementById('libroIvaForm');
+        const libroIvaData = new FormData(libroIvaForm);
+        const data = Object.fromEntries(libroIvaData.entries());
+        data.archivos = []; // Aquí puedes agregar los archivos o datos necesarios
+
+        // Estructurar los datos para enviar
+        data.case = 'modificarSegunInforme';
+
+        // Llamar a la función modificarSegunInforme
+        try {
+            const resultado = modificarSegunInforme(data);
+            console.log('Resultado:', resultado);
+            alert('Modificación completada con éxito.');
+        } catch (error) {
+            console.error('Error al modificar según informe:', error.message);
+            alert('Error al modificar según informe: ' + error.message);
+        }
+        window.electronAPI.modificarSegunInforme(data);
+    });
+
 }

@@ -163,8 +163,22 @@
             </div>
     
             <div id="eliminarAnterioresDiv">
-                <input type="radio" name="case" value="eliminarAnteriores" id="eliminarAnteriores">
-                <label for="eliminarAnteriores">Eliminar anteriores</label>
+                <button type="button" id="mostrarEliminarAnterioresBtn">Eliminar anteriores</button>
+                <div id="numeroEliminarContainer" style="display: none;">
+                    <label for="numeroEliminar">Número a eliminar:</label>
+                    <input type="number" id="numeroEliminar" name="numeroEliminar" min="1">
+                    <button type="button" id="confirmNumeroEliminar">Confirmar número</button>
+                    <span id="numeroConfirmado" style="display: none; color: green; margin-left: 10px;">✓ Número confirmado</span>
+                </div>
+            </div>
+
+            <div id="trabajarConAnterioresDiv">
+                <input type="radio" name="case" value="trabajarConAnteriores" id="trabajarConAnteriores">
+                <label for="trabajarConAnteriores">Trabajar con archivos anteriores</label>
+                <div id="numeroLineasContainer" style="display: none;">
+                    <label for="numeroLineas">Número de líneas:</label>
+                    <input type="number" id="numeroLineas" name="numeroLineas" min="1">
+                </div>
             </div>
     
             <div>
