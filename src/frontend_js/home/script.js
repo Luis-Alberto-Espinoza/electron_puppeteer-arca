@@ -62,4 +62,15 @@ document.addEventListener('DOMContentLoaded', function () {
       procesarBtn.click();
     }, 500); // Espera 3 segundos antes de completar el formulario
   });
+
+  const btnLibroIVA = document.getElementById('btnLibroIVA');
+  const libroIvaDiv = document.getElementById('libroIvaDiv');
+
+  btnLibroIVA.addEventListener('click', function () {
+    if (libroIvaDiv.style.display === 'none') {
+      libroIvaDiv.style.display = 'block';
+    } else {
+      libroIvaDiv.style.display = 'none';
+    }
+  });
 });
