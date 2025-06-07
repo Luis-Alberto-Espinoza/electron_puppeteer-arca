@@ -178,11 +178,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (numeroEliminarInput) {
                     numeroEliminarInput.readOnly = true;
                 }
+                const data = {
+                    case: '',
+                    archivos: []
+                };
+                data.case = 'eliminarAnteriores';
+                data.numeroEliminar = numeroEliminarInput.value;
+                   // Enviar al backend para procesar
+                   window.electronAPI.enviarNumeroEliminar(data);
+           
             } else {
                 alert('Debe ingresar un número válido');
             }
         });
     }
+});
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.electronAPI.onResultadoNumeroEliminar((resultado) => {
+
+        if (resultado.success) {
+            console.log('Resultado recibido del main:', resultado.resultado);
+            alert(`El resultado procesado es: ${resultado.resultado.message}`);
+        } else {
+            console.error('Error recibido del main:', resultado.error);
+            alert(`Error al procesar el número: ${resultado.error}`);
+        }
+    });
 });
 
 document.addEventListener('click', async (event) => {
@@ -208,6 +232,7 @@ function abrirModalEdicion(lineaExcedida) {
         <strong>Número de línea:</strong> ${lineaExcedida.numeroLinea}<br>
         <strong>Longitud:</strong> ${lineaExcedida.longitud}<br>
         <strong>Caracteres esperados:</strong> 267
+}
     `;
     txtLinea.value = lineaExcedida.contenido;
 
@@ -219,3 +244,4 @@ function cerrarModalEdicion() {
     document.getElementById('modalEdicion').style.display = 'none';
     document.getElementById('modalFondo').style.display = 'none';
 }
+

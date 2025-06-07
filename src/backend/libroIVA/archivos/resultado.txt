@@ -1,0 +1,223 @@
+Comprobante 0000000000000000607:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000609:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000610:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000611:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000612:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000616:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000617:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000019572:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000019573:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000001308:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000019657:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000019716:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000019749:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000019808:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000000623:
+Importe ventas: 8000000
+Suma alícuotas: 7999552
+Comprobante 0000000000000000624:
+Importe ventas: 8000000
+Suma alícuotas: 7999552
+Comprobante 0000000000000000625:
+Importe ventas: 8000000
+Suma alícuotas: 7999552
+Comprobante 0000000000000000626:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000627:
+Importe ventas: 3600000
+Suma alícuotas: 3599798
+Comprobante 0000000000000000628:
+Importe ventas: 4400000
+Suma alícuotas: 4399754
+Comprobante 0000000000000000629:
+Importe ventas: 4400000
+Suma alícuotas: 4399754
+Comprobante 0000000000000000630:
+Importe ventas: 850000
+Suma alícuotas: 849952
+Comprobante 0000000000000000631:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000632:
+Importe ventas: 850000
+Suma alícuotas: 849952
+Comprobante 0000000000000000633:
+Importe ventas: 1200000
+Suma alícuotas: 1199933
+Comprobante 0000000000000000634:
+Importe ventas: 850000
+Suma alícuotas: 849952
+Comprobante 0000000000000000635:
+Importe ventas: 850000
+Suma alícuotas: 849952
+Comprobante 0000000000000000636:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000637:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000638:
+Importe ventas: 750000
+Suma alícuotas: 749958
+Comprobante 0000000000000000639:
+Importe ventas: 850000
+Suma alícuotas: 849952
+Comprobante 0000000000000000640:
+Importe ventas: 850000
+Suma alícuotas: 849952
+Comprobante 0000000000000000641:
+Importe ventas: 7000000
+Suma alícuotas: 6999608
+Comprobante 0000000000000000642:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000643:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000644:
+Importe ventas: 3000000
+Suma alícuotas: 2999832
+Comprobante 0000000000000000645:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000646:
+Importe ventas: 675000
+Suma alícuotas: 674962
+Comprobante 0000000000000000647:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000648:
+Importe ventas: 3000000
+Suma alícuotas: 2999832
+Comprobante 0000000000000000649:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000650:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000651:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000652:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000019845:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000019978:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000020006:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000020262:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000000653:
+Importe ventas: 8510000
+Suma alícuotas: 8509523
+Comprobante 0000000000000000654:
+Importe ventas: 7000000
+Suma alícuotas: 6999608
+Comprobante 0000000000000000655:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000656:
+Importe ventas: 9520000
+Suma alícuotas: 9519467
+Comprobante 0000000000000000657:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000658:
+Importe ventas: 3000000
+Suma alícuotas: 2999832
+Comprobante 0000000000000000659:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000660:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000661:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000662:
+Importe ventas: 4400000
+Suma alícuotas: 4399754
+Comprobante 0000000000000000663:
+Importe ventas: 7000000
+Suma alícuotas: 6999608
+Comprobante 0000000000000000664:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000665:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000020310:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000020355:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000020397:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000020439:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000020467:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000000666:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000667:
+Importe ventas: 7400000
+Suma alícuotas: 7399586
+Comprobante 0000000000000000668:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000669:
+Importe ventas: 950000
+Suma alícuotas: 949947
+Comprobante 0000000000000000670:
+Importe ventas: 3000000
+Suma alícuotas: 2999832
+Comprobante 0000000000000020484:
+Importe ventas: 200000
+Suma alícuotas: 199989
+Comprobante 0000000000000020520:
+Importe ventas: 200000
+Suma alícuotas: 199989
+
+Resumen:
+Coincidencias: 1071
+Errores: 73

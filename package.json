@@ -3,19 +3,47 @@
   "version": "1.0.0",
   "main": "src/backend/home/main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder --win"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "electron": "^33.3.1"
+    "electron": "^33.3.1",
+    "electron-builder": "^26.0.12"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
     "iconv-lite": "^0.6.3",
     "luxon": "^3.5.0",
+    "pdf-parse": "^1.1.1",
     "puppeteer": "^24.1.1"
+  },
+  "build": {
+    "appId": "com.tuorganizacion.afipelectron",
+    "productName": "AFIP Electron",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "rpm",
+        "AppImage"
+      ]
+    }
   }
 }

@@ -1,0 +1,125 @@
+[33mcommit 2f17167b151c35b29df13f106c9c5018be390ac3[m[33m ([m[1;36mHEAD -> [m[1;32mrefactor[m[33m)[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Fri Feb 14 20:10:49 2025 -0300
+
+    borrado de archivos
+
+[33mcommit 11dffa1ac3a6737f13e148214fadb07509ea9776[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Fri Feb 14 17:11:49 2025 -0300
+
+    git ignore
+
+[33mcommit 887da7d1c696846fcc2da4f4147e1fa90e10face[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Fri Feb 14 17:08:09 2025 -0300
+
+    refactorizar flujo puppe + agregado de paso 1 servicio
+
+[33mcommit 4f26d8a0434019ac44a34f617f0254e8f04aef37[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Thu Feb 13 20:35:13 2025 -0300
+
+    refactoriza flñujo de facturas
+
+[33mcommit c6cf57937caf88f250c0ba82bedfc3b27b127e75[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Thu Feb 13 00:47:58 2025 -0300
+
+    Procesar el Stringen el frontend, correcto paso-2-product
+
+[33mcommit 46105f6ff353368364f028e816d0532ebc5d1d52[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Wed Feb 12 18:21:31 2025 -0300
+
+    Borrado de archivos inecesarios
+
+[33mcommit e5fb253aa70fecb5f1aae6c812deeaf1bc7e9ed2[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Wed Feb 12 16:44:33 2025 -0300
+
+    refactorizacion general
+
+[33mcommit 8aed37541c282712f5c224780cdf4b72315418ba[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Tue Feb 11 21:34:52 2025 -0300
+
+    refactor se agrega la capa src
+
+[33mcommit 09da80db07585da7be7e7dc34d66c1901c5db829[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Thu Feb 6 16:07:51 2025 -0300
+
+    cambios varios
+
+[33mcommit 32965835e653d22e6ef6a1a2561eaa1bab95c163[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Thu Feb 6 01:04:00 2025 -0300
+
+    funciona hasta el paso 1. Desordenado
+
+[33mcommit fa07640cd5f5bf27166b2a9fc6e5f8ee6cb2ee30[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Wed Feb 5 19:39:35 2025 -0300
+
+    salvado error de import al inicio
+
+[33mcommit e45c865a4289cdc3603fd12fc1f3f6e3cebd68e9[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Fri Jan 24 22:42:46 2025 -0300
+
+    script puppeteer  para facturas - 00
+
+[33mcommit 90e80e63a782e474efb62c76ce43d376d2d1a668[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Fri Jan 24 14:58:17 2025 -0300
+
+    se ordena estructura de directorios. Se agrega un .gitignore
+
+[33mcommit 9a4d686593ec94ae2087ac128b286a3436ded74d[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Fri Jan 24 13:01:47 2025 -0300
+
+    se logra mostrar el string en el html
+
+[33mcommit e4ad407ab96c195b2c156d9d805ab1033ba1a367[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Thu Jan 23 17:09:08 2025 -0300
+
+    muestra el array resultante para todos los casos
+
+[33mcommit 1a5e6fd6784df6975e513b188a51bc9b3d042dfd[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Wed Jan 22 05:22:44 2025 -0300
+
+    comunicacion basica con el backend de facturas
+
+[33mcommit d1b24eddb186b346bb0aab74a63f42a857bf4453[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Wed Jan 22 05:21:17 2025 -0300
+
+    cambiar index por controlador en el frontend
+
+[33mcommit 67022d6c9ee5c4209700839333d0306a203d59ad[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Wed Jan 22 03:07:02 2025 -0300
+
+    se agrega el git ignore
+
+[33mcommit 396aa8ada14124ae5581de8456d0c797e20869bb[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Wed Jan 22 02:43:24 2025 -0300
+
+    refactorizar el codigo de facturas
+
+[33mcommit a95dc49de14bc762ef5d1a77d5d7f57cd8d4f5a7[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Tue Jan 14 18:35:19 2025 -0300
+
+    solucion a la carga masiva
+
+[33mcommit 9cdb1215a4921a20917d072534b289295c5fdc4f[m
+Author: Luis-Alberto-Espinoza <espinoza.luis.alberto1981@gmail.com>
+Date:   Tue Jan 14 01:03:47 2025 -0300
+
+    recieningresado el calendario p/seleccionar

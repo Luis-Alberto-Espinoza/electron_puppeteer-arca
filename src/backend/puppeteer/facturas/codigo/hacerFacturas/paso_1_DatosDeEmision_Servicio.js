@@ -12,8 +12,9 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, test = fa
 
                     // let fechaEmision = datos.arrayDatos && datos.arrayDatos.length > 0 ? datos.arrayDatos[datos.arrayDatos.length - 1][0] : '';
                     let longitudArray = datos.montoResultados.facturasGeneradas.length; // Asigna la fecha de emisión
-                    let ultimaFecha = datos.montoResultados.facturasGeneradas[0][longitudArray - 1];
+                    let ultimaFecha = datos.montoResultados.facturasGeneradas[longitudArray - 1][0];
                     inputFechas.value = ultimaFecha;
+                    console.log(datos.montoResultados.facturasGeneradas[29][0])
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
                     conceptoAincluir.value = itemElegido;
@@ -31,11 +32,13 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, test = fa
                     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
 
                     setTimeout(function () {
-                        // Toma una captura de pantalla antes de hacer clic en el botón
-                         const screenshotPath = `screenshots/${ultimaFecha}_paso1_servicio.png`;
 
-                        newPage.screenshot({ path: screenshotPath });
-                        console.log(`Captura de pantalla guardada en: ${screenshotPath}`);
+                        console.log("Esto esta en el punto uno que tiene test ", test);
+                        // Toma una captura de pantalla antes de hacer clic en el botón
+                        // const screenshotPath = `screenshots/${ultimaFecha}_paso1_servicio.png`;
+
+                        // newPage.screenshot({ path: screenshotPath });
+                        // console.log(`Captura de pantalla guardada en: ${screenshotPath}`);
                         // Haz clic en el botón
                         btnContinuar.click();
                       }, 300);

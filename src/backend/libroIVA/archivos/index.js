@@ -1,10 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 const generarInforme = require('./generarInforme-01.js');
+const eliminaLineaAnterior = require('./eliminarAteriores_00.js');
 const { actualizarImporte } = require('./actualizarImporte-00.js');
+
+
 let informe ={};
 function libroIVAManager(data) {
-      // console.log("Datos recibidos en libroIVAManager:", data);
+       console.log("Datos recibidos en libroIVAManager:", data);
     const validCases = ['informe', 'modificarSegunInforme', 'eliminarAnteriores', 'todoAnterior'];
     if (!validCases.includes(data.case)) {
         throw new Error('Debe seleccionar una y solo una opción válida.');
@@ -19,7 +22,7 @@ function libroIVAManager(data) {
             console.log("$$$$$$ ", data)
             return actualizarArchivos(informe);
         case 'eliminarAnteriores':
-            return eliminarArchivosAnteriores(data.archivos);
+            return eliminarArchivosAnteriores(data);
         case 'todoAnterior':
             return mostrarInforme(data.archivos);
         default:
@@ -59,8 +62,11 @@ function actualizarArchivos(informe) {
     return { message: 'Archivos actualizados correctamente', archivos: informe.archivos };
 }
 
-function eliminarArchivosAnteriores(archivos) {
-    return { message: 'Archivos anteriores eliminados correctamente', archivos };
+function eliminarArchivosAnteriores(data) {
+     console.log("Llegue a eliminar anteriores");
+     console.log ("llegue al metodo esto tiene data ", data);
+     eliminaLineaAnterior.compararComprobantes(data);
+    return { message: 'Archivos anteriores eliminados correctamente' };
 }
 
 function mostrarInforme(archivos) {
@@ -95,6 +101,9 @@ let consulta = {
 // console.log(retorno);
 // console.dir(retorno, { depth: null });
 
+//  '/home/pinchechita/Descargas/20-31747354-1_2022-6_1_Compras__rg3685_comprobantes.txt',
 
 //  '/home/pinchechita/Descargas/20-31747354-1_2022-6_1_Compras__rg3685_comprobantes.txt',
+// '/home/pinchechita/Descargas/20-31747354-1_2022-6_2_Compras__rg3685_alicuotas.txt'
+
 // '/home/pinchechita/Descargas/20-31747354-1_2022-6_2_Compras__rg3685_alicuotas.txt'

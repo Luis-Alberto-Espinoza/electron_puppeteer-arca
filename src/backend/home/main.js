@@ -8,8 +8,8 @@ let mainWindow;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 800, // Tamaño inicial
+        height: 600, // Tamaño inicial
         webPreferences: {
             preload: path.join(__dirname, '../../../preload.js'),
             nodeIntegration: false, // Recomendado: false para seguridad
@@ -17,11 +17,19 @@ function createWindow() {
             webSecurity: false,
             sandbox: false,
             allowRunningInsecureContent: false,
-            experimentalFeatures: true  // Añade esta línea
+            experimentalFeatures: true // Opcional: habilitar características experimentales
         }
     });
 
-    mainWindow.loadFile('src/frontend_js/home/index.html'); // <-- ESTA LÍNEA ES FUNDAMENTAL
+    mainWindow.loadFile('src/frontend_js/home/index.html'); // Cargar el archivo HTML principal
+
+    // Maximizar la ventana al iniciar
+    mainWindow.maximize();
+
+    // Abrir las herramientas de desarrollo automáticamente después de cargar el contenido
+    mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.openDevTools({ mode: 'detach' }); // Modo "detach" para abrir en una ventana separada
+    });
 }
 
 app.whenReady().then(() => {
@@ -85,5 +93,20 @@ ipcMain.on('actualizar-segun-informe', async (event, data) => {
     } catch (error) {
         console.error("Error al procesar el libro IVA:", error);
         event.reply('libro-iva-actualizado', { success: false, error: error.message });
+    }
+});
+
+ipcMain.on('numero-eliminar', async (event, data) => {
+    console.log('Número recibido en el main:', data);
+
+    try {
+        const resultado = await comunicacionConLibroIVA(data);
+        // Procesar el número (ejemplo: multiplicarlo por 2)
+
+        // Enviar el resultado de vuelta al frontend
+        event.reply('resultado-numero-eliminar', { success: true, resultado });
+    } catch (error) {
+        console.error('Error al procesar el número:', error);
+        event.reply('resultado-numero-eliminar', { success: false, error: error.message });
     }
 });

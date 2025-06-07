@@ -14,9 +14,10 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, test) {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Producto') {
 
                     let inputFechas = document.querySelector("#fc");
-                    let ultimoArray = datos.montoResultados.facturasGeneradas[datos.montoResultados.facturasGeneradas.length - 1];
-                    let ultimaFecha = ultimoArray[0];
-                    inputFechas.value = "09/04/2025";
+                  
+                    let longitudArray = datos.montoResultados.facturasGeneradas.length; // Asigna la fecha de emisión
+                    let ultimaFecha = datos.montoResultados.facturasGeneradas[longitudArray - 1][0];
+                    inputFechas.value = ultimaFecha;
                     // inputFechas.value = ultimaFecha;
 
                     let conceptoAincluir = document.querySelector("#idconcepto");

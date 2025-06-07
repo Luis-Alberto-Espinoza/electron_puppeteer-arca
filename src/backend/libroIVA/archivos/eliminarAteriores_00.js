@@ -1,14 +1,17 @@
 const fs = require('fs');
 const path = require('path');
+const iconv = require('iconv-lite');
+
 
 // Función principal para comparar comprobantes y eliminar líneas relacionadas
-function compararComprobantes() {
+function compararComprobantes(data) {
     // Rutas de los archivos de comprobantes y alícuotas
-    const rutaComprobantes = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.txt');
-    const rutaArchivoAlicuotas = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt');
+    const rutaComprobantes = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_CBTE__1.txt');
+    const rutaArchivoAlicuotas = path.join(__dirname, 'copias', 'LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS__1.txt');
 
-    const lineaBuscada = 0; // Línea específica a buscar en el archivo de comprobantes
-
+    const lineaBuscada = data.numeroEliminar; // Línea específica a buscar en el archivo de comprobantes
+    console.log("Línea buscada:", lineaBuscada);
+    console.log("Ruta comprobantes:", data);
     try {
         // Leer el contenido de los archivos
         const contenidoComprobante = fs.readFileSync(rutaComprobantes, 'utf8');
@@ -61,9 +64,13 @@ function compararComprobantes() {
             }
         });
 
+        restoDelDocumentoAlicuota= iconv.encode(restoDelDocumentoAlicuota, 'ISO-8859-1');
+        restoDocumentComprobante= iconv.encode(restoDocumentComprobante, 'ISO-8859-1');
+
+
         // Escribir los archivos actualizados
-        fs.writeFileSync(rutaArchivoAlicuotas, restoDelDocumentoAlicuota, 'utf8');
-        fs.writeFileSync(rutaComprobantes, restoDocumentComprobante, 'utf8');
+        fs.writeFileSync("xxe_" + rutaArchivoAlicuotas , restoDelDocumentoAlicuota);
+        fs.writeFileSync("xxe_" + rutaComprobantes, restoDocumentComprobante);
 
     } catch (error) {
         // Manejo de errores
@@ -72,5 +79,5 @@ function compararComprobantes() {
     }
 }
 
-// Ejecutar la función principal
-compararComprobantes();
+// Exportar correctamente
+module.exports = { compararComprobantes };
