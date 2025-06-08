@@ -43,8 +43,12 @@ document.addEventListener('DOMContentLoaded', function () {
       // Selecciona el ingreso manual
       document.getElementById('ingresoManual').checked = true;
 
+      //ingresa las fechas al input type textArea
+      document.getElementById('fechasFacturas').value = "01/01/2025, 15/01/2025, 29/01/2025";
+
+
       // Selecciona el mes de julio
-      document.getElementById('selectMes').value = 2;
+      document.getElementById('selectMes').value = 5;
 
       // Selecciona el año 2026
       document.getElementById('selectAnio').value = '2025';
@@ -53,13 +57,37 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('periodoDiasHabiles').checked = true;
 
       // Selecciona monto total
-      document.getElementById('montoTotal').checked = true;
+      //document.getElementById('montoTotal').checked = true;
 
       // Ingresa el monto total
-      document.getElementById('montoTotalInput').value = '235689';
+      // document.getElementById('montoTotalInput').value = '235689';
 
+
+
+      //para el uso de monto manual 
+      
+     // document.getElementById('montoManual').checked = true;
+
+      // Ingresa el monto total
+      document.getElementById('textareaMontoManual').value = '235689\n888888\n2000.35';
+
+
+
+      //PARA CARGA MASIVA DE DATOS 
+      // seleccionar checkbox de ingresoMasivo
+      document.getElementById('ingresoMasivo').checked = true;
+
+      // ingresar fechas en el textArea de fechas en el formato correco. revisar validaciones 
+      // formato: YYYY-MM-DD
+      document.getElementById('textareaFechas').value = "01/05/2025\n15/05/2025\n29/05/2025";
+      
+      // Ingreso de los montos separacion con saltos de lines o sea un en cada renglon, correspondiente a el lugar que ocupa su fecha correspondiente 
+      document.getElementById('textareaMontos').value = '235689\n888888\n2000.35';
+      const argaMasiva = document.getElementById('seccionMasiva');
+      libroIvaDargaMasivaiv.style.display = 'block';
+      
       // Simula el envío del formulario (opcional)
-      procesarBtn.click();
+      //procesarBtn.click();
     }, 500); // Espera 3 segundos antes de completar el formulario
   });
 

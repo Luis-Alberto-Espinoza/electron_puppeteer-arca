@@ -37,8 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
             contrasena: await window.electronAPI.getEnv('AFIP_CONTRASENA')
         };
         const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
-        console.log("Enviando datos de login en modo test:", { url, credenciales, test: true });
-        window.electronAPI.iniciarSesion(url, credenciales, true); // Pasa `true` explícitamente como valor de `test`
+        console.log("Enviando datos de login en modo test:", { url, credenciales });
+        window.electronAPI.iniciarSesion(url, credenciales); // Pasa `true` explícitamente como valor de `test`
     });
 
     seleccionarArchivoComprobanteBtn.addEventListener('click', async () => {
