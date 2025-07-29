@@ -1,8 +1,8 @@
 // path del archivo original: src/backend/puppeteer/facturas/codigo/hacerFacturas/paso_1_DatosDeEmision_Servicio.js
 const fecha = require('./utils.js');
-async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, test = false) {
+async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest = false) {
     try {
-        await newPage.evaluate((datos, factura, test) => {
+        await newPage.evaluate((datos, factura, modoTest) => {
             try {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Servicio') {
 
@@ -13,34 +13,43 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, test = fa
                     // let fechaEmision = datos.arrayDatos && datos.arrayDatos.length > 0 ? datos.arrayDatos[datos.arrayDatos.length - 1][0] : '';
                     let longitudArray = datos.montoResultados.facturasGeneradas.length; // Asigna la fecha de emisión
                     let ultimaFecha = datos.montoResultados.facturasGeneradas[longitudArray - 1][0];
-                    inputFechas.value = ultimaFecha;
-                    console.log(datos.montoResultados.facturasGeneradas[29][0])
+                    // inputFechas.value = ultimaFecha;
+                    inputFechas.value = '29/07/2025';
+                    console.log("$$$$$$$$$##### ====>>>>>>",datos.montoResultados.facturasGeneradas)
+                    console.log("\n\n$$$$$$$$$##### ====>>>>>>",factura)
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
                     conceptoAincluir.value = itemElegido;
-                    conceptoAincluir.onchange()
-
+                    
+                    setTimeout(() => {
+                        conceptoAincluir.onchange();
+                        
+                        setTimeout(() => {
+                        }, 50); // 50ms de espera
+                        
+                    }, 100); // 100ms de espera
                     const desde = document.querySelector("#fsd");
                     const hasta = document.querySelector("#fsh");
                     const vto = document.querySelector("#vencimientopago");
 
                     desde.value = factura[0];
                     hasta.value = factura[0];
-                    vto.value = ultimaFecha;
+                    vto.value = '29/07/2025';
+                    // vto.value = ultimaFecha;
 
                     referencia.value = "";
                     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
 
                     setTimeout(function () {
 
-                        console.log("Esto esta en el punto uno que tiene test ", test);
+                        console.log("Esto esta en el punto uno que tiene modoTest ", modoTest);
                         // Toma una captura de pantalla antes de hacer clic en el botón
                         // const screenshotPath = `screenshots/${ultimaFecha}_paso1_servicio.png`;
 
                         // newPage.screenshot({ path: screenshotPath });
                         // console.log(`Captura de pantalla guardada en: ${screenshotPath}`);
                         // Haz clic en el botón
-                        btnContinuar.click();
+                         btnContinuar.click();
                       }, 300);
 
                 } else {
@@ -49,7 +58,7 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, test = fa
             } catch (error) {
                 console.error("Error dentro de evaluate:", error);
             }
-        }, datos, factura, test);
+        }, datos, factura, modoTest);
 
         await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
 

@@ -12,7 +12,7 @@ const { paso_4_ConfirmarFactura } = require('./paso_4_ConfirmarFactura');
 
 const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea');
 const { elegirPuntoDeVenta } = require('../../../elegirPuntoDeVenta');
-const ejecutar = async (page, datos, test) => {
+const ejecutar = async (page, datos, modoTest) => {
     try {
         const cantidad = datos.montoResultados.facturasGeneradas.length;
         
@@ -22,6 +22,7 @@ const ejecutar = async (page, datos, test) => {
         // Función auxiliar para esperar y verificar
         const ejecutarPasoConVerificacion = async (nombrePaso, funcion, ...args) => {
             try {
+                console.log(`\n=== Iniciando paso: ${modoTest} ===\n`);
                 console.log(`Iniciando ${nombrePaso}...`);
                 console.time(nombrePaso);
                 
@@ -103,17 +104,17 @@ const ejecutar = async (page, datos, test) => {
             );
 
             if (datos.tipoActividad === 'Producto') {
-                //console.log("test", test)
+                //console.log("modoTest", modoTest)
                 await ejecutarPasoConVerificacion(
                     'Datos de Emisión - Productos',
                     paso_1_DatosDeEmision_Productos,
                     pagePuntoDeVenta,
                     datos,
                     factura, 
-                    test
+                    modoTest
                 );
             } else if (datos.tipoActividad === 'Servicio') {
-                console.log("test:1212 ", test)
+                console.log("modoTest:1212 ", modoTest)
 
                 await ejecutarPasoConVerificacion(
                     'Datos de Emisión - Servicio',
@@ -121,7 +122,7 @@ const ejecutar = async (page, datos, test) => {
                     pagePuntoDeVenta,
                     datos,
                     factura,
-                    test
+                    modoTest
                 );
             }
 
@@ -154,7 +155,7 @@ const ejecutar = async (page, datos, test) => {
                 'Confirmar Factura',
                 paso_4_ConfirmarFactura,
                 pagePuntoDeVenta,
-                test
+                modoTest
             );
 
             // Reducir la espera adicional entre facturas

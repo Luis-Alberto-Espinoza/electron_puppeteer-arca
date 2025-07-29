@@ -5,11 +5,11 @@ const fecha = require('./utils.js');
 
 // Obtener la fecha actual
 
-async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, test) {
-    console.log("test", test)
+async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, modoTest) {
+    console.log("modoTest", modoTest)
 
     try {
-        await newPage.evaluate((datos, test) => {
+        await newPage.evaluate((datos, modoTest) => {
             try {
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Producto') {
 
@@ -29,10 +29,10 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, test) {
             } catch (error) {
                 console.error("Error dentro de evaluate:", error);
             }
-        }, datos, test);
+        }, datos, modoTest);
 
-        if (test) {
-            console.log("Ejecutando en modo test, que tiene test.", test);
+        if (modoTest) {
+            console.log("Ejecutando en modo modoTest, que tiene modoTest.", modoTest);
             await newPage.screenshot({ path: `fecha_de_Emision_26.png` });
         }
 

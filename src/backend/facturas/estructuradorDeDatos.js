@@ -2,7 +2,7 @@
 function procesarDatos(montoFactura) {
     let ProcesarDatos = {};
     const configuracion = {
-        montoMaximo: 344000,
+        montoMaximo: 10000000,
     };
 
     let suma = montoFactura.reduce((acumulador, subarray) => acumulador + subarray[1], 0);

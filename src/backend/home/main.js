@@ -55,6 +55,7 @@ ipcMain.handle('seleccionar-archivos', async () => {
     return result.filePaths;
 });
 let resultadoCodigo = "";
+let test = false;
 ipcMain.on('formulario-enviado', async (event, data) => {
     if (data.servicio === 'factura') {
         resultadoCodigo = comunicacionConFactura(data);
@@ -108,5 +109,36 @@ ipcMain.on('numero-eliminar', async (event, data) => {
     } catch (error) {
         console.error('Error al procesar el número:', error);
         event.reply('resultado-numero-eliminar', { success: false, error: error.message });
+    }
+});
+
+ipcMain.on('procesar-pdf', async (event, filePath) => {
+    try {
+        // Aquí puedes implementar la lógica para procesar el archivo PDF
+        // Por ejemplo, utilizando una librería para leer el contenido del PDF
+
+        // Simulando el procesamiento del PDF y generando resultados
+        const resultados = `Resultados del procesamiento de ${filePath}`;
+
+        // Enviar los resultados de vuelta al renderer process
+        event.reply('resultados-pdf', { success: true, resultados });
+    } catch (error) {
+        console.error('Error al procesar el PDF:', error);
+        event.reply('resultados-pdf', { success: false, error: error.message });
+    }
+});
+
+ipcMain.on('exportar-resultados', async (event, resultados) => {
+    try {
+        // Aquí puedes implementar la lógica para exportar los resultados
+        // Por ejemplo, guardándolos en un archivo o enviándolos por correo electrónico
+
+        // Simulando la exportación de resultados
+        console.log('Resultados exportados:', resultados);
+
+        event.reply('resultados-exportados', { success: true, message: 'Resultados exportados correctamente' });
+    } catch (error) {
+        console.error('Error al exportar resultados:', error);
+        event.reply('resultados-exportados', { success: false, error: error.message });
     }
 });

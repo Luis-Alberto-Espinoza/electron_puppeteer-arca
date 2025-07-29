@@ -1,22 +1,22 @@
 const { fechaHoy } = require('./utils.js');
 
-async function paso_4_ConfirmarFactura(newPage, test) {
+async function paso_4_ConfirmarFactura(newPage, modoTest) {
     try {
         // Esperar a que los elementos estén disponibles
         await newPage.waitForSelector('#contenido', { timeout: 120000 });
 
         // Ejecutar el código dentro de la página
-        await newPage.evaluate((test) => {
+        await newPage.evaluate((modoTest) => {
             try {
                 if (window.location.href.includes('genComResumenDatos')) {
                     window.scrollTo(0, document.body.scrollHeight);
                     let btnMenuPrinvipalVolver = document.querySelectorAll('input');
-                    if (!test) {
-                        ajaxFunction();
+                    if (!modoTest) {
+                       // ajaxFunction();
                     }
 
                     setTimeout(function () {
-                        if (!test) {
+                        if (!modoTest) {
                             btnMenuPrinvipalVolver[3].click();
                         }
                     }, 2500);
@@ -26,7 +26,7 @@ async function paso_4_ConfirmarFactura(newPage, test) {
             } catch (error) {
                 console.error("Error dentro de evaluate:", error);
             }
-        }, test);
+        }, modoTest);
 
         // Esperar la navegación después de hacer clic en el botón
         await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });

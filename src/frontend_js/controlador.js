@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const seleccionarArchivoComprobanteBtn = document.getElementById('seleccionarArchivoComprobanteBtn');
     const seleccionarArchivoAlicuotasBtn = document.getElementById('seleccionarArchivoAlicuotasBtn');
     const procesarLibroIvaBtn = document.getElementById('procesarLibroIvaBtn');
+    const modificarSegunInforme = document.getElementById('modificarSegunInforme');
     const loginButton = document.getElementById('loginButton');
     const testButton = document.getElementById('testButton'); // Nuevo botón
     const btnEditarLineasExcedidas = document.getElementById('btnEditarLineasExcedidas');
@@ -37,8 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
             contrasena: await window.electronAPI.getEnv('AFIP_CONTRASENA')
         };
         const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
-        console.log("Enviando datos de login en modo test:", { url, credenciales });
-        window.electronAPI.iniciarSesion(url, credenciales); // Pasa `true` explícitamente como valor de `test`
+        console.log("Enviando datos de login en modo test:", { url, credenciales, test: true });
+        window.electronAPI.iniciarSesion(url, credenciales, true); // Pasa `true` explícitamente como valor de `test`
     });
 
     seleccionarArchivoComprobanteBtn.addEventListener('click', async () => {
@@ -76,49 +77,21 @@ document.addEventListener('DOMContentLoaded', () => {
     window.electronAPI.onLibroIvaProcesado((event, resultado) => {
         console.log("Resultado recibido en el frontend:", resultado);
         const resultadoDiv = document.getElementById('resultado');
-
-        // Ordenar las diferencias por el valor absoluto de la columna "Diferencia" de mayor a menor
-        const diferenciasOrdenadas = resultado.data.informe.diferencias.sort((a, b) => Math.abs(b.diferencia) - Math.abs(a.diferencia));
-
         resultadoDiv.innerHTML = `
             <h3>Resultado del Análisis</h3>
             <p>${resultado.message}</p>
             <pre>${resultado.data.message}</pre>
             <pre>${resultado.data.informe.mensaje}</pre>
             <p>Informe:</p>
-            <pre>CANTIDAD DE DIFERENCIAS: ${diferenciasOrdenadas.length}</pre>
+            <pre>CANTIDAD DE DIFERENCIAS: ${(resultado.data.informe.diferencias).length}</pre>
             <br>
-            <h4>Tabla de Diferencias</h4>
-            <table border="1">
-                <thead>
-                    <tr>
-                        <th>Número de Comprobante</th>
-                        <th>Importe en Comprobante</th>
-                        <th>Sumatoria de imortes en Alicuota y CBTE</th>
-                        <th>Diferencia</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${diferenciasOrdenadas.map(diferencia => `
-                        <tr>
-                         
-                            <td>${(diferencia.numero)}</td>
-                            <td>${diferencia.importeComprobante}</td>
-                            <td>${diferencia.importeAlicuotaMasImpuestoInternoEnCompŕobante}</td>
-                            <td>${diferencia.diferencia}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+            <pre>Se muestra como Ejemplo la segunda diferencia</pre>
+            <pre>Comprobante numero: ${parseInt(resultado.data.informe.diferencias[1].numero)}</pre>
+            <pre>Importe en Alicuota: ${resultado.data.informe.diferencias[1].importeAlicuota}</pre>
+            <pre>Importe en Comprobante: ${resultado.data.informe.diferencias[1].importeComprobante}</pre>
+            <pre>Diferencia: ${resultado.data.informe.diferencias[1].diferencia}</pre>
         `;
-
-        const countOnes = diferenciasOrdenadas.filter(item => Math.abs(item.diferencia) == 1).length;
-        const countOthers = diferenciasOrdenadas.length - countOnes;
-
-        document.body.innerHTML += `<pre>Diferencia igual a 1: ${countOnes}</pre>`;
-        document.body.innerHTML += `<pre>Otras diferencias: ${countOthers}</pre>`;
-
-        console.log("mira aca ", resultado.data.informe.lineasExcedidas[0]);
+        console.log("mira aca ", resultado.data.informe.lineasExcedidas[0])
         //si hay lineas excedidas debe aparecer un btn que permita modificar en una ventana aparte esas lineas de a una a la vez 
 
         if (resultado.data.informe.lineasExcedidas.length > 0) {
@@ -135,6 +108,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('modificarSegunInformeDiv').style.display = 'block';
     });
 
+    modificarSegunInforme.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const libroIvaForm = document.getElementById('libroIvaForm');
+        const libroIvaData = new FormData(libroIvaForm);
+        const data = Object.fromEntries(libroIvaData.entries());
+        data.archivos = [archivoComprobanteSeleccionado, archivoAlicuotasSeleccionado];
+        data.case = 'modificarSegunInforme';
+        console.log("Datos enviados para modificar según informe:", data);
+        window.electronAPI.modificarSegunInforme(data);
+    });
+
     btnEditarLineasExcedidas.addEventListener('click', () => {
         abrirModalEdicion(resultado.data.informe.lineasExcedidas[0]);
     });
@@ -148,80 +132,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnCerrarModal').addEventListener('click', cerrarModalEdicion);
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM completamente cargado y analizado'); // Depuración
-    const mostrarEliminarAnterioresBtn = document.getElementById('mostrarEliminarAnterioresBtn');
-    const numeroEliminarContainer = document.getElementById('numeroEliminarContainer');
-    const numeroEliminarInput = document.getElementById('numeroEliminar');
-    const confirmNumeroEliminarBtn = document.getElementById('confirmNumeroEliminar');
-    const numeroConfirmadoSpan = document.getElementById('numeroConfirmado');
-    
-    // Para el botón "Mostrar Eliminar Anteriores"
-    if (mostrarEliminarAnterioresBtn) {
-        mostrarEliminarAnterioresBtn.addEventListener('click', () => {
-            if (numeroEliminarContainer) {
-                numeroEliminarContainer.style.display = 'block';
-            }
-        });
-    }
-    
-    // Para el botón "Confirmar número"
-    if (confirmNumeroEliminarBtn) {
-        confirmNumeroEliminarBtn.addEventListener('click', () => {
-            const numeroValor = numeroEliminarInput.value;
-            console.log(`Número confirmado: ${numeroValor}`);
-            
-            if (numeroValor) {
-                if (numeroConfirmadoSpan) {
-                    numeroConfirmadoSpan.style.display = 'inline';
-                }
-                if (numeroEliminarInput) {
-                    numeroEliminarInput.readOnly = true;
-                }
-                const data = {
-                    case: '',
-                    archivos: []
-                };
-                data.case = 'eliminarAnteriores';
-                data.numeroEliminar = numeroEliminarInput.value;
-                   // Enviar al backend para procesar
-                   window.electronAPI.enviarNumeroEliminar(data);
-           
-            } else {
-                alert('Debe ingresar un número válido');
-            }
-        });
-    }
-});
-
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    window.electronAPI.onResultadoNumeroEliminar((resultado) => {
-
-        if (resultado.success) {
-            console.log('Resultado recibido del main:', resultado.resultado);
-            alert(`El resultado procesado es: ${resultado.resultado.message}`);
-        } else {
-            console.error('Error recibido del main:', resultado.error);
-            alert(`Error al procesar el número: ${resultado.error}`);
-        }
-    });
-});
-
-document.addEventListener('click', async (event) => {
-    if (event.target && event.target.id === 'modificarSegunInforme') {
-        event.preventDefault();
-        const libroIvaForm = document.getElementById('libroIvaForm');
-        const libroIvaData = new FormData(libroIvaForm);
-        const data = Object.fromEntries(libroIvaData.entries());
-        data.archivos = [archivoComprobanteSeleccionado, archivoAlicuotasSeleccionado];
-        data.case = 'modificarSegunInforme';
-        console.log("Datos enviados para modificar según informe:", data);
-        window.electronAPI.modificarSegunInforme(data);
-    }
-});
-
 function abrirModalEdicion(lineaExcedida) {
     const modal = document.getElementById('modalEdicion');
     const modalFondo = document.getElementById('modalFondo');
@@ -232,7 +142,6 @@ function abrirModalEdicion(lineaExcedida) {
         <strong>Número de línea:</strong> ${lineaExcedida.numeroLinea}<br>
         <strong>Longitud:</strong> ${lineaExcedida.longitud}<br>
         <strong>Caracteres esperados:</strong> 267
-}
     `;
     txtLinea.value = lineaExcedida.contenido;
 
@@ -244,4 +153,3 @@ function cerrarModalEdicion() {
     document.getElementById('modalEdicion').style.display = 'none';
     document.getElementById('modalFondo').style.display = 'none';
 }
-
