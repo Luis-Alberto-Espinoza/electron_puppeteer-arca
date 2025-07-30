@@ -1,8 +1,5 @@
-// src/backend/facturas/procesarFactura.js
-
 const { procesarDatos } = require('./estructuradorDeDatos');
 const { getDiasHabiles, getDiasXmes, limpiarMontos, convertirStringAArrayDeFechasString, generarMontosAleatorios, combinarFechasMontosConMap } = require('../utils');
-
 
 function procesarDatosFactura(data) {
     // Inicializamos con las propiedades base que siempre necesitamos
@@ -59,11 +56,11 @@ function procesarDatosFactura(data) {
     }
 
     // Filtrar solo las propiedades que necesitamos de la respuesta
-    const { resultadoFinal, resultadoFacturas, ...restoPropiedades } = respuesta;
+    const { resultadoFinal, fechaComprobante, resultadoFacturas, ...restoPropiedades } = respuesta;
 
     // Añadir los resultados procesados
     facturas.montoResultados = restoPropiedades;
-
+    facturas.fechaComprobante = data.fechaComprobante;
     return facturas;
 }
 

@@ -2,8 +2,6 @@ import { validarFormularioFacturaManual } from './validacionesFacturas.js';
 
 export function realizarAccionFacturacion() {
     console.log("Se ha hecho clic en el botón de Facturas. Mostrando formulario.");
-    // Aquí puedes agregar la lógica para inicializar el formulario de facturas,
-    // precargar datos, etc., si es necesario.
 }
 
 export function procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados) {
@@ -29,6 +27,7 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
             metodoIngreso: 'masivo',
             tipoContribuyente: data.tipoContribuyente,
             Actividad: data.Actividad,
+            fechaComprobante: data.fechaComprobante,
             datos: datosMasivos
         };
         window.electronAPI.sendFormData(datosMasivosParaEnviar);
@@ -44,11 +43,11 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
 
     let validador = false;
     const datosParaEnviar = { ...data };
-    // console.dir(data);
+
     if (datosParaEnviar.tipoMonto !== 'montoManual')
         datosParaEnviar.monto = datosParaEnviar.montoTotalInput;
     if (datosParaEnviar.periodoFacturacion === "habiles"
-        || datosParaEnviar.periodoFacturacion === "total") 
+        || datosParaEnviar.periodoFacturacion === "total")
         delete datosParaEnviar.fechasFacturas;
     if (datosParaEnviar.tipoMonto !== 'montoTotal')
         datosParaEnviar.monto = datosParaEnviar.montoManual;
@@ -56,7 +55,7 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
     delete datosParaEnviar.montoManual;
     delete datosParaEnviar.montoTotalInput;
 
-    datosParaEnviar.servicio = 'factura'; 
+    datosParaEnviar.servicio = 'factura';
 
     window.electronAPI.sendFormData(datosParaEnviar);
 }

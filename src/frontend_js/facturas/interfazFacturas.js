@@ -6,18 +6,18 @@ import { pStorage } from './paraStorage.js';
 let datosMasivos = [];
 let datosValidados = false;
 let flatpickrInstance;
+let flatpickrFechaComprobante; // Para la fecha del comprobante
+let flatpickrDatepicker;       // Para la selección múltiple de fechas
+
 export function inicializarInterfazFacturas() {
     const facturasForm = document.getElementById('facturasForm');
-
-    const facturasBtn = document.getElementById('facturasBtn');
-    const facturasDiv = document.getElementById('facturasDiv');
-
+    const fechaComprobante = document.getElementById('fechaComprobante');
+    const datepicker = document.getElementById('datepicker');
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
     const periodoManual = document.getElementById('periodoManual');
     const fechasFacturas = document.getElementById('fechasFacturas');
     const calendarioDiv = document.getElementById('calendario');
-    const datepicker = document.getElementById('datepicker');
     const montoManualRadio = document.getElementById('montoManual');
     const montoTotalRadio = document.getElementById('montoTotal');
     const textareaContainer = document.getElementById('textareaContainer');
@@ -70,41 +70,59 @@ export function inicializarInterfazFacturas() {
         }
     }
 
-    // ... (Inicialización de Flatpickr)
-
-    if (datepicker) {
-        flatpickrInstance = flatpickr(datepicker, {
-            mode: "multiple",
-            dateFormat: "d/m/Y", // Formato dd/mm/yyyy
-            onChange: function (selectedDates) {
-                fechasFacturas.value = selectedDates.map(date => {
+    // Inicializar flatpickr para fechaComprobante
+    if (fechaComprobante) {
+        flatpickrFechaComprobante = flatpickr(fechaComprobante, {
+            mode: "single",
+            dateFormat: "d/m/Y",
+            onChange: function(selectedDates) {
+                if (selectedDates.length > 0) {
+                    const date = selectedDates[0];
                     const day = String(date.getDate()).padStart(2, '0');
                     const month = String(date.getMonth() + 1).padStart(2, '0');
                     const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                }).join(', ');
+                    fechaComprobante.value = `${day}/${month}/${year}`;
+                }
             }
         });
     } else {
-        console.error('El elemento con ID "datepicker" no existe.');
+        console.error('El elemento con ID "fechaComprobante" no existe.');
     }
 
+    // Inicializar flatpickr para datepicker (selección múltiple)
+    if (datepicker) {
+        flatpickrDatepicker = flatpickr(datepicker, {
+            mode: "multiple",
+            dateFormat: "d/m/Y",
+            onChange: function(selectedDates) {
+                const fechasFacturas = document.getElementById('fechasFacturas');
+                if (fechasFacturas) {
+                    fechasFacturas.value = selectedDates.map(date => {
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        return `${day}/${month}/${year}`;
+                    }).join(', ');
+                }
+            }
+        });
+    }
+
+    // Función para actualizar solo el calendario de selección múltiple
     function actualizarCalendario() {
         const mes = selectMes.value;
         const anio = selectAnio.value;
 
-        if (mes && anio && flatpickrInstance) {
+        if (mes && anio && flatpickrDatepicker) {
             const nuevaFecha = new Date(anio, mes - 1, 1);
-            flatpickrInstance.setDate(nuevaFecha, false);
-            flatpickrInstance.jumpToDate(nuevaFecha);
+            flatpickrDatepicker.setDate([], false);  // Limpiar fechas seleccionadas
+            flatpickrDatepicker.jumpToDate(nuevaFecha);
         }
     }
 
-    if (selectMes && selectAnio) {
-        selectMes.addEventListener('change', actualizarCalendario);
-        selectAnio.addEventListener('change', actualizarCalendario);
-        if (flatpickrInstance) actualizarCalendario();
-    }
+    // Event listeners para los selectores de mes y año
+    if (selectMes) selectMes.addEventListener('change', actualizarCalendario);
+    if (selectAnio) selectAnio.addEventListener('change', actualizarCalendario);
 
     if (periodoManual) {
         periodoManual.addEventListener('change', () => {

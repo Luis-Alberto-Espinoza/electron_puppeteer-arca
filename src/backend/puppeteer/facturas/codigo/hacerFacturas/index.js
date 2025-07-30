@@ -14,26 +14,27 @@ const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea'
 const { elegirPuntoDeVenta } = require('../../../elegirPuntoDeVenta');
 const ejecutar = async (page, datos, modoTest) => {
     try {
+        console.log("\n\n === los datos recibidos\n", datos);
         const cantidad = datos.montoResultados.facturasGeneradas.length;
-        
+
         // Función auxiliar para esperar
         const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-        
+
         // Función auxiliar para esperar y verificar
         const ejecutarPasoConVerificacion = async (nombrePaso, funcion, ...args) => {
             try {
                 console.log(`\n=== Iniciando paso: ${modoTest} ===\n`);
                 console.log(`Iniciando ${nombrePaso}...`);
                 console.time(nombrePaso);
-                
+
                 // Reducir el tiempo de espera antes de ejecutar el paso
                 await esperar(500);
-                
+
                 const resultado = await funcion(...args);
-                
+
                 // Reducir el tiempo de espera después de la ejecución
                 await esperar(1000);
-                
+
                 // Verificar que no hay errores en la página
                 const hayError = await args[0].evaluate(() => {
                     const mensajesError = document.querySelectorAll('.error, .alert-danger');
@@ -44,7 +45,7 @@ const ejecutar = async (page, datos, modoTest) => {
                     // Si hay error, intentar recuperarse
                     console.log(`Detectado error en ${nombrePaso}, intentando recuperar...`);
                     await esperar(2000);
-                    
+
                     // Verificar si el error persiste
                     const errorPersiste = await args[0].evaluate(() => {
                         const mensajesError = document.querySelectorAll('.error, .alert-danger');
@@ -104,17 +105,15 @@ const ejecutar = async (page, datos, modoTest) => {
             );
 
             if (datos.tipoActividad === 'Producto') {
-                //console.log("modoTest", modoTest)
                 await ejecutarPasoConVerificacion(
                     'Datos de Emisión - Productos',
                     paso_1_DatosDeEmision_Productos,
                     pagePuntoDeVenta,
                     datos,
-                    factura, 
+                    factura,
                     modoTest
                 );
             } else if (datos.tipoActividad === 'Servicio') {
-                console.log("modoTest:1212 ", modoTest)
 
                 await ejecutarPasoConVerificacion(
                     'Datos de Emisión - Servicio',

@@ -1,5 +1,7 @@
-// path del archivo original: src/backend/puppeteer/facturas/codigo/hacerFacturas/paso_1_DatosDeEmision_Servicio.js
 const fecha = require('./utils.js');
+const path = require('path');
+const { fork } = require('child_process');
+
 async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest = false) {
     try {
         await newPage.evaluate((datos, factura, modoTest) => {
@@ -10,23 +12,17 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
                     let inputFechas = document.querySelector("#fc");
                     let itemElegido = 3;
 
-                    // let fechaEmision = datos.arrayDatos && datos.arrayDatos.length > 0 ? datos.arrayDatos[datos.arrayDatos.length - 1][0] : '';
-                    let longitudArray = datos.montoResultados.facturasGeneradas.length; // Asigna la fecha de emisión
-                    let ultimaFecha = datos.montoResultados.facturasGeneradas[longitudArray - 1][0];
-                    // inputFechas.value = ultimaFecha;
-                    inputFechas.value = '29/07/2025';
-                    console.log("$$$$$$$$$##### ====>>>>>>",datos.montoResultados.facturasGeneradas)
-                    console.log("\n\n$$$$$$$$$##### ====>>>>>>",factura)
+                    inputFechas.value = datos.fechaComprobante;
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
                     conceptoAincluir.value = itemElegido;
-                    
+
                     setTimeout(() => {
                         conceptoAincluir.onchange();
-                        
+
                         setTimeout(() => {
                         }, 50); // 50ms de espera
-                        
+
                     }, 100); // 100ms de espera
                     const desde = document.querySelector("#fsd");
                     const hasta = document.querySelector("#fsh");
@@ -34,23 +30,10 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
 
                     desde.value = factura[0];
                     hasta.value = factura[0];
-                    vto.value = '29/07/2025';
-                    // vto.value = ultimaFecha;
+                    vto.value = datos.fechaComprobante;
 
                     referencia.value = "";
                     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
-
-                    setTimeout(function () {
-
-                        console.log("Esto esta en el punto uno que tiene modoTest ", modoTest);
-                        // Toma una captura de pantalla antes de hacer clic en el botón
-                        // const screenshotPath = `screenshots/${ultimaFecha}_paso1_servicio.png`;
-
-                        // newPage.screenshot({ path: screenshotPath });
-                        // console.log(`Captura de pantalla guardada en: ${screenshotPath}`);
-                        // Haz clic en el botón
-                         btnContinuar.click();
-                      }, 300);
 
                 } else {
                     console.log("Condiciones no cumplidas: window.location.href:", window.location.href, "datos.tipoActividad:", datos.tipoActividad);
@@ -60,7 +43,24 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
             }
         }, datos, factura, modoTest);
 
-        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
+        if (modoTest) {
+            const baseruta = path.join(__dirname, 'screenshots');
+            const screenshotPath = path.join(baseruta, 'paso1_servicio.png');
+            await newPage.screenshot({ path: screenshotPath });
+
+            // Abrir la imagen en un proceso separado
+            const visorProcess = fork(path.join(__dirname, 'visorImagen.js'));
+            visorProcess.send({ screenshotPath });
+        }
+
+        // Esperar la navegación después de hacer clic en el botón
+        await Promise.all([
+            newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }), // Espera la navegación
+            newPage.evaluate(() => {
+                let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
+                btnContinuar.click(); // Haz clic en el botón
+            })
+        ]);
 
         console.log("Script _1_Servicio_ ejecutado correctamente.");
         return { success: true, message: "Datos de emisión (servicio) completados" };

@@ -1,12 +1,9 @@
 const fecha = require('./utils.js');
-// path del archivo original: src/backend/puppeteer/facturas/codigo/hacerFacturas/paso_2_DatosDeEmision_Productos.js
-// const { formatDate, DD_MM_YYYY, YYYY_MM_DD_HH_MM_SS } = require ('../../../../../utils/dateTime'); // Cambiar la ruta por la correcta, por ejemplo: require('../../utils/dateTime');
-// /src/utils/dateTime.js');
-
-// Obtener la fecha actual
+const path = require('path');
+const fs = require('fs');
+const { fork } = require('child_process');
 
 async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, modoTest) {
-    console.log("modoTest", modoTest)
 
     try {
         await newPage.evaluate((datos, modoTest) => {
@@ -14,10 +11,8 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, modoTest
                 if (window.location.href.includes('genComDatosEmisor') && datos.tipoActividad === 'Producto') {
 
                     let inputFechas = document.querySelector("#fc");
-                  
-                    let longitudArray = datos.montoResultados.facturasGeneradas.length; // Asigna la fecha de emisión
-                    let ultimaFecha = datos.montoResultados.facturasGeneradas[longitudArray - 1][0];
-                    inputFechas.value = ultimaFecha;
+
+                    inputFechas.value = datos.fechaComprobante;
                     // inputFechas.value = ultimaFecha;
 
                     let conceptoAincluir = document.querySelector("#idconcepto");
@@ -32,14 +27,37 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, modoTest
         }, datos, modoTest);
 
         if (modoTest) {
-            console.log("Ejecutando en modo modoTest, que tiene modoTest.", modoTest);
-            await newPage.screenshot({ path: `fecha_de_Emision_26.png` });
-        }
+            
+            // Crear el directorio screenshots si no existe
+            const baseruta = path.join(__dirname, 'screenshots');
+            if (!fs.existsSync(baseruta)) {
+                fs.mkdirSync(baseruta, { recursive: true });
+            }
 
-        // Toma una captura de pantalla antes de hacer clic en el botón
-        // const screenshotPath = `screenshots/${ultimaFecha}_paso1_producto.png`;
-        // await newPage.screenshot({ path: screenshotPath });
-        // console.log(`Captura de pantalla guardada en: ${screenshotPath}`);
+            // Eliminar la primera captura que está suelta
+            // await newPage.screenshot({ path: `paso1_producto.png` });
+
+            // Guardar la captura en el directorio screenshots
+            const screenshotPath = path.join(baseruta, 'paso1_producto.png');
+            await newPage.screenshot({ path: screenshotPath });
+
+            // Verificar que el archivo existe antes de intentar abrirlo
+            if (fs.existsSync(screenshotPath)) {
+                const visorProcess = fork(path.join(__dirname, 'visorImagen.js'));
+                
+                visorProcess.on('error', (err) => {
+                    console.error('Error en el proceso visor:', err);
+                });
+                
+                visorProcess.on('exit', (code) => {
+                    console.log('Proceso visor terminó con código:', code);
+                });
+
+                visorProcess.send({ screenshotPath });
+            } else {
+                console.error('Error: No se pudo crear el archivo de captura');
+            }
+        }
 
         // Esperar la navegación después de hacer clic en el botón
         await Promise.all([
