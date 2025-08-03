@@ -1,32 +1,28 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-        content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;">
+        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; 
+                 img-src 'self' data: https:; 
+                 style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;">
     <title>ARCA - AFIP</title>
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-    <style>
-        #fechasFacturas {
-            margin-top: 10px;
-            width: 100%;
-            height: 100px;
-            display: none;
-        }
-    </style>
 </head>
 
 <body>
     <div class="general">
-
-        <button id="facturasBtn">Realizar Facturas</button>
-        <div id="facturasDiv" style="display: none;">
-            <form id="facturasForm">
-                <input type="hidden" name="servicio" value="factura">
-                <div id="tipoContribuyenteDiv">
+        <h1>Sistema AFIP - ARCA</h1>
+        
+             <div class="seccion">
+            <button id="facturasBtn" class="btn-principal">Realizar Facturas</button>
+            <div id="facturasDiv" class="contenido-oculto">
+                <h2>Gestión de Facturas</h2>
+                <form id="facturasForm">
+                    <input type="hidden" name="servicio" value="factura">
+                    <div id="tipoContribuyenteDiv">
                     <h2>Tipo de Contribuyente</h2>
                     <div>
                         <input type="radio" name="tipoContribuyente" value="B" id="tipoContribuyenteB">
@@ -157,77 +153,96 @@
                 <button id="loginButton">Abrir AFIP con Puppeteer</button>
             </div>
         </div>
-        <button id="recibosBtn">Realizar Recibos</button>
-        <div id="recibosDiv" style="display: none;">
-            <form action="">
-                <!-- Contenido del formulario de recibos -->
-            </form>
         </div>
 
-        <button id="btnLibroIVA">Libro IVA</button>
-        <div id="libroIvaDiv" style="display: block;">
-            <form id="libroIvaForm">
-                <div id="informeDiv">
-                    <input type="radio" name="case" value="informe" id="informe" required>
-                    <label for="informe">Analizar el libro IVA</label>
-                </div>
-
-                <div id="eliminarAnterioresDiv">
-                    <input type="radio" name="case" value="eliminarAnteriores" id="eliminarAnteriores">
-                    <label for="eliminarAnteriores">Eliminar anteriores</label>
-                </div>
-
-                <div>
-                    <input type="radio" name="case" value="todoAnterior" id="todoAnterior" required>
-                    <label for="todoAnterior">Todo lo anterior</label>
-                </div>
-
-                <button type="button" id="seleccionarArchivoComprobanteBtn">Seleccionar Archivo de Comprobante</button>
-                <div id="archivoComprobanteSeleccionado">
-                    <p>Archivo de Comprobante seleccionado:</p>
-                    <p id="nombreArchivoComprobante"></p>
-                    <p id="rutaArchivoComprobante"></p>
-                </div>
-                <button type="button" id="seleccionarArchivoAlicuotasBtn">Seleccionar Archivo de Alícuotas</button>
-                <div id="archivoAlicuotasSeleccionado">
-                    <p>Archivo de Alícuotas seleccionado:</p>
-                    <p id="nombreArchivoAlicuotas"></p>
-                    <p id="rutaArchivoAlicuotas"></p>
-                </div>
-                <button type="submit" id="procesarLibroIvaBtn">Procesar Libro IVA</button>
-                <div id="lineasExcedidas" style="display: block;"></div>
-                <!-- Add this button to open the modal -->
-                <button id="btnEditarLineasExcedidas" style="display: none;">Editar Línea Excedida</button>
-            </form>
+        <!-- SECCIÓN RECIBOS -->
+        <div class="seccion">
+            <button id="recibosBtn" class="btn-principal">Realizar Recibos</button>
+            <div id="recibosDiv" class="contenido-oculto">
+                <h2>Gestión de Recibos</h2>
+                <form>
+                    <!-- Contenido del formulario de recibos -->
+                    <p>Formulario de recibos aquí...</p>
+                </form>
+            </div>
         </div>
 
-        <div id="resultado"></div> <!-- Añadir este div para mostrar los resultados -->
+        <!-- SECCIÓN LIBRO IVA -->
+        <div class="seccion">
+            <button id="btnLibroIVA" class="btn-principal">Libro IVA</button>
+            <div id="libroIvaDiv" class="contenido-oculto">
+                <h2>Gestión de Libro IVA</h2>
+                <form id="libroIvaForm">
+                    <div id="informeDiv">
+                        <input type="radio" name="case" value="informe" id="informe" required>
+                        <label for="informe">Analizar el libro IVA</label>
+                    </div>
 
-        <div id="modificarSegunInformeDiv" style="display: none;">
-            <button type="button" name="modificarSegunInforme" value="modificarSegunInforme"
-                id="modificarSegunInforme">Modificar según el informe el libro</button>
+                    <div id="eliminarAnterioresDiv">
+                        <input type="radio" name="case" value="eliminarAnteriores" id="eliminarAnteriores">
+                        <label for="eliminarAnteriores">Eliminar anteriores</label>
+                    </div>
+
+                    <div>
+                        <input type="radio" name="case" value="todoAnterior" id="todoAnterior" required>
+                        <label for="todoAnterior">Todo lo anterior</label>
+                    </div>
+
+                    <button type="button" id="seleccionarArchivoComprobanteBtn">Seleccionar Archivo de Comprobante</button>
+                    <div id="archivoComprobanteSeleccionado">
+                        <p>Archivo de Comprobante seleccionado:</p>
+                        <p id="nombreArchivoComprobante"></p>
+                        <p id="rutaArchivoComprobante"></p>
+                    </div>
+                    
+                    <button type="button" id="seleccionarArchivoAlicuotasBtn">Seleccionar Archivo de Alícuotas</button>
+                    <div id="archivoAlicuotasSeleccionado">
+                        <p>Archivo de Alícuotas seleccionado:</p>
+                        <p id="nombreArchivoAlicuotas"></p>
+                        <p id="rutaArchivoAlicuotas"></p>
+                    </div>
+                    
+                    <button type="submit" id="procesarLibroIvaBtn">Procesar Libro IVA</button>
+                    
+                    <div id="lineasExcedidas"></div>
+                    <button id="btnEditarLineasExcedidas" style="display: none;">Editar Línea Excedida</button>
+                </form>
+                
+                <div id="resultado"></div>
+                
+                <div id="modificarSegunInformeDiv" style="display: none;">
+                    <button type="button" id="modificarSegunInforme">Modificar según el informe el libro</button>
+                </div>
+            </div>
         </div>
 
-        <!-- Modal de edición -->
+        <!-- SECCIÓN MERCADO PAGO -->
+        <div class="seccion">
+            <button id="btnLectorMP" class="btn-principal">Lector MercadoPago</button>
+            <div id="leerMercadoPagoDiv" class="contenido-oculto">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+        </div>
+
+        <!-- MODAL DE EDICIÓN -->
         <div id="modalEdicion" style="display: none; position: fixed; top: 50%; left: 50%;
-         transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; padding: 1em; z-index: 1000;">
+             transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; 
+             padding: 1em; z-index: 1000; border-radius: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h3>Editar Línea Excedida</h3>
             <p id="modalMensaje"></p>
             <textarea id="txtLineaEdicion" rows="5" cols="60"></textarea>
-            <br>
+            <br><br>
             <button id="btnGuardarEdicion">Guardar</button>
             <button id="btnCerrarModal">Cerrar</button>
         </div>
+        
         <!-- Fondo del modal -->
         <div id="modalFondo" style="display: none; position: fixed; top: 0; left: 0;
-         width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 900;"></div>
+             width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 900;"></div>
     </div>
 
     <script type="module" src="../controlador.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="../../../renderer.js"></script>
     <script src="script.js"></script>
-    <!-- <script src="./frontend_js/login.js"></script> Incluye el nuevo archivo -->
 </body>
-
 </html>

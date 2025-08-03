@@ -2,8 +2,56 @@ body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #1e1e2f; /* Fondo oscuro */
-    color: #f4f4f9; /* Texto claro */
+    background-color: #1e1e2f;
+    /* Fondo oscuro */
+    color: #f4f4f9;
+    /* Texto claro */
+}
+
+/* Estilos para separar cada sección */
+.seccion {
+    border: 1px solid #ddd;
+    margin: 10px 0;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.seccion h2 {
+    margin-top: 0;
+    color: #333;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 5px;
+}
+
+.btn-principal {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin: 5px;
+}
+
+.btn-principal:hover {
+    background-color: #0056b3;
+}
+
+.contenido-oculto {
+    display: none;
+    margin-top: 15px;
+    padding: 15px;
+    background-color: white;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+#fechasFacturas {
+    margin-top: 10px;
+    width: 100%;
+    height: 100px;
 }
 
 h2 {
@@ -13,16 +61,21 @@ h2 {
     margin-bottom: 10px;
 }
 
-#facturasDiv, #recivosBtn, #resultado {
+#facturasDiv,
+#recivosBtn,
+#resultado {
     margin: 20px auto;
     padding: 20px;
     max-width: 600px;
-    background-color: #2a2a3b; /* Fondo de los contenedores */
+    background-color: #2a2a3b;
+    /* Fondo de los contenedores */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     border-radius: 8px;
 }
 
-input[type="text"], select, textarea {
+input[type="text"],
+select,
+textarea {
     width: 100%;
     padding: 10px;
     margin: 10px 0;
@@ -43,13 +96,13 @@ label {
     color: #f4f4f9;
 }
 
-.periodo-selects > div {
+.periodo-selects>div {
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.periodo-selects > div label {
+.periodo-selects>div label {
     margin-right: 10px;
 }
 
@@ -69,7 +122,8 @@ button:hover {
 }
 
 #loginButton {
-    background-color: #007bff; /* Azul */
+    background-color: #007bff;
+    /* Azul */
     color: #fff;
 }
 
@@ -78,7 +132,8 @@ button:hover {
 }
 
 #testButton {
-    background-color: #28a745; /* Verde */
+    background-color: #28a745;
+    /* Verde */
     color: #fff;
 }
 
@@ -96,7 +151,7 @@ textarea {
     color: #f4f4f9;
 }
 
-form > div {
+form>div {
     margin-bottom: 20px;
 }
 
@@ -114,7 +169,8 @@ form > div {
 }
 
 #copiarCodigo {
-    background-color: #ffc107; /* Amarillo */
+    background-color: #ffc107;
+    /* Amarillo */
     color: #333;
 }
 

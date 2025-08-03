@@ -1,0 +1,22 @@
+text{
+    background-color: blue;
+}
+.resultados-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 20px;
+    color: brown;
+}
+
+.tabla-datos {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    color: blueviolet;
+}
+.tabla-datos th, .tabla-datos td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    color: crimson;
+}

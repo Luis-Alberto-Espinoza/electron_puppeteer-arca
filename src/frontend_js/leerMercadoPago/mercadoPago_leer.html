@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lector de Informe MP</title>
+        <link rel="stylesheet" href="../leerMercadoPago/mercadoPago.css">
+
+
+
+</head>
+<body>
+
+    <div class="container">
+        <h1 class="title">leer informe de mp</h1>
+        <div class="file-selection-section">
+            <button id="btn-seleccionar-archivo" class="btn">btn seleccionar archivo</button>
+            <div id="ruta-seleccionada-container" class="ruta-container hidden">
+                <input type="text" id="ruta-seleccionada-input" class="input-ruta" readonly>
+            </div>
+            <button id="btn-procesar-archivo" class="btn hidden">btn procesar archivo</button>
+        </div>
+        
+        <div id="resultados-container" class="resultados-container hidden">
+            <h2 class="subtitle">resultados y estadisticas</h2>
+            <div class="result-box"></div>
+        </div>
+        
+        <div id="tablas-container" class="tablas-container hidden">
+            <div class="table-box">
+                <h3 class="table-title">tabla de fechas</h3>
+            </div>
+            <div class="table-box">
+                <h3 class="table-title">tabla de montos</h3>
+            </div>
+        </div>
+    </div>  
+        <div class="container">
+            <div id="hacerFactura" class="hacerFactura">
+                <!-- Aquí irá el botón de hacer factura -->
+            </div>
+            <div id="botones-container" class="ejecutaNavegador">
+                <button id="testButtonMP" class="btn-test">Abrir AFIP en Modo Test</button>
+                <button id="loginButtonMP" class="btn-login">Abrir AFIP con Puppeteer</button>
+            </div>
+            <p class="hacerFactura">Desarrollado por Luis Pincheira</p>
+        </div>
+    <!-- <script type="module" src="../../frontend_js/leerMercadoPago/mercadoPago.js"></script> -->
+</body>
+</html>
