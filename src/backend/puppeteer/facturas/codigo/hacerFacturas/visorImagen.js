@@ -3,11 +3,11 @@ const os = require('os');
 const fs = require('fs');
 
 process.on('message', ({ screenshotPath }) => {
-    console.log('Intentando abrir imagen en:', screenshotPath);
+    // console.log('Intentando abrir imagen en:', screenshotPath);
 
     // Verificar si el archivo existe
     if (!fs.existsSync(screenshotPath)) {
-        console.error('Error: El archivo no existe en la ruta especificada');
+        // console.error('Error: El archivo no existe en la ruta especificada');
         process.exit(1);
     }
 
@@ -29,7 +29,7 @@ process.on('message', ({ screenshotPath }) => {
             process.exit(1);
     }
 
-    console.log('Ejecutando comando:', command);
+    // console.log('Ejecutando comando:', command);
 
     exec(command, (error, stdout, stderr) => {
         if (error) {
@@ -37,11 +37,11 @@ process.on('message', ({ screenshotPath }) => {
             console.error('stderr:', stderr);
             process.exit(1);
         }
-        console.log('Imagen abierta correctamente');
+        // console.log('Imagen abierta correctamente');
         console.log('stdout:', stdout);
         process.exit(0);
     });
 });
 
 // Log cuando el proceso inicia
-console.log('Proceso visor iniciado');
+// console.log('Proceso visor iniciado');

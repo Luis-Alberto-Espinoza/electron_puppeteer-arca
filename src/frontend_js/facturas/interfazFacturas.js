@@ -1,6 +1,7 @@
 import { procesarDatosTextareas } from './procesarDatosMasivos.js';
 import { realizarAccionFacturacion, procesarFormularioFactura } from './facturas.js';
 import { pStorage } from './paraStorage.js';
+import { inicializarFacturas } from './index_01.js';
 
 
 let datosMasivos = [];
@@ -38,7 +39,7 @@ export function inicializarInterfazFacturas() {
         console.error("No se encontraron los elementos facturasBtn o facturasDiv");
         return; // Sale de la función si no existen los elementos
     }
-
+    inicializarFacturas();
     facturasDiv.style.display = 'none'; // Inicialmente oculto
 
     facturasBtn.addEventListener('click', () => {

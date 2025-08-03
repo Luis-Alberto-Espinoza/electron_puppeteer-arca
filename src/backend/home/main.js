@@ -173,3 +173,73 @@ ipcMain.on('exportar-resultados', async (event, resultados) => {
         event.reply('resultados-exportados', { success: false, error: error.message });
     }
 });
+
+// Agregar después de los handlers existentes en main.js
+
+// HANDLERS ESPECÍFICOS PARA MERCADOPAGO// HANDLERS ESPECÍFICOS PARA MERCADOPAGO
+
+ipcMain.handle('mercadopago:seleccionar-archivo', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: [
+            { name: 'Archivos PDF MercadoPago', extensions: ['pdf'] }, // Solo PDFs
+            { name: 'Todos los archivos', extensions: ['*'] }
+        ],
+        title: 'Seleccionar archivo PDF de MercadoPago'
+    });
+    return result.canceled ? [] : result.filePaths;
+});
+
+ipcMain.handle('mercadopago:procesar-archivo', async (event, ruta) => {
+    // console.log('=== HANDLER MAIN.JS INICIADO ===');
+    // console.log('Parámetros recibidos:', arguments.length);
+    // console.log('event:', typeof event);
+    // console.log('ruta:', ruta);
+    // console.log('typeof ruta:', typeof ruta);
+    // console.log('arguments completos:', [...arguments]);
+    
+    try {
+        // console.log('Ruta recibida en handler:', ruta);
+        // console.log('Tipo de ruta en handler:', typeof ruta);
+        // console.log('Ruta es válida:', ruta && ruta.length > 0);
+        
+        if (!ruta || ruta.trim() === '') {
+            console.error('Ruta inválida detectada en handler');
+            throw new Error('No se recibió una ruta válida para procesar');
+        }
+        // console.log('Directorio actual:', __dirname);
+        
+        const fs = require('fs');
+        const archivoServicio = path.join(__dirname, '..', 'extraerDemercadoPago', 'leer_procesar_resumen_MercadoPago.js');
+        
+        if (!fs.existsSync(ruta)) {
+            throw new Error(`El archivo PDF no existe en la ruta: ${ruta}`);
+        }
+        
+        // Cargar el servicio
+        const PDFProcessorService = require(archivoServicio);
+        
+        const pdfService = new PDFProcessorService();
+        
+        // Procesar el PDF
+        const resultado = await pdfService.procesarPDF(ruta);
+        return resultado;
+        
+    } catch (error) {
+        console.error('=== ERROR EN PROCESAMIENTO MERCADOPAGO ===');
+        console.error('Error completo:', error);
+        console.error('Stack:', error.stack);
+        console.error('=== FIN ERROR ===');
+        
+        return {
+            success: false,
+            error: {
+                message: error.message,
+                stack: error.stack,
+                codigo: 'MERCADOPAGO_PDF_ERROR'
+            },
+            archivo: ruta ? path.basename(ruta) : 'desconocido',
+            procesadoEn: new Date().toISOString()
+        };
+    }
+});

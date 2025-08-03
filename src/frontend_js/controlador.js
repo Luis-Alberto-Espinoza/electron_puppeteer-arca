@@ -1,137 +1,270 @@
 import { inicializarInterfazFacturas } from './facturas/interfazFacturas.js';
+//import { indexFactura } from './facturas/index_01.js';
 
+// ========================================
+// VARIABLES GLOBALES
+// ========================================
+let archivoComprobanteSeleccionado = '';
+let archivoAlicuotasSeleccionado = '';
+let resultadoGlobal = null;
+
+// ========================================
+// INICIALIZACIÓN PRINCIPAL
+// ========================================
 document.addEventListener('DOMContentLoaded', () => {
     inicializarInterfazFacturas();
+    //indexFactura();
+    inicializarArchivosDesarrollo();
+    inicializarEventListeners();
+    inicializarMercadoPago();
 });
 
-document.addEventListener('DOMContentLoaded', () => {
+// ========================================
+// CONFIGURACIÓN DE ARCHIVOS PARA DESARROLLO
+// ========================================
+function inicializarArchivosDesarrollo() {
+    // Selección automática de archivos para desarrollo
+    archivoComprobanteSeleccionado = '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.TXT';
+    archivoAlicuotasSeleccionado = '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt';
+
+    // Para habilitar selección manual, comentar las líneas anteriores y descomentar estas:
+    // archivoComprobanteSeleccionado = '';
+    // archivoAlicuotasSeleccionado = '';
+}
+
+// ========================================
+// INICIALIZACIÓN DE EVENT LISTENERS
+// ========================================
+function inicializarEventListeners() {
+    inicializarEventosSeleccionArchivos();
+    inicializarEventosProcesamientoLibroIVA();
+    inicializarEventosModalEdicion();
+    // inicializarMercadoPago();
+}
+
+
+// ========================================
+// EVENTOS DE SELECCIÓN DE ARCHIVOS
+// ========================================
+function inicializarEventosSeleccionArchivos() {
     const seleccionarArchivoComprobanteBtn = document.getElementById('seleccionarArchivoComprobanteBtn');
     const seleccionarArchivoAlicuotasBtn = document.getElementById('seleccionarArchivoAlicuotasBtn');
+
+    if (seleccionarArchivoComprobanteBtn) {
+        seleccionarArchivoComprobanteBtn.addEventListener('click', manejarSeleccionArchivoComprobante);
+    }
+
+    if (seleccionarArchivoAlicuotasBtn) {
+        seleccionarArchivoAlicuotasBtn.addEventListener('click', manejarSeleccionArchivoAlicuotas);
+    }
+}
+
+async function manejarSeleccionArchivoComprobante() {
+    const archivos = await window.electronAPI.seleccionarArchivos();
+    if (archivos.length > 0) {
+        archivoComprobanteSeleccionado = archivos[0];
+        actualizarInfoArchivoComprobante(archivoComprobanteSeleccionado);
+    }
+}
+
+async function manejarSeleccionArchivoAlicuotas() {
+    const archivos = await window.electronAPI.seleccionarArchivos();
+    if (archivos.length > 0) {
+        archivoAlicuotasSeleccionado = archivos[0];
+        actualizarInfoArchivoAlicuotas(archivoAlicuotasSeleccionado);
+    }
+}
+
+function actualizarInfoArchivoComprobante(rutaArchivo) {
+    const nombreElemento = document.getElementById('nombreArchivoComprobante');
+    const rutaElemento = document.getElementById('rutaArchivoComprobante');
+
+    if (nombreElemento && rutaElemento) {
+        nombreElemento.innerText = `Nombre: ${rutaArchivo.split('/').pop()}`;
+        rutaElemento.innerText = `Ruta: ${rutaArchivo}`;
+    }
+}
+
+function actualizarInfoArchivoAlicuotas(rutaArchivo) {
+    const nombreElemento = document.getElementById('nombreArchivoAlicuotas');
+    const rutaElemento = document.getElementById('rutaArchivoAlicuotas');
+
+    if (nombreElemento && rutaElemento) {
+        nombreElemento.innerText = `Nombre: ${rutaArchivo.split('/').pop()}`;
+        rutaElemento.innerText = `Ruta: ${rutaArchivo}`;
+    }
+}
+
+// ========================================
+// EVENTOS DE PROCESAMIENTO LIBRO IVA
+// ========================================
+function inicializarEventosProcesamientoLibroIVA() {
     const procesarLibroIvaBtn = document.getElementById('procesarLibroIvaBtn');
     const modificarSegunInforme = document.getElementById('modificarSegunInforme');
-    const loginButton = document.getElementById('loginButton');
-    const testButton = document.getElementById('testButton'); // Nuevo botón
-    const btnEditarLineasExcedidas = document.getElementById('btnEditarLineasExcedidas');
 
-    // Selección automática de archivos para desarrollo
-    let archivoComprobanteSeleccionado = '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.TXT';
-    let archivoAlicuotasSeleccionado = '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt';
+    if (procesarLibroIvaBtn) {
+        procesarLibroIvaBtn.addEventListener('click', manejarProcesamientoLibroIVA);
+    }
 
-    // Código para seleccionar archivos manualmente
-    // let archivoComprobanteSeleccionado = '';
-    // let archivoAlicuotasSeleccionado = '';
+    if (modificarSegunInforme) {
+        modificarSegunInforme.addEventListener('click', manejarModificacionSegunInforme);
+    }
+}
 
-    loginButton.addEventListener('click', async () => {
-        const credenciales = {
-            usuario: await window.electronAPI.getEnv('AFIP_USUARIO'),
-            contrasena: await window.electronAPI.getEnv('AFIP_CONTRASENA')
-        };
-        const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
-        console.log("Enviando datos de login:", { url, credenciales });
-        window.electronAPI.iniciarSesion(url, { ...credenciales, test: false });
-    });
+async function manejarProcesamientoLibroIVA(event) {
+    event.preventDefault();
 
-    // Lógica para el nuevo botón
-    testButton.addEventListener('click', async () => {
-        const credenciales = {
-            usuario: await window.electronAPI.getEnv('AFIP_USUARIO'),
-            contrasena: await window.electronAPI.getEnv('AFIP_CONTRASENA')
-        };
-        const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
-        console.log("Enviando datos de login en modo test:", { url, credenciales, test: true });
-        window.electronAPI.iniciarSesion(url, credenciales, true); // Pasa `true` explícitamente como valor de `test`
-    });
+    if (!validarArchivosSeleccionados()) {
+        return;
+    }
 
-    seleccionarArchivoComprobanteBtn.addEventListener('click', async () => {
-        const archivos = await window.electronAPI.seleccionarArchivos();
-        if (archivos.length > 0) {
-            archivoComprobanteSeleccionado = archivos[0];
-            document.getElementById('nombreArchivoComprobante').innerText = `Nombre: ${archivoComprobanteSeleccionado.split('/').pop()}`;
-            document.getElementById('rutaArchivoComprobante').innerText = `Ruta: ${archivoComprobanteSeleccionado}`;
-        }
-    });
+    const data = obtenerDatosFormularioLibroIVA();
+    console.log("Datos enviados desde el frontend:", data);
+    window.electronAPI.procesarLibroIva(data);
+}
 
-    seleccionarArchivoAlicuotasBtn.addEventListener('click', async () => {
-        const archivos = await window.electronAPI.seleccionarArchivos();
-        if (archivos.length > 0) {
-            archivoAlicuotasSeleccionado = archivos[0];
-            document.getElementById('nombreArchivoAlicuotas').innerText = `Nombre: ${archivoAlicuotasSeleccionado.split('/').pop()}`;
-            document.getElementById('rutaArchivoAlicuotas').innerText = `Ruta: ${archivoAlicuotasSeleccionado}`;
-        }
-    });
+async function manejarModificacionSegunInforme(event) {
+    event.preventDefault();
 
-    procesarLibroIvaBtn.addEventListener('click', async (event) => {
-        event.preventDefault();
-        if (!archivoComprobanteSeleccionado || !archivoAlicuotasSeleccionado) {
-            alert("Debe seleccionar ambos archivos.");
-            return;
-        }
-        const libroIvaForm = document.getElementById('libroIvaForm');
-        const libroIvaData = new FormData(libroIvaForm);
-        const data = Object.fromEntries(libroIvaData.entries());
-        data.archivos = [archivoComprobanteSeleccionado, archivoAlicuotasSeleccionado];
-        console.log("Datos enviados desde el frontend:", data);
-        window.electronAPI.procesarLibroIva(data);
-    });
+    const data = obtenerDatosFormularioLibroIVA();
+    data.case = 'modificarSegunInforme';
+    console.log("Datos enviados para modificar según informe:", data);
+    window.electronAPI.modificarSegunInforme(data);
+}
 
+function validarArchivosSeleccionados() {
+    if (!archivoComprobanteSeleccionado || !archivoAlicuotasSeleccionado) {
+        alert("Debe seleccionar ambos archivos.");
+        return false;
+    }
+    return true;
+}
+
+function obtenerDatosFormularioLibroIVA() {
+    const libroIvaForm = document.getElementById('libroIvaForm');
+    const libroIvaData = new FormData(libroIvaForm);
+    const data = Object.fromEntries(libroIvaData.entries());
+    data.archivos = [archivoComprobanteSeleccionado, archivoAlicuotasSeleccionado];
+    return data;
+}
+
+// ========================================
+// LISTENER DE RESULTADOS
+// ========================================
+function inicializarListenerResultados() {
     window.electronAPI.onLibroIvaProcesado((event, resultado) => {
-        console.log("Resultado recibido en el frontend:", resultado);
-        const resultadoDiv = document.getElementById('resultado');
-        resultadoDiv.innerHTML = `
-            <h3>Resultado del Análisis</h3>
-            <p>${resultado.message}</p>
-            <pre>${resultado.data.message}</pre>
-            <pre>${resultado.data.informe.mensaje}</pre>
-            <p>Informe:</p>
-            <pre>CANTIDAD DE DIFERENCIAS: ${(resultado.data.informe.diferencias).length}</pre>
-            <br>
-            <pre>Se muestra como Ejemplo la segunda diferencia</pre>
-            <pre>Comprobante numero: ${parseInt(resultado.data.informe.diferencias[1].numero)}</pre>
-            <pre>Importe en Alicuota: ${resultado.data.informe.diferencias[1].importeAlicuota}</pre>
-            <pre>Importe en Comprobante: ${resultado.data.informe.diferencias[1].importeComprobante}</pre>
-            <pre>Diferencia: ${resultado.data.informe.diferencias[1].diferencia}</pre>
+        resultadoGlobal = resultado;
+        mostrarResultadoAnalisis(resultado);
+        mostrarLineasExcedidas(resultado);
+        mostrarBotonModificarInforme();
+    });
+}
+
+function mostrarResultadoAnalisis(resultado) {
+    console.log("Resultado recibido en el frontend:", resultado);
+    const resultadoDiv = document.getElementById('resultado');
+
+    if (resultadoDiv) {
+        resultadoDiv.innerHTML = generarHTMLResultado(resultado);
+    }
+}
+
+function generarHTMLResultado(resultado) {
+    const diferencias = resultado.data.informe.diferencias;
+    const segundaDiferencia = diferencias.length > 1 ? diferencias[1] : null;
+
+    return `
+        <h3>Resultado del Análisis</h3>
+        <p>${resultado.message}</p>
+        <pre>${resultado.data.message}</pre>
+        <pre>${resultado.data.informe.mensaje}</pre>
+        <p>Informe:</p>
+        <pre>CANTIDAD DE DIFERENCIAS: ${diferencias.length}</pre>
+        <br>
+        ${segundaDiferencia ? `
+        <pre>Se muestra como Ejemplo la segunda diferencia</pre>
+        <pre>Comprobante numero: ${parseInt(segundaDiferencia.numero)}</pre>
+        <pre>Importe en Alicuota: ${segundaDiferencia.importeAlicuota}</pre>
+        <pre>Importe en Comprobante: ${segundaDiferencia.importeComprobante}</pre>
+        <pre>Diferencia: ${segundaDiferencia.diferencia}</pre>
+        ` : ''}
+    `;
+}
+
+function mostrarLineasExcedidas(resultado) {
+    const lineasExcedidas = resultado.data.informe.lineasExcedidas;
+    console.log("mira aca ", lineasExcedidas[0]);
+
+    if (lineasExcedidas.length > 0) {
+        mostrarInformacionLineasExcedidas(lineasExcedidas[0]);
+        mostrarBotonEditarLineas();
+    }
+}
+
+function mostrarInformacionLineasExcedidas(primeraLineaExcedida) {
+    const lineasExcedidasDiv = document.getElementById('lineasExcedidas');
+
+    if (lineasExcedidasDiv) {
+        lineasExcedidasDiv.innerHTML = `
+            <h3>Lineas Excedidas</h3>
+            <pre>El número de linea en el archivo es: ${primeraLineaExcedida.numeroLinea}</pre>
+            <pre>La cantidad de caracteres normal es de 267 y esta linea tiene un total de: ${primeraLineaExcedida.longitud}</pre>
+            <pre>este es el contenido de la linea completa</pre>
+            <pre>${primeraLineaExcedida.contenido}</pre>
         `;
-        console.log("mira aca ", resultado.data.informe.lineasExcedidas[0])
-        //si hay lineas excedidas debe aparecer un btn que permita modificar en una ventana aparte esas lineas de a una a la vez 
+    }
+}
 
-        if (resultado.data.informe.lineasExcedidas.length > 0) {
-            const lineasExcedidasDiv = document.getElementById('lineasExcedidas');
-            lineasExcedidasDiv.innerHTML = `
-                <h3>Lineas Excedidas</h3>
-                <pre>El número de linea en el archivo es: ${resultado.data.informe.lineasExcedidas[0].numeroLinea}</pre>
-                <pre>La cantidad de caracteres normal es de 267 y esta linea tiene un total de: ${resultado.data.informe.lineasExcedidas[0].longitud}</pre>
-                <pre>este es el contenido de la linea completa</pre>
-                <pre>${resultado.data.informe.lineasExcedidas[0].contenido}</pre>
-            `;
-            btnEditarLineasExcedidas.style.display = 'block';
-        }
-        document.getElementById('modificarSegunInformeDiv').style.display = 'block';
-    });
+function mostrarBotonEditarLineas() {
+    const btnEditarLineasExcedidas = document.getElementById('btnEditarLineasExcedidas');
+    if (btnEditarLineasExcedidas) {
+        btnEditarLineasExcedidas.style.display = 'block';
+    }
+}
 
-    modificarSegunInforme.addEventListener('click', async (event) => {
-        event.preventDefault();
-        const libroIvaForm = document.getElementById('libroIvaForm');
-        const libroIvaData = new FormData(libroIvaForm);
-        const data = Object.fromEntries(libroIvaData.entries());
-        data.archivos = [archivoComprobanteSeleccionado, archivoAlicuotasSeleccionado];
-        data.case = 'modificarSegunInforme';
-        console.log("Datos enviados para modificar según informe:", data);
-        window.electronAPI.modificarSegunInforme(data);
-    });
+function mostrarBotonModificarInforme() {
+    const modificarSegunInformeDiv = document.getElementById('modificarSegunInformeDiv');
+    if (modificarSegunInformeDiv) {
+        modificarSegunInformeDiv.style.display = 'block';
+    }
+}
 
-    btnEditarLineasExcedidas.addEventListener('click', () => {
-        abrirModalEdicion(resultado.data.informe.lineasExcedidas[0]);
-    });
+// ========================================
+// EVENTOS DEL MODAL DE EDICIÓN
+// ========================================
+function inicializarEventosModalEdicion() {
+    const btnEditarLineasExcedidas = document.getElementById('btnEditarLineasExcedidas');
+    const btnGuardarEdicion = document.getElementById('btnGuardarEdicion');
+    const btnCerrarModal = document.getElementById('btnCerrarModal');
 
-    document.getElementById('btnGuardarEdicion').addEventListener('click', () => {
-        const lineaEditada = document.getElementById('txtLineaEdicion').value;
-        console.log("Línea editada:", lineaEditada);
-        cerrarModalEdicion();
-    });
+    if (btnEditarLineasExcedidas) {
+        btnEditarLineasExcedidas.addEventListener('click', manejarAbrirModalEdicion);
+    }
 
-    document.getElementById('btnCerrarModal').addEventListener('click', cerrarModalEdicion);
-});
+    if (btnGuardarEdicion) {
+        btnGuardarEdicion.addEventListener('click', manejarGuardarEdicion);
+    }
 
+    if (btnCerrarModal) {
+        btnCerrarModal.addEventListener('click', cerrarModalEdicion);
+    }
+}
+
+function manejarAbrirModalEdicion() {
+    if (resultadoGlobal && resultadoGlobal.data.informe.lineasExcedidas.length > 0) {
+        abrirModalEdicion(resultadoGlobal.data.informe.lineasExcedidas[0]);
+    }
+}
+
+function manejarGuardarEdicion() {
+    const lineaEditada = document.getElementById('txtLineaEdicion').value;
+    console.log("Línea editada:", lineaEditada);
+    cerrarModalEdicion();
+}
+
+// ========================================
+// FUNCIONES DEL MODAL DE EDICIÓN
+// ========================================
 function abrirModalEdicion(lineaExcedida) {
     const modal = document.getElementById('modalEdicion');
     const modalFondo = document.getElementById('modalFondo');
@@ -143,13 +276,71 @@ function abrirModalEdicion(lineaExcedida) {
         <strong>Longitud:</strong> ${lineaExcedida.longitud}<br>
         <strong>Caracteres esperados:</strong> 267
     `;
-    txtLinea.value = lineaExcedida.contenido;
-
-    modal.style.display = 'block';
-    modalFondo.style.display = 'block';
 }
 
 function cerrarModalEdicion() {
-    document.getElementById('modalEdicion').style.display = 'none';
-    document.getElementById('modalFondo').style.display = 'none';
+    const modal = document.getElementById('modalEdicion');
+    const modalFondo = document.getElementById('modalFondo');
+
+    if (modal) {
+        modal.style.display = 'none';
+    }
+
+    if (modalFondo) {
+        modalFondo.style.display = 'none';
+    }
+}
+
+
+// INICIALIZAR MERCADO PAGO
+function getBasePath() {
+    // Obtener la ruta del archivo actual
+    const currentScript = document.currentScript || document.querySelector('script[src*="controlador"]');
+    if (currentScript && currentScript.src) {
+        const scriptPath = currentScript.src;
+        return scriptPath.substring(0, scriptPath.lastIndexOf('/') + 1);
+    }
+    // Fallback
+    return window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+}
+function inicializarMercadoPago() {
+    const btnLectorMP = document.getElementById('btnLectorMP');
+    const lectorMPDiv = document.getElementById('leerMercadoPagoDiv');
+
+    if (btnLectorMP && lectorMPDiv) {
+        btnLectorMP.addEventListener('click', async () => {
+            try {
+                // Toggle de visibilidad
+                if (!lectorMPDiv.classList.contains('contenido-oculto')) {
+                    lectorMPDiv.classList.add('contenido-oculto');
+                    return;
+                }
+
+                // Cargar el contenido
+                const basePath = getBasePath();
+                const htmlPath = basePath + './leerMercadoPago/mercadoPago_leer.html';
+                const response = await fetch(htmlPath);
+                const html = await response.text();
+
+                // Actualizar el contenido
+                lectorMPDiv.innerHTML = html;
+                lectorMPDiv.classList.remove('contenido-oculto');
+
+                // CARGAR MANUALMENTE EL SCRIPT
+                const script = document.createElement('script');
+                script.type = 'module';
+                script.src = basePath + './leerMercadoPago/mercadoPago.js';
+
+                // Agregar el script al head o al div
+                document.head.appendChild(script);
+
+                // O si prefieres agregarlo al div:
+                // lectorMPDiv.appendChild(script);
+
+            } catch (error) {
+                console.error('Error:', error);
+                lectorMPDiv.innerHTML = '<p>Error cargando el componente</p>';
+            }
+        });
+    }
 }

@@ -59,3 +59,13 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
 
     window.electronAPI.sendFormData(datosParaEnviar);
 }
+
+
+//crear una funcion mercadoPagoFacturas
+
+export function mercadoPagoFacturas(datosMasivosParaEnviar) {
+    console.log("Función mercadoPagoFacturas llamada.desde facturas.js");
+    console.log("Datos para enviar:", datosMasivosParaEnviar);
+    window.electronAPI.sendFormData(datosMasivosParaEnviar);
+}
+    

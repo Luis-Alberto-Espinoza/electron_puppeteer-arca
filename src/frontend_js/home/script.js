@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const facturasBtn = document.getElementById('facturasBtn');
   const facturasDiv = document.getElementById('facturasDiv');
   const facturasForm = document.getElementById('facturasForm');
+  const fechaComprobante = document.getElementById('fechaComprobante');
 
   facturasBtn.addEventListener('click', function () {
 
@@ -40,11 +41,19 @@ document.addEventListener('DOMContentLoaded', function () {
       document.getElementById('producto').checked = true;
       // document.getElementById('servicio').checked = true;
 
+      // Establece la fecha del comprobante con este formato: 02/08/2025
+      const fecha = new Date();
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0'); // Los meses empiezan desde 0
+      const anio = fecha.getFullYear();
+      fechaComprobante.value = `${dia}/${mes}/${anio}`; // Establece la fecha en el campo
+
+
       // Selecciona el ingreso manual
       document.getElementById('ingresoManual').checked = true;
 
       // Selecciona el mes de julio
-      document.getElementById('selectMes').value = 2;
+      document.getElementById('selectMes').selectedIndex = `${mes}`-2;
 
       // Selecciona el año 2026
       document.getElementById('selectAnio').value = '2025';
@@ -55,11 +64,12 @@ document.addEventListener('DOMContentLoaded', function () {
       // Selecciona monto total
       document.getElementById('montoTotal').checked = true;
 
+      inputContainerTotal = document.getElementById('inputContainerTotal');
+      inputContainerTotal.style.display = 'block'; // Muestra el contenedor del monto total
+      
       // Ingresa el monto total
       document.getElementById('montoTotalInput').value = '235689';
 
-      // Simula el envío del formulario (opcional)
-      procesarBtn.click();
     }, 500); // Espera 3 segundos antes de completar el formulario
   });
 });
