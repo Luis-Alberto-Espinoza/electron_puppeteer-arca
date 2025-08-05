@@ -20,6 +20,5 @@ export function pStorage(data) {
         localStorage.setItem('iterador', 0);
     };
     `;
-console.log(data)
     return codigoLocalStorage;
 }

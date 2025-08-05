@@ -38,6 +38,191 @@ class PDFProcessorService {
         return true;
     }
 
+    // Nuevo método: extraer todos los elementos de manera independiente
+    extraerElementosIndependientes(text) {
+        const elementos = [];
+
+        // 1. Extraer todas las fechas
+        const regexFechas = /(\d{2}-\d{2}-\d{4})/g;
+        let matchFecha;
+        while ((matchFecha = regexFechas.exec(text)) !== null) {
+            elementos.push({
+                tipo: 'fecha',
+                valor: matchFecha[1],
+                posicion: matchFecha.index
+            });
+        }
+
+        // 2. Extraer todas las transferencias recibidas
+        const regexTransferencias = /Transferencia\s+recibida/gi;
+        let matchTransferencia;
+        while ((matchTransferencia = regexTransferencias.exec(text)) !== null) {
+            elementos.push({
+                tipo: 'transferencia_recibida',
+                posicion: matchTransferencia.index
+            });
+        }
+
+        // 3. Extraer todas las liquidaciones
+        const regexLiquidaciones = /Liquidación\s+de\s+dinero/gi;
+        let matchLiquidacion;
+        while ((matchLiquidacion = regexLiquidaciones.exec(text)) !== null) {
+            elementos.push({
+                tipo: 'liquidacion_dinero',
+                posicion: matchLiquidacion.index
+            });
+        }
+
+        // 4. Extraer todos los rendimientos
+        const regexRendimientos = /Rendimiento/gi;
+        let matchRendimiento;
+        while ((matchRendimiento = regexRendimientos.exec(text)) !== null) {
+            elementos.push({
+                tipo: 'rendimiento',
+                posicion: matchRendimiento.index
+            });
+        }
+
+        // 5. Extraer todos los IDs de operación (12 dígitos)
+        const regexIds = /(\d{12})/g;
+        let matchId;
+        while ((matchId = regexIds.exec(text)) !== null) {
+            elementos.push({
+                tipo: 'id_operacion',
+                valor: matchId[1],
+                posicion: matchId.index
+            });
+        }
+
+        // 6. Extraer todos los montos (formato $ X.XXX,XX)
+        const regexMontos = /\$\s*([\d.,]+)/g;
+        let matchMonto;
+        while ((matchMonto = regexMontos.exec(text)) !== null) {
+            const monto = this.limpiarMonto(matchMonto[1]);
+            if (monto > 0) {
+                elementos.push({
+                    tipo: 'monto',
+                    valor: monto,
+                    valorOriginal: matchMonto[0],
+                    posicion: matchMonto.index
+                });
+            }
+        }
+
+        // Ordenar por posición
+        return elementos.sort((a, b) => a.posicion - b.posicion);
+    }
+
+    // Reconstruir operaciones basándose en proximidad
+    reconstruirOperaciones(elementos, text) {
+        const transferencias = [];
+        const liquidaciones = [];
+        const rendimientos = [];
+
+        // Procesar transferencias recibidas
+        const transferenciasPos = elementos.filter(e => e.tipo === 'transferencia_recibida');
+        
+        for (const transf of transferenciasPos) {
+            const fecha = this.buscarElementoCercano(elementos, transf.posicion, 'fecha', -500, 0);
+            const id = this.buscarElementoCercano(elementos, transf.posicion, 'id_operacion', 0, 300);
+            const montosPosteriores = elementos.filter(e => 
+                e.tipo === 'monto' && 
+                e.posicion > transf.posicion && 
+                e.posicion < transf.posicion + 500
+            ).sort((a, b) => a.posicion - b.posicion);
+
+            if (fecha && id && montosPosteriores.length >= 2) {
+                // Extraer nombre desde la transferencia hasta el ID
+                const inicio = transf.posicion + 'Transferencia recibida'.length;
+                const fin = id.posicion;
+                const nombre = text.substring(inicio, fin).trim().replace(/\s+/g, ' ');
+
+                transferencias.push({
+                    fecha: fecha.valor,
+                    nombre: nombre,
+                    idOperacion: id.valor,
+                    monto: montosPosteriores[0].valor,
+                    saldo: montosPosteriores[1].valor,
+                    posicionEnTexto: transf.posicion
+                });
+            }
+        }
+
+        // Procesar liquidaciones de dinero
+        const liquidacionesPos = elementos.filter(e => e.tipo === 'liquidacion_dinero');
+        
+        for (const liq of liquidacionesPos) {
+            const fecha = this.buscarElementoCercano(elementos, liq.posicion, 'fecha', -100, 0);
+            const id = this.buscarElementoCercano(elementos, liq.posicion, 'id_operacion', 0, 200);
+            const montosPosteriores = elementos.filter(e => 
+                e.tipo === 'monto' && 
+                e.posicion > liq.posicion && 
+                e.posicion < liq.posicion + 300
+            ).sort((a, b) => a.posicion - b.posicion);
+
+            if (fecha && id && montosPosteriores.length >= 2) {
+                liquidaciones.push({
+                    fecha: fecha.valor,
+                    descripcion: 'Liquidación de dinero',
+                    idOperacion: id.valor,
+                    monto: montosPosteriores[0].valor,
+                    saldo: montosPosteriores[1].valor,
+                    posicionEnTexto: liq.posicion
+                });
+            }
+        }
+
+        // Procesar rendimientos
+        const rendimientosPos = elementos.filter(e => e.tipo === 'rendimiento');
+        
+        for (const rend of rendimientosPos) {
+            const fecha = this.buscarElementoCercano(elementos, rend.posicion, 'fecha', -100, 0);
+            const montoPos = this.buscarElementoCercano(elementos, rend.posicion, 'monto', 0, 200);
+
+            if (fecha && montoPos) {
+                rendimientos.push({
+                    fecha: fecha.valor,
+                    descripcion: 'Rendimiento',
+                    monto: montoPos.valor,
+                    posicionEnTexto: rend.posicion
+                });
+            } else if (montoPos) {
+                // Si no encuentra fecha, buscar en contexto más amplio
+                const contextoInicio = Math.max(0, rend.posicion - 200);
+                const contextoFin = Math.min(text.length, rend.posicion + 100);
+                const contexto = text.substring(contextoInicio, contextoFin);
+                const fechaEnContexto = contexto.match(/(\d{2}-\d{2}-\d{4})/);
+                
+                rendimientos.push({
+                    fecha: fechaEnContexto ? fechaEnContexto[1] : 'Fecha no encontrada',
+                    descripcion: 'Rendimiento',
+                    monto: montoPos.valor,
+                    posicionEnTexto: rend.posicion
+                });
+            }
+        }
+
+        return { transferencias, liquidaciones, rendimientos };
+    }
+
+    // Buscar elemento más cercano de un tipo específico
+    buscarElementoCercano(elementos, posicionRef, tipo, rangoInicio, rangoFin) {
+        const candidatos = elementos.filter(e => 
+            e.tipo === tipo && 
+            e.posicion >= posicionRef + rangoInicio && 
+            e.posicion <= posicionRef + rangoFin
+        );
+
+        if (candidatos.length === 0) return null;
+
+        // Devolver el más cercano
+        return candidatos.reduce((closest, current) => {
+            const distanciaClosest = Math.abs(closest.posicion - posicionRef);
+            const distanciaCurrent = Math.abs(current.posicion - posicionRef);
+            return distanciaCurrent < distanciaClosest ? current : closest;
+        });
+    }
+
     // Procesar PDF principal
     async procesarPDF(pdfPath) {
         try {
@@ -48,133 +233,141 @@ class PDFProcessorService {
             const data = await pdf(dataBuffer);
             const text = data.text;
 
-            // Extraer transferencias recibidas únicas
-            const uniqueTransferencias = new Map();
-            const primaryPattern = /(\d{2}-\d{2}-\d{4})\s*(?:[\s\S]*?)Transferencia\s+recibida\s+([\s\S]*?)(\d{12})\s*\$\s*([\d.,]+)\s*\$\s*([\d.,]+)/gi;
+            // Nuevo enfoque: extraer elementos independientemente y reconstruir
+            const elementos = this.extraerElementosIndependientes(text);
+            const { transferencias, liquidaciones, rendimientos } = this.reconstruirOperaciones(elementos, text);
 
-            let transferMatch;
-            while ((transferMatch = primaryPattern.exec(text)) !== null) {
-                const idOperacion = transferMatch[3];
-                const fecha = transferMatch[1];
-                const monto = this.limpiarMonto(transferMatch[4]);
-                const nombreCompleto = transferMatch[2].trim().replace(/\s+/g, ' ');
-                const saldo = this.limpiarMonto(transferMatch[5]);
-
-                if (idOperacion && monto > 0) {
-                    uniqueTransferencias.set(idOperacion, {
-                        fecha, 
-                        nombre: nombreCompleto, 
-                        idOperacion, 
-                        monto, 
-                        saldo
-                    });
+            // Eliminar duplicados por ID de operación
+            const transferenciasUnicas = new Map();
+            transferencias.forEach(t => {
+                if (!transferenciasUnicas.has(t.idOperacion)) {
+                    transferenciasUnicas.set(t.idOperacion, t);
                 }
-            }
+            });
 
-            const transferenciasRecibidas = Array.from(uniqueTransferencias.values());
+            const liquidacionesUnicas = new Map();
+            liquidaciones.forEach(l => {
+                if (!liquidacionesUnicas.has(l.idOperacion)) {
+                    liquidacionesUnicas.set(l.idOperacion, l);
+                }
+            });
+
+            const transferenciasRecibidas = Array.from(transferenciasUnicas.values());
+            const liquidacionesDetalle = Array.from(liquidacionesUnicas.values());
+            const rendimientosDetalle = rendimientos; // No filtrar duplicados en rendimientos
 
             // Calcular totales por día - transferencias
-            const totalesDiarios = {};
+            const totalesDiariosTransf = {};
             transferenciasRecibidas.forEach(transferencia => {
                 const fecha = transferencia.fecha;
-                totalesDiarios[fecha] = (totalesDiarios[fecha] || 0) + transferencia.monto;
+                totalesDiariosTransf[fecha] = (totalesDiariosTransf[fecha] || 0) + transferencia.monto;
             });
 
-            // Calcular totales por mes - transferencias
-            const totalesMensuales = {};
-            transferenciasRecibidas.forEach(transferencia => {
-                const [dia, mes, año] = transferencia.fecha.split('-');
-                const mesAño = `${mes}-${año}`;
-                totalesMensuales[mesAño] = (totalesMensuales[mesAño] || 0) + transferencia.monto;
+            // Calcular totales por día - liquidaciones
+            const totalesDiariosLiq = {};
+            liquidacionesDetalle.forEach(liquidacion => {
+                const fecha = liquidacion.fecha;
+                totalesDiariosLiq[fecha] = (totalesDiariosLiq[fecha] || 0) + liquidacion.monto;
             });
 
-            // Extraer liquidaciones de dinero por fecha
-            const liquidacionesPorFecha = {};
-            const regexLiquidacionDineroFecha = /(\d{2}-\d{2}-\d{4})[\s\S]*?Liquidación\s+de\s+dinero[\s\S]*?\$\s*([\d.,]+)/gi;
-            let matchLiqFecha;
-            while ((matchLiqFecha = regexLiquidacionDineroFecha.exec(text)) !== null) {
-                const fecha = matchLiqFecha[1];
-                const monto = this.limpiarMonto(matchLiqFecha[2]);
-                if (monto > 0) {
-                    liquidacionesPorFecha[fecha] = (liquidacionesPorFecha[fecha] || 0) + monto;
+            // Calcular totales por día - rendimientos
+            const totalesDiariosRend = {};
+            rendimientosDetalle.forEach(rendimiento => {
+                const fecha = rendimiento.fecha;
+                if (fecha !== 'Fecha no encontrada') {
+                    totalesDiariosRend[fecha] = (totalesDiariosRend[fecha] || 0) + rendimiento.monto;
                 }
-            }
-
-            // Calcular totales mensuales de liquidaciones
-            const totalesMensualesLiquidacion = {};
-            Object.entries(liquidacionesPorFecha).forEach(([fecha, monto]) => {
-                const [dia, mes, año] = fecha.split('-');
-                const mesAño = `${mes}-${año}`;
-                totalesMensualesLiquidacion[mesAño] = (totalesMensualesLiquidacion[mesAño] || 0) + monto;
             });
 
-            // Obtener todas las fechas únicas y ordenarlas
-            const fechasUnificadas = Array.from(
-                new Set([...Object.keys(totalesDiarios), ...Object.keys(liquidacionesPorFecha)])
-            ).sort((a, b) => {
+            // Calcular totales por mes
+            const calcularTotalesMensuales = (totalesDiarios) => {
+                const totalesMensuales = {};
+                Object.entries(totalesDiarios).forEach(([fecha, monto]) => {
+                    const [dia, mes, año] = fecha.split('-');
+                    const mesAño = `${mes}-${año}`;
+                    totalesMensuales[mesAño] = (totalesMensuales[mesAño] || 0) + monto;
+                });
+                return totalesMensuales;
+            };
+
+            const totalesMensualesTransf = calcularTotalesMensuales(totalesDiariosTransf);
+            const totalesMensualesLiq = calcularTotalesMensuales(totalesDiariosLiq);
+            const totalesMensualesRend = calcularTotalesMensuales(totalesDiariosRend);
+
+            // Obtener todas las fechas únicas
+            const todasLasFechas = new Set([
+                ...Object.keys(totalesDiariosTransf),
+                ...Object.keys(totalesDiariosLiq),
+                ...Object.keys(totalesDiariosRend)
+            ]);
+
+            const fechasUnificadas = Array.from(todasLasFechas).sort((a, b) => {
                 const [diaA, mesA, añoA] = a.split('-').map(Number);
                 const [diaB, mesB, añoB] = b.split('-').map(Number);
                 return new Date(añoA, mesA - 1, diaA) - new Date(añoB, mesB - 1, diaB);
             });
 
-            // Obtener todos los meses únicos y ordenarlos
-            const mesesUnicos = Array.from(
-                new Set([...Object.keys(totalesMensuales), ...Object.keys(totalesMensualesLiquidacion)])
-            ).sort((a, b) => {
+            // Obtener todos los meses únicos
+            const todosLosMeses = new Set([
+                ...Object.keys(totalesMensualesTransf),
+                ...Object.keys(totalesMensualesLiq),
+                ...Object.keys(totalesMensualesRend)
+            ]);
+
+            const mesesUnicos = Array.from(todosLosMeses).sort((a, b) => {
                 const [mesA, añoA] = a.split('-').map(Number);
                 const [mesB, añoB] = b.split('-').map(Number);
                 return new Date(añoA, mesA - 1) - new Date(añoB, mesB - 1);
             });
 
-            // Extraer rendimientos
-            const regexRendimientos = /Rendimiento[\s\S]*?\$\s*([\d.,]+)/gi;
-            let matchRendimiento;
-            let sumaRendimientos = 0;
-            while ((matchRendimiento = regexRendimientos.exec(text)) !== null) {
-                const monto = this.limpiarMonto(matchRendimiento[1]);
-                if (monto > 0) sumaRendimientos += monto;
-            }
-
             // Calcular totales generales
-            const granTotalTransferencias = Object.values(totalesDiarios).reduce((sum, val) => sum + val, 0);
-            const granTotalLiquidacion = Object.values(liquidacionesPorFecha).reduce((sum, val) => sum + val, 0);
-            const granTotalGeneral = granTotalTransferencias + granTotalLiquidacion + sumaRendimientos;
+            const granTotalTransferencias = transferenciasRecibidas.reduce((sum, t) => sum + t.monto, 0);
+            const granTotalLiquidaciones = liquidacionesDetalle.reduce((sum, l) => sum + l.monto, 0);
+            const granTotalRendimientos = rendimientosDetalle.reduce((sum, r) => sum + r.monto, 0);
+            const granTotalGeneral = granTotalTransferencias + granTotalLiquidaciones + granTotalRendimientos;
 
-            // Crear totales diarios unificados con formato
+            // Crear totales diarios unificados
             const totalesDiariosUnificados = fechasUnificadas.map(fecha => {
-                const sumaTransferencias = totalesDiarios[fecha] || 0;
-                const sumaLiquidacion = liquidacionesPorFecha[fecha] || 0;
-                const sumaTotal = sumaTransferencias + sumaLiquidacion;
+                const transferencias = totalesDiariosTransf[fecha] || 0;
+                const liquidaciones = totalesDiariosLiq[fecha] || 0;
+                const rendimientos = totalesDiariosRend[fecha] || 0;
+                const total = transferencias + liquidaciones + rendimientos;
+                
                 return {
                     fecha,
-                    transferencias: sumaTransferencias,
-                    liquidaciones: sumaLiquidacion,
-                    total: sumaTotal,
-                    totalFormateado: this.formatearMonto(sumaTotal)
+                    transferencias,
+                    liquidaciones,
+                    rendimientos,
+                    total,
+                    totalFormateado: this.formatearMonto(total)
                 };
             });
 
-            // Crear totales mensuales unificados con formato
+            // Crear totales mensuales unificados
             const totalesMensualesUnificados = mesesUnicos.map(mesAño => {
-                const sumaTransferencias = totalesMensuales[mesAño] || 0;
-                const sumaLiquidacion = totalesMensualesLiquidacion[mesAño] || 0;
-                const sumaTotal = sumaTransferencias + sumaLiquidacion;
+                const transferencias = totalesMensualesTransf[mesAño] || 0;
+                const liquidaciones = totalesMensualesLiq[mesAño] || 0;
+                const rendimientos = totalesMensualesRend[mesAño] || 0;
+                const total = transferencias + liquidaciones + rendimientos;
+                
                 const [mes, año] = mesAño.split('-');
                 const nombreMes = new Date(año, mes - 1).toLocaleDateString('es-ES', { 
                     month: 'long', 
                     year: 'numeric' 
                 });
+                
                 return {
                     mesAño,
                     nombreMes,
-                    transferencias: sumaTransferencias,
-                    liquidaciones: sumaLiquidacion,
-                    total: sumaTotal,
-                    totalFormateado: this.formatearMonto(sumaTotal)
+                    transferencias,
+                    liquidaciones,
+                    rendimientos,
+                    total,
+                    totalFormateado: this.formatearMonto(total)
                 };
             });
 
-            // Crear string de totales diarios (como en el original)
+            // String de totales diarios
             const totalDiarioSumado = totalesDiariosUnificados
                 .map(item => parseInt(item.total))
                 .join('\n');
@@ -186,6 +379,8 @@ class PDFProcessorService {
                 procesadoEn: new Date().toISOString(),
                 datos: {
                     transferenciasDetalle: transferenciasRecibidas,
+                    liquidacionesDetalle: liquidacionesDetalle,
+                    rendimientosDetalle: rendimientosDetalle,
                     totalesDiarios: totalesDiariosUnificados,
                     totalesMensuales: totalesMensualesUnificados,
                     totalDiarioSumado: totalDiarioSumado,
@@ -196,12 +391,14 @@ class PDFProcessorService {
                             cantidad: transferenciasRecibidas.length
                         },
                         liquidaciones: {
-                            total: granTotalLiquidacion,
-                            totalFormateado: this.formatearMonto(granTotalLiquidacion)
+                            total: granTotalLiquidaciones,
+                            totalFormateado: this.formatearMonto(granTotalLiquidaciones),
+                            cantidad: liquidacionesDetalle.length
                         },
                         rendimientos: {
-                            total: sumaRendimientos,
-                            totalFormateado: this.formatearMonto(sumaRendimientos)
+                            total: granTotalRendimientos,
+                            totalFormateado: this.formatearMonto(granTotalRendimientos),
+                            cantidad: rendimientosDetalle.length
                         },
                         totalGeneral: {
                             total: granTotalGeneral,
@@ -211,8 +408,11 @@ class PDFProcessorService {
                 },
                 estadisticas: {
                     totalTransferencias: transferenciasRecibidas.length,
+                    totalLiquidaciones: liquidacionesDetalle.length,
+                    totalRendimientos: rendimientosDetalle.length,
                     totalDias: fechasUnificadas.length,
                     totalMeses: mesesUnicos.length,
+                    elementosEncontrados: elementos.length,
                     rangoFechas: {
                         desde: fechasUnificadas[0] || null,
                         hasta: fechasUnificadas[fechasUnificadas.length - 1] || null
@@ -276,66 +476,5 @@ class PDFProcessorService {
         return resultado;
     }
 }
+
 module.exports = PDFProcessorService;
-
-// Ejemplo de uso:
-/*
-// Para Express:
-const express = require('express');
-const PDFProcessorService = require('./pdf-processor-service');
-
-const app = express();
-const pdfService = new PDFProcessorService();
-
-app.use(express.json());
-app.post('/api/procesar-pdf', pdfService.procesarPDFEndpoint.bind(pdfService));
-
-// Para IPC de Electron (en main process):
-const { ipcMain } = require('electron');
-const PDFProcessorService = require('./pdf-processor-service');
-
-const pdfService = new PDFProcessorService();
-ipcMain.handle('procesar-pdf', pdfService.procesarPDFIPC.bind(pdfService));
-
-{
-  "success": true/false,
-  "archivo": "nombre-del-archivo.pdf",
-  "procesadoEn": "2025-07-30T...",
-  "datos": {
-    "transferenciasDetalle": [...],
-    "totalesDiarios": [...],
-    "totalesMensuales": [...],
-    "totalDiarioSumado": "string con los totales",
-    "resumenGeneral": {
-      "transferenciasRecibidas": {...},
-      "liquidaciones": {...},
-      "rendimientos": {...},
-      "totalGeneral": {...}
-    }
-  },
-  "estadisticas": {...}
-}
-
-
-
-
-
-
-// En main process
-const { ipcMain } = require('electron');
-const PDFProcessorService = require('./pdf-processor-service');
-
-const pdfService = new PDFProcessorService();
-ipcMain.handle('procesar-pdf', pdfService.procesarPDFIPC.bind(pdfService));
-
-// En renderer process (frontend)
-const resultado = await window.electronAPI.invoke('procesar-pdf', filePath);
-
-
-
-
-
-
-
-
-*/

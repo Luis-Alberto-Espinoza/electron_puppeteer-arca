@@ -5,8 +5,17 @@ function mostrarTablas(datos) {
     // Actualizar tabla de fechas (totales diarios)
     const tablaFechas = document.querySelector('.table-box:first-child');
     if (tablaFechas) {
-        let htmlFechas = '<h3 class="table-title">📅 Totales por Día</h3>';
-        htmlFechas += '<div class="tabla-scroll">';
+        let htmlFechas = `
+            <div class="tabla-header">
+                <h3 class="table-title">📅 Totales por Día (${datos.totalesDiarios.length} registros)</h3>
+                <button class="btn-expandir" data-tabla="fechas">
+                    <span class="texto-expandir">Expandir Tabla</span>
+                    <span class="icono-expandir">▼</span>
+                </button>
+            </div>
+        `;
+        
+        htmlFechas += '<div class="tabla-scroll tabla-colapsada" id="tabla-fechas-content">';
         htmlFechas += '<table class="tabla-datos">';
         htmlFechas += '<thead><tr><th>Fecha</th><th>Transferencias</th><th>Liquidaciones</th><th>Total</th></tr></thead>';
         htmlFechas += '<tbody>';
@@ -29,8 +38,17 @@ function mostrarTablas(datos) {
     // Actualizar tabla de montos (totales mensuales)
     const tablaMontos = document.querySelector('.table-box:last-child');
     if (tablaMontos) {
-        let htmlMontos = '<h3 class="table-title">📈 Totales por Mes</h3>';
-        htmlMontos += '<div class="tabla-scroll">';
+        let htmlMontos = `
+            <div class="tabla-header">
+                <h3 class="table-title">📈 Totales por Mes (${datos.totalesMensuales.length} registros)</h3>
+                <button class="btn-expandir" data-tabla="montos">
+                    <span class="texto-expandir">Expandir Tabla</span>
+                    <span class="icono-expandir">▼</span>
+                </button>
+            </div>
+        `;
+        
+        htmlMontos += '<div class="tabla-scroll tabla-colapsada" id="tabla-montos-content">';
         htmlMontos += '<table class="tabla-datos">';
         htmlMontos += '<thead><tr><th>Mes</th><th>Transferencias</th><th>Liquidaciones</th><th>Total</th></tr></thead>';
         htmlMontos += '<tbody>';
@@ -49,6 +67,38 @@ function mostrarTablas(datos) {
         htmlMontos += '</tbody></table></div>';
         tablaMontos.innerHTML = htmlMontos;
     }
+
+    configurarBotonesExpandirTablas();
+}
+
+
+function configurarBotonesExpandirTablas() {
+    const botonesExpandir = document.querySelectorAll('.btn-expandir');
+    
+    botonesExpandir.forEach(boton => {
+        boton.addEventListener('click', function() {
+            const tipoTabla = this.getAttribute('data-tabla');
+            const tablaContent = document.getElementById(`tabla-${tipoTabla}-content`);
+            const textoExpandir = this.querySelector('.texto-expandir');
+            const iconoExpandir = this.querySelector('.icono-expandir');
+            
+            if (tablaContent.classList.contains('tabla-colapsada')) {
+                // Expandir tabla
+                tablaContent.classList.remove('tabla-colapsada');
+                tablaContent.classList.add('tabla-expandida');
+                textoExpandir.textContent = 'Colapsar Tabla';
+                iconoExpandir.textContent = '▲';
+                this.classList.add('btn-activo');
+            } else {
+                // Colapsar tabla
+                tablaContent.classList.remove('tabla-expandida');
+                tablaContent.classList.add('tabla-colapsada');
+                textoExpandir.textContent = 'Expandir Tabla';
+                iconoExpandir.textContent = '▼';
+                this.classList.remove('btn-activo');
+            }
+        });
+    });
 }
 
 // Función adicional para mostrar detalles de transferencias si es necesario
@@ -61,10 +111,8 @@ initializeMercadoPago();
 
 function initializeMercadoPago() {
     try {
-
         // Pequeña pausa para asegurar que el DOM esté listo
         setTimeout(() => {
-
             const btnSeleccionarArchivo = document.getElementById('btn-seleccionar-archivo');
             const rutaSeleccionadaContainer = document.getElementById('ruta-seleccionada-container');
             const rutaSeleccionadaInput = document.getElementById('ruta-seleccionada-input');
@@ -78,11 +126,11 @@ function initializeMercadoPago() {
                 return;
             }
 
+            // PASO 1: Inicializar interfaz - Solo mostrar botón de seleccionar archivo
             inicializarInterfaz();
 
-            // Event listener para seleccionar archivo
+            // PASO 2: Event listener para seleccionar archivo
             btnSeleccionarArchivo.addEventListener('click', async () => {
-
                 try {
                     // Verificar si window.electronAPI.mercadoPago existe
                     if (!window.electronAPI || !window.electronAPI.mercadoPago) {
@@ -103,9 +151,10 @@ function initializeMercadoPago() {
                             return;
                         }
 
+                        // MOSTRAR PASO 2: Archivo seleccionado + botón procesar
                         rutaSeleccionadaInput.value = archivoSeleccionado;
-                        rutaSeleccionadaContainer.classList.remove('hidden');
-                        btnProcesarArchivo.classList.remove('hidden');
+                        mostrarPaso2_ArchivoSeleccionado();
+                        
                     } else {
                         alert('No se seleccionó ningún archivo');
                     }
@@ -115,37 +164,19 @@ function initializeMercadoPago() {
                 }
             });
 
+            // PASO 3: Event listener para procesar archivo
             btnProcesarArchivo.addEventListener('click', async () => {
                 const ruta = rutaSeleccionadaInput.value;
-
-                const todosLosInputs = document.querySelectorAll('input');
-                todosLosInputs.forEach((input, index) => {
-                    // console.log(`Input ${index}:`, input.id, 'valor:', input.value);
-                });
 
                 if (!ruta || ruta.trim() === '') {
                     console.error('No hay archivo seleccionado o ruta vacía');
                     alert('No hay archivo seleccionado');
-                    console.log('=== FIN PROCESAR ARCHIVO (ERROR RUTA) ===');
                     return;
                 }
 
                 try {
-
-                    // Verificar si existe la función de procesamiento
-                    if (!window.electronAPI) {
-                        console.error('electronAPI no disponible');
-                        alert('Error: electronAPI no disponible');
-                        return;
-                    }
-
-                    if (!window.electronAPI.mercadoPago) {
-                        console.error('electronAPI.mercadoPago no disponible');
-                        alert('Error: mercadoPago API no disponible');
-                        return;
-                    }
-
-                    if (!window.electronAPI.mercadoPago.procesarArchivo) {
+                    // Verificar APIs disponibles
+                    if (!window.electronAPI?.mercadoPago?.procesarArchivo) {
                         console.error('Función procesarArchivo de MercadoPago no disponible');
                         alert('Error: Función de procesamiento no disponible');
                         return;
@@ -158,13 +189,11 @@ function initializeMercadoPago() {
                     const resultado = await window.electronAPI.mercadoPago.procesarArchivo(ruta);
 
                     if (resultado.success) {
-                        mostrarResultados(resultado);
-                        resultadosContainer.classList.remove('hidden');
-                        tablasContainer.classList.remove('hidden');
+                        // MOSTRAR PASO 3: Resultados + botones de autenticación
+                        mostrarPaso3_ResultadosYAutenticacion(resultado);
                     } else {
                         console.error('Error en el procesamiento:', resultado.error);
-                        mostrarResultados(resultado); // Mostrar el error
-                        resultadosContainer.classList.remove('hidden');
+                        mostrarError(resultado);
                     }
 
                 } catch (error) {
@@ -172,7 +201,7 @@ function initializeMercadoPago() {
                     alert('Error al procesar archivo: ' + error.message);
                 } finally {
                     // Restaurar botón
-                    btnProcesarArchivo.textContent = 'btn procesar archivo';
+                    btnProcesarArchivo.textContent = 'Procesar Archivo';
                     btnProcesarArchivo.disabled = false;
                 }
             });
@@ -184,27 +213,215 @@ function initializeMercadoPago() {
     }
 }
 
-function inicializarInterfaz() {
+// ========================================
+// FUNCIONES PARA MOSTRAR PASOS PROGRESIVAMENTE
+// ========================================
 
-    const elementos = [
+function inicializarInterfaz() {
+    
+    // Ocultar todos los elementos excepto el botón de seleccionar archivo
+    const elementosAOcultar = [
         'ruta-seleccionada-container',
-        'btn-procesar-archivo',
+        'btn-procesar-archivo', 
         'resultados-container',
-        'tablas-container'
+        'tablas-container',
+        'hacerFactura',
+        'botones-container'
     ];
 
-    elementos.forEach(id => {
+    elementosAOcultar.forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) {
             elemento.classList.add('hidden');
-            console.log(`Elemento ${id} ocultado`);
         } else {
             console.warn(`Elemento ${id} no encontrado`);
         }
     });
+
+    // Limpiar contenido de las tablas para que no muestren títulos vacíos
+    limpiarTablas();
+}
+
+function mostrarPaso2_ArchivoSeleccionado() {
+    
+    // Mostrar la ruta seleccionada y el botón procesar
+    const rutaContainer = document.getElementById('ruta-seleccionada-container');
+    const btnProcesar = document.getElementById('btn-procesar-archivo');
+    
+    if (rutaContainer) {
+        rutaContainer.classList.remove('hidden');
+    }
+    
+    if (btnProcesar) {
+        btnProcesar.classList.remove('hidden');
+    }
+}
+
+function mostrarPaso3_ResultadosYAutenticacion(resultado) {
+    
+    // Mostrar resultados
+    mostrarResultados(resultado);
+    
+    // Mostrar containers de resultados y tablas
+    const resultadosContainer = document.getElementById('resultados-container');
+    const tablasContainer = document.getElementById('tablas-container');
+    
+    if (resultadosContainer) {
+        resultadosContainer.classList.remove('hidden');
+    }
+    
+    if (tablasContainer) {
+        tablasContainer.classList.remove('hidden');
+    }
+    
+    // Mostrar botón "Hacer Factura" y preparar datos
+    mostrarBotonHacerFactura(resultado);
+}
+
+function mostrarBotonHacerFactura(resultado) {
+    
+    const hacerFacturaContainer = document.getElementById('hacerFactura');
+    if (!hacerFacturaContainer) {
+        console.error('No se encontró el contenedor hacerFactura');
+        return;
+    }
+
+    // Mostrar el contenedor
+    hacerFacturaContainer.classList.remove('hidden');
+    
+    // Crear el botón
+    hacerFacturaContainer.innerHTML = `
+        <button id="btn-hacer-factura" class="btn-hacer-factura">
+            Hacer Factura
+        </button>
+    `;
+
+    // Preparar datos para la factura
+    let datosDiarios = [];
+    
+    resultado.datos.totalesDiarios.forEach(item => {
+        // Formatear el total a dos decimales
+        item.totalFormateado = item.total.toLocaleString('es-AR', { 
+            minimumFractionDigits: 2, 
+            maximumFractionDigits: 2 
+        });
+        
+        // Convertir el total a un número para evitar problemas de formato
+        item.total = parseFloat(item.totalFormateado.replace(/\./g, '').replace(/,/g, '.'));
+        
+        // Agregar datos diarios para enviar a la factura
+        datosDiarios.push({
+            fecha: item.fecha.replace(/-/g, '/'),
+            monto: item.total
+        });
+    });
+
+    const datosParaEnviar = {
+        modulo: 'mercadopago',
+        Actividad: 'Producto',
+        tipoContribuyente: 'C',
+        datos: datosDiarios,
+        fechaComprobante: "02/08/2025",
+        metodoIngreso: 'masivo',
+        servicio: "factura",
+        tipoContribuyente: "C"
+    };
+
+    // Configurar evento del botón
+    const btnHacerFactura = document.getElementById('btn-hacer-factura');
+    if (btnHacerFactura) {
+        btnHacerFactura.addEventListener('click', () => {
+            // Procesar datos para facturación
+            mercadoPagoFacturas(datosParaEnviar);
+            
+            // MOSTRAR PASO 4: Botones de autenticación
+            mostrarPaso4_BotonesAutenticacion(datosDiarios);
+        });
+    }
+}
+
+function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
+    
+    const botonesContainer = document.getElementById('botones-container');
+    if (!botonesContainer) {
+        console.error('No se encontró el contenedor botones-container');
+        return;
+    }
+
+    // Mostrar el contenedor y crear los botones
+    botonesContainer.classList.remove('hidden');
+    botonesContainer.innerHTML = `
+        <div class="auth-options">
+            <h3>Selecciona el modo de Ingreso:</h3>
+            <button id="testButtonMP" class="btn-test">
+                🧪 Abrir AFIP - Modo Test
+            </button>
+            <button id="loginButtonMP" class="btn-login">
+                🔐 Abrir AFIP - Modo Producción
+            </button>
+            <div class="info-container">
+                <p><strong>Modo Test:</strong> Para pruebas y desarrollo</p>
+                <p><strong>Modo Producción:</strong> Para facturación real</p>
+                <div class="success-message">
+                    <p><strong>✅ Datos listos para facturación:</strong></p>
+                    <p>${datosDiarios.length} registros procesados</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Configurar AuthManager
+    const authManager = new AuthManager();
+    authManager.inicializar({
+        loginButtonId: 'loginButtonMP',
+        testButtonId: 'testButtonMP'
+    });
+}
+
+// ========================================
+// FUNCIONES AUXILIARES
+// ========================================
+
+function limpiarTablas() {
+    // Limpiar el contenido de las tablas para que no muestren títulos vacíos
+    const tablaFechas = document.querySelector('.table-box:first-child');
+    const tablaMontos = document.querySelector('.table-box:last-child');
+    
+    if (tablaFechas) {
+        tablaFechas.innerHTML = '';
+    }
+    
+    if (tablaMontos) {
+        tablaMontos.innerHTML = '';
+    }
+    
+    // Remover event listeners existentes si los hay
+    const botonesExpandirExistentes = document.querySelectorAll('.btn-expandir');
+    botonesExpandirExistentes.forEach(boton => {
+        boton.removeEventListener('click', configurarBotonesExpandirTablas);
+    });
+}
+
+function mostrarError(resultado) {
+    const resultadosContainer = document.getElementById('resultados-container');
+    if (resultadosContainer) {
+        resultadosContainer.classList.remove('hidden');
+        
+        const resultBox = document.querySelector('.result-box');
+        if (resultBox) {
+            resultBox.innerHTML = `
+                <div class="error-message">
+                    <h4>Error al procesar el archivo</h4>
+                    <p><strong>Mensaje:</strong> ${resultado.error?.message || 'Error desconocido'}</p>
+                    <p><strong>Archivo:</strong> ${resultado.archivo}</p>
+                </div>
+            `;
+        }
+    }
 }
 
 function mostrarResultados(resultado) {
+    console.log("Resultado completo:", resultado);
 
     const resultBox = document.querySelector('.result-box');
     if (!resultBox) {
@@ -213,13 +430,7 @@ function mostrarResultados(resultado) {
     }
 
     if (!resultado.success) {
-        resultBox.innerHTML = `
-            <div class="error-message">
-                <h4>Error al procesar el archivo</h4>
-                <p><strong>Mensaje:</strong> ${resultado.error?.message || 'Error desconocido'}</p>
-                <p><strong>Archivo:</strong> ${resultado.archivo}</p>
-            </div>
-        `;
+        mostrarError(resultado);
         return;
     }
 
@@ -265,227 +476,7 @@ function mostrarResultados(resultado) {
             </div>
         </div>
     `;
-    // ========================================
-    // PASO 1: CREAR BOTÓN INICIAL "HACER FACTURA"
-    // ========================================
-    const hacerFacturaContainer = document.getElementById('hacerFactura');
-    if (!hacerFacturaContainer) {
-        console.error('No se encontró el contenedor hacerFactura');
-        return;
-    }
 
-    hacerFacturaContainer.innerHTML = `
-        <button id="btn-hacer-factura" class="btn-hacer-factura">
-            Hacer Factura
-        </button>
-    `;
-
-    // ========================================
-    // PASO 2: PROCESAR DATOS DE MERCADOPAGO
-    // ========================================
-    let datosDiarios = [];
-    
-    resultado.datos.totalesDiarios.forEach(item => {
-        // Formatear el total a dos decimales
-        item.totalFormateado = item.total.toLocaleString('es-AR', { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
-        });
-        
-        // Convertir el total a un número para evitar problemas de formato
-        item.total = parseFloat(item.totalFormateado.replace(/\./g, '').replace(/,/g, '.'));
-        
-        // Agregar datos diarios para enviar a la factura
-        datosDiarios.push({
-            fecha: item.fecha.replace(/-/g, '/'),
-            monto: item.total
-        });
-    });
-
-    const datosParaEnviar = {
-        modulo: 'mercadopago',
-        Actividad: 'Producto',
-        tipoContribuyente: 'C',
-        datos: datosDiarios,
-        fechaComprobante: "02/08/2025",
-        metodoIngreso: 'masivo',
-        servicio: "factura",
-        tipoContribuyente: "C"
-    };
-
-    // ========================================
-    // PASO 3: CONFIGURAR EVENTO DEL BOTÓN PRINCIPAL
-    // ========================================
-    const btnHacerFactura = document.getElementById('btn-hacer-factura');
-    if (btnHacerFactura) {
-        btnHacerFactura.addEventListener('click', () => {
-            // Llamar a la función que procesa los datos
-            mercadoPagoFacturas(datosParaEnviar);
-            
-            // Mostrar opciones de autenticación
-            mostrarOpcionesAutenticacion();
-        });
-    } else {
-        console.error('No se pudo crear el botón Hacer Factura');
-    }
-
-    // ========================================
-    // FUNCIÓN PARA MOSTRAR OPCIONES DE AUTENTICACIÓN
-    // ========================================
-    function mostrarOpcionesAutenticacion() {
-        const botonesContainer = document.getElementById('botones-container');
-        if (!botonesContainer) {
-            console.error('No se encontró el contenedor botones-container');
-            return;
-        }
-
-        // Crear los botones de autenticación
-        botonesContainer.innerHTML = `
-            <div class="auth-options">
-                <h3>Selecciona el modo de autenticación:</h3>
-                <button id="testButtonMP" class="btn-test">
-                    🧪 Abrir AFIP en Modo Test
-                </button>
-                <button id="loginButtonMP" class="btn-login">
-                    🔐 Abrir AFIP Hacer Facturas
-                </button>
-                <div class="info-container">
-                    <p><strong>Modo Test:</strong> Para pruebas y desarrollo</p>
-                    <p><strong>Modo Producción:</strong> Para facturación real</p>
-                </div>
-            </div>
-        `;
-
-        // ========================================
-        // CONFIGURAR AUTENTICACIÓN CON AuthManager
-        // ========================================
-        const authManager = new AuthManager();
-        
-        // Configurar con los IDs específicos de MercadoPago
-        authManager.inicializar({
-            loginButtonId: 'loginButtonMP',
-            testButtonId: 'testButtonMP'
-        });
-
-        // ========================================
-        // EVENTOS ADICIONALES (OPCIONAL)
-        // ========================================
-        const btnTest = document.getElementById('testButtonMP');
-        const btnLogin = document.getElementById('loginButtonMP');
-
-        // Mostrar mensaje de confirmación
-        mostrarMensajeConfirmacion(datosDiarios.length);
-    }
-
-    // ========================================
-    // FUNCIONES AUXILIARES
-    // ========================================
-    function mostrarMensajeConfirmacion(cantidadRegistros) {
-        const mensaje = `
-            ✅ Datos procesados correctamente:
-            • ${cantidadRegistros} registros diarios
-            • Módulo: MercadoPago
-            • Método: Ingreso masivo
-            
-            Selecciona el modo de autenticación para continuar.
-        `;
-        
-        // Opcional: mostrar en la UI
-        const infoDiv = document.querySelector('.info-container');
-        if (infoDiv) {
-            infoDiv.innerHTML += `
-                <div class="success-message">
-                    <p><strong>✅ Datos listos para facturación:</strong></p>
-                    <p>${cantidadRegistros} registros procesados</p>
-                </div>
-            `;
-        }
-    }
-
-    // Actualizar las tablas (tu función existente)
-    // mostrarTablas(datos);
+    // Actualizar las tablas
+    mostrarTablas(datos);
 }
-
-// ========================================
-// ESTILOS CSS SUGERIDOS (OPCIONAL)
-// // ========================================
-// const estilosCSS = `
-// <style>
-// .auth-options {
-//     padding: 20px;
-//     border: 1px solid #ddd;
-//     border-radius: 8px;
-//     margin: 20px 0;
-//     background-color: #f9f9f9;
-// }
-
-// .auth-options h3 {
-//     margin-top: 0;
-//     color: #333;
-// }
-
-// .btn-test {
-//     background-color: #ffc107;
-//     color: #000;
-//     border: none;
-//     padding: 12px 24px;
-//     margin: 8px;
-//     border-radius: 6px;
-//     cursor: pointer;
-//     font-weight: bold;
-// }
-
-// .btn-login {
-//     background-color: #28a745;
-//     color: white;
-//     border: none;
-//     padding: 12px 24px;
-//     margin: 8px;
-//     border-radius: 6px;
-//     cursor: pointer;
-//     font-weight: bold;
-// }
-
-// .btn-hacer-factura {
-//     background-color: #007bff;
-//     color: white;
-//     border: none;
-//     padding: 15px 30px;
-//     border-radius: 8px;
-//     cursor: pointer;
-//     font-size: 16px;
-//     font-weight: bold;
-// }
-
-// .info-container {
-//     margin-top: 15px;
-//     padding: 10px;
-//     background-color: #e9ecef;
-//     border-radius: 4px;
-// }
-
-// .success-message {
-//     background-color: #d4edda;
-//     border: 1px solid #c3e6cb;
-//     color: #155724;
-//     padding: 10px;
-//     border-radius: 4px;
-//     margin-top: 10px;
-// }
-
-// .btn-test:hover, .btn-login:hover, .btn-hacer-factura:hover {
-//     opacity: 0.9;
-//     transform: translateY(-1px);
-// }
-// </style>
-// `;
-
-// // Si quieres inyectar los estilos automáticamente
-// export function inyectarEstilos() {
-//     if (!document.getElementById('mercadopago-styles')) {
-//         const styleElement = document.createElement('style');
-//         styleElement.id = 'mercadopago-styles';
-//         styleElement.innerHTML = estilosCSS.replace('<style>', '').replace('</style>', '');
-//         document.head.appendChild(styleElement);
-//     }
-// }

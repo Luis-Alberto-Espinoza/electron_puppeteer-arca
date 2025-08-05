@@ -1,22 +1,255 @@
-text{
+text {
     background-color: blue;
 }
+
 .resultados-container {
     display: flex;
     flex-direction: column;
     align-items: center;
     margin-top: 20px;
-    color: brown;
+    color:f4f4f9;
 }
 
 .tabla-datos {
     width: 100%;
     border-collapse: collapse;
     margin-top: 20px;
-    color: blueviolet;
+    color: rgb(11, 11, 10);
 }
-.tabla-datos th, .tabla-datos td {
+
+.tabla-datos th,
+.tabla-datos td {
     border: 1px solid #ddd;
     padding: 8px;
-    color: crimson;
+}
+
+
+button {
+    display: inline-block;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-top: 10px;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+#loginButtonMP {
+    background-color: #007bff;
+    /* Azul */
+    color: #fff;
+}
+
+#loginButtonMP:hover {
+    background-color: #0056b3;
+}
+
+#testButtonMP {
+    background-color: #28a745;
+    /* Verde */
+    color: #fff;
+}
+
+#testButtonMP:hover {
+    background-color: #218838;
+}
+
+#btn-seleccionar-archivo {
+    background-color: #b00bb0;
+    /* Gris */
+    color: #fff;
+}
+
+#btn-procesar-archivo {
+    background-color: #ff5722;
+    /* Naranja */
+    color: #fff;
+}
+
+
+.auth-options {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin: 20px 0;
+    background-color: #f9f9f9;
+}
+
+.auth-options h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.btn-test {
+    background-color: #ffc107;
+    color: #000;
+    border: none;
+    padding: 12px 24px;
+    margin: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-login {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    margin: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.btn-hacer-factura {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.info-container {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #4a33a5;
+    border-radius: 4px;
+}
+
+.success-message {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 10px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.btn-test:hover,
+.btn-login:hover,
+.btn-hacer-factura:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+.hidden {
+    display: none !important;
+}
+
+/* Estilos para tablas colapsables */
+.tabla-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.table-title {
+    margin: 0;
+    font-size: 1.1em;
+    color: #495057;
+}
+
+.btn-expandir {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+.btn-expandir:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+
+.btn-expandir.btn-activo {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+}
+
+.btn-expandir.btn-activo:hover {
+    background: linear-gradient(135deg, #1e7e34, #155724);
+}
+
+.icono-expandir {
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+}
+
+.btn-expandir.btn-activo .icono-expandir {
+    transform: rotate(180deg);
+}
+
+/* Estados de las tablas */
+.tabla-colapsada {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 0.4s ease;
+    border: none;
+}
+
+.tabla-expandida {
+    max-height: 500px; /* Ajusta según necesites */
+    overflow-y: auto;
+    opacity: 1;
+    transition: all 0.4s ease;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    
+}
+
+/* Mejorar el scroll cuando está expandida */
+.tabla-expandida::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tabla-expandida::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.tabla-expandida::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.tabla-expandida::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Animación suave para el contenido de la tabla */
+.table-box {
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+/* Indicador visual cuando la tabla está colapsada */
+.tabla-colapsada::after {
+    content: "";
+    display: block;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #dee2e6, transparent);
+    margin: 10px 0;
 }
