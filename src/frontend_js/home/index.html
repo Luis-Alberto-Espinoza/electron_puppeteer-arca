@@ -4,12 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; 
-                 img-src 'self' data: https:; 
-                 style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;">
+        content="default-src 'self' https://cdn.jsdelivr.net; 
+                 script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;
+                 style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+                 img-src 'self' data: https:;
+                 connect-src 'self' https://cdn.jsdelivr.net;">
     <title>ARCA - AFIP</title>
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- Cambiar la forma de cargar flatpickr -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
+    <!-- Remover el script al final del body -->
 </head>
 
 <body>
@@ -224,6 +229,14 @@
             </div>
         </div>
 
+        <!-- NUEVA SECCIÓN USUARIOS -->
+        <div class="seccion">
+            <button id="btnUsuarios" class="btn-principal">Gestión de Usuarios</button>
+            <div id="usuariosDiv" class="contenido-oculto">
+                <!-- El contenido se cargará dinámicamente -->
+            </div>
+        </div>
+
         <!-- MODAL DE EDICIÓN -->
         <div id="modalEdicion" style="display: none; position: fixed; top: 50%; left: 50%;
              transform: translate(-50%, -50%); background: white; border: 1px solid #ccc; 
@@ -242,7 +255,6 @@
     </div>
 
     <script type="module" src="../controlador.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="script.js"></script>
 </body>
 </html>

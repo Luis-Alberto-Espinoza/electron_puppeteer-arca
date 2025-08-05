@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRUD Usuarios - Electron</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .form-section {
+            background: #f8f9ff;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .form-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            margin-left: 10px;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        .btn-edit {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+
+        .btn-edit:hover {
+            background: #218838;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+
+        .btn-delete:hover {
+            background: #c82333;
+        }
+
+        .users-section {
+            margin-top: 30px;
+        }
+
+        .users-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            font-size: 1.3em;
+        }
+
+        .users-list {
+            background: #f8f9ff;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .user-item {
+            padding: 20px;
+            border-bottom: 1px solid #e1e5e9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .user-item:hover {
+            background: #f0f2ff;
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-info {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .user-details {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .user-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .empty-state .icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border-color: #28a745;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border-color: #dc3545;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .edit-form {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .edit-form h3 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 CRUD Usuarios</h1>
+            <p>Gestión de usuarios con Electron + JSON</p>
+        </div>
+
+        <div class="content">
+            <!-- Alerta para mensajes -->
+            <div id="alert" class="alert hidden">
+                <span id="alertMessage"></span>
+            </div>
+
+            <!-- Formulario de edición (oculto inicialmente) -->
+            <div id="editForm" class="edit-form hidden">
+                <h3>✏️ Editando Usuario</h3>
+                <div class="form-group">
+                    <label for="editNombre">Nombre:</label>
+                    <input type="text" id="editNombre" placeholder="Ingresa el nombre">
+                </div>
+                <div class="form-group">
+                    <label for="editClave">Clave:</label>
+                    <input type="password" id="editClave" placeholder="Ingresa la clave">
+                </div>
+                <button class="btn btn-primary" onclick="updateUser()">
+                    <span id="updateLoading" class="loading hidden"></span>
+                    Actualizar Usuario
+                </button>
+                <button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button>
+            </div>
+
+            <!-- Formulario para crear usuario -->
+            <div class="form-section">
+                <h2>➕ Crear Nuevo Usuario</h2>
+                <div class="form-group">
+                    <label for="nombre">Nombre:</label>
+                    <input type="text" id="nombre" placeholder="Ingresa el nombre del usuario">
+                </div>
+                <div class="form-group">
+                    <label for="clave">Clave:</label>
+                    <input type="password" id="clave" placeholder="Ingresa la clave">
+                </div>
+                <button class="btn btn-primary" id="btnCrearUsuario">
+                    <span id="createLoading" class="loading hidden"></span>
+                    Crear Usuario
+                </button>
+            </div>
+
+            <!-- Lista de usuarios -->
+            <div class="users-section">
+                <h2>👥 Usuarios Registrados</h2>
+                <button class="btn btn-secondary" id="btnRecargarLista" style="margin-bottom: 20px;">
+                    <span id="loadLoading" class="loading hidden"></span>
+                    🔄 Recargar Lista
+                </button>
+                <div id="usersList" class="users-list">
+                    <div class="empty-state">
+                        <div class="icon">📋</div>
+                        <p>No hay usuarios registrados</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentEditingUser = null;
+
+        // Función para mostrar alertas
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            const alertMessage = document.getElementById('alertMessage');
+            
+            alert.className = `alert alert-${type}`;
+            alertMessage.textContent = message;
+            alert.classList.remove('hidden');
+            
+            setTimeout(() => {
+                alert.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Función para mostrar/ocultar loading
+        function setLoading(elementId, show) {
+            const loading = document.getElementById(elementId);
+            if (show) {
+                loading.classList.remove('hidden');
+            } else {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // Crear usuario
+        async function createUser() {
+            try {
+                const nombre = document.getElementById('nombre').value.trim();
+                const clave = document.getElementById('clave').value.trim();
+
+                console.log('Intentando crear usuario:', { nombre, clave: '***' });
+
+                if (!nombre || !clave) {
+                    showAlert('Por favor completa todos los campos', 'error');
+                    return;
+                }
+
+                if (!window.electronAPI) {
+                    console.error('electronAPI no está disponible');
+                    showAlert('Error de configuración de la aplicación', 'error');
+                    return;
+                }
+
+                if (!window.electronAPI.user) {
+                    console.error('electronAPI.user no está disponible');
+                    showAlert('Error de configuración de la API', 'error');
+                    return;
+                }
+
+                const result = await window.electronAPI.user.create({ nombre, clave });
+                console.log('Resultado de crear usuario:', result);
+
+                if (result.success) {
+                    showAlert(`Usuario "${nombre}" creado exitosamente!`);
+                    document.getElementById('nombre').value = '';
+                    document.getElementById('clave').value = '';
+                    await loadUsers();
+                } else {
+                    showAlert(result.error || 'Error al crear usuario', 'error');
+                }
+            } catch (error) {
+                console.error('Error completo:', error);
+                showAlert('Error de comunicación con el backend: ' + error.message, 'error');
+            }
+        }
+
+        // Cargar usuarios
+        async function loadUsers() {
+            setLoading('loadLoading', true);
+            
+            try {
+                console.log('📖 Frontend: Solicitando lista de usuarios');
+                
+                const result = await window.electronAPI.user.getAll();
+                
+                console.log('📨 Frontend: Lista recibida:', result);
+
+                if (result.success) {
+                    displayUsers(result.users);
+                } else {
+                    showAlert(result.error || 'Error al cargar usuarios', 'error');
+                }
+            } catch (error) {
+                console.error('❌ Frontend Error:', error);
+                showAlert('Error de comunicación con el backend', 'error');
+            } finally {
+                setLoading('loadLoading', false);
+            }
+        }
+
+        // Mostrar usuarios en la lista
+        function displayUsers(users) {
+            const usersList = document.getElementById('usersList');
+            
+            if (!users || users.length === 0) {
+                usersList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📋</div>
+                        <p>No hay usuarios registrados</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const usersHTML = users.map(user => {
+                return `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <div class="user-name">👤 ${user.nombre}</div>
+                            <div class="user-details">
+                                🔑 Clave: ${'*'.repeat(user.clave.length)}
+                            </div>
+                        </div>
+                        <div class="user-actions">
+                            <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.clave}')">
+                                ✏️ Editar
+                            </button>
+                            <button class="btn btn-delete" onclick="window.deleteUser('${user.id}', '${user.nombre}')">
+                                🗑️ Eliminar
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            usersList.innerHTML = usersHTML;
+        }
+
+        // Editar usuario
+        function editUser(id, nombre, clave) {
+            console.log('Editando usuario:', { id, nombre });
+            currentEditingUser = { id, nombre, clave };
+            
+            document.getElementById('editNombre').value = nombre;
+            document.getElementById('editClave').value = clave;
+            document.getElementById('editForm').classList.remove('hidden');
+            
+            // Scroll al formulario de edición
+            document.getElementById('editForm').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Eliminar usuario
+        async function deleteUser(id, nombre) {
+            console.log('Intentando eliminar usuario:', { id, nombre });
+            
+            if (!confirm(`¿Estás seguro que deseas eliminar al usuario "${nombre}"?`)) {
+                return;
+            }
+
+            try {
+                setLoading('loadLoading', true);
+                const result = await window.electronAPI.user.delete(id);
+                console.log('Resultado de eliminar:', result);
+
+                if (result.success) {
+                    showAlert(`Usuario "${nombre}" eliminado exitosamente!`);
+                    await loadUsers(); // Recargar lista después de eliminar
+                } else {
+                    showAlert(result.error || 'Error al eliminar usuario', 'error');
+                }
+            } catch (error) {
+                console.error('Error al eliminar:', error);
+                showAlert('Error de comunicación con el backend', 'error');
+            } finally {
+                setLoading('loadLoading', false);
+            }
+        }
+
+        // Actualizar usuario
+        async function updateUser() {
+            if (!currentEditingUser) {
+                console.error('No hay usuario seleccionado para editar');
+                return;
+            }
+
+            console.log('Actualizando usuario:', currentEditingUser); // Debug
+
+            const nombre = document.getElementById('editNombre').value.trim();
+            const clave = document.getElementById('editClave').value.trim();
+
+            if (!nombre || !clave) {
+                showAlert('Por favor completa todos los campos', 'error');
+                return;
+            }
+
+            try {
+                setLoading('updateLoading', true);
+                const result = await window.electronAPI.user.update({
+                    id: currentEditingUser.id,
+                    nombre,
+                    clave
+                });
+
+                console.log('Resultado de actualizar:', result); // Debug
+
+                if (result.success) {
+                    showAlert(`Usuario "${nombre}" actualizado exitosamente!`);
+                    cancelEdit();
+                    await loadUsers();
+                } else {
+                    showAlert(result.error || 'Error al actualizar usuario', 'error');
+                }
+            } catch (error) {
+                console.error('Error al actualizar:', error);
+                showAlert('Error de comunicación con el backend', 'error');
+            } finally {
+                setLoading('updateLoading', false);
+            }
+        }
+
+        // Cancelar edición
+        function cancelEdit() {
+            currentEditingUser = null;
+            document.getElementById('editForm').classList.add('hidden');
+            document.getElementById('editNombre').value = '';
+            document.getElementById('editClave').value = '';
+        }
+
+        // Inicializar eventos cuando el contenido se carga
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Inicializando eventos de usuario');
+            
+            const btnCrear = document.getElementById('btnCrearUsuario');
+            console.log('Botón crear encontrado:', !!btnCrear);
+            
+            if (btnCrear) {
+                btnCrear.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    console.log('Botón crear clickeado');
+                    createUser();
+                });
+            }
+            
+            const btnRecargar = document.getElementById('btnRecargarLista');
+            if (btnRecargar) {
+                btnRecargar.addEventListener('click', loadUsers);
+            }
+            
+            // Cargar usuarios inicialmente
+            loadUsers().catch(error => {
+                console.error('Error cargando usuarios:', error);
+                showAlert('Error cargando la lista de usuarios', 'error');
+            });
+        });
+
+        // Permitir crear usuario con Enter
+        document.getElementById('clave').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                createUser();
+            }
+        });
+
+        // Permitir actualizar usuario con Enter en el formulario de edición
+        document.getElementById('editClave').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                updateUser();
+            }
+        });
+    </script>
+</body>
+</html>

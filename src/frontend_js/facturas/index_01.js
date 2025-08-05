@@ -3,6 +3,13 @@ import { AuthManager } from '../autenticacion/auth.js';
 
 // Exporta una función que inicializa todo
 export function inicializarFacturas() {
+    // Agregar verificación para flatpickr
+    if (typeof flatpickr === 'undefined') {
+        console.warn('Flatpickr no está cargado, esperando...');
+        setTimeout(inicializarFacturas, 500);
+        return;
+    }
+
     // === Referencias generales ===
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
