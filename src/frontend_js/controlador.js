@@ -358,221 +358,32 @@ function inicializarGestionUsuarios() {
                     return;
                 }
 
-                console.log('🔄 Cargando componente de usuarios...');
+                usuariosDiv.innerHTML = '';
                 const response = await fetch('../usuario/usuario.html');
                 if (!response.ok) {
                     throw new Error(`Error HTTP: ${response.status}`);
                 }
                 const html = await response.text();
-                console.log('✅ HTML cargado correctamente');
-
                 usuariosDiv.innerHTML = html;
                 usuariosDiv.classList.remove('contenido-oculto');
 
-                // Definir primero las funciones globales para editar y eliminar
-                const globalFunctions = `
-                    // Hacer las funciones disponibles globalmente
-                    window.editUser = function(id, nombre, clave) {
-                        currentEditingUser = { id, nombre, clave };
-                        
-                        document.getElementById('editNombre').value = nombre;
-                        document.getElementById('editClave').value = clave;
-                        document.getElementById('editForm').classList.remove('hidden');
-                        
-                        document.getElementById('editForm').scrollIntoView({ behavior: 'smooth' });
-                    };
+                setTimeout(() => {
+                    // Elimina cualquier script previo de usuario.js
+                    const oldScript = document.head.querySelector('script[src="../usuario/usuario.js"]');
+                    if (oldScript) oldScript.remove();
 
-                    window.deleteUser = async function(id, nombre) {
-                        if (!confirm('¿Estás seguro que deseas eliminar al usuario "' + nombre + '"?')) {
-                            return;
-                        }
-
-                        try {
-                            const result = await window.electronAPI.user.delete(id);
-                            if (result.success) {
-                                showAlert('Usuario "' + nombre + '" eliminado exitosamente!');
-                                loadUsers();
-                            } else {
-                                showAlert(result.error || 'Error al eliminar usuario', 'error');
-                            }
-                        } catch (error) {
-                            console.error('Error:', error);
-                            showAlert('Error de comunicación con el backend', 'error');
+                    // Carga usuario.js desde el head
+                    const script = document.createElement('script');
+                    script.src = '../usuario/usuario.js';
+                    script.defer = true;
+                    script.onload = () => {
+                        // Llama a la inicialización explícitamente
+                        if (window.inicializarUsuarioFrontend) {
+                            window.inicializarUsuarioFrontend();
                         }
                     };
-
-                    // Función auxiliar para actualizar usuario
-                    window.updateUser = async function() {
-                        if (!currentEditingUser) return;
-
-                        const nombre = document.getElementById('editNombre').value.trim();
-                        const clave = document.getElementById('editClave').value.trim();
-
-                        if (!nombre || !clave) {
-                            showAlert('Por favor completa todos los campos', 'error');
-                            return;
-                        }
-
-                        try {
-                            setLoading('updateLoading', true);
-                            const result = await window.electronAPI.user.update({
-                                id: currentEditingUser.id,
-                                nombre,
-                                clave
-                            });
-
-                            if (result.success) {
-                                showAlert('Usuario "' + nombre + '" actualizado exitosamente!');
-                                document.getElementById('editForm').classList.add('hidden');
-                                loadUsers();
-                            } else {
-                                showAlert(result.error || 'Error al actualizar usuario', 'error');
-                            }
-                        } catch (error) {
-                            console.error('Error:', error);
-                            showAlert('Error de comunicación con el backend', 'error');
-                        } finally {
-                            setLoading('updateLoading', false);
-                        }
-                    };
-                `;
-
-                // Inyectar primero las funciones globales
-                const globalScript = document.createElement('script');
-                globalScript.textContent = globalFunctions;
-                document.head.appendChild(globalScript);
-
-                // Definir primero las funciones auxiliares
-                const helperFunctions = `
-                    // Función para mostrar alertas
-                    function showAlert(message, type = 'success') {
-                        const alert = document.getElementById('alert');
-                        const alertMessage = document.getElementById('alertMessage');
-                        
-                        alert.className = 'alert alert-' + type;
-                        alertMessage.textContent = message;
-                        alert.classList.remove('hidden');
-                        
-                        setTimeout(() => {
-                            alert.classList.add('hidden');
-                        }, 3000);
-                    }
-
-                    // Función para mostrar/ocultar loading
-                    function setLoading(elementId, show) {
-                        const loading = document.getElementById(elementId);
-                        if (loading) {
-                            loading.classList.toggle('hidden', !show);
-                        }
-                    }
-
-                    // Función para mostrar usuarios
-                    function displayUsers(users) {
-                        const usersList = document.getElementById('usersList');
-                        
-                        if (!users || users.length === 0) {
-                            usersList.innerHTML = \`
-                                <div class="empty-state">
-                                    <div class="icon">📋</div>
-                                    <p>No hay usuarios registrados</p>
-                                </div>
-                            \`;
-                            return;
-                        }
-
-                        const usersHTML = users.map(user => {
-                            return \`
-                                <div class="user-item">
-                                    <div class="user-info">
-                                        <div class="user-name">👤 \${user.nombre}</div>
-                                        <div class="user-details">
-                                            🔑 Clave: \${'*'.repeat(user.clave.length)}
-                                        </div>
-                                    </div>
-                                    <div class="user-actions">
-                                        <button class="btn btn-edit" onclick="editUser('\${user.id}')">
-                                            ✏️ Editar
-                                        </button>
-                                        <button class="btn btn-delete" onclick="deleteUser('\${user.id}')">
-                                            🗑️ Eliminar
-                                        </button>
-                                    </div>
-                                </div>
-                            \`;
-                        }).join('');
-
-                        usersList.innerHTML = usersHTML;
-                    }
-                `;
-
-                // Luego definir las funciones principales
-                const mainFunctions = `
-                    // Cargar usuarios
-                    async function loadUsers() {
-                        try {
-                            setLoading('loadLoading', true);
-                            console.log('📖 Solicitando lista de usuarios...');
-                            const result = await window.electronAPI.user.getAll();
-                            
-                            if (result.success) {
-                                displayUsers(result.users);
-                            } else {
-                                showAlert(result.error || 'Error al cargar usuarios', 'error');
-                            }
-                        } catch (error) {
-                            console.error('Error:', error);
-                            showAlert('Error de comunicación', 'error');
-                        } finally {
-                            setLoading('loadLoading', false);
-                        }
-                    }
-
-                    // Crear usuario
-                    async function createUser() {
-                        const nombre = document.getElementById('nombre').value.trim();
-                        const clave = document.getElementById('clave').value.trim();
-
-                        if (!nombre || !clave) {
-                            showAlert('Complete todos los campos', 'error');
-                            return;
-                        }
-
-                        try {
-                            setLoading('createLoading', true);
-                            const result = await window.electronAPI.user.create({ nombre, clave });
-                            
-                            if (result.success) {
-                                showAlert('Usuario creado exitosamente');
-                                document.getElementById('nombre').value = '';
-                                document.getElementById('clave').value = '';
-                                await loadUsers();
-                            } else {
-                                showAlert(result.error || 'Error al crear usuario', 'error');
-                            }
-                        } catch (error) {
-                            console.error('Error:', error);
-                            showAlert('Error de comunicación', 'error');
-                        } finally {
-                            setLoading('createLoading', false);
-                        }
-                    }
-
-                    // Inicializar eventos
-                    document.getElementById('btnCrearUsuario').addEventListener('click', createUser);
-                    document.getElementById('btnRecargarLista').addEventListener('click', loadUsers);
-                    
-                    // Cargar usuarios inicialmente
-                    loadUsers();
-                `;
-
-                // Inyectar el código en orden
-                const helperScript = document.createElement('script');
-                helperScript.textContent = helperFunctions;
-                usuariosDiv.appendChild(helperScript);
-
-                const mainScript = document.createElement('script');
-                mainScript.textContent = mainFunctions;
-                usuariosDiv.appendChild(mainScript);
+                    document.head.appendChild(script);
+                }, 100);
 
             } catch (error) {
                 console.error('Error:', error);
