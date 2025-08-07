@@ -85,7 +85,7 @@ ipcMain.handle('show-screenshot', async (event, imagePath) => {
 
 function setupIpcListeners() {
     ipcMain.on('formulario-enviado', async (event, data) => {
-
+console.log("Datos recibidos en el backend:", data);
         if (data.servicio === 'factura') {
             resultadoCodigo = comunicacionConFactura(data);
             event.reply('codigoLocalStorageGenerado', resultadoCodigo);

@@ -1,4 +1,4 @@
-let currentEditingUser = null;
+window.currentEditingUser = window.currentEditingUser || null;
 
 console.log('Cargando desde usuario.js');
 // Función para mostrar alertas
@@ -52,7 +52,7 @@ async function createUser() {
             showAlert('CUIL debe tener exactamente 11 números', 'error');
             return;
         }
-        if (tipoContribuyente !== "A" && tipoContribuyente !== "B") {
+        if (tipoContribuyente !== "C" && tipoContribuyente !== "B") {
             showAlert('Selecciona el tipo de contribuyente', 'error');
             return;
         }
@@ -157,7 +157,7 @@ function displayUsers(users) {
 
 // Editar usuario
 window.editUser = function(id, nombre, clave, cuit, cuil, tipoContribuyente, apellido) {
-    currentEditingUser = { id, nombre, clave, cuit, cuil, tipoContribuyente, apellido };
+    window.currentEditingUser = { id, nombre, clave, cuit, cuil, tipoContribuyente, apellido };
 
     document.getElementById('editNombre').value = nombre;
     document.getElementById('editClave').value = clave;
@@ -198,7 +198,7 @@ async function deleteUser(id, nombre) {
 
 // Actualizar usuario
 async function updateUser() {
-    if (!currentEditingUser) {
+    if (!window.currentEditingUser) {
         console.error('No hay usuario seleccionado para editar');
         return;
     }
@@ -235,7 +235,7 @@ async function updateUser() {
     try {
         setLoading('updateLoading', true);
         const result = await window.electronAPI.user.update({
-            id: currentEditingUser.id,
+            id: window.currentEditingUser.id,
             nombre,
             clave,
             cuit,
@@ -261,7 +261,7 @@ async function updateUser() {
 
 // Cancelar edición
 function cancelEdit() {
-    currentEditingUser = null;
+    window.currentEditingUser = null;
     document.getElementById('editForm').classList.add('hidden');
     document.getElementById('editNombre').value = '';
     document.getElementById('editClave').value = '';

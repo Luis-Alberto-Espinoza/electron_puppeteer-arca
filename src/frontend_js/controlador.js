@@ -349,12 +349,20 @@ function inicializarMercadoPago() {
 function inicializarGestionUsuarios() {
     const btnUsuarios = document.getElementById('btnUsuarios');
     const usuariosDiv = document.getElementById('usuariosDiv');
+    let usuarioCssLink = null;
 
     if (btnUsuarios && usuariosDiv) {
         btnUsuarios.addEventListener('click', async () => {
             try {
+                // Si el módulo está abierto, ocultar y quitar estilos
                 if (!usuariosDiv.classList.contains('contenido-oculto')) {
                     usuariosDiv.classList.add('contenido-oculto');
+                    usuariosDiv.innerHTML = '';
+                    // Quitar el CSS de usuario si está presente
+                    if (usuarioCssLink) {
+                        usuarioCssLink.remove();
+                        usuarioCssLink = null;
+                    }
                     return;
                 }
 
@@ -367,6 +375,15 @@ function inicializarGestionUsuarios() {
                 usuariosDiv.innerHTML = html;
                 usuariosDiv.classList.remove('contenido-oculto');
 
+                // Agregar el CSS de usuario solo si no está presente
+                if (!usuarioCssLink) {
+                    usuarioCssLink = document.createElement('link');
+                    usuarioCssLink.rel = 'stylesheet';
+                    usuarioCssLink.href = '../usuario/usuario.css';
+                    usuarioCssLink.id = 'usuario-css-link';
+                    document.head.appendChild(usuarioCssLink);
+                }
+
                 setTimeout(() => {
                     // Elimina cualquier script previo de usuario.js
                     const oldScript = document.head.querySelector('script[src="../usuario/usuario.js"]');
@@ -377,7 +394,6 @@ function inicializarGestionUsuarios() {
                     script.src = '../usuario/usuario.js';
                     script.defer = true;
                     script.onload = () => {
-                        // Llama a la inicialización explícitamente
                         if (window.inicializarUsuarioFrontend) {
                             window.inicializarUsuarioFrontend();
                         }

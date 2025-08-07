@@ -53,9 +53,11 @@ export class AuthManager {
 
     // Obtiene las credenciales del entorno
     async _obtenerCredenciales() {
+        const usuario = window.usuarioSeleccionado;
+        const usuarioAfip = usuario.cuit || usuario.cuil;
         return {
-            usuario: await window.electronAPI.getEnv('AFIP_USUARIO'),
-            contrasena: await window.electronAPI.getEnv('AFIP_CONTRASENA')
+            usuario: usuarioAfip,
+            contrasena: usuario.clave
         };
     }
 

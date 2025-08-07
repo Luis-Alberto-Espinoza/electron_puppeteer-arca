@@ -15,7 +15,8 @@ export function validarDatosMasivos(datos) {
 
 export function validarFormularioFacturaManual(data) {
     const errores = [];
-    if (!data.tipoContribuyente) errores.push("Debe seleccionar un tipo de contribuyente.");
+    console.log("Validando formulario manual con datos:", data);
+    //if (!data.tipoContribuyente) errores.push("Debe seleccionar un tipo de contribuyente.");
     if (!data.Actividad) errores.push("Debe seleccionar un tipo de Actividad.");
     if (!data.mes) errores.push("Debe seleccionar un mes.");
     if (!data.anio) errores.push("Debe seleccionar un año.");
