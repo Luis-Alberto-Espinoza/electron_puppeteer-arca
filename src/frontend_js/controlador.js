@@ -1,308 +1,245 @@
 import { inicializarInterfazFacturas } from './facturas/interfazFacturas.js';
-//import { indexFactura } from './facturas/index_01.js';
 
 // ========================================
 // VARIABLES GLOBALES
 // ========================================
-let archivoComprobanteSeleccionado = '';
-let archivoAlicuotasSeleccionado = '';
-let resultadoGlobal = null;
+let usuarioSeleccionado = null;
+let modulosAfipCargados = false;
 
 // ========================================
 // INICIALIZACIÓN PRINCIPAL
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
-    inicializarInterfazFacturas();
-    inicializarArchivosDesarrollo();
-    inicializarEventListeners();
-    inicializarMercadoPago();
-    inicializarGestionUsuarios(); // Agregamos esta línea
+    inicializarInterfazPrincipal();
+    inicializarGestionUsuarios();
 });
 
 // ========================================
-// CONFIGURACIÓN DE ARCHIVOS PARA DESARROLLO
+// INTERFAZ PRINCIPAL - FLUJO DE NAVEGACIÓN
 // ========================================
-function inicializarArchivosDesarrollo() {
-    // Selección automática de archivos para desarrollo
-    archivoComprobanteSeleccionado = '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_CBTE 30717267024-2025010.TXT';
-    archivoAlicuotasSeleccionado = '/home/pinchechita/Descargas/LIBRO_IVA_DIGITAL_VENTAS_ALICUOTAS 30717267024-2025010.txt';
-
-    // Para habilitar selección manual, comentar las líneas anteriores y descomentar estas:
-    // archivoComprobanteSeleccionado = '';
-    // archivoAlicuotasSeleccionado = '';
-}
-
-// ========================================
-// INICIALIZACIÓN DE EVENT LISTENERS
-// ========================================
-function inicializarEventListeners() {
-    inicializarEventosSeleccionArchivos();
-    inicializarEventosProcesamientoLibroIVA();
-    inicializarEventosModalEdicion();
-    // inicializarMercadoPago();
-}
-
-
-// ========================================
-// EVENTOS DE SELECCIÓN DE ARCHIVOS
-// ========================================
-function inicializarEventosSeleccionArchivos() {
-    const seleccionarArchivoComprobanteBtn = document.getElementById('seleccionarArchivoComprobanteBtn');
-    const seleccionarArchivoAlicuotasBtn = document.getElementById('seleccionarArchivoAlicuotasBtn');
-
-    if (seleccionarArchivoComprobanteBtn) {
-        seleccionarArchivoComprobanteBtn.addEventListener('click', manejarSeleccionArchivoComprobante);
-    }
-
-    if (seleccionarArchivoAlicuotasBtn) {
-        seleccionarArchivoAlicuotasBtn.addEventListener('click', manejarSeleccionArchivoAlicuotas);
+function inicializarInterfazPrincipal() {
+    const btnEntrarAfip = document.getElementById('btnEntrarAfip');
+    const btnGestionUsuarios = document.getElementById('btnUsuarios');
+    const selectorUsuarioDiv = document.getElementById('selectorUsuarioDiv');
+    const modulosAfipDiv = document.getElementById('modulosAfipDiv');
+    
+    // Botón Entrar AFIP
+    if (btnEntrarAfip) {
+        btnEntrarAfip.addEventListener('click', () => {
+            mostrarSelectorUsuario();
+        });
     }
 }
 
-async function manejarSeleccionArchivoComprobante() {
-    const archivos = await window.electronAPI.seleccionarArchivos();
-    if (archivos.length > 0) {
-        archivoComprobanteSeleccionado = archivos[0];
-        actualizarInfoArchivoComprobante(archivoComprobanteSeleccionado);
+function mostrarSelectorUsuario() {
+    // Ocultar todos los módulos principales
+    ocultarTodosLosModulos();
+    
+    const selectorUsuarioDiv = document.getElementById('selectorUsuarioDiv');
+    if (selectorUsuarioDiv) {
+        selectorUsuarioDiv.classList.remove('contenido-oculto');
+        cargarUsuariosEnSelector();
     }
 }
 
-async function manejarSeleccionArchivoAlicuotas() {
-    const archivos = await window.electronAPI.seleccionarArchivos();
-    if (archivos.length > 0) {
-        archivoAlicuotasSeleccionado = archivos[0];
-        actualizarInfoArchivoAlicuotas(archivoAlicuotasSeleccionado);
-    }
-}
-
-function actualizarInfoArchivoComprobante(rutaArchivo) {
-    const nombreElemento = document.getElementById('nombreArchivoComprobante');
-    const rutaElemento = document.getElementById('rutaArchivoComprobante');
-
-    if (nombreElemento && rutaElemento) {
-        nombreElemento.innerText = `Nombre: ${rutaArchivo.split('/').pop()}`;
-        rutaElemento.innerText = `Ruta: ${rutaArchivo}`;
-    }
-}
-
-function actualizarInfoArchivoAlicuotas(rutaArchivo) {
-    const nombreElemento = document.getElementById('nombreArchivoAlicuotas');
-    const rutaElemento = document.getElementById('rutaArchivoAlicuotas');
-
-    if (nombreElemento && rutaElemento) {
-        nombreElemento.innerText = `Nombre: ${rutaArchivo.split('/').pop()}`;
-        rutaElemento.innerText = `Ruta: ${rutaArchivo}`;
-    }
-}
-
-// ========================================
-// EVENTOS DE PROCESAMIENTO LIBRO IVA
-// ========================================
-function inicializarEventosProcesamientoLibroIVA() {
-    const procesarLibroIvaBtn = document.getElementById('procesarLibroIvaBtn');
-    const modificarSegunInforme = document.getElementById('modificarSegunInforme');
-
-    if (procesarLibroIvaBtn) {
-        procesarLibroIvaBtn.addEventListener('click', manejarProcesamientoLibroIVA);
-    }
-
-    if (modificarSegunInforme) {
-        modificarSegunInforme.addEventListener('click', manejarModificacionSegunInforme);
-    }
-}
-
-async function manejarProcesamientoLibroIVA(event) {
-    event.preventDefault();
-
-    if (!validarArchivosSeleccionados()) {
-        return;
-    }
-
-    const data = obtenerDatosFormularioLibroIVA();
-    console.log("Datos enviados desde el frontend:", data);
-    window.electronAPI.procesarLibroIva(data);
-}
-
-async function manejarModificacionSegunInforme(event) {
-    event.preventDefault();
-
-    const data = obtenerDatosFormularioLibroIVA();
-    data.case = 'modificarSegunInforme';
-    console.log("Datos enviados para modificar según informe:", data);
-    window.electronAPI.modificarSegunInforme(data);
-}
-
-function validarArchivosSeleccionados() {
-    if (!archivoComprobanteSeleccionado || !archivoAlicuotasSeleccionado) {
-        alert("Debe seleccionar ambos archivos.");
-        return false;
-    }
-    return true;
-}
-
-function obtenerDatosFormularioLibroIVA() {
-    const libroIvaForm = document.getElementById('libroIvaForm');
-    const libroIvaData = new FormData(libroIvaForm);
-    const data = Object.fromEntries(libroIvaData.entries());
-    data.archivos = [archivoComprobanteSeleccionado, archivoAlicuotasSeleccionado];
-    return data;
-}
-
-// ========================================
-// LISTENER DE RESULTADOS
-// ========================================
-function inicializarListenerResultados() {
-    window.electronAPI.onLibroIvaProcesado((event, resultado) => {
-        resultadoGlobal = resultado;
-        mostrarResultadoAnalisis(resultado);
-        mostrarLineasExcedidas(resultado);
-        mostrarBotonModificarInforme();
+function ocultarTodosLosModulos() {
+    const modulos = [
+        'modulosAfipDiv',
+        'usuariosDiv',
+        'selectorUsuarioDiv'
+    ];
+    
+    modulos.forEach(moduloId => {
+        const elemento = document.getElementById(moduloId);
+        if (elemento) {
+            elemento.classList.add('contenido-oculto');
+        }
     });
 }
 
-function mostrarResultadoAnalisis(resultado) {
-    console.log("Resultado recibido en el frontend:", resultado);
-    const resultadoDiv = document.getElementById('resultado');
-
-    if (resultadoDiv) {
-        resultadoDiv.innerHTML = generarHTMLResultado(resultado);
+async function cargarUsuariosEnSelector() {
+    const selectUsuarios = document.getElementById('selectUsuariosSelector');
+    if (!selectUsuarios) return;
+    
+    try {
+        // Mostrar estado de carga
+        selectUsuarios.innerHTML = '<option value="">Cargando usuarios...</option>';
+        selectUsuarios.disabled = true;
+        
+        // Obtener usuarios usando tu función existente
+        const result = await window.electronAPI.user.getAll();
+        
+        if (result.success && Array.isArray(result.users)) {
+            // Limpiar opciones existentes
+            selectUsuarios.innerHTML = '<option value="">Seleccione un usuario</option>';
+            
+            // Agregar usuarios con todos los datos necesarios
+            result.users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.id;
+                option.textContent = `${user.nombre} ${user.apellido || ''}`.trim();
+                
+                // Agregar todos los datos como dataset para uso posterior
+                option.dataset.cuit = user.cuit || '';
+                option.dataset.cuil = user.cuil || '';
+                option.dataset.tipoContribuyente = user.tipoContribuyente || '';
+                option.dataset.clave = user.clave || '';
+                option.dataset.nombre = user.nombre || '';
+                option.dataset.apellido = user.apellido || '';
+                
+                selectUsuarios.appendChild(option);
+            });
+            
+            selectUsuarios.disabled = false;
+        } else {
+            selectUsuarios.innerHTML = '<option value="">No se encontraron usuarios</option>';
+        }
+        
+        // Event listener para la selección
+        selectUsuarios.addEventListener('change', (e) => {
+            if (e.target.value) {
+                const selectedOption = selectUsuarios.options[selectUsuarios.selectedIndex];
+                const usuarioCompleto = {
+                    id: selectedOption.value,
+                    nombre: selectedOption.textContent,
+                    cuit: selectedOption.dataset.cuit,
+                    cuil: selectedOption.dataset.cuil,
+                    clave: selectedOption.dataset.clave,
+                    tipoContribuyente: selectedOption.dataset.tipoContribuyente,
+                    nombreSolo: selectedOption.dataset.nombre,
+                    apellido: selectedOption.dataset.apellido
+                };
+                seleccionarUsuario(usuarioCompleto);
+            }
+        }, { once: true }); // Solo agregar el listener una vez
+        
+    } catch (error) {
+        console.error('Error cargando usuarios:', error);
+        selectUsuarios.innerHTML = '<option value="">Error cargando usuarios</option>';
+        selectUsuarios.disabled = false;
     }
 }
 
-function generarHTMLResultado(resultado) {
-    const diferencias = resultado.data.informe.diferencias;
-    const segundaDiferencia = diferencias.length > 1 ? diferencias[1] : null;
-
-    return `
-        <h3>Resultado del Análisis</h3>
-        <p>${resultado.message}</p>
-        <pre>${resultado.data.message}</pre>
-        <pre>${resultado.data.informe.mensaje}</pre>
-        <p>Informe:</p>
-        <pre>CANTIDAD DE DIFERENCIAS: ${diferencias.length}</pre>
-        <br>
-        ${segundaDiferencia ? `
-        <pre>Se muestra como Ejemplo la segunda diferencia</pre>
-        <pre>Comprobante numero: ${parseInt(segundaDiferencia.numero)}</pre>
-        <pre>Importe en Alicuota: ${segundaDiferencia.importeAlicuota}</pre>
-        <pre>Importe en Comprobante: ${segundaDiferencia.importeComprobante}</pre>
-        <pre>Diferencia: ${segundaDiferencia.diferencia}</pre>
-        ` : ''}
-    `;
+function seleccionarUsuario(usuarioCompleto) {
+    usuarioSeleccionado = usuarioCompleto;
+    
+    console.log('Usuario seleccionado:', usuarioSeleccionado);
+    
+    // Guardar en variable global para compatibilidad con tu código existente
+    window.usuarioSeleccionado = usuarioSeleccionado;
+    
+    // Mostrar los módulos AFIP
+    mostrarModulosAfip();
 }
 
-function mostrarLineasExcedidas(resultado) {
-    const lineasExcedidas = resultado.data.informe.lineasExcedidas;
-    console.log("mira aca ", lineasExcedidas[0]);
-
-    if (lineasExcedidas.length > 0) {
-        mostrarInformacionLineasExcedidas(lineasExcedidas[0]);
-        mostrarBotonEditarLineas();
+function mostrarModulosAfip() {
+    // Ocultar selector de usuario
+    const selectorUsuarioDiv = document.getElementById('selectorUsuarioDiv');
+    if (selectorUsuarioDiv) {
+        selectorUsuarioDiv.classList.add('contenido-oculto');
+    }
+    
+    // Mostrar módulos AFIP
+    const modulosAfipDiv = document.getElementById('modulosAfipDiv');
+    if (modulosAfipDiv) {
+        modulosAfipDiv.classList.remove('contenido-oculto');
+        
+        // Si no se han inicializado los módulos AFIP, hacerlo ahora
+        if (!modulosAfipCargados) {
+            inicializarModulosAfip();
+            modulosAfipCargados = true;
+        }
+        
+        // Mostrar información del usuario seleccionado
+        mostrarUsuarioSeleccionado();
     }
 }
 
-function mostrarInformacionLineasExcedidas(primeraLineaExcedida) {
-    const lineasExcedidasDiv = document.getElementById('lineasExcedidas');
-
-    if (lineasExcedidasDiv) {
-        lineasExcedidasDiv.innerHTML = `
-            <h3>Lineas Excedidas</h3>
-            <pre>El número de linea en el archivo es: ${primeraLineaExcedida.numeroLinea}</pre>
-            <pre>La cantidad de caracteres normal es de 267 y esta linea tiene un total de: ${primeraLineaExcedida.longitud}</pre>
-            <pre>este es el contenido de la linea completa</pre>
-            <pre>${primeraLineaExcedida.contenido}</pre>
+function mostrarUsuarioSeleccionado() {
+    const infoUsuarioDiv = document.getElementById('infoUsuarioSeleccionado');
+    if (infoUsuarioDiv && usuarioSeleccionado) {
+        infoUsuarioDiv.innerHTML = `
+            <div class="usuario-seleccionado">
+                <span>Usuario activo: <strong>${usuarioSeleccionado.nombre}</strong></span>
+                <button id="btnCambiarUsuario" class="btn-secundario">Cambiar Usuario</button>
+            </div>
         `;
-    }
-}
-
-function mostrarBotonEditarLineas() {
-    const btnEditarLineasExcedidas = document.getElementById('btnEditarLineasExcedidas');
-    if (btnEditarLineasExcedidas) {
-        btnEditarLineasExcedidas.style.display = 'block';
-    }
-}
-
-function mostrarBotonModificarInforme() {
-    const modificarSegunInformeDiv = document.getElementById('modificarSegunInformeDiv');
-    if (modificarSegunInformeDiv) {
-        modificarSegunInformeDiv.style.display = 'block';
+        
+        // Agregar funcionalidad para cambiar usuario
+        const btnCambiarUsuario = document.getElementById('btnCambiarUsuario');
+        if (btnCambiarUsuario) {
+            btnCambiarUsuario.addEventListener('click', () => {
+                mostrarSelectorUsuario();
+            });
+        }
     }
 }
 
 // ========================================
-// EVENTOS DEL MODAL DE EDICIÓN
+// INICIALIZAR MÓDULOS AFIP
 // ========================================
-function inicializarEventosModalEdicion() {
-    const btnEditarLineasExcedidas = document.getElementById('btnEditarLineasExcedidas');
-    const btnGuardarEdicion = document.getElementById('btnGuardarEdicion');
-    const btnCerrarModal = document.getElementById('btnCerrarModal');
-
-    if (btnEditarLineasExcedidas) {
-        btnEditarLineasExcedidas.addEventListener('click', manejarAbrirModalEdicion);
-    }
-
-    if (btnGuardarEdicion) {
-        btnGuardarEdicion.addEventListener('click', manejarGuardarEdicion);
-    }
-
-    if (btnCerrarModal) {
-        btnCerrarModal.addEventListener('click', cerrarModalEdicion);
-    }
+function inicializarModulosAfip() {
+    inicializarInterfazFacturas();
+    inicializarMercadoPago();
+    
+    // Configurar los selectores de usuario en los módulos
+    configurarUsuarioEnModulos();
 }
 
-function manejarAbrirModalEdicion() {
-    if (resultadoGlobal && resultadoGlobal.data.informe.lineasExcedidas.length > 0) {
-        abrirModalEdicion(resultadoGlobal.data.informe.lineasExcedidas[0]);
+function configurarUsuarioEnModulos() {
+    // Para el módulo de facturas
+    const selectUsuariosFacturas = document.getElementById('selectUsuarios');
+    if (selectUsuariosFacturas && usuarioSeleccionado) {
+        // Crear opción para el usuario seleccionado con todos los datos
+        const option = document.createElement('option');
+        option.value = usuarioSeleccionado.id;
+        option.textContent = usuarioSeleccionado.nombre;
+        option.selected = true;
+        
+        // Agregar todos los datasets necesarios
+        option.dataset.cuit = usuarioSeleccionado.cuit || '';
+        option.dataset.cuil = usuarioSeleccionado.cuil || '';
+        option.dataset.tipoContribuyente = usuarioSeleccionado.tipoContribuyente || '';
+        option.dataset.clave = usuarioSeleccionado.clave || '';
+        
+        selectUsuariosFacturas.innerHTML = '';
+        selectUsuariosFacturas.appendChild(option);
+        selectUsuariosFacturas.disabled = true; // Opcional: deshabilitarlo para evitar cambios
+        
+        // Actualizar tipo de contribuyente automáticamente si existe
+        if (usuarioSeleccionado.tipoContribuyente) {
+            const tipoContribuyenteRadio = document.querySelector(`input[name="tipoContribuyente"][value="${usuarioSeleccionado.tipoContribuyente}"]`);
+            if (tipoContribuyenteRadio) {
+                tipoContribuyenteRadio.checked = true;
+            }
+        }
+        
+        console.log('Usuario configurado en módulo de facturas:', usuarioSeleccionado);
     }
-}
-
-function manejarGuardarEdicion() {
-    const lineaEditada = document.getElementById('txtLineaEdicion').value;
-    console.log("Línea editada:", lineaEditada);
-    cerrarModalEdicion();
 }
 
 // ========================================
-// FUNCIONES DEL MODAL DE EDICIÓN
+// FUNCIÓN PARA OBTENER USUARIO SELECCIONADO
 // ========================================
-function abrirModalEdicion(lineaExcedida) {
-    const modal = document.getElementById('modalEdicion');
-    const modalFondo = document.getElementById('modalFondo');
-    const txtLinea = document.getElementById('txtLineaEdicion');
-    const modalMensaje = document.getElementById('modalMensaje');
-
-    modalMensaje.innerHTML = `
-        <strong>Número de línea:</strong> ${lineaExcedida.numeroLinea}<br>
-        <strong>Longitud:</strong> ${lineaExcedida.longitud}<br>
-        <strong>Caracteres esperados:</strong> 267
-    `;
+function obtenerUsuarioSeleccionado() {
+    return usuarioSeleccionado;
 }
 
-function cerrarModalEdicion() {
-    const modal = document.getElementById('modalEdicion');
-    const modalFondo = document.getElementById('modalFondo');
+// Exportar la función para que otros módulos puedan acceder al usuario
+window.obtenerUsuarioSeleccionado = obtenerUsuarioSeleccionado;
 
-    if (modal) {
-        modal.style.display = 'none';
-    }
-
-    if (modalFondo) {
-        modalFondo.style.display = 'none';
-    }
-}
-
-
-// INICIALIZAR MERCADO PAGO
+// ========================================
+// INICIALIZAR MERCADO PAGO (Modificado)
+// ========================================
 function getBasePath() {
-    // Obtener la ruta del archivo actual
     const currentScript = document.currentScript || document.querySelector('script[src*="controlador"]');
     if (currentScript && currentScript.src) {
         const scriptPath = currentScript.src;
         return scriptPath.substring(0, scriptPath.lastIndexOf('/') + 1);
     }
-    // Fallback
     return window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
 }
+
 function inicializarMercadoPago() {
     const btnLectorMP = document.getElementById('btnLectorMP');
     const lectorMPDiv = document.getElementById('leerMercadoPagoDiv');
@@ -331,11 +268,15 @@ function inicializarMercadoPago() {
                 script.type = 'module';
                 script.src = basePath + './leerMercadoPago/mercadoPago.js';
 
-                // Agregar el script al head o al div
-                document.head.appendChild(script);
+                // Pasar información del usuario al módulo MercadoPago
+                script.onload = () => {
+                    // Si el módulo MercadoPago tiene una función para recibir usuario
+                    if (window.configurarUsuarioMercadoPago && usuarioSeleccionado) {
+                        window.configurarUsuarioMercadoPago(usuarioSeleccionado);
+                    }
+                };
 
-                // O si prefieres agregarlo al div:
-                // lectorMPDiv.appendChild(script);
+                document.head.appendChild(script);
 
             } catch (error) {
                 console.error('Error:', error);
@@ -345,7 +286,9 @@ function inicializarMercadoPago() {
     }
 }
 
-// Agregar esta nueva función
+// ========================================
+// GESTION DE USUARIOS (Sin cambios)
+// ========================================
 function inicializarGestionUsuarios() {
     const btnUsuarios = document.getElementById('btnUsuarios');
     const usuariosDiv = document.getElementById('usuariosDiv');
@@ -358,7 +301,6 @@ function inicializarGestionUsuarios() {
                 if (!usuariosDiv.classList.contains('contenido-oculto')) {
                     usuariosDiv.classList.add('contenido-oculto');
                     usuariosDiv.innerHTML = '';
-                    // Quitar el CSS de usuario si está presente
                     if (usuarioCssLink) {
                         usuarioCssLink.remove();
                         usuarioCssLink = null;
@@ -366,6 +308,9 @@ function inicializarGestionUsuarios() {
                     return;
                 }
 
+                // Ocultar otros módulos
+                ocultarTodosLosModulos();
+                
                 usuariosDiv.innerHTML = '';
                 const response = await fetch('../usuario/usuario.html');
                 if (!response.ok) {
@@ -406,5 +351,30 @@ function inicializarGestionUsuarios() {
                 usuariosDiv.innerHTML = `<p>Error: ${error.message}</p>`;
             }
         });
+    }
+}
+
+// ========================================
+// FUNCIÓN AUXILIAR PARA OBTENER USUARIOS
+// ========================================
+async function obtenerUsuarios() {
+    try {
+        const result = await window.electronAPI.user.getAll();
+        if (result.success && Array.isArray(result.users)) {
+            return result.users.map(user => ({
+                id: user.id,
+                nombre: `${user.nombre} ${user.apellido || ''}`.trim(),
+                cuit: user.cuit || '',
+                cuil: user.cuil || '',
+                tipoContribuyente: user.tipoContribuyente || '',
+                clave: user.clave || '',
+                // Mantener datos originales por si se necesitan
+                datosOriginales: user
+            }));
+        }
+        return [];
+    } catch (error) {
+        console.error('Error obteniendo usuarios:', error);
+        return [];
     }
 }

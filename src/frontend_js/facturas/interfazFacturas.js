@@ -32,7 +32,6 @@ export function inicializarInterfazFacturas() {
     const ingresoMasivo = document.getElementById('ingresoMasivo');
     const seccionManual = document.getElementById('seccionManual');
     const seccionMasiva = document.getElementById('seccionMasiva');
-    const selectUsuarios = document.getElementById('selectUsuarios');
 
     const radioSeleccionado = document.querySelector('input[name="periodoFacturacion"]:checked');
 
@@ -179,54 +178,6 @@ export function inicializarInterfazFacturas() {
     facturasForm.addEventListener('submit', (event) => {
         procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados); // Llama a la función
     });
-
-    // Función para cargar usuarios en el selector
-    async function cargarUsuariosEnSelector() {
-        if (!selectUsuarios) return;
-        selectUsuarios.innerHTML = '<option value="">Seleccione un usuario</option>';
-        try {
-            const result = await window.electronAPI.user.getAll();
-            if (result.success && Array.isArray(result.users)) {
-                result.users.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.id;
-                    option.textContent = `${user.nombre} ${user.apellido || ''}`;
-                    option.dataset.cuit = user.cuit || '';
-                    option.dataset.cuil = user.cuil || '';
-                    option.dataset.tipoContribuyente = user.tipoContribuyente || '';
-                    option.dataset.clave = user.clave || ''; // <-- AGREGAR ESTA LÍNEA
-                    selectUsuarios.appendChild(option);
-                });
-            }
-        } catch (err) {
-            console.error('Error cargando usuarios en selector:', err);
-        }
-    }
-
-    // Llamar al cargar la interfaz
-    cargarUsuariosEnSelector();
-
-    // Listener para cambiar el usuario seleccionado y afectar el flujo
-    if (selectUsuarios) {
-        selectUsuarios.addEventListener('change', (e) => {
-            const selectedOption = selectUsuarios.options[selectUsuarios.selectedIndex];
-            window.usuarioSeleccionado = {
-                id: selectedOption.value,
-                nombre: selectedOption.textContent,
-                cuit: selectedOption.dataset.cuit,
-                cuil: selectedOption.dataset.cuil,
-                clave: selectedOption.dataset.clave, // <-- AGREGAR ESTA LÍNEA
-                tipoContribuyente: selectedOption.dataset.tipoContribuyente
-            };
-            // Ejemplo: Actualizar el tipo de contribuyente automáticamente
-            if (window.usuarioSeleccionado.tipoContribuyente) {
-                const tipoContribuyenteRadio = document.querySelector(`input[name="tipoContribuyente"][value="${window.usuarioSeleccionado.tipoContribuyente}"]`);
-                if (tipoContribuyenteRadio) tipoContribuyenteRadio.checked = true;
-            }
-            // Puedes afectar el flujo de la aplicación aquí según el usuario seleccionado
-            // Por ejemplo, mostrar datos, filtrar, etc.
-        });
-    }
 
     window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
         const codigoLocalStorageTextArea = document.getElementById('codigoLocalStorage');

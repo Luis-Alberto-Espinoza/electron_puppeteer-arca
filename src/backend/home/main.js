@@ -85,9 +85,12 @@ ipcMain.handle('show-screenshot', async (event, imagePath) => {
 
 function setupIpcListeners() {
     ipcMain.on('formulario-enviado', async (event, data) => {
-console.log("Datos recibidos en el backend:", data);
+        console.log("Datos recibidos en el backend:", data);
         if (data.servicio === 'factura') {
-            resultadoCodigo = comunicacionConFactura(data);
+            if (data.tipoContribuyente == null ) {
+                data.tipoContribuyente = data.usuario.tipoContribuyente;
+            }
+            resultadoCodigo = comunicacionConFactura(data, userStorage);
             event.reply('codigoLocalStorageGenerado', resultadoCodigo);
         } else if (data.servicio === 'login') {
             try {
@@ -127,8 +130,6 @@ console.log("Datos recibidos en el backend:", data);
 
         try {
             const resultado = await comunicacionConLibroIVA(data);
-
-            // Enviar el resultado de vuelta al frontend
             event.reply('resultado-numero-eliminar', { success: true, resultado });
         } catch (error) {
             console.error('Error al procesar el número:', error);
@@ -138,10 +139,8 @@ console.log("Datos recibidos en el backend:", data);
 
     ipcMain.on('procesar-pdf', async (event, filePath) => {
         try {
-            // Simulando el procesamiento del PDF y generando resultados
             const resultados = `Resultados del procesamiento de ${filePath}`;
 
-            // Enviar los resultados de vuelta al renderer process
             event.reply('resultados-pdf', { success: true, resultados });
         } catch (error) {
             console.error('Error al procesar el PDF:', error);
@@ -151,7 +150,6 @@ console.log("Datos recibidos en el backend:", data);
 
     ipcMain.on('exportar-resultados', async (event, resultados) => {
         try {
-            // Simulando la exportación de resultados
             event.reply('resultados-exportados', { success: true, message: 'Resultados exportados correctamente' });
         } catch (error) {
             console.error('Error al exportar resultados:', error);
@@ -164,7 +162,7 @@ console.log("Datos recibidos en el backend:", data);
 app.whenReady().then(async () => {
     try {
         console.log('🚀 Iniciando aplicación...');
-        
+
         // Initialize storage
         userStorage = new JsonStorage();
         console.log('✅ Storage inicializado');
