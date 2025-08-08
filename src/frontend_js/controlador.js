@@ -123,8 +123,6 @@ async function cargarUsuariosEnSelector() {
 function seleccionarUsuario(usuarioCompleto) {
     usuarioSeleccionado = usuarioCompleto;
     
-    console.log('Usuario seleccionado:', usuarioSeleccionado);
-    
     // Guardar en variable global para compatibilidad con tu código existente
     window.usuarioSeleccionado = usuarioSeleccionado;
     
@@ -213,8 +211,6 @@ function configurarUsuarioEnModulos() {
                 tipoContribuyenteRadio.checked = true;
             }
         }
-        
-        console.log('Usuario configurado en módulo de facturas:', usuarioSeleccionado);
     }
 }
 

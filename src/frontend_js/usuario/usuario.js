@@ -1,6 +1,5 @@
 window.currentEditingUser = window.currentEditingUser || null;
 
-console.log('Cargando desde usuario.js');
 // Función para mostrar alertas
 function showAlert(message, type = 'success') {
     const alert = document.getElementById('alert');

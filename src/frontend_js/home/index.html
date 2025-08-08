@@ -18,52 +18,68 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background-color: #e8f5e8;
+            background-color: #ea40f0;
             padding: 10px;
+            font-size: 22px;
+            /* <-- más grande el texto */
             border-radius: 5px;
             margin-bottom: 20px;
             border-left: 4px solid #28a745;
+
         }
-        
+
+        /* quiero agrandar mas mucho mas este btn */
         .btn-secundario {
-            background-color: #6c757d;
+            background: linear-gradient(45deg, #ff6ec4, #7873f5);
+            /* degradado colorinche */
             color: white;
             border: none;
-            padding: 5px 15px;
-            border-radius: 3px;
+            padding: 15px 30px;
+            /* más grande */
+            border-radius: 10px;
+            /* bordes más redondeados */
             cursor: pointer;
-            font-size: 12px;
+            font-size: 16px;
+            /* más grande */
+            font-weight: bold;
+            /* texto más visible */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            /* sombra para resaltar */
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
+
         .btn-secundario:hover {
-            background-color: #545b62;
+            transform: scale(1.05);
+            /* efecto de agrandamiento al pasar el mouse */
+            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+            /* sombra más intensa */
         }
-        
+
         .menu-principal {
             text-align: center;
             margin: 40px 0;
         }
-        
+
         .menu-principal .btn-principal {
             margin: 10px;
             padding: 15px 30px;
             font-size: 16px;
         }
-        
+
         .selector-usuario {
             max-width: 600px;
             margin: 0 auto;
             padding: 30px;
-            background-color: #f8f9fa;
+            background-color: #c5ab7b;
             border-radius: 10px;
             text-align: center;
         }
-        
+
         .selector-usuario h2 {
-            color: #333;
+            color: #160808;
             margin-bottom: 20px;
         }
-        
+
         .selector-usuario select {
             width: 100%;
             padding: 10px;
@@ -71,6 +87,7 @@
             border: 2px solid #ddd;
             border-radius: 5px;
             margin-bottom: 20px;
+            background-color: #660a70;
         }
     </style>
 </head>
@@ -119,14 +136,14 @@
                             <h2>Tipo de Actividad</h2>
                             <div>
                                 <input type="radio" name="Actividad" value="Producto" id="producto">
-                                <label for="Actividad">Producto</label>
+                                <label for="producto">Producto</label>
                             </div>
                             <div>
                                 <input type="radio" name="Actividad" value="Servicio" id="servicio">
-                                <label for="Actividad">Servicio</label>
+                                <label for="servicio">Servicio</label>
                             </div>
                         </div>
-                        <div id="periodoAFacturarDiv"> Fecha del Comprobante
+                        <div id="periodoAFacturarDiv">
                             <h2>Periodo a Facturar</h2>
 
                             <div id="fechaDelComprobante" style="display: block;">
@@ -157,23 +174,28 @@
                                         <select name="anio" id="selectAnio"></select>
                                     </div>
                                 </div>
+                                <!-- crear un div con el titulo "Preseleccion de fechas que abarque a los tres name="periodoFacturacion" " -->
                                 <div>
-                                    <input type="radio" name="periodoFacturacion" value="total" id="periodoTotal">
-                                    <label for="periodoTotal">Mensual Total</label>
-                                    <label for="">Este periodo abarca la totalidad de dias del mes</label>
-                                </div>
-                                <div>
-                                    <input type="radio" name="periodoFacturacion" value="habiles" id="periodoDiasHabiles">
-                                    <label for="periodoDiasHabiles">Días Hábiles</label>
-                                </div>
-                                <div>
-                                    <input type="radio" name="periodoFacturacion" value="manual" id="periodoManual">
-                                    <label for="periodoManual">Ingreso de días manual</label>
-                                    <br>
-                                    <div id="calendario" style="display: none;">
-                                        <input type="text" id="datepicker" placeholder="Selecciona días">
+                                    <p>Preselección de fechas</p>
+                                    <div>
+                                        <input type="radio" name="periodoFacturacion" value="total" id="periodoTotal">
+                                        <label for="periodoTotal">Mensual Total</label>
+                                        <label for="">Este periodo abarca la totalidad de dias del mes</label>
                                     </div>
-                                    <textarea name="fechasFacturas" id="fechasFacturas"></textarea>
+                                    <div>
+                                        <input type="radio" name="periodoFacturacion" value="habiles"
+                                            id="periodoDiasHabiles">
+                                        <label for="periodoDiasHabiles">Días Hábiles</label>
+                                    </div>
+                                    <div>
+                                        <input type="radio" name="periodoFacturacion" value="manual" id="periodoManual">
+                                        <label for="periodoManual">Ingreso de días manual</label>
+                                        <br>
+                                        <div id="calendario" style="display: none;">
+                                            <input type="text" id="datepicker" placeholder="Selecciona días">
+                                        </div>
+                                        <textarea name="fechasFacturas" id="fechasFacturas"></textarea>
+                                    </div>
                                 </div>
                                 <div id="montoAFacturarDiv">
                                     <h2>Total a facturar</h2>
@@ -202,7 +224,7 @@
                             <div id="seccionMasiva" style="display: none;">
                                 <h4>Ingreso masivo de datos</h4>
                                 <label for="textareaFechas">Fechas (una por línea):</label>
-                                <textarea id="textareaFechas" rows="10" cols="30" placeholder="YYYY-MM-DD"></textarea>
+                                <textarea id="textareaFechas" rows="10" cols="30" placeholder="DD/MM/YYYY"></textarea>
                                 <br>
                                 <label for="textareaMontos">Montos (uno por línea):</label>
                                 <textarea id="textareaMontos" rows="10" cols="30"
@@ -232,8 +254,30 @@
                         <button id="copiarCodigo" style="display: none;">Copiar Código</button>
                     </div>
                     <div id="ejecutaNavegador">
+                        <!--
                         <button id="testButton">Abrir AFIP en Modo Test</button>
                         <button id="loginButton">Abrir AFIP con Puppeteer</button>
+                        -->
+                    </div>
+                    <div class="container">
+                        <div id="hacerFacturaFacturas" class="hacerFacturaFacturas hidden">
+                            <button id="habilitarBtnAFIP" class="btn-principal">Hacer Facturas</button>
+                        </div>
+                        <div id="botones-puppeteer" class="botones-puppeteer">
+                            <div class="auth-options">
+                                <h3>Selecciona el modo de Ingreso:</h3>
+                                <button id="testButton" class="btn-test">
+                                    🧪 Abrir AFIP - Modo Test
+                                </button>
+                                <button id="loginButton" class="btn-login">
+                                    🔐 Abrir AFIP - Modo Producción
+                                </button>
+                                <div class="info-container">
+                                    <p><strong>Modo Test:</strong> Para pruebas y desarrollo</p>
+                                    <p><strong>Modo Producción:</strong> Para facturación real</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -267,7 +311,9 @@
                             <label for="todoAnterior">Todo lo anterior</label>
                         </div>
 
-                        <button type="button" id="seleccionarArchivoComprobanteBtn">Seleccionar Archivo de
+                        <button type="button"
+                            id="seleccionarArch                                                                                                     ivoComprobanteBtn">Seleccionar
+                            Archivo de
                             Comprobante</button>
                         <div id="archivoComprobanteSeleccionado">
                             <p>Archivo de Comprobante seleccionado:</p>
@@ -275,7 +321,8 @@
                             <p id="rutaArchivoComprobante"></p>
                         </div>
 
-                        <button type="button" id="seleccionarArchivoAlicuotasBtn">Seleccionar Archivo de Alícuotas</button>
+                        <button type="button" id="seleccionarArchivoAlicuotasBtn">Seleccionar Archivo de
+                            Alícuotas</button>
                         <div id="archivoAlicuotasSeleccionado">
                             <p>Archivo de Alícuotas seleccionado:</p>
                             <p id="nombreArchivoAlicuotas"></p>

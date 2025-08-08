@@ -4,7 +4,7 @@ export function validarDatosMasivos(datos) {
     const errores = [];
     datos.forEach(({ fecha, monto }, i) => {
         if (!validarFecha(fecha)) {
-            errores.push(`La fecha en la línea ${i + 1} no tiene el formato válido (YYYY-MM-DD).`);
+            errores.push(`La fecha en la línea ${i + 1} no tiene el formato válido (DD/MM/YYYY).`);
         }
         if (!esNumeroValido(monto)) {
             errores.push(`El monto en la línea ${i + 1} no es un número válido.`);
@@ -15,7 +15,6 @@ export function validarDatosMasivos(datos) {
 
 export function validarFormularioFacturaManual(data) {
     const errores = [];
-    console.log("Validando formulario manual con datos:", data);
     //if (!data.tipoContribuyente) errores.push("Debe seleccionar un tipo de contribuyente.");
     if (!data.Actividad) errores.push("Debe seleccionar un tipo de Actividad.");
     if (!data.mes) errores.push("Debe seleccionar un mes.");

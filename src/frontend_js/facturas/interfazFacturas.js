@@ -1,7 +1,8 @@
 import { procesarDatosTextareas } from './procesarDatosMasivos.js';
-import { realizarAccionFacturacion, procesarFormularioFactura } from './facturas.js';
+import { procesarFormularioFactura } from './facturas.js'; // Removida la importación de realizarAccionFacturacion
 import { pStorage } from './paraStorage.js';
 import { inicializarFacturas } from './index_01.js';
+import { AuthManager } from '../autenticacion/auth.js'; // Asegúrate de importar AuthManager si no está
 
 
 let datosMasivos = [];
@@ -32,6 +33,8 @@ export function inicializarInterfazFacturas() {
     const ingresoMasivo = document.getElementById('ingresoMasivo');
     const seccionManual = document.getElementById('seccionManual');
     const seccionMasiva = document.getElementById('seccionMasiva');
+    // const loginButton = document.getElementById('loginButton');
+    // const testButton = document.getElementById('testButton');   
 
     const radioSeleccionado = document.querySelector('input[name="periodoFacturacion"]:checked');
 
@@ -45,7 +48,7 @@ export function inicializarInterfazFacturas() {
     facturasBtn.addEventListener('click', () => {
         const isVisible = facturasDiv.style.display === 'block';
         facturasDiv.style.display = isVisible ? 'none' : 'block';
-        realizarAccionFacturacion(); //Ejecutar la logica de facturacion cuando se muestra el div de facturas
+        //realizarAccionFacturacion(); //Ejecutar la logica de facturacion cuando se muestra el div de facturas
     });
 
     // === Generar Selects de Meses y Años ===
@@ -90,7 +93,6 @@ export function inicializarInterfazFacturas() {
         console.error('El elemento con ID "fechaComprobante" no existe.');
     }
 
-    // Inicializar flatpickr para datepicker (selección múltiple)
     if (datepicker) {
         flatpickrDatepicker = flatpickr(datepicker, {
             mode: "multiple",
@@ -177,7 +179,31 @@ export function inicializarInterfazFacturas() {
     });
     facturasForm.addEventListener('submit', (event) => {
         procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados); // Llama a la función
+
+        // Mostrar el botón "Hacer Factura" al procesar el formulario
+        const hacerFacturaDiv = document.getElementById('hacerFacturaFacturas');
+        const botonesPuppeteer = document.getElementById('botones-puppeteer');
+        if (hacerFacturaDiv) hacerFacturaDiv.classList.remove('hidden');
+        // Ocultar los botones de puppeteer hasta que se haga click en "Hacer Factura"
+        if (botonesPuppeteer) botonesPuppeteer.classList.add('hidden');
     });
+
+    // Mostrar los botones de puppeteer al hacer click en "Hacer Factura"
+    const habilitarBtnAFIP = document.getElementById('habilitarBtnAFIP');
+    if (habilitarBtnAFIP) {
+        habilitarBtnAFIP.addEventListener('click', () => {
+            const botonesPuppeteer = document.getElementById('botones-puppeteer');
+            if (botonesPuppeteer) {
+                botonesPuppeteer.classList.remove('hidden');
+            }
+        });
+    }
+
+    // Ocultar "Hacer Factura" y "botones-puppeteer" al abrir el módulo
+    const hacerFacturaDiv = document.getElementById('hacerFacturaFacturas');
+    const botonesPuppeteer = document.getElementById('botones-puppeteer');
+    if (hacerFacturaDiv) hacerFacturaDiv.classList.add('hidden');
+    if (botonesPuppeteer) botonesPuppeteer.classList.add('hidden');
 
     window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
         const codigoLocalStorageTextArea = document.getElementById('codigoLocalStorage');

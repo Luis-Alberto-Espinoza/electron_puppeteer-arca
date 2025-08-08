@@ -83,11 +83,12 @@ export function inicializarFacturas() {
         const mes = selectMes.value;
         const anio = selectAnio.value;
 
-        if (mes && anio && flatpickrInstance) {
-            // Establecer la fecha inicial del calendario
-            const nuevaFecha = new Date(anio, mes - 1, 1);
-            flatpickrInstance.setDate(nuevaFecha, false);
-            flatpickrInstance.jumpToDate(nuevaFecha);
+        if (mes && anio && flatpickrInstance && flatpickrInstance.config) {
+            // En lugar de jumpToDate, usar changeMonth
+            const nuevaFecha = new Date(parseInt(anio), parseInt(mes) - 1, 1);
+            flatpickrInstance.currentYear = parseInt(anio);
+            flatpickrInstance.currentMonth = parseInt(mes) - 1;
+            flatpickrInstance.redraw();
         }
     }
 

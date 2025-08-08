@@ -1,27 +1,17 @@
 import { validarFormularioFacturaManual } from './validacionesFacturas.js';
 
-export function realizarAccionFacturacion() {
-    console.log("Se ha hecho clic en el botón de Facturas. Mostrando formulario.");
-}
-
 export function procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados) {
     event.preventDefault();
-    console.log("Procesando formulario de facturas...");
-    // mostrar todo lo que viene por parametro 
-    console.log("Datos del formulario:", facturasForm);
+console.log ("Procesando formulario de factura...");
+  
     console.log("Datos masivos:", datosMasivos);
     console.log("Datos validados:", datosValidados);
 
+    // Obtiene los datos del formulario
     const formData = new FormData(facturasForm);
     const data = Object.fromEntries(formData.entries());
     let errores = [];
-
-    // Obtener usuario seleccionado del selector global
     const usuarioSeleccionado = window.usuarioSeleccionado || null;
-    console.log("Usuario seleccionado:", usuarioSeleccionado);
-
-    //con saltos de linea para separar mostrar el contenido de data
-    console.log("\n\tDatos del formulario procesados:", data);
 
     if (data.metodoIngreso === 'masivo') {
         if (!datosValidados || datosMasivos.length === 0) {
@@ -57,7 +47,6 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
 
     let validador = false;
     const datosParaEnviar = { ...data };
-    console.log("Datos para enviar:", datosParaEnviar);
     if (datosParaEnviar.tipoMonto !== 'montoManual')
         datosParaEnviar.monto = datosParaEnviar.montoTotalInput;
     if (datosParaEnviar.periodoFacturacion === "habiles"
@@ -65,7 +54,7 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
         delete datosParaEnviar.fechasFacturas;
     if (datosParaEnviar.tipoMonto !== 'montoTotal')
         datosParaEnviar.monto = datosParaEnviar.montoManual;
-    datosParaEnviar.usuario = usuarioSeleccionado; // <-- Agrega el usuario seleccionado
+    datosParaEnviar.usuario = usuarioSeleccionado; 
 
     delete datosParaEnviar.montoManual;
     delete datosParaEnviar.montoTotalInput;
