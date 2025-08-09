@@ -13,83 +13,6 @@
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
-    <style>
-        .usuario-seleccionado {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #ea40f0;
-            padding: 10px;
-            font-size: 22px;
-            /* <-- más grande el texto */
-            border-radius: 5px;
-            margin-bottom: 20px;
-            border-left: 4px solid #28a745;
-
-        }
-
-        /* quiero agrandar mas mucho mas este btn */
-        .btn-secundario {
-            background: linear-gradient(45deg, #ff6ec4, #7873f5);
-            /* degradado colorinche */
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            /* más grande */
-            border-radius: 10px;
-            /* bordes más redondeados */
-            cursor: pointer;
-            font-size: 16px;
-            /* más grande */
-            font-weight: bold;
-            /* texto más visible */
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            /* sombra para resaltar */
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .btn-secundario:hover {
-            transform: scale(1.05);
-            /* efecto de agrandamiento al pasar el mouse */
-            box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
-            /* sombra más intensa */
-        }
-
-        .menu-principal {
-            text-align: center;
-            margin: 40px 0;
-        }
-
-        .menu-principal .btn-principal {
-            margin: 10px;
-            padding: 15px 30px;
-            font-size: 16px;
-        }
-
-        .selector-usuario {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 30px;
-            background-color: #c5ab7b;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .selector-usuario h2 {
-            color: #160808;
-            margin-bottom: 20px;
-        }
-
-        .selector-usuario select {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            border: 2px solid #ddd;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            background-color: #660a70;
-        }
-    </style>
 </head>
 
 <body>
@@ -126,11 +49,10 @@
                 <div id="facturasDiv" class="contenido-oculto">
                     <h2>Gestión de Facturas</h2>
                     <form id="facturasForm">
-                        <div id="selectUsuariosDiv">
+                        <div id="selectUsuariosDiv"
+                            style="display: flex; justify-content: space-between; align-items: center;">
                             <label for="selectUsuarios">Usuario Activo:</label>
-                            <select id="selectUsuarios" disabled>
-                                <option value="">Usuario se establecerá automáticamente</option>
-                            </select>
+                            <p id="selectUsuarios" class="usuario-seleccionado-factura"></p>
                         </div>
                         <div id="tipoActividadDiv">
                             <h2>Tipo de Actividad</h2>
@@ -153,7 +75,7 @@
                             </div>
 
                             <div>
-                                <h3>Seleccionar método de ingreso de datos</h3>
+                                <h2>Seleccionar método de ingreso de datos</h2>
                                 <label>
                                     <input type="radio" name="metodoIngreso" value="manual" id="ingresoManual" checked>
                                     Ingreso manual
@@ -176,25 +98,31 @@
                                 </div>
                                 <!-- crear un div con el titulo "Preseleccion de fechas que abarque a los tres name="periodoFacturacion" " -->
                                 <div>
-                                    <p>Preselección de fechas</p>
+                                    <h2>Preselección de fechas</h2>
+
                                     <div>
-                                        <input type="radio" name="periodoFacturacion" value="total" id="periodoTotal">
-                                        <label for="periodoTotal">Mensual Total</label>
-                                        <label for="">Este periodo abarca la totalidad de dias del mes</label>
+                                        <input type="radio" name="periodoFacturacion" value="total" id="periodoTotal"
+                                            data-target="">
+                                        <label for="periodoTotal">Todos los Dias del mes</label>
                                     </div>
+
                                     <div>
                                         <input type="radio" name="periodoFacturacion" value="habiles"
-                                            id="periodoDiasHabiles">
-                                        <label for="periodoDiasHabiles">Días Hábiles</label>
+                                            id="periodoDiasHabiles" data-target="">
+                                        <label for="periodoDiasHabiles">Días de Lunes a Viernes</label>
                                     </div>
+
                                     <div>
-                                        <input type="radio" name="periodoFacturacion" value="manual" id="periodoManual">
-                                        <label for="periodoManual">Ingreso de días manual</label>
+                                        <input type="radio" name="periodoFacturacion" value="manual" id="periodoManual"
+                                            data-target="calendario">
+                                        <label for="periodoManual">Seleccionar ciertos días del mes</label>
                                         <br>
                                         <div id="calendario" style="display: none;">
-                                            <input type="text" id="datepicker" placeholder="Selecciona días">
+                                            <input type="text" id="datepicker" style="display: none;"
+                                                placeholder="Selecciona días">
                                         </div>
-                                        <textarea name="fechasFacturas" id="fechasFacturas"></textarea>
+                                        <textarea name="fechasFacturas" id="fechasFacturas" class="textAreaFechas"
+                                            style="display: none;"></textarea>
                                     </div>
                                 </div>
                                 <div id="montoAFacturarDiv">
@@ -209,7 +137,7 @@
                                                 placeholder="Monto Total" />
                                         </div>
                                     </div>
-                                    <div>
+                                    <div id="montoManualDiv" style="display: none;">
                                         <input type="radio" name="tipoMonto" value="montoManual" id="montoManual">
                                         <label for="montoManual">Ingresar manualmente el monto a facturar</label>
                                         <div id="textareaContainer" style="display: none;">

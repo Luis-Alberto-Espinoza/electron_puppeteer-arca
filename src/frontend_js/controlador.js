@@ -57,6 +57,24 @@ function ocultarTodosLosModulos() {
     });
 }
 
+
+// Función para capitalizar una cadena de texto
+function capitalizarNombre(nombre) {
+    if (!nombre) {
+        return '';
+    }
+    // Convertir todo a minúsculas para unificarlas
+    const nombreEnMinusculas = nombre.toLowerCase();
+
+    // Separar el nombre en palabras, capitalizar cada una y unirlas de nuevo
+    return nombreEnMinusculas.split(' ').map(palabra => {
+        if (palabra.length === 0) {
+            return '';
+        }
+        return palabra.charAt(0).toUpperCase() + palabra.slice(1);
+    }).join(' ');
+}
+
 async function cargarUsuariosEnSelector() {
     const selectUsuarios = document.getElementById('selectUsuariosSelector');
     if (!selectUsuarios) return;
@@ -77,8 +95,10 @@ async function cargarUsuariosEnSelector() {
             result.users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
-                option.textContent = `${user.nombre} ${user.apellido || ''}`.trim();
-                
+                const nombreCapitalizado = capitalizarNombre(user.nombre);
+                const apellidoCapitalizado = user.apellido ? ` ${capitalizarNombre(user.apellido)}` : '';
+                option.textContent = `${nombreCapitalizado}${apellidoCapitalizado}`.trim();
+
                 // Agregar todos los datos como dataset para uso posterior
                 option.dataset.cuit = user.cuit || '';
                 option.dataset.cuil = user.cuil || '';
@@ -156,9 +176,11 @@ function mostrarModulosAfip() {
 function mostrarUsuarioSeleccionado() {
     const infoUsuarioDiv = document.getElementById('infoUsuarioSeleccionado');
     if (infoUsuarioDiv && usuarioSeleccionado) {
+        const nombreCapitalizado = capitalizarNombre(usuarioSeleccionado.nombre);
+
         infoUsuarioDiv.innerHTML = `
             <div class="usuario-seleccionado">
-                <span>Usuario activo: <strong>${usuarioSeleccionado.nombre}</strong></span>
+                <span>Usuario activo: <strong>${nombreCapitalizado}</strong></span>
                 <button id="btnCambiarUsuario" class="btn-secundario">Cambiar Usuario</button>
             </div>
         `;
@@ -188,10 +210,11 @@ function configurarUsuarioEnModulos() {
     // Para el módulo de facturas
     const selectUsuariosFacturas = document.getElementById('selectUsuarios');
     if (selectUsuariosFacturas && usuarioSeleccionado) {
+        const nombreCapitalizado = capitalizarNombre(usuarioSeleccionado.nombre);
         // Crear opción para el usuario seleccionado con todos los datos
         const option = document.createElement('option');
         option.value = usuarioSeleccionado.id;
-        option.textContent = usuarioSeleccionado.nombre;
+        option.textContent = nombreCapitalizado;
         option.selected = true;
         
         // Agregar todos los datasets necesarios

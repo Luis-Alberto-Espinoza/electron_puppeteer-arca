@@ -13,9 +13,7 @@ export function inicializarFacturas() {
     // === Referencias generales ===
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
-    const periodoManual = document.getElementById('periodoManual');
     const fechasFacturas = document.getElementById('fechasFacturas');
-    const calendarioDiv = document.getElementById('calendario');
     const datepicker = document.getElementById('datepicker');
     const montoManualRadio = document.getElementById('montoManual');
     const montoTotalRadio = document.getElementById('montoTotal');
@@ -99,15 +97,6 @@ export function inicializarFacturas() {
         if (flatpickrInstance) actualizarCalendario();
     }
 
-    // === Manejo del Período Manual ===
-    if (periodoManual) {
-        periodoManual.addEventListener('change', () => {
-            const isChecked = periodoManual.checked;
-            calendarioDiv.style.display = isChecked ? 'block' : 'none';
-            fechasFacturas.style.display = isChecked ? 'block' : 'none';
-        });
-    }
-
     // === Manejo de los Montos ===
     function handleMontoChange() {
         if (montoManualRadio.checked) {
@@ -133,7 +122,6 @@ export function inicializarFacturas() {
     const authManager = new AuthManager();
     authManager.inicializar();
 
-    // Retorna una referencia al authManager por si necesitas acceder a él desde fuera
     return {
         authManager,
         flatpickrInstance

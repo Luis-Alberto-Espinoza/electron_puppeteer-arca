@@ -1,6 +1,9 @@
 html {
-    font-size: 130%; /* Aumenta todos los textos un 10% */
-}body {
+    font-size: 130%;
+    /* Aumenta todos los textos un 10% */
+}
+
+body {
     font-family: Arial, sans-serif;
     margin: 0;
     padding: 0;
@@ -8,6 +11,82 @@ html {
     /* Fondo oscuro */
     color: #220e0e;
     /* Texto claro */
+}
+
+.usuario-seleccionado {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #ea40f0;
+    padding: 10px;
+    font-size: 22px;
+    /* <-- más grande el texto */
+    border-radius: 5px;
+    margin-bottom: 20px;
+    border-left: 4px solid #28a745;
+
+}
+
+/* quiero agrandar mas mucho mas este btn */
+.btn-secundario {
+    background: linear-gradient(45deg, #ff6ec4, #7873f5);
+    /* degradado colorinche */
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    /* más grande */
+    border-radius: 10px;
+    /* bordes más redondeados */
+    cursor: pointer;
+    font-size: 16px;
+    /* más grande */
+    font-weight: bold;
+    /* texto más visible */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    /* sombra para resaltar */
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-secundario:hover {
+    transform: scale(1.05);
+    /* efecto de agrandamiento al pasar el mouse */
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+    /* sombra más intensa */
+}
+
+.menu-principal {
+    text-align: center;
+    margin: 40px 0;
+}
+
+.menu-principal .btn-principal {
+    margin: 10px;
+    padding: 15px 30px;
+    font-size: 16px;
+}
+
+.selector-usuario {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 30px;
+    background-color: #c5ab7b;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.selector-usuario h2 {
+    color: #160808;
+    margin-bottom: 20px;
+}
+
+.selector-usuario select {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    background-color: #660a70;
 }
 
 /* Estilos para separar cada sección */
@@ -20,7 +99,7 @@ html {
 }
 
 .seccion h2 {
-    margin-top: 0;
+    margin-top: 35px;
     color: #220e0e;
     border-bottom: 2px solid #007bff;
     padding-bottom: 5px;
@@ -123,6 +202,7 @@ button {
 button:hover {
     opacity: 0.9;
 }
+
 #montoTotalInput {
     font-weight: bold;
     font-size: 1.2em;
@@ -132,17 +212,18 @@ button:hover {
     border: 1px solid #555;
     border-radius: 4px;
 }
-#montoAFacturarDiv {
-  
-}
+
+#montoAFacturarDiv {}
 
 #procesarFacturas {
-   background-color: #ff5722;
+    background-color: #ff5722;
     color: #fff;
 }
+
 #procesarFacturas:hover {
     background-color: #7a8f0d;
 }
+
 #respuesta {
     display: none;
     margin-top: 20px;
@@ -155,10 +236,12 @@ button:hover {
     position: relative;
     z-index: 2;
 }
+
 #respuesta h3 {
     margin-top: 0;
     color: #333;
 }
+
 .header {
     text-align: center;
     margin-bottom: 30px;
@@ -223,6 +306,7 @@ form>div {
 #copiarCodigo:hover {
     background-color: #e0a800;
 }
+
 .hidden {
     display: none !important;
 }
@@ -245,4 +329,142 @@ form>div {
     border-radius: 8px;
     margin: 20px 0;
     background-color: #9de3d3;
+}
+
+.tabla-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+/* Estilos para tablas colapsables */
+.tabla-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 10px;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.table-title {
+    margin: 0;
+    font-size: 1.1em;
+    color: #495057;
+}
+
+.btn-expandir {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+.btn-expandir:hover {
+    background: linear-gradient(135deg, #0056b3, #004085);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+}
+
+.btn-expandir.btn-activo {
+    background: linear-gradient(135deg, #28a745, #1e7e34);
+}
+
+.btn-expandir.btn-activo:hover {
+    background: linear-gradient(135deg, #1e7e34, #155724);
+}
+
+.icono-expandir {
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+}
+
+.btn-expandir.btn-activo .icono-expandir {
+    transform: rotate(180deg);
+}
+
+/* Estados de las tablas */
+.tabla-colapsada {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: all 0.4s ease;
+    border: none;
+}
+
+.tabla-expandida {
+    max-height: 500px;
+    /* Ajusta según necesites */
+    overflow-y: auto;
+    opacity: 1;
+    transition: all 0.4s ease;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+
+}
+
+/* Mejorar el scroll cuando está expandida */
+.tabla-expandida::-webkit-scrollbar {
+    width: 8px;
+}
+
+.tabla-expandida::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.tabla-expandida::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.tabla-expandida::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Animación suave para el contenido de la tabla */
+.table-box {
+    margin-bottom: 20px;
+    transition: all 0.3s ease;
+}
+
+/* Indicador visual cuando la tabla está colapsada */
+.tabla-colapsada::after {
+    content: "";
+    display: block;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #dee2e6, transparent);
+    margin: 10px 0;
+}
+
+.usuario-seleccionado-factura {
+    color: rgba(255, 242, 2, 0.987) !important;
+    background-color: #0035ba !important;
+    font-weight: bold !important;
+    font-size: 1.4em !important;
+    padding: 5px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-left: 10px;
+    border: 1px solid #220e0e;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease, color 0.3s ease;
+
+
 }

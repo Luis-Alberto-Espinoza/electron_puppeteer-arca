@@ -16,8 +16,6 @@ export function inicializarInterfazFacturas() {
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
     const periodoManual = document.getElementById('periodoManual');
-    const fechasFacturas = document.getElementById('fechasFacturas');
-    const calendarioDiv = document.getElementById('calendario');
     const montoManualRadio = document.getElementById('montoManual');
     const montoTotalRadio = document.getElementById('montoTotal');
     const textareaContainer = document.getElementById('textareaContainer');
@@ -31,10 +29,10 @@ export function inicializarInterfazFacturas() {
     const ingresoMasivo = document.getElementById('ingresoMasivo');
     const seccionManual = document.getElementById('seccionManual');
     const seccionMasiva = document.getElementById('seccionMasiva');
-    // const loginButton = document.getElementById('loginButton');
-    // const testButton = document.getElementById('testButton');   
-
-    const radioSeleccionado = document.querySelector('input[name="periodoFacturacion"]:checked');
+    const periodoTotal = document.getElementById('periodoTotal');
+    const periodoDiasHabiles = document.getElementById('periodoDiasHabiles');
+    const calendario = document.getElementById('calendario');
+    const fechasText = document.getElementById('fechasFacturas');
 
     if (!facturasBtn || !facturasDiv) { // <-- ¡Verificación importante!
         console.error("No se encontraron los elementos facturasBtn o facturasDiv");
@@ -125,13 +123,29 @@ export function inicializarInterfazFacturas() {
     if (selectMes) selectMes.addEventListener('change', actualizarCalendario);
     if (selectAnio) selectAnio.addEventListener('change', actualizarCalendario);
 
-    if (periodoManual) {
-        periodoManual.addEventListener('change', () => {
-            const isChecked = periodoManual.checked;
-            calendarioDiv.style.display = isChecked ? 'block' : 'none';
-            fechasFacturas.style.display = isChecked ? 'block' : 'none';
-        });
+    // 2. Función para mostrar/ocultar según selección
+    function actualizarVista() {
+        if (periodoManual.checked) {
+            // Mostrar elementos de ingreso manual
+            datepicker.style.display = 'block';
+            calendario.style.display = 'block';
+            fechasText.style.display = 'block';
+        } else {
+            // Ocultar elementos de ingreso manual
+            datepicker.style.display = 'none';
+            fechasText.style.display = 'none';
+            calendario.style.display = 'none';
+        }
     }
+
+    // 3. Escuchar cambios en todos los radios
+    periodoTotal.addEventListener('change', actualizarVista);
+    periodoDiasHabiles.addEventListener('change', actualizarVista);
+    periodoManual.addEventListener('change', actualizarVista);
+
+    // 4. Inicializar estado al cargar
+    actualizarVista();
+
 
     function handleMontoChange() {
         if (montoManualRadio.checked) {
@@ -204,10 +218,8 @@ export function inicializarInterfazFacturas() {
     if (botonesPuppeteer) botonesPuppeteer.classList.add('hidden');
 
     window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
-        const codigoLocalStorageTextArea = document.getElementById('codigoLocalStorage');
-      
-      implementarSeguro('respuesta', codigo);
-      configurarBotonesExpandirTablas(); // <-- Añade esto aquí
+        implementarSeguro('respuesta', codigo);
+        configurarBotonesExpandirTablas(); 
     });
 }
 
