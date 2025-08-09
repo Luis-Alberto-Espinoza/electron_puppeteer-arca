@@ -1,13 +1,11 @@
 import { procesarDatosTextareas } from './procesarDatosMasivos.js';
 import { procesarFormularioFactura } from './facturas.js'; // Removida la importación de realizarAccionFacturacion
-import { pStorage } from './paraStorage.js';
+import { implementarSeguro } from './paraStorage.js';
 import { inicializarFacturas } from './index_01.js';
-import { AuthManager } from '../autenticacion/auth.js'; // Asegúrate de importar AuthManager si no está
 
 
 let datosMasivos = [];
 let datosValidados = false;
-let flatpickrInstance;
 let flatpickrFechaComprobante; // Para la fecha del comprobante
 let flatpickrDatepicker;       // Para la selección múltiple de fechas
 
@@ -207,28 +205,41 @@ export function inicializarInterfazFacturas() {
 
     window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
         const codigoLocalStorageTextArea = document.getElementById('codigoLocalStorage');
+      
+      implementarSeguro('respuesta', codigo);
+      configurarBotonesExpandirTablas(); // <-- Añade esto aquí
+    });
+}
 
-        if (!codigoLocalStorageTextArea) {
-            console.error("No se encontró el elemento con ID 'codigoLocalStorage'");
-            alert("Error al mostrar el código. Asegúrate de que exista el textarea en el HTML."); //Mensaje de error mas descriptivo.
-            return;
-        }
-        codigo = pStorage(codigo); // <-- Llama a la    función pStorage    
-        codigoLocalStorageTextArea.value = codigo; // Asigna el código al textarea
-
-        //Para que el textarea sea visible
-        codigoLocalStorageTextArea.style.display = 'block';
-
-        // Opcional: Copiar al portapapeles (como en la respuesta anterior)
-        const copiarCodigoBtn = document.getElementById('copiarCodigo');
-        if (copiarCodigoBtn) {
-            copiarCodigoBtn.addEventListener('click', () => {
-                codigoLocalStorageTextArea.select();
-                document.execCommand('copy');
-                alert("Código copiado al portapapeles.");
-            });
-        } else {
-            console.error("No se encontró el botón con ID 'copiarCodigo'");
-        }
+function configurarBotonesExpandirTablas() {
+    const botonesExpandir = document.querySelectorAll('.btn-expandir');
+    botonesExpandir.forEach(boton => {
+        boton.addEventListener('click', function() {
+            const tipoTabla = this.getAttribute('data-tabla');
+            const tablaContent = document.getElementById(`tabla-${tipoTabla}-content`);
+            const textoExpandir = this.querySelector('.texto-expandir');
+            const iconoExpandir = this.querySelector('.icono-expandir');
+            
+            if (!tablaContent) {
+                console.warn(`No se encontró el elemento con id tabla-${tipoTabla}-content`);
+                return;
+            }
+            
+            if (tablaContent.classList.contains('tabla-colapsada')) {
+                // Expandir tabla
+                tablaContent.classList.remove('tabla-colapsada');
+                tablaContent.classList.add('tabla-expandida');
+                textoExpandir.textContent = 'Colapsar Tabla';
+                iconoExpandir.textContent = '▲';
+                this.classList.add('btn-activo');
+            } else {
+                // Colapsar tabla
+                tablaContent.classList.remove('tabla-expandida');
+                tablaContent.classList.add('tabla-colapsada');
+                textoExpandir.textContent = 'Expandir Tabla';
+                iconoExpandir.textContent = '▼';
+                this.classList.remove('btn-activo');
+            }
+        });
     });
 }
