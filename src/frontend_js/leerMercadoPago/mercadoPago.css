@@ -149,6 +149,16 @@ button:hover {
     margin-top: 10px;
 }
 
+#leerMercadoPagoDiv {
+    margin: 20px auto;
+    padding: 20px;
+    max-width: 600px;
+    background: linear-gradient(108deg, rgb(241 235 235 / 90%), rgb(167 110 209 / 80%));
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    color: #333;
+}
+
 .btn-test:hover,
 .btn-login:hover,
 .btn-hacer-factura:hover {
@@ -157,114 +167,4 @@ button:hover {
 }
 .hidden {
     display: none !important;
-}
-
-/* Estilos para tablas colapsables */
-.tabla-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    padding: 10px;
-    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
-}
-
-.table-title {
-    margin: 0;
-    font-size: 1.1em;
-    color: #495057;
-}
-
-.btn-expandir {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9em;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
-}
-
-.btn-expandir:hover {
-    background: linear-gradient(135deg, #0056b3, #004085);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
-}
-
-.btn-expandir.btn-activo {
-    background: linear-gradient(135deg, #28a745, #1e7e34);
-}
-
-.btn-expandir.btn-activo:hover {
-    background: linear-gradient(135deg, #1e7e34, #155724);
-}
-
-.icono-expandir {
-    font-size: 0.8em;
-    transition: transform 0.3s ease;
-}
-
-.btn-expandir.btn-activo .icono-expandir {
-    transform: rotate(180deg);
-}
-
-/* Estados de las tablas */
-.tabla-colapsada {
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transition: all 0.4s ease;
-    border: none;
-}
-
-.tabla-expandida {
-    max-height: 500px; /* Ajusta según necesites */
-    overflow-y: auto;
-    opacity: 1;
-    transition: all 0.4s ease;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    
-}
-
-/* Mejorar el scroll cuando está expandida */
-.tabla-expandida::-webkit-scrollbar {
-    width: 8px;
-}
-
-.tabla-expandida::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.tabla-expandida::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-}
-
-.tabla-expandida::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* Animación suave para el contenido de la tabla */
-.table-box {
-    margin-bottom: 20px;
-    transition: all 0.3s ease;
-}
-
-/* Indicador visual cuando la tabla está colapsada */
-.tabla-colapsada::after {
-    content: "";
-    display: block;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #dee2e6, transparent);
-    margin: 10px 0;
 }

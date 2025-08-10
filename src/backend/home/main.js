@@ -13,20 +13,28 @@ let userStorage;
 const setupUserHandlers = require('../usuario/usuarioHandlers.js');
 
 let mainWindow;
+let puppeteerWindow; // Variable para la ventana de Puppeteer
 
 function createWindow() {
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
 
-    // Usar toda la pantalla para tener más espacio
-    const windowWidth = width;
-    const windowHeight = height;
+    // Dimensiones basadas en tus medidas actuales, llevadas a estándar
+    const windowWidth = 800;   // Tu ancho actual (mínimo)
+    const windowHeight = 650;   // Tu alto actual
+
+    // Centrar la ventana
+    const x = Math.floor((width - windowWidth) / 2);
+    const y = Math.floor((height - windowHeight) / 2);
 
     mainWindow = new BrowserWindow({
         width: windowWidth,
         height: windowHeight,
-        x: 0,
-        y: 0,
+        x: x,
+        y: y,
+        minWidth: 600,     // Más estrecha si es necesario  
+        minHeight: 400,
+        resizable: true,   // Permitir redimensionar si es necesario
         webPreferences: {
             preload: path.join(__dirname, '../../../preload.js'),
             nodeIntegration: false,
@@ -42,29 +50,68 @@ function createWindow() {
     mainWindow.webContents.once('did-finish-load', () => {
         mainWindow.show();
 
-        // DevTools integradas en el lado derecho - MÁS CONFIABLE
-        mainWindow.webContents.openDevTools({ mode: 'right' });
+        // COMENTADO: DevTools deshabilitadas para producción
+        // mainWindow.webContents.openDevTools({ mode: 'right' });
 
-        // Devolver el foco a la aplicación principal después de abrir DevTools
+        // Devolver el foco a la aplicación principal
         setTimeout(() => {
-            // Intentar múltiples métodos para devolver el foco
-            mainWindow.focus(); // Foco a la ventana
-            mainWindow.webContents.focus(); // Foco al contenido web
+            mainWindow.focus();
+            mainWindow.webContents.focus();
 
-            // Si eso no funciona, intentar con show() de nuevo
             setTimeout(() => {
                 mainWindow.show();
                 mainWindow.focus();
             }, 100);
-        }, 300); // Aumenté el delay inicial
-
+        }, 300);
     });
+}
+
+function createPuppeteerWindow() {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+
+    // Ventana de Puppeteer con controles de ventana habilitados
+    const puppeteerWindow = new BrowserWindow({
+        width: width,
+        height: height,
+        x: 0,
+        y: 0,
+        frame: true,           // CON barra de título y botones de control
+        fullscreen: false,     // No pantalla completa, pero sí maximizada
+        show: false,           // No mostrar hasta que esté lista
+        title: 'AFIP - Automatización',  // Título personalizado
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true,
+            webSecurity: false,  // Necesario para Puppeteer en algunos casos
+            devTools: false      // Deshabilitar DevTools
+        }
+    });
+
+    // Manejar el cierre de la ventana de Puppeteer
+    puppeteerWindow.on('closed', () => {
+        console.log('✅ Ventana de Puppeteer cerrada correctamente');
+        puppeteerWindow = null;
+
+        // Opcional: notificar al proceso principal que la ventana se cerró
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('puppeteer-window-closed');
+        }
+    });
+
+    // Prevenir el cierre accidental y manejar correctamente
+    puppeteerWindow.on('close', (event) => {
+        console.log('🔄 Cerrando ventana de Puppeteer...');
+        // Aquí puedes agregar lógica para limpiar recursos de Puppeteer si es necesario
+    });
+
+    return puppeteerWindow;
 }
 
 function createImageWindow(imagePath) {
     const imageWindow = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 300,
+        height: 400,
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false
@@ -72,6 +119,11 @@ function createImageWindow(imagePath) {
     });
 
     imageWindow.loadFile(imagePath);
+
+    // Manejar cierre de ventana de imagen
+    imageWindow.on('closed', () => {
+        console.log('Ventana de imagen cerrada');
+    });
 }
 
 // Agregar el handle para IPC
@@ -79,9 +131,13 @@ ipcMain.handle('show-screenshot', async (event, imagePath) => {
     createImageWindow(imagePath);
 });
 
-// manejar las operaciones de usuario 
-// Configurar los manejadores de usuario
-// Esta función se encarga de manejar las operaciones CRUD de usuarios
+// Función para obtener la ventana de Puppeteer (para usar en facturaManager)
+function getPuppeteerWindow() {
+    return puppeteerWindow;
+}
+
+// Exportar la función si facturaManager la necesita
+module.exports = { getPuppeteerWindow };
 
 function setupIpcListeners() {
     ipcMain.on('formulario-enviado', async (event, data) => {
@@ -191,4 +247,13 @@ app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
     }
+});
+
+// Manejar errores no capturados
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
 });

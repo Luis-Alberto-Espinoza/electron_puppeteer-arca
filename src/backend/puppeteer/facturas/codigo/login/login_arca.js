@@ -1,8 +1,43 @@
 const puppeteer = require('puppeteer');
-
 async function hacerLogin(url, credenciales) {
-    const browser = await puppeteer.launch({ headless: false });
-    const page = await browser.newPage();
+    const { screen } = require('electron');
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+
+    const browser = await puppeteer.launch({ 
+        headless: false,
+        // Configuraciones para controlar la ventana de Puppeteer
+        args: [
+            `--window-size=${width},${height}`,  // Tamaño de ventana completo
+            `--window-position=0,0`,             // Posición en esquina superior izquierda
+            '--no-first-run',                    // Evita la pestaña "Bienvenido"
+            '--no-default-browser-check',        // No verificar navegador por defecto
+            '--disable-infobars',                // Deshabilitar barras de información
+            '--disable-extensions',              // Deshabilitar extensiones
+            '--disable-dev-shm-usage',          // Para estabilidad
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding'
+        ],
+        defaultViewport: null,  // Usar el viewport completo de la ventana
+        // Configuraciones adicionales para una mejor experiencia
+        ignoreDefaultArgs: ['--enable-automation'],  // Ocultar "Chrome está siendo controlado por software automatizado"
+        devtools: false  // DevTools cerradas por defecto
+    });
+
+    // Obtener todas las páginas abiertas (incluye about:blank inicial)
+    const pages = await browser.pages();
+    
+    // Cerrar la página about:blank si existe
+    if (pages.length > 1) {
+        await pages[0].close();
+    }
+    
+    // Usar la primera página disponible o crear una nueva
+    const page = pages.length > 0 ? pages[pages.length - 1] : await browser.newPage();
+
+    // Configurar la página para usar toda la ventana
+    await page.setViewport(null);
 
     try {
         await page.goto(url, { waitUntil: 'networkidle2' });
@@ -37,6 +72,15 @@ async function hacerLogin(url, credenciales) {
         ]);
         console.log("Botón de login clicado y navegación completada.");
 
+        // Manejar el cierre de la ventana correctamente
+        page.on('close', () => {
+            console.log('✅ Página de Puppeteer cerrada correctamente');
+        });
+
+        browser.on('disconnected', () => {
+            console.log('✅ Browser de Puppeteer desconectado correctamente');
+        });
+
         // Verificar si el login fue exitoso
         // const loginExitoso = await page.evaluate(() => {
         //     return document.querySelector('#some-element-after-login') !== null;
@@ -49,8 +93,19 @@ async function hacerLogin(url, credenciales) {
         return page;
     } catch (error) {
         console.error("Error en hacerLogin:", error);
-        // No cerrar el navegador automáticamente para depuración
-        // await browser.close();
+        
+        // Limpiar recursos si hay error
+        try {
+            if (page && !page.isClosed()) {
+                await page.close();
+            }
+            if (browser && browser.isConnected()) {
+                await browser.close();
+            }
+        } catch (cleanupError) {
+            console.error("Error al limpiar recursos:", cleanupError);
+        }
+        
         throw error;
     }
 }
