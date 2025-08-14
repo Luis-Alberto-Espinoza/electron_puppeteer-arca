@@ -1,4 +1,3 @@
-require('dotenv').config(); // Cargar variables de entorno desde .env
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const { comunicacionConFactura, comunicacionConLibroIVA } = require('../index.js');
@@ -67,42 +66,47 @@ function createWindow() {
 }
 
 function createPuppeteerWindow() {
+    console.log('Intentando crear ventana de Puppeteer...');
     const primaryDisplay = screen.getPrimaryDisplay();
     const { width, height } = primaryDisplay.workAreaSize;
 
-    // Ventana de Puppeteer con controles de ventana habilitados
     const puppeteerWindow = new BrowserWindow({
         width: width,
         height: height,
         x: 0,
         y: 0,
-        frame: true,           // CON barra de título y botones de control
-        fullscreen: false,     // No pantalla completa, pero sí maximizada
-        show: false,           // No mostrar hasta que esté lista
-        title: 'AFIP - Automatización',  // Título personalizado
+        frame: true,
+        fullscreen: false,
+        show: false,
+        title: 'AFIP - Automatización',
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            webSecurity: false,  // Necesario para Puppeteer en algunos casos
-            devTools: false      // Deshabilitar DevTools
+            webSecurity: false,
+            devTools: false
         }
     });
 
-    // Manejar el cierre de la ventana de Puppeteer
+    // Cambia la ruta a absoluta si es necesario
+    const puppeteerHtmlPath = path.join(__dirname, '../../frontend_js/puppeteer/index.html');
+    console.log('Cargando archivo HTML de Puppeteer:', puppeteerHtmlPath);
+    puppeteerWindow.loadFile(puppeteerHtmlPath);
+
+    puppeteerWindow.once('ready-to-show', () => {
+        puppeteerWindow.show();
+        console.log('Ventana de Puppeteer mostrada');
+    });
+
     puppeteerWindow.on('closed', () => {
         console.log('✅ Ventana de Puppeteer cerrada correctamente');
         puppeteerWindow = null;
-
-        // Opcional: notificar al proceso principal que la ventana se cerró
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('puppeteer-window-closed');
         }
     });
 
-    // Prevenir el cierre accidental y manejar correctamente
     puppeteerWindow.on('close', (event) => {
         console.log('🔄 Cerrando ventana de Puppeteer...');
-        // Aquí puedes agregar lógica para limpiar recursos de Puppeteer si es necesario
     });
 
     return puppeteerWindow;

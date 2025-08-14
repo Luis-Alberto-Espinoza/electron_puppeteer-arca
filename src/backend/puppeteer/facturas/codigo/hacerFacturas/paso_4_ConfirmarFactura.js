@@ -12,7 +12,7 @@ async function paso_4_ConfirmarFactura(newPage, modoTest) {
                     window.scrollTo(0, document.body.scrollHeight);
                     let btnMenuPrinvipalVolver = document.querySelectorAll('input');
                     if (!modoTest) {
-                       // ajaxFunction();
+                        ajaxFunction();
                     }
 
                     setTimeout(function () {

@@ -13,7 +13,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // manejo de seciones claves .env
     iniciarSesion: (url, credenciales, test) => ipcRenderer.send('formulario-enviado', { servicio: 'login', url, credenciales, test }),
-    getEnv: (key) => process.env[key],
     
     // no se para que se usa y si se usa 
     enviarNumeroEliminar: (data) => ipcRenderer.send('numero-eliminar', data),

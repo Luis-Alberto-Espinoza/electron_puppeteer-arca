@@ -62,6 +62,16 @@ class JsonStorage {
   generateId() {
     return Date.now() + Math.random();
   }
+
+  // Obtener todos los usuarios
+  getAllUsers() {
+    const data = this.loadData();
+    // Si data no es un objeto o no tiene la propiedad users, devolvemos []
+    if (!data || typeof data !== 'object' || !Array.isArray(data.users)) {
+      return [];
+    }
+    return data.users;
+  }
 }
 
 let storage;

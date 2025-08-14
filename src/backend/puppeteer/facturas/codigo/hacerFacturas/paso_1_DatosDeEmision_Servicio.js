@@ -1,6 +1,8 @@
 const fecha = require('./utils.js');
 const path = require('path');
 const { fork } = require('child_process');
+const fs = require('fs').promises;
+const os = require('os');
 
 async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest = false) {
     try {
@@ -44,13 +46,25 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
         }, datos, factura, modoTest);
 
         if (modoTest) {
-            const baseruta = path.join(__dirname, 'screenshots');
-            const screenshotPath = path.join(baseruta, 'paso1_servicio.png');
+            // Usa el directorio temporal del sistema
+            const screenshotsDir = os.tmpdir();
+            const screenshotPath = path.join(screenshotsDir, 'paso1_servicio.png');
             await newPage.screenshot({ path: screenshotPath });
+            console.log('Captura guardada en:', screenshotPath);
 
-            // Abrir la imagen en un proceso separado
-            const visorProcess = fork(path.join(__dirname, 'visorImagen.js'));
-            visorProcess.send({ screenshotPath });
+            // Verifica que el archivo existe antes de intentar abrirlo
+            if (await fs.access(screenshotPath).then(() => true).catch(() => false)) {
+                const visorProcess = fork(path.join(__dirname, 'visorImagen.js'));
+                visorProcess.on('error', (err) => {
+                    console.error('Error en el proceso visor:', err);
+                });
+                visorProcess.on('exit', (code) => {
+                    console.log('Proceso visor terminó con código:', code);
+                });
+                visorProcess.send({ screenshotPath });
+            } else {
+                console.error('Error: No se pudo crear el archivo de captura en', screenshotPath);
+            }
         }
 
         // Esperar la navegación después de hacer clic en el botón
