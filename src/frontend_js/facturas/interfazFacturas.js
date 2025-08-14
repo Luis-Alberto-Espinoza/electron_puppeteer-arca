@@ -9,8 +9,26 @@ let datosValidados = false;
 let flatpickrFechaComprobante; // Para la fecha del comprobante
 let flatpickrDatepicker;       // Para la selección múltiple de fechas
 
-export function inicializarInterfazFacturas() {
-    const facturasForm = document.getElementById('facturasForm');
+export async function inicializarInterfazFacturas() {
+    const facturasDiv = document.getElementById('facturasDiv');
+    const facturasBtn = document.getElementById('facturasBtn');
+
+    if (!facturasBtn || !facturasDiv) {
+        console.error("No se encontraron los elementos facturasBtn o facturasDiv");
+        return;
+    }
+
+    // 1. Cargar el componente de facturas.html en facturasDiv primero
+    try {
+        const response = await fetch('../facturas/factura.html');
+        const html = await response.text();
+        facturasDiv.innerHTML = html;
+    } catch (err) {
+        console.error('Error al cargar facturas.html:', err);
+        return;
+    }
+
+    // 2. Ahora busca los elementos dentro de facturasDiv
     const fechaComprobante = document.getElementById('fechaComprobante');
     const datepicker = document.getElementById('datepicker');
     const selectMes = document.getElementById('selectMes');
@@ -33,18 +51,15 @@ export function inicializarInterfazFacturas() {
     const periodoDiasHabiles = document.getElementById('periodoDiasHabiles');
     const calendario = document.getElementById('calendario');
     const fechasText = document.getElementById('fechasFacturas');
+    const facturasForm = document.getElementById('facturasForm');
 
-    if (!facturasBtn || !facturasDiv) { // <-- ¡Verificación importante!
-        console.error("No se encontraron los elementos facturasBtn o facturasDiv");
-        return; // Sale de la función si no existen los elementos
-    }
     inicializarFacturas();
     facturasDiv.style.display = 'none'; // Inicialmente oculto
 
     facturasBtn.addEventListener('click', () => {
         const isVisible = facturasDiv.style.display === 'block';
         facturasDiv.style.display = isVisible ? 'none' : 'block';
-        //realizarAccionFacturacion(); //Ejecutar la logica de facturacion cuando se muestra el div de facturas
+        //realizarAccionFacturacion();
     });
 
     // === Generar Selects de Meses y Años ===
@@ -221,6 +236,24 @@ export function inicializarInterfazFacturas() {
         implementarSeguro('respuesta', codigo);
         configurarBotonesExpandirTablas(); 
     });
+
+    // Llama a configurarUsuarioEnFacturas después de cargar el HTML y de inicializar los elementos
+    configurarUsuarioEnFacturas();
+}
+
+function configurarUsuarioEnFacturas() {
+    const selectUsuariosFacturas = document.getElementById('selectUsuarios');
+    const usuarioSeleccionado = window.usuarioSeleccionado;
+    if (selectUsuariosFacturas && usuarioSeleccionado) {
+        const nombreCapitalizado = usuarioSeleccionado.nombre
+            ? usuarioSeleccionado.nombre.charAt(0).toUpperCase() + usuarioSeleccionado.nombre.slice(1).toLowerCase()
+            : 'Sin nombre';
+        selectUsuariosFacturas.textContent = nombreCapitalizado;
+        selectUsuariosFacturas.style.background = '#e9e9e9';
+        selectUsuariosFacturas.style.color = '#222';
+        selectUsuariosFacturas.style.padding = '4px 8px';
+        selectUsuariosFacturas.style.fontWeight = 'bold';
+    }
 }
 
 function configurarBotonesExpandirTablas() {

@@ -201,40 +201,6 @@ function mostrarUsuarioSeleccionado() {
 function inicializarModulosAfip() {
     inicializarInterfazFacturas();
     inicializarMercadoPago();
-    
-    // Configurar los selectores de usuario en los módulos
-    configurarUsuarioEnModulos();
-}
-
-function configurarUsuarioEnModulos() {
-    // Para el módulo de facturas
-    const selectUsuariosFacturas = document.getElementById('selectUsuarios');
-    if (selectUsuariosFacturas && usuarioSeleccionado) {
-        const nombreCapitalizado = capitalizarNombre(usuarioSeleccionado.nombre);
-        // Crear opción para el usuario seleccionado con todos los datos
-        const option = document.createElement('option');
-        option.value = usuarioSeleccionado.id;
-        option.textContent = nombreCapitalizado;
-        option.selected = true;
-        
-        // Agregar todos los datasets necesarios
-        option.dataset.cuit = usuarioSeleccionado.cuit || '';
-        option.dataset.cuil = usuarioSeleccionado.cuil || '';
-        option.dataset.tipoContribuyente = usuarioSeleccionado.tipoContribuyente || '';
-        option.dataset.clave = usuarioSeleccionado.clave || '';
-        
-        selectUsuariosFacturas.innerHTML = '';
-        selectUsuariosFacturas.appendChild(option);
-        selectUsuariosFacturas.disabled = true; // Opcional: deshabilitarlo para evitar cambios
-        
-        // Actualizar tipo de contribuyente automáticamente si existe
-        if (usuarioSeleccionado.tipoContribuyente) {
-            const tipoContribuyenteRadio = document.querySelector(`input[name="tipoContribuyente"][value="${usuarioSeleccionado.tipoContribuyente}"]`);
-            if (tipoContribuyenteRadio) {
-                tipoContribuyenteRadio.checked = true;
-            }
-        }
-    }
 }
 
 // ========================================
