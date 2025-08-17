@@ -11,6 +11,13 @@ let userStorage;
 // Importar los handlers de usuario modularizados
 const setupUserHandlers = require('../usuario/usuarioHandlers.js');
 
+// importar sistema de credenciales
+const { ejecutar_verificacionCredenciales } = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales');
+//import { ejecutar_verificacionCredenciales } from '../puppeteer/verificaCredenciales/flujo_verificaCredenciales.js';      
+
+
+
+
 let mainWindow;
 let puppeteerWindow; // Variable para la ventana de Puppeteer
 
@@ -216,6 +223,32 @@ function setupIpcListeners() {
             event.reply('resultados-exportados', { success: false, error: error.message });
         }
     });
+
+    // Handler exclusivo para verificación de credenciales
+    ipcMain.handle('user:verifyCredentials', async (event, credenciales) => {
+        try {
+            let retornoCredenciales = await ejecutar_verificacionCredenciales( credenciales);
+            console.log('\n\t\sRetorno de verificación de credenciales:', retornoCredenciales)
+            
+            // Extraer el array de empresas si existe
+            let empresasArray = retornoCredenciales && retornoCredenciales.empresas ? retornoCredenciales.empresas : null;
+            console.log('\n\t\sver el array de empresas:', empresasArray)
+
+            let usuario = null;
+            if (credenciales.cuit) {
+                usuario = userStorage.getAll().find(u => u.cuit === credenciales.cuit);
+            } else if (credenciales.cuil) {
+                usuario = userStorage.getAll().find(u => u.cuil === credenciales.cuil);
+            }
+            if (usuario && usuario.clave === credenciales.clave) {
+                return { success: true, usuario, retornoCredenciales: empresasArray };
+            } else {
+                return { success: false, error: 'Credenciales inválidas', retornoCredenciales: empresasArray };
+            }
+        } catch (error) {
+            return { success: false, error: error.message || 'Error verificando credenciales', retornoCredenciales: null };
+        }
+    });
 }
 
 // Main app initialization
@@ -233,6 +266,8 @@ app.whenReady().then(async () => {
 
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
+
+        // setupIpcListeners debe ir después de inicializar userStorage
         setupIpcListeners();
         console.log('✅ Manejadores IPC configurados');
     } catch (error) {

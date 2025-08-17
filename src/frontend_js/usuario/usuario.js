@@ -23,6 +23,54 @@ function setLoading(elementId, show) {
         loading.classList.add('hidden');
     }
 }
+// funcion para verificar credenciales
+function inicializarVerificarCredenciales() {
+
+
+    console.log("btnVerificarCredenciales", btnVerificarCredenciales);
+    if (btnVerificarCredenciales) {
+            try {
+                console.log("llegue al evento");
+                const nombre = document.getElementById('nombre').value.trim();
+                const clave = document.getElementById('clave').value.trim();
+                const cuit = document.getElementById('cuit').value.trim();
+                const cuil = document.getElementById('cuil').value.trim();
+                const tipoContribuyente = document.getElementById('tipoContribuyente').value;
+                const apellido = document.getElementById('apellido').value.trim();
+
+                const pruebaCredenciales = {
+                    clave,
+                    cuit,
+                    cuil
+                };
+
+                //necesito enviar pruebaCredenciales a el preload.js habrir un canal exclucivo para reslver solo verificacion de credenciales y sus respuestas
+                window.electronAPI.user.verifyCredentials(pruebaCredenciales)
+                    .then(response => {
+                        console.log('Respuesta de verificación de credenciales:', response);
+                        // Mostrar el retornoCredenciales en consola o usarlo como desees
+                        console.log('Retorno de verificación de credenciales:', response.retornoCredenciales);
+                        mostrarRetornoCredenciales(response.retornoCredenciales); // Mostrar en HTML
+                        if (response.success) {
+                            showAlert('Credenciales verificadas exitosamente', 'success');
+                        } else {
+                            showAlert(response.error || 'Error al verificar credenciales', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error al verificar credenciales:', error);
+                        showAlert('Error de comunicación con el backend al verificar credenciales', 'error');
+                    });
+
+                // Aquí puedes agregar la lógica para verificar credenciales con backend si lo necesitas
+                console.log('Credenciales a verificar:', pruebaCredenciales);
+                showAlert('Credenciales preparadas para verificación', 'success');
+            } catch (error) {
+                console.error('Error verificando credenciales:', error);
+                showAlert('Error de comunicación con el backend al verificar credenciales', 'error');
+            }
+    }
+}
 
 // Crear usuario
 async function createUser() {
@@ -155,7 +203,7 @@ function displayUsers(users) {
 }
 
 // Editar usuario
-window.editUser = function(id, nombre, clave, cuit, cuil, tipoContribuyente, apellido) {
+window.editUser = function (id, nombre, clave, cuit, cuil, tipoContribuyente, apellido) {
     window.currentEditingUser = { id, nombre, clave, cuit, cuil, tipoContribuyente, apellido };
 
     document.getElementById('editNombre').value = nombre;
@@ -272,7 +320,15 @@ function inicializarUsuarioFrontend() {
     const btnRecargar = document.getElementById('btnRecargarLista');
     const claveInput = document.getElementById('clave');
     const editClaveInput = document.getElementById('editClave');
+    const btnVerificarCredenciales = document.getElementById('btnVerificarCredenciales');
 
+    if (btnVerificarCredenciales) {
+        btnVerificarCredenciales.addEventListener('click', (e) => {
+          e.preventDefault();
+          console.log("llegue al evento_00000");
+         inicializarVerificarCredenciales();
+        });
+    }
     if (btnCrear) {
         btnCrear.addEventListener('click', (e) => {
             e.preventDefault();
@@ -348,6 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        inicializarVerificarCredenciales();
+
         // Cargar usuarios inicialmente
         loadUsers().catch(error => {
             console.error('Error cargando usuarios:', error);
@@ -355,3 +413,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }, 100); // Espera 100ms para asegurar que el HTML esté en el DOM
 });
+
+// Mostrar nombres de retornoCredenciales en filas
+function mostrarRetornoCredenciales(array) {
+    const container = document.getElementById('retornoCredencialesContainer');
+    if (!container) return;
+    container.innerHTML = ''; // Limpiar antes de mostrar
+
+    if (Array.isArray(array) && array.length > 0) {
+        array.forEach(item => {
+            // Si el item es string, mostrarlo directamente; si es objeto, mostrar propiedad 'nombre'
+            const nombre = typeof item === 'string' ? item : (item.nombre || '');
+            const row = document.createElement('div');
+            row.className = 'retorno-row';
+            row.textContent = nombre;
+            container.appendChild(row);
+        });
+    } else {
+        container.innerHTML = '<div class="retorno-row">No hay datos para mostrar</div>';
+    }
+}

@@ -201,6 +201,7 @@ function mostrarUsuarioSeleccionado() {
 function inicializarModulosAfip() {
     inicializarInterfazFacturas();
     inicializarMercadoPago();
+    inicializarLibroIVA();
 }
 
 // ========================================
@@ -266,6 +267,45 @@ function inicializarMercadoPago() {
             } catch (error) {
                 console.error('Error:', error);
                 lectorMPDiv.innerHTML = '<p>Error cargando el componente</p>';
+            }
+        });
+    }
+}
+
+// ========================================
+// INICIALIZAR LIBRO IVA
+// ========================================
+function inicializarLibroIVA() {
+    const btnLibroIVA = document.getElementById('btnLibroIVA');
+    const libroIvaDiv = document.getElementById('libroIvaDiv');
+
+    if (btnLibroIVA && libroIvaDiv) {
+        btnLibroIVA.addEventListener('click', async () => {
+            try {
+                // Toggle de visibilidad
+                if (!libroIvaDiv.classList.contains('contenido-oculto')) {
+                    libroIvaDiv.classList.add('contenido-oculto');
+                    libroIvaDiv.innerHTML = '';
+                    return;
+                }
+
+                // Cargar el contenido de libroIVA.html
+                const response = await fetch('../libroIVA/libroIVA.html');
+                const html = await response.text();
+                libroIvaDiv.innerHTML = html;
+                libroIvaDiv.classList.remove('contenido-oculto');
+
+                // Cargar el script de inicialización si existe
+                const scriptPath = '../libroIVA/inicializarLibroIVA.js';
+                if (!document.head.querySelector(`script[src="${scriptPath}"]`)) {
+                    const script = document.createElement('script');
+                    script.src = scriptPath;
+                    script.defer = true;
+                    document.head.appendChild(script);
+                }
+            } catch (error) {
+                console.error('Error cargando libroIVA:', error);
+                libroIvaDiv.innerHTML = '<p>Error cargando el componente Libro IVA</p>';
             }
         });
     }

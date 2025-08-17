@@ -72,6 +72,11 @@ class JsonStorage {
     }
     return data.users;
   }
+
+  // Alias para compatibilidad con main.js
+  getAll() {
+    return this.getAllUsers();
+  }
 }
 
 let storage;
