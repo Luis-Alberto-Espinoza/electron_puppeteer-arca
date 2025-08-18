@@ -11,8 +11,8 @@ const { paso_4_ConfirmarFactura } = require('./paso_4_ConfirmarFactura');
 
 
 const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea');
-const { elegirPuntoDeVenta } = require('../../../elegirPuntoDeVenta');
-const ejecutar = async (page, datos, modoTest) => {
+const { elegirEmpresaDisponible } = require('../../../elegirEmpresaDisponible');
+const ejecutar_Facturas = async (page, datos, modoTest, credenciales) => {
     try {
         console.log("\n\n === los datos recibidos\n", datos);
         const cantidad = datos.montoResultados.facturasGeneradas.length;
@@ -76,9 +76,9 @@ const ejecutar = async (page, datos, modoTest) => {
 
         const pagePuntoDeVenta = await ejecutarPasoConVerificacion(
             'Elegir Punto de Venta',
-            elegirPuntoDeVenta,
+            elegirEmpresaDisponible,
             newPage,
-            nombreEmpresa // <-- aquí pasas el nombre de la empresa
+            credenciales.nombreEmpresa // <-- aquí pasas el nombre de la empresa
         );
 
         // Procesar cada factura de manera secuencial
@@ -202,4 +202,4 @@ const ejecutar = async (page, datos, modoTest) => {
     }
 };
 
-module.exports = { ejecutar };
+module.exports = { ejecutar_Facturas };

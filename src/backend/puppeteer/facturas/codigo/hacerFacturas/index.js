@@ -11,7 +11,7 @@ const { paso_4_ConfirmarFactura } = require('./paso_4_ConfirmarFactura');
 
 
 const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea');
-const { elegirPuntoDeVenta } = require('../../../elegirPuntoDeVenta');
+const { elegirEmpresaDisponible } = require('../../../elegirEmpresaDisponible');
 const ejecutar = async (page, datos, modoTest) => {
     try {
         console.log("\n\n === los datos recibidos\n", datos);
@@ -76,7 +76,7 @@ const ejecutar = async (page, datos, modoTest) => {
 
         const pagePuntoDeVenta = await ejecutarPasoConVerificacion(
             'Elegir Punto de Venta',
-            elegirPuntoDeVenta,
+            elegirEmpresaDisponible,
             newPage
         );
 

@@ -2,8 +2,8 @@ import { validarFormularioFacturaManual } from './validacionesFacturas.js';
 
 export function procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados) {
     event.preventDefault();
-console.log ("Procesando formulario de factura...");
-  
+    console.log("Procesando formulario de factura...");
+
     console.log("Datos masivos:", datosMasivos);
     console.log("Datos validados:", datosValidados);
 
@@ -12,7 +12,7 @@ console.log ("Procesando formulario de factura...");
     const data = Object.fromEntries(formData.entries());
     let errores = [];
     const usuarioSeleccionado = window.usuarioSeleccionado || null;
-
+    const empresaElegida = window.empresaElegida || null; 
     if (data.metodoIngreso === 'masivo') {
         if (!datosValidados || datosMasivos.length === 0) {
             alert('Debe procesar los datos antes de enviarlos.');
@@ -31,7 +31,8 @@ console.log ("Procesando formulario de factura...");
             Actividad: data.Actividad,
             fechaComprobante: data.fechaComprobante,
             datos: datosMasivos,
-            usuario: usuarioSeleccionado // <-- Agrega el usuario seleccionado
+            usuario: usuarioSeleccionado,
+            empresaElegida 
         };
         console.log("Datos masivos para enviar:", datosMasivosParaEnviar);
         window.electronAPI.sendFormData(datosMasivosParaEnviar);
@@ -54,7 +55,8 @@ console.log ("Procesando formulario de factura...");
         delete datosParaEnviar.fechasFacturas;
     if (datosParaEnviar.tipoMonto !== 'montoTotal')
         datosParaEnviar.monto = datosParaEnviar.montoManual;
-    datosParaEnviar.usuario = usuarioSeleccionado; 
+    datosParaEnviar.usuario = usuarioSeleccionado;
+    datosParaEnviar.empresaElegida = empresaElegida; 
 
     delete datosParaEnviar.montoManual;
     delete datosParaEnviar.montoTotalInput;

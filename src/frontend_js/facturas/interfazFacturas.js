@@ -205,6 +205,15 @@ export async function inicializarInterfazFacturas() {
         resultadoProcesamiento.style.display = 'block';
     });
     facturasForm.addEventListener('submit', (event) => {
+        // Antes de procesar el formulario, obtener la empresa seleccionada
+        const selectEmpresaDisponible = document.getElementById('selectEmpresaDisponible');
+        let empresaElegida = null;
+        if (selectEmpresaDisponible) {
+            empresaElegida = selectEmpresaDisponible.value;
+        }
+        // Guardar la empresa elegida en window para que facturas.js la pueda usar
+        window.empresaElegida = empresaElegida;
+
         procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados); // Llama a la función
 
         // Mostrar el botón "Hacer Factura" al procesar el formulario
@@ -237,8 +246,8 @@ export async function inicializarInterfazFacturas() {
         configurarBotonesExpandirTablas(); 
     });
 
-    // Llama a configurarUsuarioEnFacturas después de cargar el HTML y de inicializar los elementos
     configurarUsuarioEnFacturas();
+    configurarEmpresasDisponibles(); 
 }
 
 function configurarUsuarioEnFacturas() {
@@ -253,6 +262,42 @@ function configurarUsuarioEnFacturas() {
         selectUsuariosFacturas.style.color = '#222';
         selectUsuariosFacturas.style.padding = '4px 8px';
         selectUsuariosFacturas.style.fontWeight = 'bold';
+    }
+}
+
+function configurarEmpresasDisponibles() {
+    const selectEmpresaDisponible = document.getElementById('selectEmpresaDisponible');
+    const usuarioSeleccionado = window.usuarioSeleccionado;
+    if (!selectEmpresaDisponible || !usuarioSeleccionado) return;
+
+    // Limpiar opciones previas
+    selectEmpresaDisponible.innerHTML = '';
+
+    const empresas = usuarioSeleccionado.empresasDisponibles || [];
+    if (empresas.length === 0) {
+        // Si no hay empresas, mostrar opción vacía
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'Sin empresas disponibles';
+        selectEmpresaDisponible.appendChild(option);
+        selectEmpresaDisponible.disabled = true;
+        window.empresaElegida = '';
+        return;
+    }
+
+    empresas.forEach((empresa, idx) => {
+        const option = document.createElement('option');
+        // Si empresa es un objeto, puedes usar empresa.nombre o similar
+        option.value = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
+        option.textContent = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
+        selectEmpresaDisponible.appendChild(option);
+    });
+
+    selectEmpresaDisponible.disabled = empresas.length === 1;
+    // Si solo hay una empresa, seleccionarla por defecto
+    if (empresas.length === 1) {
+        selectEmpresaDisponible.selectedIndex = 0;
+        window.empresaElegida = selectEmpresaDisponible.value;
     }
 }
 

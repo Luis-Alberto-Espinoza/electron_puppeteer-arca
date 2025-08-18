@@ -106,7 +106,7 @@ async function cargarUsuariosEnSelector() {
                 option.dataset.clave = user.clave || '';
                 option.dataset.nombre = user.nombre || '';
                 option.dataset.apellido = user.apellido || '';
-                
+                option.dataset.empresasDisponibles = JSON.stringify(user.empresasDisponible || []); 
                 selectUsuarios.appendChild(option);
             });
             
@@ -127,7 +127,8 @@ async function cargarUsuariosEnSelector() {
                     clave: selectedOption.dataset.clave,
                     tipoContribuyente: selectedOption.dataset.tipoContribuyente,
                     nombreSolo: selectedOption.dataset.nombre,
-                    apellido: selectedOption.dataset.apellido
+                    apellido: selectedOption.dataset.apellido,
+                    empresasDisponibles: selectedOption.dataset.empresasDisponibles ? JSON.parse(selectedOption.dataset.empresasDisponibles) : []
                 };
                 seleccionarUsuario(usuarioCompleto);
             }
