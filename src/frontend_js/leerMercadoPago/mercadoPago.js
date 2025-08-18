@@ -74,14 +74,14 @@ function mostrarTablas(datos) {
 
 function configurarBotonesExpandirTablas() {
     const botonesExpandir = document.querySelectorAll('.btn-expandir');
-    
+
     botonesExpandir.forEach(boton => {
-        boton.addEventListener('click', function() {
+        boton.addEventListener('click', function () {
             const tipoTabla = this.getAttribute('data-tabla');
             const tablaContent = document.getElementById(`tabla-${tipoTabla}-content`);
             const textoExpandir = this.querySelector('.texto-expandir');
             const iconoExpandir = this.querySelector('.icono-expandir');
-            
+
             if (tablaContent.classList.contains('tabla-colapsada')) {
                 // Expandir tabla
                 tablaContent.classList.remove('tabla-colapsada');
@@ -154,7 +154,7 @@ function initializeMercadoPago() {
                         // MOSTRAR PASO 2: Archivo seleccionado + botón procesar
                         rutaSeleccionadaInput.value = archivoSeleccionado;
                         mostrarPaso2_ArchivoSeleccionado();
-                        
+
                     } else {
                         alert('No se seleccionó ningún archivo');
                     }
@@ -218,11 +218,11 @@ function initializeMercadoPago() {
 // ========================================
 
 function inicializarInterfaz() {
-    
+
     // Ocultar todos los elementos excepto el botón de seleccionar archivo
     const elementosAOcultar = [
         'ruta-seleccionada-container',
-        'btn-procesar-archivo', 
+        'btn-procesar-archivo',
         'resultados-container',
         'tablas-container',
         'hacerFactura',
@@ -243,112 +243,111 @@ function inicializarInterfaz() {
 }
 
 function mostrarPaso2_ArchivoSeleccionado() {
-    
+
     // Mostrar la ruta seleccionada y el botón procesar
     const rutaContainer = document.getElementById('ruta-seleccionada-container');
     const btnProcesar = document.getElementById('btn-procesar-archivo');
-    
+
     if (rutaContainer) {
         rutaContainer.classList.remove('hidden');
     }
-    
+
     if (btnProcesar) {
         btnProcesar.classList.remove('hidden');
     }
 }
 
 function mostrarPaso3_ResultadosYAutenticacion(resultado) {
-    
+
     // Mostrar resultados
     mostrarResultados(resultado);
-    
+
     // Mostrar containers de resultados y tablas
     const resultadosContainer = document.getElementById('resultados-container');
     const tablasContainer = document.getElementById('tablas-container');
-    
+
     if (resultadosContainer) {
         resultadosContainer.classList.remove('hidden');
     }
-    
+
     if (tablasContainer) {
         tablasContainer.classList.remove('hidden');
     }
-    
+
     // Mostrar botón "Hacer Factura" y preparar datos
     mostrarBotonHacerFactura(resultado);
 }
 
 function mostrarBotonHacerFactura(resultado) {
-    
+
     const hacerFacturaContainer = document.getElementById('hacerFactura');
     if (!hacerFacturaContainer) {
         console.error('No se encontró el contenedor hacerFactura');
         return;
     }
-
-    // Mostrar el contenedor
     hacerFacturaContainer.classList.remove('hidden');
-    
-    // Crear el botón
     hacerFacturaContainer.innerHTML = `
         <button id="btn-hacer-factura" class="btn-hacer-factura">
             Hacer Factura
         </button>
     `;
-
-    // Preparar datos para la factura
     let datosDiarios = [];
-    
     resultado.datos.totalesDiarios.forEach(item => {
-        // Formatear el total a dos decimales
-        item.totalFormateado = item.total.toLocaleString('es-AR', { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
+        item.totalFormateado = item.total.toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
         });
-        
-        // Convertir el total a un número para evitar problemas de formato
         item.total = parseFloat(item.totalFormateado.replace(/\./g, '').replace(/,/g, '.'));
-        
-        // Agregar datos diarios para enviar a la factura
         datosDiarios.push({
             fecha: item.fecha.replace(/-/g, '/'),
             monto: item.total
         });
     });
 
-    const datosParaEnviar = {
-        modulo: 'mercadopago',
-        Actividad: 'Producto',
-        tipoContribuyente: 'C',
-        datos: datosDiarios,
-        fechaComprobante: "02/08/2025",
-        metodoIngreso: 'masivo',
-        servicio: "factura",
-        tipoContribuyente: "C"
-    };
-
-    // Configurar evento del botón
     const btnHacerFactura = document.getElementById('btn-hacer-factura');
     if (btnHacerFactura) {
         btnHacerFactura.addEventListener('click', () => {
-            // Procesar datos para facturación
+            const selectEmpresa = document.getElementById('selectEmpresaDisponibleMP');
+            const empresaElegida = selectEmpresa ? selectEmpresa.value : '';
+
+            const radioActividad = document.querySelector('input[name="ActividadMP"]:checked');
+            const actividadElegida = radioActividad ? radioActividad.value : 'Servicio';
+
+            const usuarioSeleccionado = window.usuarioSeleccionado || {};
+
+            const fechaComprobanteInput = document.getElementById('fechaComprobanteMP');
+            let fechaComprobante = '';
+            if (fechaComprobanteInput && fechaComprobanteInput.value) {
+                fechaComprobante = fechaComprobanteInput.value;
+            }
+
+            window.fechaComprobanteMP = fechaComprobante;
+
+            const datosParaEnviar = {
+                modulo: 'mercadopago',
+                Actividad: actividadElegida,
+                tipoContribuyente: usuarioSeleccionado.tipoContribuyente || 'C',
+                datos: datosDiarios,
+                fechaComprobante, 
+                metodoIngreso: 'masivo',
+                servicio: "factura",
+                empresaElegida,
+                usuario: usuarioSeleccionado
+            };
             mercadoPagoFacturas(datosParaEnviar);
-            
-            // MOSTRAR PASO 4: Botones de autenticación
             mostrarPaso4_BotonesAutenticacion(datosDiarios);
         });
     }
 }
 
 function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
-    
+
     const botonesContainer = document.getElementById('botones-container');
     if (!botonesContainer) {
         console.error('No se encontró el contenedor botones-container');
         return;
     }
 
-    // Mostrar el contenedor y crear los botones
     botonesContainer.classList.remove('hidden');
     botonesContainer.innerHTML = `
         <div class="auth-options">
@@ -370,13 +369,92 @@ function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
         </div>
     `;
 
-    // Configurar AuthManager
     const authManager = new AuthManager();
     authManager.inicializar({
         loginButtonId: 'loginButtonMP',
         testButtonId: 'testButtonMP'
     });
 }
+
+// === NUEVO: Inicialización de usuario, empresa y actividad para MercadoPago ===
+function inicializarUsuarioEmpresaActividadMP() {
+    // Usuario activo
+    const usuario = window.usuarioSeleccionado;
+    const usuarioMP = document.getElementById('selectUsuariosMP');
+    if (usuario && usuarioMP) {
+        const nombreCapitalizado = usuario.nombre
+            ? usuario.nombre.charAt(0).toUpperCase() + usuario.nombre.slice(1).toLowerCase()
+            : 'Sin nombre';
+        usuarioMP.textContent = nombreCapitalizado;
+        usuarioMP.style.background = '#e9e9e9';
+        usuarioMP.style.color = '#222';
+        usuarioMP.style.padding = '4px 8px';
+        usuarioMP.style.fontWeight = 'bold';
+    }
+
+    // Empresas disponibles
+    const selectEmpresaMP = document.getElementById('selectEmpresaDisponibleMP');
+    if (selectEmpresaMP && usuario) {
+        selectEmpresaMP.innerHTML = '';
+        const empresas = usuario.empresasDisponibles || [];
+        if (empresas.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Sin empresas disponibles';
+            selectEmpresaMP.appendChild(option);
+            selectEmpresaMP.disabled = true;
+            window.empresaElegidaMP = '';
+        } else {
+            empresas.forEach(empresa => {
+                const option = document.createElement('option');
+                option.value = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
+                option.textContent = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
+                selectEmpresaMP.appendChild(option);
+            });
+            selectEmpresaMP.disabled = empresas.length === 1;
+            if (empresas.length === 1) {
+                selectEmpresaMP.selectedIndex = 0;
+                window.empresaElegidaMP = selectEmpresaMP.value;
+            }
+        }
+        // Guardar la empresa elegida al cambiar
+        selectEmpresaMP.addEventListener('change', () => {
+            window.empresaElegidaMP = selectEmpresaMP.value;
+        });
+    }
+
+    // Tipo de actividad
+    const actividadRadios = document.querySelectorAll('input[name="ActividadMP"]');
+    window.actividadElegidaMP = null;
+    actividadRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                window.actividadElegidaMP = radio.value;
+            }
+        });
+    });
+    // Si hay uno seleccionado por defecto
+    const checkedRadio = Array.from(actividadRadios).find(r => r.checked);
+    if (checkedRadio) {
+        window.actividadElegidaMP = checkedRadio.value;
+    }
+}
+
+// Llama a la función al cargar el DOM
+document.addEventListener('DOMContentLoaded', () => {
+    inicializarUsuarioEmpresaActividadMP();
+    // Inicializar flatpickr para fechaComprobanteMP
+    const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
+    if (fechaComprobanteMP && typeof flatpickr !== 'undefined') {
+        flatpickr(fechaComprobanteMP, {
+            mode: "single",
+            dateFormat: "d/m/Y"
+        });
+    }
+});
+
+// Asegura que la inicialización se ejecute también después de cargar el HTML dinámicamente
+window.configurarUsuarioMercadoPago = inicializarUsuarioEmpresaActividadMP;
 
 // ========================================
 // FUNCIONES AUXILIARES
@@ -386,15 +464,15 @@ function limpiarTablas() {
     // Limpiar el contenido de las tablas para que no muestren títulos vacíos
     const tablaFechas = document.querySelector('.table-box:first-child');
     const tablaMontos = document.querySelector('.table-box:last-child');
-    
+
     if (tablaFechas) {
         tablaFechas.innerHTML = '';
     }
-    
+
     if (tablaMontos) {
         tablaMontos.innerHTML = '';
     }
-    
+
     // Remover event listeners existentes si los hay
     const botonesExpandirExistentes = document.querySelectorAll('.btn-expandir');
     botonesExpandirExistentes.forEach(boton => {
@@ -406,7 +484,7 @@ function mostrarError(resultado) {
     const resultadosContainer = document.getElementById('resultados-container');
     if (resultadosContainer) {
         resultadosContainer.classList.remove('hidden');
-        
+
         const resultBox = document.querySelector('.result-box');
         if (resultBox) {
             resultBox.innerHTML = `
@@ -450,9 +528,22 @@ function mostrarResultados(resultado) {
                 <h5>📊 Resumen General</h5>
                 <div class="resumen-grid">
                     <div class="resumen-item">
+                        <span class="label">Empresa Elegida:</span>
+                        <span class="value">${window.empresaElegidaMP || ''}</span>
+                    </div>
+                    <div class="resumen-item">
+                        <span class="label">Fecha de Comprobante:</span>
+                        <span class="value">${window.fechaComprobanteMP.value || ''}</span>
+                    </div>
+                    <br>
+                    <div class="resumen-item">
                         <span class="label">Total Transferencias:</span>
                         <span class="value">${datos.resumenGeneral.transferenciasRecibidas.totalFormateado}</span>
                         <span class="count">(${datos.resumenGeneral.transferenciasRecibidas.cantidad} transferencias)</span>
+                    </div>
+                    <div class="resumen-item">
+                        <span class="label">Total Transferencias Recibidas:</span>
+                        <span class="value">${datos.resumenGeneral.transferenciasRecibidas.totalFormateado}</span>
                     </div>
                     <div class="resumen-item">
                         <span class="label">Total Liquidaciones:</span>
@@ -468,7 +559,6 @@ function mostrarResultados(resultado) {
                     </div>
                 </div>
             </div>
-
             <div class="estadisticas">
                 <h5>📈 Estadísticas</h5>
                 <p><strong>Período:</strong> ${estadisticas.rangoFechas.desde} a ${estadisticas.rangoFechas.hasta}</p>

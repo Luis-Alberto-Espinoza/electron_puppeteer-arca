@@ -15,11 +15,11 @@ const setupUserHandlers = require('../usuario/usuarioHandlers.js');
 const { ejecutar_verificacionCredenciales } = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales');
 //import { ejecutar_verificacionCredenciales } from '../puppeteer/verificaCredenciales/flujo_verificaCredenciales.js';      
 
-
-
-
 let mainWindow;
-let puppeteerWindow; // Variable para la ventana de Puppeteer
+let puppeteerWindow;
+
+// Variable global para guardar la última empresa elegida
+let ultimaEmpresaElegida = null;
 
 function createWindow() {
     const primaryDisplay = screen.getPrimaryDisplay();
@@ -152,15 +152,20 @@ module.exports = { getPuppeteerWindow };
 
 function setupIpcListeners() {
     ipcMain.on('formulario-enviado', async (event, data) => {
-        console.log("Datos recibidos en el backend:", data);
+        if (data.empresaElegida) {
+            ultimaEmpresaElegida = data.empresaElegida;
+        }
         if (data.servicio === 'factura') {
-            if (data.tipoContribuyente == null ) {
+            if (data.tipoContribuyente == null) {
                 data.tipoContribuyente = data.usuario.tipoContribuyente;
             }
             resultadoCodigo = comunicacionConFactura(data, userStorage);
             event.reply('codigoLocalStorageGenerado', resultadoCodigo);
         } else if (data.servicio === 'login') {
             try {
+                if (!data.credenciales.nombreEmpresa && ultimaEmpresaElegida) {
+                    data.credenciales.nombreEmpresa = ultimaEmpresaElegida;
+                }
                 const resultado = await facturaManager.iniciarProceso(data.url, data.credenciales, resultadoCodigo, data.test || false);
                 event.reply('login-automatizado', resultado);
             } catch (error) {
@@ -227,10 +232,7 @@ function setupIpcListeners() {
     // Handler exclusivo para verificación de credenciales
     ipcMain.handle('user:verifyCredentials', async (event, credenciales) => {
         try {
-            console.log('\n\t\sVerificando credenciales:', credenciales)
-            let retornoCredenciales = await ejecutar_verificacionCredenciales( credenciales);
-            console.log('\n\t\sRetorno de verificación de credenciales:', retornoCredenciales)
-         
+            let retornoCredenciales = await ejecutar_verificacionCredenciales(credenciales);
             let usuario = null;
             if (credenciales.cuit) {
                 usuario = userStorage.getAll().find(u => u.cuit === credenciales.cuit);
@@ -238,7 +240,6 @@ function setupIpcListeners() {
                 usuario = userStorage.getAll().find(u => u.cuil === credenciales.cuil);
             }
 
-            // Si la verificación AFIP fue exitosa y hay empresas, retorna success: true aunque el usuario no exista aún
             if (retornoCredenciales.success && Array.isArray(retornoCredenciales.puntosDeVentaArray) && retornoCredenciales.puntosDeVentaArray.length > 0) {
                 return {
                     success: true,
@@ -249,10 +250,8 @@ function setupIpcListeners() {
 
             // Si el usuario existe y la clave coincide, también success: true
             if (usuario && usuario.clave === credenciales.clave) {
-                // Guardar empresasDisponible si la verificación fue exitosa y hay datos
                 if (Array.isArray(retornoCredenciales.puntosDeVentaArray) && retornoCredenciales.puntosDeVentaArray.length > 0) {
-                    usuario.empresasDisponible = retornoCredenciales.puntosDeVentaArray;
-                    // Guardar el usuario actualizado en el storage
+                    usuario.empresasDisponibles = retornoCredenciales.puntosDeVentaArray; // <-- Cambiado a plural
                     const usuarios = userStorage.getAll();
                     const idx = usuarios.findIndex(u => u.id === usuario.id);
                     if (idx !== -1) {
@@ -260,18 +259,17 @@ function setupIpcListeners() {
                         userStorage.saveData({ users: usuarios });
                     }
                 }
-                return { 
-                    success: true, 
-                    usuario, 
-                    puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || [] 
+                return {
+                    success: true,
+                    usuario,
+                    puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || []
                 };
             }
 
-            // Si no, error
-            return { 
-                success: false, 
-                error: 'Credenciales inválidas', 
-                puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || [] 
+            return {
+                success: false,
+                error: 'Credenciales inválidas',
+                puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || []
             };
         } catch (error) {
             return { success: false, error: error.message || 'Error verificando credenciales' };

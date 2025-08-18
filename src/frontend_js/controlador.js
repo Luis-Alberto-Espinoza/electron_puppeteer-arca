@@ -255,11 +255,18 @@ function inicializarMercadoPago() {
                 script.type = 'module';
                 script.src = basePath + './leerMercadoPago/mercadoPago.js';
 
-                // Pasar información del usuario al módulo MercadoPago
                 script.onload = () => {
-                    // Si el módulo MercadoPago tiene una función para recibir usuario
-                    if (window.configurarUsuarioMercadoPago && usuarioSeleccionado) {
-                        window.configurarUsuarioMercadoPago(usuarioSeleccionado);
+                    // Inicializar usuario y flatpickr después de que el JS esté cargado y el HTML insertado
+                    if (window.configurarUsuarioMercadoPago && window.usuarioSeleccionado) {
+                        window.configurarUsuarioMercadoPago(window.usuarioSeleccionado);
+                    }
+                    // Inicializar flatpickr para fechaComprobanteMP
+                    const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
+                    if (fechaComprobanteMP && typeof flatpickr !== 'undefined') {
+                        flatpickr(fechaComprobanteMP, {
+                            mode: "single",
+                            dateFormat: "d/m/Y"
+                        });
                     }
                 };
 
