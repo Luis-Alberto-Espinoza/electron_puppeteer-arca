@@ -2,9 +2,13 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
     ipcMain.handle('user:create', async (event, userData) => {
         try {
             const data = userStorage.loadData();
-            const existingUser = data.users.find(user => user.nombre === userData.nombre);
+            // Verificar existencia solo por cuit o cuil
+            const existingUser = data.users.find(user =>
+                (user.cuit && user.cuit === userData.cuit && user.cuit !== null && user.cuit !== '') ||
+                (user.cuil && user.cuil === userData.cuil && user.cuil !== null && user.cuil !== '')
+            );
             if (existingUser) {
-                return { success: false, error: 'El usuario ya existe' };
+                return { success: false, error: 'Ya existe un usuario con ese CUIT o CUIL' };
             }
 
             const newUser = {
@@ -15,6 +19,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 cuil: userData.cuil || null,
                 tipoContribuyente: userData.tipoContribuyente || null,
                 clave: userData.clave,
+                empresasDisponible: userData.empresasDisponible || [],
                 fechaCreacion: new Date().toISOString()
             };
 
@@ -164,6 +169,51 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 archivo: ruta ? require('path').basename(ruta) : 'desconocido',
                 procesadoEn: new Date().toISOString()
             };
+        }
+    });
+
+    // Requiere acceso a ejecutar_verificacionCredenciales
+    const { ejecutar_verificacionCredenciales } = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales');
+
+    ipcMain.handle('user:verifyAndUpdate', async (event, updatedUser) => {
+        try {
+            // Verificar credenciales con el flujo existente
+            const credenciales = {
+                clave: updatedUser.clave,
+                cuit: updatedUser.cuit,
+                cuil: updatedUser.cuil
+            };
+            const verificacion = await ejecutar_verificacionCredenciales(credenciales);
+
+            if (!verificacion.success) {
+                return { success: false, error: 'Credenciales inválidas o error en verificación' };
+            }
+
+            // Actualizar usuario y empresasDisponible
+            const data = userStorage.loadData();
+            const index = data.users.findIndex(user => String(user.id) === String(updatedUser.id));
+            if (index === -1) {
+                return { success: false, error: 'Usuario no encontrado' };
+            }
+
+            data.users[index] = {
+                ...data.users[index],
+                nombre: updatedUser.nombre,
+                apellido: updatedUser.apellido,
+                cuit: updatedUser.cuit,
+                cuil: updatedUser.cuil,
+                tipoContribuyente: updatedUser.tipoContribuyente,
+                clave: updatedUser.clave,
+                empresasDisponible: verificacion.puntosDeVentaArray || [],
+                fechaModificacion: new Date().toISOString()
+            };
+
+            const saveResult = userStorage.saveData(data);
+            return saveResult
+                ? { success: true, user: data.users[index] }
+                : { success: false, error: 'Error al guardar' };
+        } catch (error) {
+            return { success: false, error: error.message };
         }
     });
 }

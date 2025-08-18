@@ -1,7 +1,7 @@
 const { menuPrincipal } = require('../facturas/codigo/hacerFacturas/menuPrincipal');
 const { paso_0_seleccionarPuntoDeVenta } = require('../facturas/codigo/hacerFacturas/paso_0_PuntosDeVentas');
 const { elegirComprobanteEnLinea } = require('../elegirComprobanteEnLinea');
-const { elegirPuntoDeVenta } = require('../elegirPuntoDeVenta');
+const { seleccionarEmpresa } = require('../seleccionarEmpresa');
 const hacerLogin = require('../facturas/codigo/login/login_arca'); // Importa el nuevo módulo de login
 
 const ejecutar_verificacionCredenciales = async (datos) => {
@@ -21,7 +21,7 @@ const ejecutar_verificacionCredenciales = async (datos) => {
             // mostrar el objeto creado 
             console.log("Credenciales para login:", credenciales);
             // generar una espera
-            page = await hacerLogin.hacerLogin(url, credenciales);
+            page = await hacerLogin.hacerLogin(url, credenciales, { headless: true }); // <-- aquí
         } catch (loginError) {
             console.error("Error en login:", loginError);
             return { success: false, error: "Login fallido: " + (loginError.message || loginError) };
@@ -37,12 +37,12 @@ const ejecutar_verificacionCredenciales = async (datos) => {
                 console.time(nombrePaso);
 
                 // Reducir el tiempo de espera antes de ejecutar el paso
-                // await esperar(500);
+                await esperar(500);
 
                 const resultado = await funcion(...args);
 
                 // Reducir el tiempo de espera después de la ejecución
-                //await esperar(1000);
+                await esperar(1000);
 
                 // Verificar que no hay errores en la página
                 const hayError = await args[0].evaluate(() => {
@@ -83,17 +83,28 @@ const ejecutar_verificacionCredenciales = async (datos) => {
             page
         );
 
+        // Cambiar aquí: usar la función correcta para seleccionar punto de venta
         const [pagePuntoDeVenta, puntosDeVentaArray] = await ejecutarPasoConVerificacion(
-            'Elegir Punto de Venta',
-            elegirPuntoDeVenta,
+            'Seleccionar Punto de Venta',
+            seleccionarEmpresa,
             newPage,
             nombreEmpresa
         );
 
-        // Cerrar el navegador después de elegir el punto de venta
-        await pagePuntoDeVenta.browser().close();
+        console.log("Página de&&&&&&&&&&&&spués de elegir punto de venta:", pagePuntoDeVenta);
+        console.log("Array de puntos ///////////de venta:", puntosDeVentaArray);
 
-        return { success: true, message: "Proceso completado", empresas: puntosDeVentaArray  };
+        // Cerrar el navegador al finalizar el flujo
+        if (pagePuntoDeVenta && pagePuntoDeVenta.browser) {
+            const browser = pagePuntoDeVenta.browser();
+            await browser.close();
+            console.log("Navegador cerrado correctamente.");
+        }
+
+        console.log("Proceso de verificación de credenciales completado correctamente.");
+
+        // Retornar también el array de puntos de venta
+        return { success: true, message: "Proceso completado", puntosDeVentaArray };
     } catch (error) {
         console.error("Error en ejecutar:", error);
         return { success: false, error: error.message || error };

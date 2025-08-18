@@ -2,13 +2,13 @@ const { app } = require('electron');
 const fs = require('fs');
 const puppeteer = require('puppeteer-core');
 
-async function launchBrowser() {
+async function launchBrowser({ headless = false } = {}) { // <-- permite pasar headless
   const { screen } = require('electron');
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
   let launchOptions = {
-    headless: false, // <-- Forzar a false para ver el navegador siempre
+    headless, // <-- configurable
     args: [
       `--window-size=${width},${height}`,
       `--window-position=0,0`,

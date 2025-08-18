@@ -227,26 +227,54 @@ function setupIpcListeners() {
     // Handler exclusivo para verificación de credenciales
     ipcMain.handle('user:verifyCredentials', async (event, credenciales) => {
         try {
+            console.log('\n\t\sVerificando credenciales:', credenciales)
             let retornoCredenciales = await ejecutar_verificacionCredenciales( credenciales);
             console.log('\n\t\sRetorno de verificación de credenciales:', retornoCredenciales)
-            
-            // Extraer el array de empresas si existe
-            let empresasArray = retornoCredenciales && retornoCredenciales.empresas ? retornoCredenciales.empresas : null;
-            console.log('\n\t\sver el array de empresas:', empresasArray)
-
+         
             let usuario = null;
             if (credenciales.cuit) {
                 usuario = userStorage.getAll().find(u => u.cuit === credenciales.cuit);
             } else if (credenciales.cuil) {
                 usuario = userStorage.getAll().find(u => u.cuil === credenciales.cuil);
             }
-            if (usuario && usuario.clave === credenciales.clave) {
-                return { success: true, usuario, retornoCredenciales: empresasArray };
-            } else {
-                return { success: false, error: 'Credenciales inválidas', retornoCredenciales: empresasArray };
+
+            // Si la verificación AFIP fue exitosa y hay empresas, retorna success: true aunque el usuario no exista aún
+            if (retornoCredenciales.success && Array.isArray(retornoCredenciales.puntosDeVentaArray) && retornoCredenciales.puntosDeVentaArray.length > 0) {
+                return {
+                    success: true,
+                    usuario,
+                    puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray
+                };
             }
+
+            // Si el usuario existe y la clave coincide, también success: true
+            if (usuario && usuario.clave === credenciales.clave) {
+                // Guardar empresasDisponible si la verificación fue exitosa y hay datos
+                if (Array.isArray(retornoCredenciales.puntosDeVentaArray) && retornoCredenciales.puntosDeVentaArray.length > 0) {
+                    usuario.empresasDisponible = retornoCredenciales.puntosDeVentaArray;
+                    // Guardar el usuario actualizado en el storage
+                    const usuarios = userStorage.getAll();
+                    const idx = usuarios.findIndex(u => u.id === usuario.id);
+                    if (idx !== -1) {
+                        usuarios[idx] = usuario;
+                        userStorage.saveData({ users: usuarios });
+                    }
+                }
+                return { 
+                    success: true, 
+                    usuario, 
+                    puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || [] 
+                };
+            }
+
+            // Si no, error
+            return { 
+                success: false, 
+                error: 'Credenciales inválidas', 
+                puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || [] 
+            };
         } catch (error) {
-            return { success: false, error: error.message || 'Error verificando credenciales', retornoCredenciales: null };
+            return { success: false, error: error.message || 'Error verificando credenciales' };
         }
     });
 }
@@ -266,8 +294,6 @@ app.whenReady().then(async () => {
 
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
-
-        // setupIpcListeners debe ir después de inicializar userStorage
         setupIpcListeners();
         console.log('✅ Manejadores IPC configurados');
     } catch (error) {

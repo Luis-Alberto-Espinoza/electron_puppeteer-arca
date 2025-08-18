@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         create: (userData) => ipcRenderer.invoke('user:create', userData),
         getAll: () => ipcRenderer.invoke('user:getAll'),
         update: (userData) => ipcRenderer.invoke('user:update', userData),
-        delete: (userId) => ipcRenderer.invoke('user:delete', userId)
+        delete: (userId) => ipcRenderer.invoke('user:delete', userId),
+        verifyCredentials: (credenciales) => ipcRenderer.invoke('user:verifyCredentials', credenciales),
+        verifyAndUpdate: (userData) => ipcRenderer.invoke('user:verifyAndUpdate', userData)
     }
 });

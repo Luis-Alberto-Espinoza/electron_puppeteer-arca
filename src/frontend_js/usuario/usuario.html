@@ -5,14 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRUD Usuarios - Electron</title>
     <link rel="stylesheet" href="../usuario/usuario.css">
-    <style>
-        .retorno-row {
-            padding: 4px 8px;
-            border-bottom: 1px solid #eee;
-            background: #f9f9f9;
-            font-size: 15px;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -117,8 +109,8 @@
                         Verificar Credenciales
                     </button>
                 </div>
-                <!-- Contenedor para mostrar los nombres del array retornoCredenciales -->
-                <div id="retornoCredencialesContainer" style="margin-top: 10px;"></div>
+                <!-- Contenedor para la lista de puntos de venta -->
+                <div id="elegirEmpresa" class="puntos-venta-list" style="margin: 10px 0;"></div>
                 <button class="btn btn-primary" id="btnCrearUsuario">
                     <span id="createLoading" class="loading hidden"></span>
                     Crear Usuario

@@ -1,5 +1,8 @@
 window.currentEditingUser = window.currentEditingUser || null;
 
+// Variable global para empresas disponibles
+window.empresasDisponible = [];
+
 // Función para mostrar alertas
 function showAlert(message, type = 'success') {
     const alert = document.getElementById('alert');
@@ -48,9 +51,9 @@ function inicializarVerificarCredenciales() {
                 window.electronAPI.user.verifyCredentials(pruebaCredenciales)
                     .then(response => {
                         console.log('Respuesta de verificación de credenciales:', response);
-                        // Mostrar el retornoCredenciales en consola o usarlo como desees
-                        console.log('Retorno de verificación de credenciales:', response.retornoCredenciales);
-                        mostrarRetornoCredenciales(response.retornoCredenciales); // Mostrar en HTML
+                        // Guardar la lista globalmente para usarla al crear usuario
+                        window.empresasDisponible = response.puntosDeVentaArray || [];
+                        mostrarPuntosDeVenta(response.puntosDeVentaArray);
                         if (response.success) {
                             showAlert('Credenciales verificadas exitosamente', 'success');
                         } else {
@@ -116,7 +119,11 @@ async function createUser() {
             return;
         }
 
-        const result = await window.electronAPI.user.create({ nombre, clave, cuit, cuil, tipoContribuyente, apellido });
+        // Agregar empresasDisponible al objeto usuario
+        const result = await window.electronAPI.user.create({
+            nombre, clave, cuit, cuil, tipoContribuyente, apellido,
+            empresasDisponible: window.empresasDisponible || []
+        });
         console.log('Resultado de crear usuario:', result);
 
         if (result.success) {
@@ -274,22 +281,43 @@ async function updateUser() {
         showAlert('CUIL debe tener exactamente 11 números', 'error');
         return;
     }
-    if (tipoContribuyente !== "A" && tipoContribuyente !== "B") {
+    if (tipoContribuyente !== "B" && tipoContribuyente !== "C") {
         showAlert('Selecciona el tipo de contribuyente', 'error');
         return;
     }
 
+    // Detectar si cambió clave/cuit/cuil
+    const claveCambio = clave !== window.currentEditingUser.clave;
+    const cuitCambio = cuit !== window.currentEditingUser.cuit;
+    const cuilCambio = cuil !== window.currentEditingUser.cuil;
+
     try {
         setLoading('updateLoading', true);
-        const result = await window.electronAPI.user.update({
-            id: window.currentEditingUser.id,
-            nombre,
-            clave,
-            cuit,
-            cuil,
-            tipoContribuyente,
-            apellido
-        });
+
+        let result;
+        if (claveCambio || cuitCambio || cuilCambio) {
+            // Verificar credenciales y actualizar empresasDisponible
+            result = await window.electronAPI.user.verifyAndUpdate({
+                id: window.currentEditingUser.id,
+                nombre,
+                clave,
+                cuit,
+                cuil,
+                tipoContribuyente,
+                apellido
+            });
+        } else {
+            // Solo actualizar datos normales
+            result = await window.electronAPI.user.update({
+                id: window.currentEditingUser.id,
+                nombre,
+                clave,
+                cuit,
+                cuil,
+                tipoContribuyente,
+                apellido
+            });
+        }
 
         if (result.success) {
             showAlert(`Usuario "${nombre}" actualizado exitosamente!`);
@@ -414,22 +442,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 100); // Espera 100ms para asegurar que el HTML esté en el DOM
 });
 
-// Mostrar nombres de retornoCredenciales en filas
-function mostrarRetornoCredenciales(array) {
-    const container = document.getElementById('retornoCredencialesContainer');
-    if (!container) return;
-    container.innerHTML = ''; // Limpiar antes de mostrar
-
-    if (Array.isArray(array) && array.length > 0) {
-        array.forEach(item => {
-            // Si el item es string, mostrarlo directamente; si es objeto, mostrar propiedad 'nombre'
-            const nombre = typeof item === 'string' ? item : (item.nombre || '');
-            const row = document.createElement('div');
-            row.className = 'retorno-row';
-            row.textContent = nombre;
-            container.appendChild(row);
-        });
+// Mostrar lista de puntos de venta en el frontend
+function mostrarPuntosDeVenta(puntosDeVentaArray) {
+    console.log('mostrarPuntosDeVenta llamado con:', puntosDeVentaArray);
+    const contenedor = document.getElementById('elegirEmpresa');
+    if (!contenedor) {
+        console.warn('No se encontró el div elegirEmpresa');
+        return;
+    }
+    if (Array.isArray(puntosDeVentaArray) && puntosDeVentaArray.length > 0) {
+        contenedor.innerHTML = `
+            <div style="margin-bottom: 8px; font-weight: bold;">Puntos de Venta encontrados:</div>
+            <ul style="margin:0; padding-left: 18px;">
+                ${puntosDeVentaArray.map(nombre => `<li>${nombre}</li>`).join('')}
+            </ul>
+        `;
     } else {
-        container.innerHTML = '<div class="retorno-row">No hay datos para mostrar</div>';
+        contenedor.innerHTML = '';
     }
 }

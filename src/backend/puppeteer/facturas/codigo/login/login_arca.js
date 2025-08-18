@@ -1,10 +1,11 @@
 const { launchBrowser } = require('../../../browserLauncher');
 
-async function hacerLogin(url, credenciales) {
+async function hacerLogin(url, credenciales, opciones = {}) {
   let browser;
   let page;
   try {
-    browser = await launchBrowser();
+    // Pasar headless si viene en opciones, si no usa false por defecto
+    browser = await launchBrowser({ headless: opciones.headless === true });
     const pages = await browser.pages();
     if (pages.length > 1) {
       await pages[0].close();
