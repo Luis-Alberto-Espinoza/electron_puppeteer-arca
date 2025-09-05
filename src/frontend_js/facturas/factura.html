@@ -1,165 +1,164 @@
+<h2>Gestión de Facturas</h2>
+<form id="facturasForm">
+    <div id="selectUsuariosDiv" style="display: flex; justify-content: space-between; align-items: center;">
+        <label for="selectUsuarios">Usuario Activo:</label>
+        <p id="selectUsuarios" class="usuario-seleccionado-factura"></p>
+    </div>
+    <div id="empresaDisponible">
+        <label for="selectEmpresaDisponible">Empresa Seleccionada:</label>
+        <select id="selectEmpresaDisponible"></select>
+    </div>
+    <div id="tipoActividadDiv">
+        <h2>Tipo de Actividad</h2>
+        <div>
+            <input type="radio" name="Actividad" value="Producto" id="producto">
+            <label for="producto">Producto</label>
+        </div>
+        <div>
+            <input type="radio" name="Actividad" value="Servicio" id="servicio">
+            <label for="servicio">Servicio</label>
+        </div>
+    </div>
+    <div id="periodoAFacturarDiv">
+        <h2>Periodo a Facturar</h2>
 
-                    <h2>Gestión de Facturas</h2>
-                    <form id="facturasForm">
-                        <div id="selectUsuariosDiv"
-                            style="display: flex; justify-content: space-between; align-items: center;">
-                            <label for="selectUsuarios">Usuario Activo:</label>
-                            <p id="selectUsuarios" class="usuario-seleccionado-factura"></p>
-                        </div>
-                        <div id="empresaDisponible">
-                            <label for="selectEmpresaDisponible">Empresa Seleccionada:</label>
-                            <select id="selectEmpresaDisponible"></select>
-                        </div>
-                        <div id="tipoActividadDiv">
-                            <h2>Tipo de Actividad</h2>
-                            <div>
-                                <input type="radio" name="Actividad" value="Producto" id="producto">
-                                <label for="producto">Producto</label>
-                            </div>
-                            <div>
-                                <input type="radio" name="Actividad" value="Servicio" id="servicio">
-                                <label for="servicio">Servicio</label>
-                            </div>
-                        </div>
-                        <div id="periodoAFacturarDiv">
-                            <h2>Periodo a Facturar</h2>
+        <div id="fechaDelComprobante" style="display: block;">
+            <h3>Seleccionar Fecha Del Comprobante</h3>
+            <input type="text" id="fechaComprobante" name="fechaComprobante" placeholder="Selecciona un día">
+        </div>
 
-                            <div id="fechaDelComprobante" style="display: block;">
-                                <h3>Seleccionar Fecha Del Comprobante</h3>
-                                <input type="text" id="fechaComprobante" name="fechaComprobante"
-                                    placeholder="Selecciona un día">
-                            </div>
+        <div>
+            <h2>Seleccionar método de ingreso de datos</h2>
+            <label>
+                <input type="radio" name="metodoIngreso" value="manual" id="ingresoManual" checked>
+                Ingreso manual
+            </label>
+            <label>
+                <input type="radio" name="metodoIngreso" value="masivo" id="ingresoMasivo">
+                Carga masiva de datos
+            </label>
+        </div>
+        <div id="seccionManual">
+            <div class="periodo-selects">
+                <div>
+                    <label for="selectMes">Mes:</label>
+                    <select name="mes" id="selectMes"></select>
+                </div>
+                <div>
+                    <label for="selectAnio">Año:</label>
+                    <select name="anio" id="selectAnio"></select>
+                </div>
+            </div>
+            <!-- crear un div con el titulo "Preseleccion de fechas que abarque a los tres name="periodoFacturacion" " -->
+            <div>
+                <h2>Preselección de fechas</h2>
 
-                            <div>
-                                <h2>Seleccionar método de ingreso de datos</h2>
-                                <label>
-                                    <input type="radio" name="metodoIngreso" value="manual" id="ingresoManual" checked>
-                                    Ingreso manual
-                                </label>
-                                <label>
-                                    <input type="radio" name="metodoIngreso" value="masivo" id="ingresoMasivo">
-                                    Carga masiva de datos
-                                </label>
-                            </div>
-                            <div id="seccionManual">
-                                <div class="periodo-selects">
-                                    <div>
-                                        <label for="selectMes">Mes:</label>
-                                        <select name="mes" id="selectMes"></select>
-                                    </div>
-                                    <div>
-                                        <label for="selectAnio">Año:</label>
-                                        <select name="anio" id="selectAnio"></select>
-                                    </div>
-                                </div>
-                                <!-- crear un div con el titulo "Preseleccion de fechas que abarque a los tres name="periodoFacturacion" " -->
-                                <div>
-                                    <h2>Preselección de fechas</h2>
+                <div>
+                    <input type="radio" name="periodoFacturacion" value="total" id="periodoTotal" data-target="">
+                    <label for="periodoTotal">Todos los Dias del mes</label>
+                </div>
 
-                                    <div>
-                                        <input type="radio" name="periodoFacturacion" value="total" id="periodoTotal"
-                                            data-target="">
-                                        <label for="periodoTotal">Todos los Dias del mes</label>
-                                    </div>
+                <div>
+                    <input type="radio" name="periodoFacturacion" value="habiles" id="periodoDiasHabiles"
+                        data-target="">
+                    <label for="periodoDiasHabiles">Días de Lunes a Viernes</label>
+                </div>
 
-                                    <div>
-                                        <input type="radio" name="periodoFacturacion" value="habiles"
-                                            id="periodoDiasHabiles" data-target="">
-                                        <label for="periodoDiasHabiles">Días de Lunes a Viernes</label>
-                                    </div>
-
-                                    <div>
-                                        <input type="radio" name="periodoFacturacion" value="manual" id="periodoManual"
-                                            data-target="calendario">
-                                        <label for="periodoManual">Seleccionar ciertos días del mes</label>
-                                        <br>
-                                        <div id="calendario" style="display: none;">
-                                            <input type="text" id="datepicker" style="display: none;"
-                                                placeholder="Selecciona días">
-                                        </div>
-                                        <textarea name="fechasFacturas" id="fechasFacturas" class="textAreaFechas"
-                                            style="display: none;"></textarea>
-                                    </div>
-                                </div>
-                                <div id="montoAFacturarDiv">
-                                    <h2>Total a facturar</h2>
-                                    <div>
-                                        <input type="radio" name="tipoMonto" value="montoTotal" id="montoTotal">
-                                        <label for="montoTotal">Ingresar un monto total de facturación</label>
-                                        <div id="inputContainerTotal" style="display: none;">
-                                            <br>
-                                            Ingrese el monto a facturar:
-                                            <input type="number" id="montoTotalInput" name="montoTotalInput"
-                                                placeholder="Monto Total" />
-                                        </div>
-                                    </div>
-                                    <div id="montoManualDiv" style="display: none;">
-                                        <input type="radio" name="tipoMonto" value="montoManual" id="montoManual">
-                                        <label for="montoManual">Ingresar manualmente el monto a facturar</label>
-                                        <div id="textareaContainer" style="display: none;">
-                                            <br>
-                                            Ingrese los montos a facturar separados por comas:
-                                            <textarea name="montoManual" id="textareaMontoManual"></textarea>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div id="seccionMasiva" style="display: none;">
-                                <h4>Ingreso masivo de datos</h4>
-                                <label for="textareaFechas">Fechas (una por línea):</label>
-                                <textarea id="textareaFechas" rows="10" cols="30" placeholder="DD/MM/YYYY"></textarea>
-                                <br>
-                                <label for="textareaMontos">Montos (uno por línea):</label>
-                                <textarea id="textareaMontos" rows="10" cols="30"
-                                    placeholder="Monto correspondiente a cada fecha"></textarea>
-                                <br>
-                                <button id="procesarDatos">Procesar datos</button>
-                                <div id="resultadoProcesamiento" style="margin-top: 20px; display: none;">
-                                    <h4>Datos procesados:</h4>
-                                    <table border="1">
-                                        <thead>
-                                            <tr>
-                                                <th>Fecha</th>
-                                                <th>Monto</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="tablaDatosProcesados"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button id="procesarFacturas" type="submit">Procesar </button>
-                    </form>
-                    <div id="respuesta">
-                        <textarea id="codigoLocalStorage"
-                            style="display: none; width: 100%; height: 200px; resize: vertical;"></textarea>
-                        <button id="copiarCodigo" style="display: none;">Copiar Código</button>
+                <div>
+                    <input type="radio" name="periodoFacturacion" value="manual" id="periodoManual"
+                        data-target="calendario">
+                    <label for="periodoManual">Seleccionar ciertos días del mes</label>
+                    <br>
+                    <div id="calendario" style="display: none;">
+                        <input type="text" id="datepicker" style="display: none;" placeholder="Selecciona días">
                     </div>
-                    <div id="ejecutaNavegador">
-                        <!--
+                    <textarea name="fechasFacturas" id="fechasFacturas" class="textAreaFechas"
+                        style="display: none;"></textarea>
+                </div>
+            </div>
+            <div id="montoAFacturarDiv">
+                <h2>Total a facturar</h2>
+                <div>
+                    <input type="radio" name="tipoMonto" value="montoTotal" id="montoTotal">
+                    <label for="montoTotal">Ingresar un monto total de facturación</label>
+                    <div id="inputContainerTotal" style="display: none;">
+                        <br>
+                        Ingrese el monto a facturar:
+                        <input type="number" id="montoTotalInput" name="montoTotalInput" placeholder="Monto Total" />
+                    </div>
+                </div>
+                <div id="montoManualDiv" style="display: none;">
+                    <input type="radio" name="tipoMonto" value="montoManual" id="montoManual">
+                    <label for="montoManual">Ingresar manualmente el monto a facturar</label>
+                    <div id="textareaContainer" style="display: none;">
+                        <br>
+                        Ingrese los montos a facturar separados por comas:
+                        <textarea name="montoManual" id="textareaMontoManual"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="seccionMasiva" style="display: none;">
+            <h4>Ingreso masivo de datos</h4>
+            <label for="textareaFechas">Fechas (una por línea):</label>
+            <textarea id="textareaFechas" rows="10" cols="30" placeholder="DD/MM/YYYY"></textarea>
+            <br>
+            <label for="textareaMontos">Montos (uno por línea):</label>
+            <textarea id="textareaMontos" rows="10" cols="30"
+                placeholder="Monto correspondiente a cada fecha"></textarea>
+            <br>
+            <button id="procesarDatos">Procesar datos</button>
+            <div id="resultadoProcesamiento" style="margin-top: 20px; display: none;">
+                <h4>Datos procesados:</h4>
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Monto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaDatosProcesados"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <button id="procesarFacturas" type="submit">Procesar </button>
+</form>
+<div id="respuesta">
+    <textarea id="codigoLocalStorage" style="display: none; width: 100%; height: 200px; resize: vertical;"></textarea>
+    <button id="copiarCodigo" style="display: none;">Copiar Código</button>
+</div>
+<div id="ejecutaNavegador">
+    <!--
                         <button id="testButton">Abrir AFIP en Modo Test</button>
                         <button id="loginButton">Abrir AFIP con Puppeteer</button>
                         -->
-                    </div>
-                    <div class="container">
-                        <div id="hacerFacturaFacturas" class="hacerFacturaFacturas hidden">
-                            <button id="habilitarBtnAFIP" class="btn-principal">Hacer Facturas</button>
-                        </div>
-                        <div id="botones-puppeteer" class="botones-puppeteer">
-                            <div class="auth-options">
-                                <h3>Selecciona el modo de Ingreso:</h3>
-                                <button id="testButton" class="btn-test">
-                                    🧪 Abrir AFIP - Modo Test
-                                </button>
-                                <button id="loginButton" class="btn-login">
-                                    🔐 Abrir AFIP - Modo Producción
-                                </button>
-                                <div class="info-container">
-                                    <p><strong>Modo Test:</strong> Para pruebas y desarrollo</p>
-                                    <p><strong>Modo Producción:</strong> Para facturación real</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+</div>
+<div class="container">
+    <div id="hacerFacturaFacturas" class="hacerFacturaFacturas hidden">
+        <button id="habilitarBtnAFIP" class="btn-principal">Hacer Facturas</button>
+    </div>
+    <div id="botones-puppeteer" class="botones-puppeteer">
+        <div class="auth-options">
+            <h3>Selecciona el modo de Ingreso:</h3>
+            <button id="testButton" class="btn-test">
+                🧪 Abrir AFIP - Modo Test
+            </button>
+            <button id="loginButton" class="btn-login">
+                🔐 Abrir AFIP - Modo Producción
+            </button>
+            <div class="info-container">
+                <p><strong>Modo Test:</strong> Para pruebas y desarrollo</p>
+                <p><strong>Modo Producción:</strong> Para facturación real</p>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+<!-- Resultado final de facturación -->
+<div id="facturaResultadoFinal" style="display: none;"></div>
+</body>
+
+</html>

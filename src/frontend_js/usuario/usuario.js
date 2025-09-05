@@ -28,50 +28,55 @@ function setLoading(elementId, show) {
 }
 // funcion para verificar credenciales
 function inicializarVerificarCredenciales() {
+    const btnVerificarCredenciales = document.getElementById('btnVerificarCredenciales');
+    const btnCrearUsuario = document.getElementById('btnCrearUsuario');
+    const verificarLoading = document.getElementById('verificarLoading');
 
-
-    console.log("btnVerificarCredenciales", btnVerificarCredenciales);
     if (btnVerificarCredenciales) {
+        btnVerificarCredenciales.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            // Oculta ambos botones y muestra el loader
+            btnVerificarCredenciales.style.display = 'none';
+            btnCrearUsuario.style.display = 'none';
+            verificarLoading.classList.remove('hidden');
+            // Solo el spinner gira, el texto queda quieto
+            verificarLoading.innerHTML = '<span class="spinner"></span><span class="loader-text">Verificando...</span>';
+
+            const clave = document.getElementById('clave').value.trim();
+            const cuit = document.getElementById('cuit').value.trim();
+            const cuil = document.getElementById('cuil').value.trim();
+
+            const pruebaCredenciales = { clave, cuit, cuil };
+
+            let response = {};
+            let resultado = false;
             try {
-                console.log("llegue al evento");
-                const nombre = document.getElementById('nombre').value.trim();
-                const clave = document.getElementById('clave').value.trim();
-                const cuit = document.getElementById('cuit').value.trim();
-                const cuil = document.getElementById('cuil').value.trim();
-                const tipoContribuyente = document.getElementById('tipoContribuyente').value;
-                const apellido = document.getElementById('apellido').value.trim();
-
-                const pruebaCredenciales = {
-                    clave,
-                    cuit,
-                    cuil
-                };
-
-                //necesito enviar pruebaCredenciales a el preload.js habrir un canal exclucivo para reslver solo verificacion de credenciales y sus respuestas
-                window.electronAPI.user.verifyCredentials(pruebaCredenciales)
-                    .then(response => {
-                        console.log('Respuesta de verificación de credenciales:', response);
-                        // Guardar la lista globalmente para usarla al crear usuario
-                        window.empresasDisponible = response.puntosDeVentaArray || [];
-                        mostrarPuntosDeVenta(response.puntosDeVentaArray);
-                        if (response.success) {
-                            showAlert('Credenciales verificadas exitosamente', 'success');
-                        } else {
-                            showAlert(response.error || 'Error al verificar credenciales', 'error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error al verificar credenciales:', error);
-                        showAlert('Error de comunicación con el backend al verificar credenciales', 'error');
-                    });
-
-                // Aquí puedes agregar la lógica para verificar credenciales con backend si lo necesitas
-                console.log('Credenciales a verificar:', pruebaCredenciales);
-                showAlert('Credenciales preparadas para verificación', 'success');
+                response = await window.electronAPI.user.verifyCredentials(pruebaCredenciales);
+                window.empresasDisponible = response.puntosDeVentaArray || [];
+                mostrarPuntosDeVenta(response.puntosDeVentaArray);
+                resultado = !!response.success;
             } catch (error) {
-                console.error('Error verificando credenciales:', error);
-                showAlert('Error de comunicación con el backend al verificar credenciales', 'error');
+                resultado = false;
             }
+
+            // Oculta el loader y muestra el botón de verificar
+            verificarLoading.classList.add('hidden');
+            verificarLoading.innerHTML = '';
+            btnVerificarCredenciales.style.display = '';
+            btnCrearUsuario.style.display = resultado ? '' : 'none';
+
+            // Mensaje de error si la verificación falla
+            const alertDiv = document.getElementById('alert');
+            const alertMsg = document.getElementById('alertMessage');
+            if (!resultado) {
+                alertMsg.textContent = response.error || 'Credenciales inválidas. Intenta nuevamente.';
+                alertDiv.classList.remove('hidden');
+                setTimeout(() => alertDiv.classList.add('hidden'), 3000);
+            } else {
+                alertDiv.classList.add('hidden');
+            }
+        });
     }
 }
 

@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // manejo de seciones claves .env
-    iniciarSesion: (url, credenciales, test) => ipcRenderer.send('formulario-enviado', { servicio: 'login', url, credenciales, test }),
+    iniciarSesion: (url, credenciales, test) => ipcRenderer.send('iniciar-proceso-afip', { url, credenciales, test }),
     
     // no se para que se usa y si se usa 
     enviarNumeroEliminar: (data) => ipcRenderer.send('numero-eliminar', data),
@@ -41,5 +41,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         delete: (userId) => ipcRenderer.invoke('user:delete', userId),
         verifyCredentials: (credenciales) => ipcRenderer.invoke('user:verifyCredentials', credenciales),
         verifyAndUpdate: (userData) => ipcRenderer.invoke('user:verifyAndUpdate', userData)
-    }
+    },
+
+    // Canal para recibir la respuesta final de facturación
+    onFacturaResultado: (callback) => {
+        ipcRenderer.on('factura:resultado', (_event, resultado) => callback(resultado));
+    },
 });

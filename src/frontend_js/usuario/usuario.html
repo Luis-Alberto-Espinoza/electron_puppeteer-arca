@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRUD Usuarios - Electron</title>
     <link rel="stylesheet" href="../usuario/usuario.css">
+    <style>
+        .loading .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid #ccc;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 5px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg);}
+            100% { transform: rotate(360deg);}
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -14,11 +31,6 @@
         </div>
 
         <div class="content">
-            <!-- Alerta para mensajes -->
-            <div id="alert" class="alert hidden">
-                <span id="alertMessage"></span>
-            </div>
-
             <!-- Formulario de edición (oculto inicialmente) -->
             <div id="editForm" class="edit-form hidden">
                 <h3>✏️ Editando Usuario</h3>
@@ -108,10 +120,15 @@
                     <button class="btn btn-primary" id="btnVerificarCredenciales">
                         Verificar Credenciales
                     </button>
+                    <span id="verificarLoading" class="loading hidden"></span>
+                    <!-- Alerta para mensajes -->
+                    <div id="alert" class="alert hidden">
+                        <span id="alertMessage"></span>
+                    </div>
                 </div>
                 <!-- Contenedor para la lista de puntos de venta -->
                 <div id="elegirEmpresa" class="puntos-venta-list" style="margin: 10px 0;"></div>
-                <button class="btn btn-primary" id="btnCrearUsuario">
+                <button class="btn btn-primary" id="btnCrearUsuario" style="display:none;">
                     <span id="createLoading" class="loading hidden"></span>
                     Crear Usuario
                 </button>

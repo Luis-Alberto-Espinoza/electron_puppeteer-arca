@@ -246,6 +246,11 @@ export async function inicializarInterfazFacturas() {
         configurarBotonesExpandirTablas(); 
     });
 
+    // === Escuchar el canal IPC para mostrar el resultado final de facturación ===
+    window.electronAPI.onFacturaResultado((resultado) => {
+        mostrarResultadoFactura(resultado);
+    });
+
     configurarUsuarioEnFacturas();
     configurarEmpresasDisponibles(); 
 }
@@ -332,4 +337,43 @@ function configurarBotonesExpandirTablas() {
             }
         });
     });
+}
+
+// Función para mostrar el resultado de facturación en el div correspondiente
+function mostrarResultadoFactura(resultado) {
+    let div = document.getElementById('facturaResultadoFinal');
+    if (!div) {
+        div = document.createElement('div');
+        div.id = 'facturaResultadoFinal';
+        div.style.margin = '32px 0 0 0';
+        div.style.padding = '16px';
+        div.style.border = '2px solid #4caf50';
+        div.style.background = '#f6fff6';
+        div.style.borderRadius = '8px';
+        div.style.fontFamily = 'monospace';
+        div.style.fontSize = '1rem';
+        div.style.maxWidth = '700px';
+        div.style.wordBreak = 'break-word';
+        document.body.appendChild(div);
+    }
+    div.style.display = 'block';
+
+    // Mostrar datos relevantes si existen
+    let html = `<h3>Resultado de Facturación</h3>`;
+    if (resultado && resultado.data) {
+        html += `
+            <ul style="font-family:inherit;font-size:1rem;">
+                <li><b>Mensaje:</b> ${resultado.message || ''}</li>
+                <li><b>Cantidad de Facturas:</b> ${resultado.data.cantidadFacturas ?? '-'}</li>
+                <li><b>Suma Total:</b> ${resultado.data.suma ?? '-'}</li>
+                <li><b>Detalle:</b><br><pre style="white-space:pre-wrap;font-family:inherit;">${resultado.data.detalle ?? ''}</pre></li>
+            </ul>
+        `;
+    }
+    // Mostrar el JSON crudo para referencia técnica
+    html += `<details style="margin-top:12px;"><summary>Ver JSON completo</summary>
+        <pre style="white-space: pre-wrap;">${JSON.stringify(resultado, null, 2)}</pre>
+    </details>`;
+
+    div.innerHTML = html;
 }

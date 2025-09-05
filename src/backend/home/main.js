@@ -17,6 +17,9 @@ const { ejecutar_verificacionCredenciales } = require('../puppeteer/verificaCred
 
 let mainWindow;
 let puppeteerWindow;
+let resultadoCodigo; // Variable para almacenar los datos procesados de la factura
+let usuarioSeleccionado; // Variable para almacenar el usuario seleccionado
+let empresaElegida; // Variable para almacenar la empresa elegida
 
 // Variable global para guardar la última empresa elegida
 let ultimaEmpresaElegida = null;
@@ -152,6 +155,7 @@ module.exports = { getPuppeteerWindow };
 
 function setupIpcListeners() {
     ipcMain.on('formulario-enviado', async (event, data) => {
+        console.log("Formulario enviado##=#=#=#=#=#=##=#=#=#=#=#=#=# desde el frontend:", data, '\nfinal\n');
         if (data.empresaElegida) {
             ultimaEmpresaElegida = data.empresaElegida;
         }
@@ -159,20 +163,32 @@ function setupIpcListeners() {
             if (data.tipoContribuyente == null) {
                 data.tipoContribuyente = data.usuario.tipoContribuyente;
             }
+
+            // Guardamos el resultado en la variable global para que el siguiente paso lo pueda usar.
             resultadoCodigo = comunicacionConFactura(data, userStorage);
             event.reply('codigoLocalStorageGenerado', resultadoCodigo);
-        } else if (data.servicio === 'login') {
-            try {
-                if (!data.credenciales.nombreEmpresa && ultimaEmpresaElegida) {
-                    data.credenciales.nombreEmpresa = ultimaEmpresaElegida;
-                }
-                const resultado = await facturaManager.iniciarProceso(data.url, data.credenciales, resultadoCodigo, data.test || false);
-                event.reply('login-automatizado', resultado);
-            } catch (error) {
-                event.reply('login-automatizado', { success: false, error: error.message });
+        }
+        usuarioSeleccionado = data.usuario; // Guardar el usuario seleccionado
+        empresaElegida = data.empresaElegida; // Guardar la empresa elegida
+    });
+
+    // Nuevo listener dedicado para iniciar el proceso de AFIP
+    ipcMain.on('iniciar-proceso-afip', async (event, data) => {
+        console.log("Iniciando proceso AFIP con los siguientes datos:", data);
+        try {
+            if (!data.credenciales.nombreEmpresa && ultimaEmpresaElegida) {
+                data.credenciales.nombreEmpresa = ultimaEmpresaElegida;
             }
-        } else {
-            event.reply('formulario-recibido', 'Datos recibidos y procesados en el backend.');
+            // Usamos la variable 'resultadoCodigo' que fue poblada por el evento 'formulario-enviado'
+            const resultado = await facturaManager.iniciarProceso(data.url, data.credenciales, resultadoCodigo, data.test, usuarioSeleccionado, empresaElegida);
+            event.reply('login-automatizado', resultado);
+
+            // Enviar resultado de facturación al frontend por canal dedicado
+            if (mainWindow && resultado && resultado.success) {
+                mainWindow.webContents.send('factura:resultado', resultado);
+            }
+        } catch (error) {
+            event.reply('login-automatizado', { success: false, error: error.message });
         }
     });
 

@@ -4,15 +4,15 @@ async function menuPrincipal(newPage, datos) {
 
         // Ejecuta el script original dentro de la página
         await newPage.evaluate((datos) => {
-
-            // mostrar que tiene la variable datos con saltos de linea al inicio y al final con un titulo concatenado
-
             if (window.location.href.includes('menu_ppal')) {
-                let generarComprobantes = document.getElementById("btn_gen_cmp");
-                if (generarComprobantes) { // Verifica si el elemento existe
-                    generarComprobantes.click();
+                let boton = null;
+                if (datos.botonId) {
+                    boton = document.getElementById(datos.botonId);
+                }
+                if (boton) {
+                    boton.click();
                 } else {
-                    console.error("No se encontró el botón 'btn_gen_cmp'");
+                    console.error("No se encontró el botón con id:", datos.botonId);
                 }
             }
         }, datos);

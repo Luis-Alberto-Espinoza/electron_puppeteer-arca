@@ -8,14 +8,33 @@ const { paso_2_DatosDelReceptor } = require('./paso_2_DatosDelReceptor');
 const { paso_3_DatosDeOperacion_Factura_B } = require('./paso_3_DatosDeOperacion_Factura_B');
 const { paso_3_DatosDeOperacion_Factura_C } = require('./paso_3_DatosDeOperacion_Factura_C');
 const { paso_4_ConfirmarFactura } = require('./paso_4_ConfirmarFactura');
-
-
+const { paso_X_ConsultaComprobantes } = require('./consultaDeComprobante_formulario');
 const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea');
 const { elegirEmpresaDisponible } = require('../../../elegirEmpresaDisponible');
-const ejecutar_Facturas = async (page, datos, modoTest, credenciales) => {
+const { extraerDatosDeConsultaComprobantes } = require('../consultarFacturas/comprobarFacturado');
+
+let respuesta;
+
+const ejecutar_Facturas = async (page, datos, modoTest, credenciales, usuarioSeleccionado, empresaElegida) => {
     try {
-        console.log("\n\n === los datos recibidos\n", datos);
-        const cantidad = datos.montoResultados.facturasGeneradas.length;
+        console.log("\n\n === los datos recibidos desde flujo_Factura ===\n", datos, '\n\n\n', usuarioSeleccionado, '\n\nlos datos desde flujo_Factura', datos, '\n\n');
+        let cantidad = datos.montoResultados.facturasGeneradas.length;
+        let tipoContribuyente = 0;
+        if (usuarioSeleccionado.tipoContribuyente === 'B') {
+            tipoContribuyente = 6;
+        } else if (usuarioSeleccionado.tipoContribuyente === 'C') {
+            tipoContribuyente = 11;
+        } else {
+            console.error("No se ha seleccionado un usuario válido.");
+            return { success: false, message: "No se ha seleccionado un usuario válido." };
+        }
+
+        const datosConsulta = {
+            consultaDesde: datos.montoResultados.facturasGeneradas[0][0],
+            consultaHasta: datos.montoResultados.facturasGeneradas[cantidad - 1][0],
+            idTipoComprobante: tipoContribuyente,
+            idPuntoDeVenta: empresaElegida
+        };
 
         // Función auxiliar para esperar
         const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -82,6 +101,7 @@ const ejecutar_Facturas = async (page, datos, modoTest, credenciales) => {
         );
 
         // Procesar cada factura de manera secuencial
+        //cantidad = 1;
         for (let i = 0; i < cantidad; i++) {
             console.log(`\n=== Procesando factura ${i + 1} de ${cantidad} ===\n`);
             const factura = datos.montoResultados.facturasGeneradas[i];
@@ -89,12 +109,12 @@ const ejecutar_Facturas = async (page, datos, modoTest, credenciales) => {
             // Reducir el tiempo de espera entre facturas
             await esperar(500);
 
-            // Ejecutar los pasos para cada factura
+            // menu principal -> generar comprobantes
             await ejecutarPasoConVerificacion(
                 'Menú Principal',
                 menuPrincipal,
                 pagePuntoDeVenta,
-                factura
+                { botonId: "btn_gen_cmp" } // <-- pasa el id como dato
             );
 
             await ejecutarPasoConVerificacion(
@@ -161,41 +181,76 @@ const ejecutar_Facturas = async (page, datos, modoTest, credenciales) => {
             // Reducir la espera adicional entre facturas
             await esperar(1000);
         }
-        
 
-        console.log("Proceso de facturación completado correctamente.");
-        
-        //estoy en menu principal?
-        // hacer un console.log de la url actual
-        const urlActual = pagePuntoDeVenta.url();
-        console.log("URL actual:", urlActual);
-//hacer log al objeto window
-        const windowObject = await pagePuntoDeVenta.evaluate(() => window);
-        console.log("Objeto window:", windowObject);
+        // Solo ejecutar la consulta y extracción si test es false
+        if (!modoTest) {
+            // menu principal -> generar CONSULTA
+            await ejecutarPasoConVerificacion(
+                'Menú Principal',
+                menuPrincipal,
+                pagePuntoDeVenta,
+                { botonId: "btn_consultas" }
+            );
 
-        // Aquí podrías agregar más lógica para continuar con el flujo, como:
-        // - Redirigir a otra página
-        // - Mostrar un mensaje de éxito al usuario
-        // - Guardar los datos en una base de datos o archivo
-        // capturar el elemento y hacerle click id btnConsulta =  btn_consultas
-        
-        // # consultar "desde - hasta" lo reciente facturado 
-        //###pasamos a "A"
-        //input fecha desde id = fed
-        // btn que abre el calendario id = fed_btn
-        
-        // input de fecha hasta id = feh
-        // btn que abre el calendario id = feh_btn
-  
-//  btn continuar      
-//        <input type="button" value="Buscar" style="width:100px;" onclick="validarCampos();">
-        
-	// ####pasamos a consultar lo facturado 
-	// mostrar los resultados de la consulta 
-	// guardar los datos? en el usuario?
+            // Consulta de comprobantes
+            await ejecutarPasoConVerificacion(
+                'Formulario de Consultas de Comprobante',
+                paso_X_ConsultaComprobantes,
+                pagePuntoDeVenta,
+                datosConsulta
+            );
 
+            // Extraer los datos de la consulta
+            respuesta = await ejecutarPasoConVerificacion(
+                'Extraer Datos de la Consulta',
+                extraerDatosDeConsultaComprobantes,
+                pagePuntoDeVenta
+            );
+            console.log("Datos extraídos de la consulta:", respuesta);
+// esta es la resppuesta que habria y se espera llevarlooshasta el frontend y mostrarlos usando los canales correspondientes segun mi arquitectura 
 
-        return { success: true, message: "Proceso completado" };
+// 
+            /**objeto respuesta
+             * Datos extraídos de la consulta: {
+              success: true,
+              message: 'Datos extraídos exitosamente',
+              data: {
+                suma: 2440160,
+                cantidadFacturas: 305,
+                montos: [
+                        9000,  8500,  9830,  7690,  9480,  9370,  8730,  7940, 14690,
+                        9760,
+                       ... 205 more items
+                     ],
+                    detalle: '0001-00000914, 26450\n' +
+                    '0001-00000913, 12000\n' +
+                    datosExtraidos: true
+                }
+            };
+        esto habra que llevarlo a: 
+                            # el frontend
+                            # a la base de datos
+
+         * 
+         */
+            console.log("Proceso de facturación completado correctamente.");
+
+            //estoy en menu principal?
+            // hacer un console.log de la url actual
+            const urlActual = pagePuntoDeVenta.url();
+            console.log("URL actual:", urlActual);
+            //hacer log al objeto window
+            const windowObject = await pagePuntoDeVenta.evaluate(() => window);
+            console.log("Objeto window:", windowObject);
+
+            // mostrar los resultados de la consulta 
+            // guardar los datos? en el usuario?
+
+            // cerrar el navegador
+            await pagePuntoDeVenta.close();
+            await page.close();
+        }
+        return { success: true, message: "Proceso completado", data: respuesta.data };
     } catch (error) {
         console.error("Error en ejecutar:", error);
         throw error;
