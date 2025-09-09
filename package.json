@@ -20,27 +20,33 @@
     "iconv-lite": "^0.6.3",
     "luxon": "^3.5.0",
     "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^3.11.174",
     "puppeteer-core": "^24.1.1"
   },
   "build": {
-  "appId": "com.tuorganizacion.afipelectron",
-  "productName": "AFIP Electron",
-  "asar": true,
-  "directories": {
-    "output": "dist"
-  },
-  "files": [
-    "src/**/*",
-    "preload.js",
-    "node_modules/**/*",
-    "package.json"
-  ],
-  
-  "win": {
-    "target": ["portable"]
-  },
-  "linux": {
-    "target": ["deb", "rpm", "AppImage"]
+    "appId": "com.tuorganizacion.afipelectron",
+    "productName": "AFIP Electron",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "preload.js",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ]
+    },
+    "linux": {
+      "target": [
+        "deb",
+        "rpm",
+        "AppImage"
+      ]
+    }
   }
-}
 }

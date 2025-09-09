@@ -33,6 +33,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         procesarArchivo: (ruta) => ipcRenderer.invoke('mercadopago:procesar-archivo', ruta)
     },
 
+    // APIs para extraer tablas de PDF
+    extraerTablasPDF: {
+        seleccionarArchivo: () => ipcRenderer.invoke('extraerTablasPDF:seleccionar-archivo'),
+        procesarArchivo: (ruta) => ipcRenderer.invoke('extraerTablasPDF:procesar-archivo', ruta)
+    },
+
     // APIs de Usuario
     user: {
         create: (userData) => ipcRenderer.invoke('user:create', userData),
@@ -47,4 +53,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onFacturaResultado: (callback) => {
         ipcRenderer.on('factura:resultado', (_event, resultado) => callback(resultado));
     },
+
+    abrirArchivo: (ruta) => ipcRenderer.invoke('abrir-archivo', ruta),
 });

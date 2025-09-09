@@ -21,8 +21,9 @@
 
         <!-- MENÚ PRINCIPAL -->
         <div class="menu-principal">
-            <button id="btnEntrarAfip" class="btn-principal">Entrar a AFIP</button>
+            <button id="btnEntrarAfip" class="btn-principal">Entrar a AFIP</button> 
             <button id="btnUsuarios" class="btn-principal">Gestión de Usuarios</button>
+            <button id="btnExtraerTablasPDF" class="btn-principal">Extraer Tablas PDF</button>
         </div>
 
         <!-- SELECTOR DE USUARIO -->
@@ -40,37 +41,28 @@
 
         <!-- MÓDULOS AFIP (Se muestran después de seleccionar usuario) -->
         <div id="modulosAfipDiv" class="contenido-oculto">
-            <!-- Información del usuario seleccionado -->
             <div id="infoUsuarioSeleccionado"></div>
-
-            <!-- SECCIÓN FACTURAS -->
             <div class="seccion" id="facturasSeccion">
                 <button id="facturasBtn" class="btn-principal">Realizar Facturas</button>
-                <div id="facturasDiv" class="contenido-oculto">
-                    <!-- Aquí se insertará el componente de facturas.html dinámicamente -->
-                </div>
+                <div id="facturasDiv" class="contenido-oculto"></div>
             </div>
-
-            <!-- SECCIÓN MERCADO PAGO -->
             <div class="seccion" id="lectorMpSeccion">
                 <button id="btnLectorMP" class="btn-principal">Lector MercadoPago</button>
-                <div id="leerMercadoPagoDiv" class="contenido-oculto">
-                    <!-- El contenido se cargará dinámicamente -->
-                </div>
+                <div id="leerMercadoPagoDiv" class="contenido-oculto"></div>
             </div>
-
-            <!-- SECCIÓN LIBRO IVA -->
             <div class="seccion" id="libroIvaSeccion">
                 <button id="btnLibroIVA" class="btn-principal">Libro IVA</button>
-                <div id="libroIvaDiv" class="contenido-oculto">
-                    <!-- Aquí se insertará el componente de libroIVA.html dinámicamente -->
-                </div>
+                <div id="libroIvaDiv" class="contenido-oculto"></div>
             </div>
         </div>
 
         <!-- SECCIÓN USUARIOS -->
         <div id="usuariosDiv" class="contenido-oculto">
-            <!-- El contenido se cargará dinámicamente -->
+        </div>
+
+        <!-- SOLO VISUALIZAR EL MÓDULO DE EXTRAER TABLAS PDF -->
+        <div id="extraerTablasPDFDiv">
+            <!-- Aquí se cargará el módulo visual de extraer tablas de PDF -->
         </div>
     </div>
 

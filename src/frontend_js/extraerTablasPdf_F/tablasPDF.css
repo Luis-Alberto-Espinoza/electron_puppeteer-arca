@@ -1,0 +1,139 @@
+body {
+    background: linear-gradient(120deg, #f6f8fa 60%, #b388ff 100%);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    min-height: 100vh;
+}
+
+.container {
+    background: linear-gradient(108deg, #fff 80%, #b388ff 20%);
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(80, 0, 120, 0.12);
+    max-width: 520px;
+    margin: 48px auto;
+    padding: 38px 28px 32px 28px;
+    border: 2px solid #e1bee7;
+    position: relative;
+    overflow: hidden;
+}
+
+h2 {
+    color: #6a1b9a;
+    margin-bottom: 28px;
+    text-align: center;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 0 2px 8px #e1bee7;
+}
+
+button {
+    background: linear-gradient(90deg, #7c4dff 0%, #ff4081 100%);
+    color: #fff;
+    border: none;
+    border-radius: 22px;
+    padding: 12px 28px;
+    font-size: 17px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 8px 0;
+    box-shadow: 0 4px 16px rgba(124,77,255,0.13);
+    transition: background 0.2s, transform 0.2s;
+}
+
+button:disabled {
+    background: #b0bec5;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+button:hover:not(:disabled) {
+    background: linear-gradient(90deg, #ff4081 0%, #7c4dff 100%);
+    transform: translateY(-2px) scale(1.04);
+}
+
+input[type="text"] {
+    border: 2px solid #b388ff;
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 16px;
+    background: #f3e5f5;
+    color: #4a148c;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(124,77,255,0.07);
+    transition: border 0.2s;
+}
+
+input[type="text"]:focus {
+    border-color: #ff4081;
+    outline: none;
+    background: #fff;
+}
+
+#statusMessage {
+    margin-top: 22px;
+    font-size: 17px;
+    color: #7c4dff;
+    min-height: 28px;
+    font-weight: 500;
+    text-shadow: 0 1px 4px #e1bee7;
+}
+
+#csvPathDiv {
+    margin-top: 22px;
+    font-size: 16px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(90deg, #e1bee7 60%, #fff 100%);
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: 0 2px 8px rgba(124,77,255,0.07);
+}
+
+#csvPathDiv input[type="text"] {
+    background: #fffde7;
+    border: 2px solid #ff4081;
+    color: #6a1b9a;
+    font-weight: 500;
+}
+
+#abrirCsvBtn {
+    background: linear-gradient(90deg, #ff4081 0%, #7c4dff 100%);
+    color: #fff;
+    border-radius: 18px;
+    padding: 8px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(255,64,129,0.13);
+    margin-left: 8px;
+    border: none;
+    transition: background 0.2s, transform 0.2s;
+}
+
+#abrirCsvBtn:hover {
+    background: linear-gradient(90deg, #7c4dff 0%, #ff4081 100%);
+    transform: scale(1.07);
+}
+
+@media (max-width: 600px) {
+    .container {
+        padding: 18px 8px 18px 8px;
+        max-width: 98vw;
+    }
+    h2 {
+        font-size: 1.3rem;
+    }
+    button, #abrirCsvBtn {
+        font-size: 15px;
+        padding: 10px 16px;
+    }
+    input[type="text"] {
+        font-size: 14px;
+        padding: 8px;
+    }
+    #csvPathDiv {
+        font-size: 14px;
+        padding: 8px 6px;
+    }
+}

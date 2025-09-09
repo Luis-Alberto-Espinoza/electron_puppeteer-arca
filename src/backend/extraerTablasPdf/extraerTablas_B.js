@@ -1,3 +1,5 @@
+const { procesarBancoNacion } = require('./banco_nacion.js');
+
 // Extractor de tablas de PDFs bancarios - Enfoque basado en fechas
 let pdfjsLib;
 
@@ -19,12 +21,6 @@ try {
 const fs = require('fs');
 const path = require('path');
 
-const LOG_PATH = path.join(__dirname, 'extraccion_pdf_debug.log');
-function logToFile(...args) {
-    const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a, null, 2) : a)).join(' ');
-    fs.appendFileSync(LOG_PATH, `[${new Date().toISOString()}] ${msg}\n`);
-}
-
 class PDFTableExtractor {
     constructor() {
         // Palabras clave para identificar cabeceras
@@ -43,13 +39,10 @@ class PDFTableExtractor {
         // Variables para mantener estado entre páginas
         this.columnStructure = null; // Se establece una sola vez
         this.allRecords = []; // Acumula todos los registros
-        logToFile('PDFTableExtractor instanciado');
     }
 
     // Encuentra y establece la estructura de columnas (solo una vez)
     findAndSetColumnStructure(items) {
-        logToFile('\n🔍 BUSCANDO ESTRUCTURA DE COLUMNAS...');
-
         const rows = this.groupItemsByY(items);
         let bestHeaderRow = null;
         let maxScore = 0;
@@ -63,10 +56,6 @@ class PDFTableExtractor {
                 bestHeaderRow = { y: parseFloat(y), items: rowItems, score };
             }
         });
-
-        console.log('Mejor fila de c&&&&&&&&&&&&becera:', bestHeaderRow);
-        logToFile(`Mejor fila de cab&&&&&&&&&&&&cera: Y=${bestHeaderRow ? bestHeaderRow.y : 'N/A'}, Puntuación=${maxScore}`);
-
 
         if (bestHeaderRow) {
             // Extrae las columnas ordenadas por posición X
@@ -87,8 +76,6 @@ class PDFTableExtractor {
                 positions: columnPositions,
                 headerY: bestHeaderRow.y
             };
-
-            logToFile(`✅ ESTRUCTURA DE COLUMNAS ESTABLECIDA: Columnas: [${columns.join(', ')}], Cabecera en Y: ${bestHeaderRow.y}`);
 
             return true;
         }
@@ -158,88 +145,193 @@ class PDFTableExtractor {
         return groups;
     }
 
-    // Encuentra elementos que contienen fechas
+
+    // Reemplaza la función findDateItems por la versión que solo toma la primera fecha de cada fila
+    // Reemplaza el método findDateItems completo con esta versión:
+
     findDateItems(items) {
-        return items.filter(item => {
+        // console.log('=== DEBUG findDateItems (versión corregida) ===');
+        // console.log('Total items recibidos:', items.length);
+
+        const validDateItems = items.filter(item => {
             const text = item.str.trim();
-            return this.datePattern.test(text);
+
+            // Debe ser una fecha válida
+            if (!this.datePattern.test(text)) return false;
+
+            //console.log(`Evaluando fecha: "${text}" (Y=${item.y}, X=${item.x})`);
+
+            // FILTRO: Evitar fechas en contexto de "Fecha de descarga" 
+            // Buscar si hay texto antes en la misma línea Y que contenga "fecha de"
+            const hasDatePrefix = items.some(otherItem =>
+                Math.abs(otherItem.y - item.y) < 5 &&
+                otherItem.x < item.x &&
+                otherItem.str.toLowerCase().includes('fecha de')
+            );
+
+            if (hasDatePrefix) {
+                // console.log(`❌ Fecha descartada por contexto "fecha de": "${text}"`);
+                return false;
+            }
+
+            //  console.log(`✓ Fecha válida: "${text}"`);
+            return true;
         });
+
+        // console.log('Total fechas válidas encontradas:', validDateItems.length);
+        // console.log('Fechas válidas:', validDateItems.map(item => `"${item.str.trim()}" (Y=${item.y})`));
+        // console.log('=== FIN DEBUG findDateItems ===\n');
+
+        return validDateItems;
     }
+
+
 
     // Procesa los elementos basándose en fechas como delimitadores
     processItemsByDateRanges(items) {
-        logToFile('\n📊 PROCESANDO ELEMENTOS POR RANGOS DE FECHAS...');
+
+        // console.log('=== DEBUG BÁSICO ===');
+        // console.log('¿Hay columnStructure?', !!this.columnStructure);
+        // if (this.columnStructure) {
+        //     console.log('Columnas:', this.columnStructure.columns);
+        // }
+
+        const dateItems = this.findDateItems(items);
+        // console.log('Fechas encontradas:', dateItems.length);
+        // dateItems.forEach(date => console.log(`- "${date.str.trim()}" en Y=${date.y}`));
+        // console.log('=== FIN DEBUG ===')
 
         if (!this.columnStructure) {
-            console.log('❌ No hay estructura de columnas definida');
             return { records: [], nonTableItems: [] };
         }
 
-        // Encuentra todos los elementos que contienen fechas
-        const dateItems = this.findDateItems(items);
-        logToFile(`📅 Encontradas ${dateItems.length} fechas en esta página`);
+
+        // console.log('\n=== DEBUG processItemsByDateRanges ===');
+        // console.log('Total items a procesar:', items.length);
+
+        // mostrar items
+        // console.log('--- DEBUG: Todos los items ---');
+        //items.forEach(item => console.log(item));
+
+        // console.log('--- FIN DEBUG ---');
+
+        // Llenado del array de fechas:
+        //const dateItems = this.findDateItems(items); // <--- AQUÍ SE LLENA EL ARRAY DE FECHAS
+        // console.log('Fechas encontradas por findDateItems:', dateItems.length);
 
         if (dateItems.length === 0) {
-            console.log('⚠️ No se encontraron fechas en esta página');
             return { records: [], nonTableItems: items };
         }
 
-        // Ordena las fechas de arriba a abajo (Y mayor a menor en PDF)
         const sortedDates = dateItems.sort((a, b) => b.y - a.y);
 
         const records = [];
         const nonTableItems = [];
         let usedIndexes = new Set();
 
-        // Para cada fecha, busca el bloque que comienza con esa fecha
         for (let i = 0; i < sortedDates.length; i++) {
+            //  console.log(`\n--- Procesando fecha ${i + 1}/${sortedDates.length} ---`);
+
             const currentDate = sortedDates[i];
+            //console.log(`Fecha actual: "${currentDate.str.trim()}" en Y=${currentDate.y}`);
+
+            // 1. Encuentra la fecha actual y su índice
             const nextDate = sortedDates[i + 1];
 
-            // Encuentra el índice del elemento de la fecha en items
+            // if (nextDate) {
+            //     console.log(`Próxima fecha: "${nextDate.str.trim()}" en Y=${nextDate.y}`);
+            // } else {
+            //     console.log('Esta es la ÚLTIMA fecha');
+            // }
+
             const dateIdx = items.findIndex(
                 (item, idx) => !usedIndexes.has(idx) && this.datePattern.test(item.str.trim()) && item.y === currentDate.y && item.x === currentDate.x
             );
             if (dateIdx === -1) continue;
 
-            // Incluye hasta 3 líneas (elementos agrupados por Y) después de la fecha, o hasta la siguiente fecha
+            // 2. Inicializa el registro con el elemento de la fecha
             let recordItems = [items[dateIdx]];
             usedIndexes.add(dateIdx);
 
-            let linesAdded = 0;
+            let minYInRecord = currentDate.y;
             let idx = dateIdx + 1;
-            while (linesAdded < 3 && idx < items.length) {
+            let itemsAdded = 0;
+
+            while (idx < items.length) {
                 const item = items[idx];
-                // Si es la siguiente fecha, termina el registro
-                if (this.datePattern.test(item.str.trim()) && item.y !== currentDate.y) break;
+
+                if (i === sortedDates.length - 1) {
+                    const tempRecord = this.createRecordFromItems([...recordItems, item], true);
+                    const saldoValue = tempRecord['Saldo'];
+                    const hasSaldo = typeof saldoValue === 'string' && saldoValue.trim().length > 0;
+
+                    if (hasSaldo) {
+                        const yDifference = Math.abs(currentDate.y - item.y);
+                        if (yDifference > 15) {
+                            // console.log(`  ⚠️ REGISTRO COMPLETO: Ya tiene saldo "${saldoValue}", Y cambió ${yDifference}px (fecha Y=${currentDate.y}, item Y=${item.y})`);
+                            break;
+                        }
+                    }
+
+                    // console.log(`  ✓ ÚLTIMO REGISTRO - "${item.str.trim()}" (saldo: "${typeof saldoValue === 'string' ? saldoValue.trim() : ''}", Y=${item.y})`);
+                } else {
+                    if (this.datePattern.test(item.str.trim()) && 
+                        item.y !== currentDate.y) {
+                        // console.log(`  ⚠️ CORTE: Nueva fecha encontrada "${item.str.trim()}"`);
+                        break;
+                    }
+                }
+
                 recordItems.push(item);
                 usedIndexes.add(idx);
-                // Si el siguiente item está en una nueva línea Y, cuenta como una línea más
-                if (idx > 0 && Math.abs(item.y - items[idx - 1].y) > 2) linesAdded++;
+                itemsAdded++;
                 idx++;
             }
 
-            // AJUSTE: Detectar edge records de manera más precisa
+            // console.log(`Se agregaron ${itemsAdded} elementos adicionales al registro`);
+
+            // 6. Crea el registro usando createRecordFromItems
             const totalDates = sortedDates.length;
             const isEdgeRecord = (i === 0 || i === totalDates - 1) && totalDates > 2;
-            
-            // Asigna los elementos a columnas
             const record = this.createRecordFromItems(recordItems, isEdgeRecord);
 
-            // Solo guarda si el registro comienza con una fecha válida
-            if (this.datePattern.test(record[this.columnStructure.columns[0]])) {
+            // FIX: Verifica que el campo exista antes de llamar a trim
+            const firstCol = this.columnStructure.columns[0];
+            if (record[firstCol] && this.datePattern.test(record[firstCol])) {
                 records.push(record);
-                logToFile(`   ✅ Registro creado con ${Object.keys(record).length} campos`);
-                Object.entries(record).forEach(([field, value]) => {
-                    if (value.trim()) {
-                        const truncated = value.length > 30 ? value.substring(0, 27) + '...' : value;
-                        logToFile(`      ${field}: "${truncated}"`);
-                    }
-                });
+            }
+
+            // 8. (Ajuste reciente) Si hay elementos después de la última fecha y no son fecha, se pueden agregar como registro extra
+            if (i === sortedDates.length - 1) {
+                // console.log('--- DEBUG: Elementos desde idx hasta el final (última fecha) ---');
+                for (let j = idx; j < items.length; j++) {
+                    // console.log(items[j]);
+                }
+                // console.log('--- DEBUG: recordItems de la última fecha ---');
+                // console.log(recordItems);
+
+                // AJUSTE: Si hay elementos después de la última fecha y NO son fecha, crea un registro extra
+                /* let extraItems = [];
+                 for (let j = idx; j < items.length; j++) {
+                     const item = items[j];
+                     // Si el texto no es fecha y tiene contenido, lo agregamos
+                     if (!this.datePattern.test(item.str.trim()) && item.str.trim()) {
+                         extraItems.push(item);
+                     }
+                 }
+                 if (extraItems.length > 0) {
+                     // Crea un registro extra con estos elementos
+                     const extraRecord = this.createRecordFromItems(extraItems, true);
+                     // Solo lo agregamos si tiene algún campo con contenido
+                     if (Object.values(extraRecord).some(val => val.trim())) {
+                         records.push(extraRecord);
+                         // console.log('--- DEBUG: Registro extra creado con elementos fuera de la última fecha ---');
+                         // console.log(extraRecord);
+                     }
+                 }*/
             }
         }
 
-        // Guarda los elementos que no fueron usados en ningún registro
         items.forEach((item, idx) => {
             if (!usedIndexes.has(idx)) nonTableItems.push(item);
         });
@@ -249,6 +341,8 @@ class PDFTableExtractor {
 
     // Crea un registro asignando elementos a sus columnas correspondientes
 
+    // AJUSTE 1 y 2: Nueva versión de createRecordFromItems
+    // Modifica createRecordFromItems para filtrar números de página por posición Y
     createRecordFromItems(items, isEdgeRecord = false) {
         const record = {};
 
@@ -257,15 +351,26 @@ class PDFTableExtractor {
             record[column] = '';
         });
 
+        // Encuentra la posición Y de la fecha (primer campo)
+        let fechaY = null;
+        if (items.length > 0) {
+            const fechaCol = this.columnStructure.columns[0];
+            const fechaItem = items.find(item => {
+                return this.datePattern.test(item.str.trim());
+            });
+            if (fechaItem) {
+                fechaY = fechaItem.y;
+            }
+        }
+
         // Asigna cada elemento a su columna más cercana
         items.forEach(item => {
             let closestColumn = null;
             let minDistance = Infinity;
 
-            // Encuentra la columna más cercana por posición X
+            // Aumenta la tolerancia para todos los registros
+            const tolerance = this.tolerance * 6;
             Object.entries(this.columnStructure.positions).forEach(([column, x]) => {
-                // AJUSTE: Reducir tolerancia para edge records en lugar de aumentarla
-                const tolerance = isEdgeRecord ? this.tolerance * 2 : this.tolerance * 3;
                 const distance = Math.abs(item.x - x);
                 if (distance < minDistance && distance <= tolerance) {
                     minDistance = distance;
@@ -274,6 +379,16 @@ class PDFTableExtractor {
             });
 
             if (closestColumn) {
+                // FILTRO: Si es posible número de página (ej: "1 de 240") y no está en la línea de la fecha, ignorar
+                if (
+                    closestColumn.toLowerCase().includes('saldo') &&
+                    fechaY !== null &&
+                    Math.abs(item.y - fechaY) > 2 && // No está en la misma línea que la fecha
+                    /^\d+\s+de\s+\d+$/i.test(item.str.trim())
+                ) {
+                    return; // No asignar este item
+                }
+
                 const currentText = record[closestColumn];
                 const newText = item.str.trim();
 
@@ -286,8 +401,7 @@ class PDFTableExtractor {
             }
         });
 
-
-        // Segundo pase: para campos vacíos, buscar el texto más cercano aunque esté fuera de tolerancia
+        // Mejorar segundo pase para campos vacíos
         Object.entries(record).forEach(([column, value]) => {
             if (!value) {
                 let bestItem = null;
@@ -296,7 +410,7 @@ class PDFTableExtractor {
 
                 items.forEach(item => {
                     const distance = Math.abs(item.x - x);
-                    // AJUSTE: Verificar que el item no esté ya asignado a otra columna
+                    // Verificar que el item no esté ya asignado a otra columna
                     let alreadyAssigned = false;
                     Object.entries(this.columnStructure.positions).forEach(([otherColumn, otherX]) => {
                         if (otherColumn !== column && record[otherColumn].includes(item.str.trim())) {
@@ -310,26 +424,82 @@ class PDFTableExtractor {
                     }
                 });
 
-                // AJUSTE: Reducir tolerancia máxima para evitar asignaciones incorrectas
-                if (bestItem && minDistance < this.tolerance * 5) {
+                // Aumenta la tolerancia máxima para evitar campos vacíos
+                if (bestItem && minDistance < this.tolerance * 8) {
                     record[column] = bestItem.str.trim();
                 }
             }
         });
 
+        // Limpiar duplicados en campos (soluciona el problema del "Origen")
+        const cleanedRecord = {};
+        this.columnStructure.columns.forEach(column => {
+            let text = record[column].trim().replace(/\s+/g, ' ');
 
-        // Limpia el registro
-        Object.keys(record).forEach(key => {
-            record[key] = record[key].trim().replace(/\s+/g, ' ');
+            // Si este campo contiene exactamente el mismo texto que otro campo, limpiarlo
+            if (column !== 'Descripción' && text) {
+                const descripcionText = record['Descripción'] || '';
+                // Si el campo actual está completamente contenido en Descripción, vaciarlo
+                if (descripcionText.includes(text) && text.length < descripcionText.length) {
+                    text = '';
+                }
+            }
+
+            // --- FILTRO PARA SALDO: elimina posibles números de página al final ---
+            if (
+                column.toLowerCase().includes('saldo') &&
+                text
+            ) {
+                // Si el saldo termina con un número entero pequeño (ej: "1234.56 2" o "1234,56 2")
+                // y ese número es >= 1 y <= 20, lo quitamos (probable número de página)
+                text = text.replace(/([0-9.,]+)\s+(\d{1,3})$/, (match, saldo, posiblePagina) => {
+                    const num = parseInt(posiblePagina, 10);
+                    if (num >= 1 && num <= 20) {
+                        return saldo;
+                    }
+                    return match;
+                });
+            }
+            // --- FIN FILTRO SALDO ---
+
+            // Aplica el formateo solo a los campos numéricos
+            if (
+                column.toLowerCase().includes('saldo') ||
+                column.toLowerCase().includes('saldos') ||
+                column.toLowerCase().includes('debito') ||
+                column.toLowerCase().includes('débito') ||
+                column.toLowerCase().includes('débitos') ||
+                column.toLowerCase().includes('importe') ||
+                column.toLowerCase().includes('crédito') ||
+                column.toLowerCase().includes('créditos') ||
+                column.toLowerCase().includes('credito')
+            ) {
+                text = this.formatNumero(text);
+            }
+
+            cleanedRecord[column] = text;
         });
 
-        return record;
+        return cleanedRecord;
+    }
+
+    // Modifica la función formatNumero para eliminar el símbolo $
+    formatNumero(valor) {
+        // Elimina todos los puntos (usados como separador de miles)
+        // Cambia el separador decimal a coma
+        // Elimina el símbolo $
+        if (typeof valor !== 'string') return valor;
+        let v = valor.replace(/\$/g, ''); // quita símbolo $
+        v = v.replace(/\./g, ''); // quita puntos
+        v = v.replace(/(\d+)(,|\.)?(\d{2})$/, (match, intPart, sep, decPart) => {
+            // Si termina con dos dígitos, separador decimal puede ser punto o coma
+            return `${intPart},${decPart}`;
+        });
+        return v.trim();
     }
 
     // Procesa una página del PDF
     async processPage(page, pageNum) {
-        logToFile(`\n📄 ===== PÁGINA ${pageNum} =====`);
-
         const content = await page.getTextContent();
 
         const items = content.items.map(item => ({
@@ -338,40 +508,28 @@ class PDFTableExtractor {
             y: item.transform[5]
         }));
 
-        logToFile(`📊 Total elementos de texto: ${items.length}`);
-
         // Si no tenemos estructura de columnas, trata de encontrarla
         if (!this.columnStructure) {
             const found = this.findAndSetColumnStructure(items);
             if (!found) {
-                logToFile('⚠️ No se encontró estructura de columnas en esta página');
                 return [];
             }
         }
 
         // Procesa los registros basándose en fechas
         const { records, nonTableItems } = this.processItemsByDateRanges(items);
-        //crear un objeto date para tener una marca de tiempo
-        const timestamp = new Date().toISOString();
 
-        // Puedes guardar o tratar nonTableItems después si lo necesitas
-        logToFile(`✅\n\n ==>> ${timestamp} Página ${pageNum} completada: ${records.length} registros, ${nonTableItems.length} elementos fuera de tabla`);
         return records;
     }
 
     // Función principal para extraer datos
     async extractFromPDF(filePath) {
         try {
-            logToFile(`\n🔍 PROCESANDO: ${filePath}`);
-
-            // Reinicia el estado para este PDF
             this.columnStructure = null;
             this.allRecords = [];
 
             const loadingTask = pdfjsLib.getDocument(filePath);
             const pdf = await loadingTask.promise;
-
-            logToFile(`📖 PDF tiene ${pdf.numPages} página(s)`);
 
             for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
                 const page = await pdf.getPage(pageNum);
@@ -379,18 +537,50 @@ class PDFTableExtractor {
                 this.allRecords = this.allRecords.concat(pageRecords);
             }
 
-            logToFile(`\n🎉 PROCESO COMPLETADO: 📊 Total registros extraídos: ${this.allRecords.length}`);
-            if (this.columnStructure) {
-                logToFile(`   📋 Estructura de columnas: [${this.columnStructure.columns.join(', ')}]`);
-            }
+            let tempCsvPath = null;
+            // === NUEVO: Exportar registros a .csv en la misma carpeta y nombre del PDF ===
             if (this.allRecords.length > 0) {
-                logToFile('\n📈 ESTADÍSTICAS:');
-                logToFile(`   Primer registro: ${JSON.stringify(this.allRecords[0], null, 2).substring(0, 200)}...`);
-                logToFile(`   Último registro: ${JSON.stringify(this.allRecords[this.allRecords.length - 1], null, 2).substring(0, 200)}...`);
+                const pdfDir = path.dirname(filePath); // Carpeta del PDF de entrada
+                const pdfBase = path.basename(filePath, path.extname(filePath)); // Nombre base del PDF
+                tempCsvPath = path.join(pdfDir, `${pdfBase}.csv`); // Ruta final del CSV
+                const headers = Object.keys(this.allRecords[0]);
+                const csvRows = [headers.join(',')];
+                this.allRecords.forEach(record => {
+                    const row = headers.map(header => {
+                        const value = (record[header] || '').toString();
+                        return value.includes(',') || value.includes('"') ?
+                            `"${value.replace(/"/g, '""')}"` : value;
+                    });
+                    csvRows.push(row.join(','));
+                });
+                fs.writeFileSync(tempCsvPath, csvRows.join('\n'), 'utf8');
             }
-            return { success: true, data: this.allRecords };
+            // === FIN NUEVO ===
+
+            console.log('Registros generados:', this.allRecords.length);
+            //si es 0 llamar a la funcion del banco_nacion.js
+
+            // Retorna los registros encontrados
+
+            if (this.allRecords.length === 0) {
+                // Llama a la función del banco_nacion.js
+                const retorno = await procesarBancoNacion(filePath);
+
+                // Si hay datos, guarda el CSV usando exportResults
+                if (retorno && retorno.length > 0) {
+                    const pdfDir = path.dirname(filePath);
+                    const pdfBase = path.basename(filePath, path.extname(filePath));
+                    const tempCsvPath = path.join(pdfDir, `${pdfBase}_banco_nacion.csv`);
+                    this.exportResults(retorno, tempCsvPath, 'csv');
+                    return { success: true, data: retorno, csvPath: tempCsvPath };
+                } else {
+                    return { success: false, error: 'No se encontraron registros en ningún método.' };
+                }
+            }
+
+            // Devuelve también la ruta del CSV en el resultado
+            return { success: true, data: this.allRecords, csvPath: tempCsvPath };
         } catch (error) {
-            logToFile('❌ ERROR:', error);
             return { success: false, error: { message: error.message } };
         }
     }
@@ -441,10 +631,8 @@ class PDFTableExtractor {
             }
 
             fs.writeFileSync(outputPath, content, 'utf8');
-            logToFile(`📁 Resultados exportados a: ${outputPath}`);
             return true;
         } catch (error) {
-            logToFile('❌ Error exportando:', error);
             return false;
         }
     }
@@ -471,7 +659,6 @@ class PDFTableExtractor {
 
 // Función de uso
 async function processPDFs(inputPath, outputDir = './output') {
-    console.log(`Iniciando procesamiento de PDF(s) en: ${outputDir}`);
     const extractor = new PDFTableExtractor();
 
     try {
@@ -489,37 +676,25 @@ async function processPDFs(inputPath, outputDir = './output') {
             files = [inputPath];
         }
 
-        console.log(`🚀 INICIANDO PROCESAMIENTO DE ${files.length} ARCHIVO(S)...\n`);
-
         for (const filePath of files) {
             const fileName = path.basename(filePath, '.pdf');
             const result = await extractor.extractFromPDF(filePath);
 
+            // Puedes comentar este bloque, el código no se rompe, solo no se exportan los archivos
+            /*
             if (result.success && result.data.length > 0) {
-                // Exporta en múltiples formatos
+                // Los archivos se guardan en outputDir
                 const jsonPath = path.join(outputDir, `${fileName}.json`);
                 const csvPath = path.join(outputDir, `${fileName}.csv`);
                 const txtPath = path.join(outputDir, `${fileName}.txt`);
                 extractor.exportResults(result.data, jsonPath, 'json');
                 extractor.exportResults(result.data, csvPath, 'csv');
                 extractor.exportResults(result.data, txtPath, 'txt');
-
-                // Imprime las rutas en consola
-            } else {
-                console.error(`❌ Error procesando ${filePath}:`,
-                    result.error ? result.error.message : 'No se extrajeron registros');
             }
+            */
         }
-        console.log(`✅ ${fileName}: ${result.data.length} registros procesados`);
-        console.log(`   Archivos exportados:`);
-        console.log(`      JSON: ${jsonPath}`);
-        console.log(`      CSV:  ${csvPath}`);
-        console.log(`      TXT:  ${txtPath}`);
-
-        console.log('\n🎉 TODOS LOS ARCHIVOS PROCESADOS');
-
     } catch (error) {
-        console.error('❌ Error general:', error);
+        // Silenciado
     }
 }
 
@@ -529,3 +704,29 @@ module.exports = { PDFTableExtractor, processPDFs };
 // Uso:
 // const { processPDFs } = require('./pdf-extractor');
 // processPDFs('./mi-extracto.pdf', './output/');
+
+/*
+// Nueva función para procesar con fallback
+const { procesarBancoNacion } = require('./banco_nacion.js');
+async function procesarPDFConFallback(pdfPath) {
+    const extractor = new PDFTableExtractor();
+    const resultado = await extractor.extractFromPDF(pdfPath);
+
+    if (resultado.data && resultado.data.length > 0) {
+        // Registros encontrados, retorna normalmente
+        return { success: true, registros: resultado.data, metodo: 'extraerTablas_B' };
+    } else {
+        // Si no hay registros, intenta con banco_nacion.js como función
+        try {
+            const registros = await procesarBancoNacion(pdfPath);
+            if (registros && registros.length > 0) {
+                return { success: true, registros, metodo: 'banco_nacion' };
+            } else {
+                return { success: false, error: 'No se encontraron registros en ningún método.' };
+            }
+        } catch (e) {
+            return { success: false, error: 'No se pudo leer registros alternativos.' };
+        }
+    }
+}
+*/

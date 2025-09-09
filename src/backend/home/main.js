@@ -1,8 +1,10 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const { comunicacionConFactura, comunicacionConLibroIVA } = require('../index.js');
 const facturaManager = require('../puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
+const { PDFTableExtractor } = require('../extraerTablasPdf/extraerTablas_B.js'); // Importa la clase y/o función según lo exportado en extraerTablas_B.js
+const fs = require('fs'); // <--- Agrega esto al inicio del archivo
 
 // Importar el sistema de usuarios
 const { JsonStorage } = require('../usuario/usuario.js');
@@ -291,6 +293,58 @@ function setupIpcListeners() {
             return { success: false, error: error.message || 'Error verificando credenciales' };
         }
     });
+
+    // Handler para seleccionar archivo PDF para extraer tablas
+    ipcMain.handle('extraerTablasPDF:seleccionar-archivo', async () => {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            properties: ['openFile'],
+            filters: [
+                { name: 'Archivos PDF', extensions: ['pdf'] },
+                { name: 'Todos los archivos', extensions: ['*'] }
+            ],
+            title: 'Seleccionar archivo PDF para extraer tablas'
+        });
+        if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+            console.log('Ruta seleccionada (main):', result.filePaths[0]);
+            return result.filePaths;
+        }
+        return [];
+    });
+
+    // Handler para procesar el archivo PDF (asegúrate de que esté dentro de setupIpcListeners)
+    ipcMain.handle('extraerTablasPDF:procesar-archivo', async (event, rutaPDF) => {
+        console.log('Procesando archivo en main:', rutaPDF);
+        const extractor = new PDFTableExtractor();
+        const resultado = await extractor.extractFromPDF(rutaPDF);
+
+        if (resultado.success) {
+            // console.log('Registros:', resultado['data'].records[resultado['data'].records.length - 1]);
+            // Guardar resultado en archivo JSON
+            try {
+                fs.writeFileSync(
+                    path.join(__dirname, 'resultadoMain.json'),
+                    JSON.stringify(resultado.data, null, 2),
+                    'utf8'
+                );
+                console.log('Resultado guardado en resultadoMain.json');
+            } catch (err) {
+                console.error('Error al guardar resultadoMain.json:', err);
+            }
+        } else {
+            console.log('Error:', resultado.error);
+        }
+
+        return resultado;
+    });
+
+    ipcMain.handle('abrir-archivo', async (_event, rutaArchivo) => {
+        try {
+            await shell.openPath(rutaArchivo);
+            return true;
+        } catch (err) {
+            return false;
+        }
+    });
 }
 
 // Main app initialization
@@ -308,7 +362,7 @@ app.whenReady().then(async () => {
 
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
-        setupIpcListeners();
+        setupIpcListeners(); // <--- asegúrate de que esta línea se ejecuta
         console.log('✅ Manejadores IPC configurados');
     } catch (error) {
         console.error('❌ Error en inicialización:', error);

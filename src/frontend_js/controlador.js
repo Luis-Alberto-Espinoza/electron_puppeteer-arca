@@ -22,11 +22,69 @@ function inicializarInterfazPrincipal() {
     const btnGestionUsuarios = document.getElementById('btnUsuarios');
     const selectorUsuarioDiv = document.getElementById('selectorUsuarioDiv');
     const modulosAfipDiv = document.getElementById('modulosAfipDiv');
-    
+    const btnExtraerTablasPDF = document.getElementById('btnExtraerTablasPDF');
+    const extraerTablasPDFDiv = document.getElementById('extraerTablasPDFDiv');
+    const usuariosDiv = document.getElementById('usuariosDiv');
+
+    // DEBUG: Verifica si los elementos existen
+    console.log('btnExtraerTablasPDF:', btnExtraerTablasPDF);
+    console.log('extraerTablasPDFDiv:', extraerTablasPDFDiv);
+
     // Botón Entrar AFIP
     if (btnEntrarAfip) {
         btnEntrarAfip.addEventListener('click', () => {
             mostrarSelectorUsuario();
+        });
+    }
+
+    // ...existing code...
+    if (btnExtraerTablasPDF && extraerTablasPDFDiv) {
+        btnExtraerTablasPDF.addEventListener('click', async () => {
+            // Oculta otras secciones principales
+            if (selectorUsuarioDiv) selectorUsuarioDiv.classList.add('contenido-oculto');
+            if (modulosAfipDiv) modulosAfipDiv.classList.add('contenido-oculto');
+            if (usuariosDiv) usuariosDiv.classList.add('contenido-oculto');
+            extraerTablasPDFDiv.classList.remove('contenido-oculto');
+
+            // Limpia el div antes de cargar el HTML para evitar nodos "fantasma"
+            extraerTablasPDFDiv.innerHTML = '';
+
+            try {
+                const htmlPath = '../extraerTablasPdf_F/tablasPDF.html';
+                const cssPath = '../extraerTablasPdf_F/tablasPDF.css';
+                const jsPath = '../extraerTablasPdf_F/tablasPDF.js';
+
+                // DEBUG: Mostrar ruta y ubicación actual
+                console.log('Intentando cargar:', htmlPath);
+                console.log('window.location.pathname:', window.location.pathname);
+
+                const response = await fetch(htmlPath);
+                const html = await response.text();
+                extraerTablasPDFDiv.innerHTML = html;
+
+                // Cargar el CSS solo si no está presente
+                if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+                    const cssLink = document.createElement('link');
+                    cssLink.rel = 'stylesheet';
+                    cssLink.href = cssPath;
+                    document.head.appendChild(cssLink);
+                }
+
+                // Cargar el JS y luego inicializar eventos
+                const script = document.createElement('script');
+                script.src = jsPath;
+                script.defer = true;
+                script.onload = () => {
+                    if (window.inicializarEventosExtraerTablasPDF) {
+                        window.inicializarEventosExtraerTablasPDF();
+                    }
+                };
+                document.head.appendChild(script);
+
+            } catch (err) {
+                console.error('Error cargando tablasPDF.html:', err);
+                extraerTablasPDFDiv.innerHTML = '<div style="color:red;">Error cargando el módulo de extracción de tablas PDF.</div>';
+            }
         });
     }
 }
