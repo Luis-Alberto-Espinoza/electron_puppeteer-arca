@@ -27,7 +27,7 @@ function encontrarFechaVencimiento(datosPdf) {
 async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath) {
     let page;
     const tempDirs = [];
-    console.log("Iniciando flujo de plan de pago v4 (Arquitecto)...");
+    // console.log("Iniciando flujo de plan de pago v4 (Arquitecto)...");
 
     try {
         // --- Fase 1: Navegación y Conteo ---
@@ -36,22 +36,21 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath) {
         const oficinaVirtualPage = await entrarOficinaVirtual(page);
         await entrarPlanDePago(oficinaVirtualPage);
         
-        // Paso clave que faltaba: hacer clic en "Ingresos Brutos" para que aparezca la tabla.
         await prepararTablaIngresosBrutos(oficinaVirtualPage);
 
         const numeroDeFilas = await contarFilasVigentes(oficinaVirtualPage);
         if (numeroDeFilas === 0) {
-            console.log('No se encontraron filas vigentes. Finalizando flujo.');
+            // console.log('No se encontraron filas vigentes. Finalizando flujo.');
             return { success: true, files: [], downloadDir: getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm') };
         }
-        console.log(`Se encontraron ${numeroDeFilas} filas vigentes para descargar.`);
+        // console.log(`Se encontraron ${numeroDeFilas} filas vigentes para descargar.`);
 
         // --- Fase 2: Descarga Controlada (Uno por Uno) ---
         const client = await oficinaVirtualPage.target().createCDPSession();
         for (let i = 0; i < numeroDeFilas; i++) {
             const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `planpago-${i}-`));
             tempDirs.push(tempDir);
-            console.log(`Descargando en dir temporal: ${tempDir}`);
+            // console.log(`Descargando en dir temporal: ${tempDir}`);
             
             await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: tempDir });
             await descargarFilaVigentePorIndice(oficinaVirtualPage, i);
@@ -59,7 +58,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath) {
         }
 
         // --- Fase 3: Procesamiento y Renombrado ---
-        console.log('Todas las descargas iniciadas. Esperando 15s para la escritura en disco...');
+        // console.log('Todas las descargas iniciadas. Esperando 15s para la escritura en disco...');
         await new Promise(resolve => setTimeout(resolve, 15000));
 
         const finalFilePaths = [];
@@ -81,11 +80,11 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath) {
             const destinoPath = path.join(destinoDir, nuevoNombre);
             await fs.rename(tempFilePath, destinoPath);
 
-            console.log(`Archivo procesado y movido a: ${destinoPath}`);
+            // console.log(`Archivo procesado y movido a: ${destinoPath}`);
             finalFilePaths.push(destinoPath);
         }
 
-        console.log('Flujo de plan de pago completado. Archivos finales:', finalFilePaths);
+        // console.log('Flujo de plan de pago completado. Archivos finales:', finalFilePaths);
         return {
             success: true,
             files: finalFilePaths,
@@ -100,7 +99,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath) {
         for (const dir of tempDirs) {
             await fs.rm(dir, { recursive: true, force: true }).catch(err => console.error(`Error al eliminar dir temporal: ${err.message}`));
         }
-        console.log('Limpieza de directorios temporales completada.');
+        // console.log('Limpieza de directorios temporales completada.');
     }
 }
 

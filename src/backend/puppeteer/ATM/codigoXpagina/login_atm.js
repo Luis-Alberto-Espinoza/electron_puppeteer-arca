@@ -7,7 +7,7 @@
 async function loginATM(page, credencialesATM) {
   const { cuit, clave } = credencialesATM;
   try {
-    console.log('Iniciando proceso de login en la plataforma ATM (con evaluate)...');
+    // console.log('Iniciando proceso de login en la plataforma ATM (con evaluate)...');
     // Esperamos que el selector principal esté listo
     await page.waitForSelector('#cuit', { visible: true });
 
@@ -45,7 +45,8 @@ async function loginATM(page, credencialesATM) {
 
     // Añadimos una espera para que la navegación post-login finalice
     await page.waitForNavigation({ waitUntil: 'networkidle0' });
-    console.log('Login (con evaluate) exitoso.');
+    // console.log('Login (con evaluate) exitoso.');
+
 
   } catch (error) {
     console.error('Error durante el login (con evaluate):', error);

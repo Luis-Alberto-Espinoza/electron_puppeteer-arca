@@ -56,7 +56,7 @@ async function launchBrowser({ headless = false } = {}) { // <-- permite pasar h
     throw new Error('Plataforma no soportada');
   }
 
-  console.log('Usando navegador en:', executablePath);
+  // console.log('Usando navegador en:', executablePath);
   launchOptions.executablePath = executablePath;
 
   try {

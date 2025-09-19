@@ -52,9 +52,10 @@ const CONFIG = {
 async function procesarPlanDePago(filePath, options = { saveFiles: false }) {
     try {
         const pathToProcess = filePath || CONFIG.rutaPDF;
-        console.log(`🚀 Iniciando procesamiento de PDF para Plan de Pago: ${pathToProcess}`);
+        // console.log(`🚀 Iniciando procesamiento de PDF para Plan de Pago: ${pathToProcess}`);
         
         const pdf = await cargarPDF(pathToProcess);
+        // console.log(`📄 PDF cargado: ${pdf.numPages} páginas`);
         const contenidoPaginas = await extraerContenidoTodasPaginas(pdf);
         const encabezadoDocumento = extraerEncabezadoDocumento(contenidoPaginas[0]);
         const todasLasTablas = buscarTodasLasTablas(contenidoPaginas);
@@ -68,7 +69,7 @@ async function procesarPlanDePago(filePath, options = { saveFiles: false }) {
             mostrarResumenProcesamiento(tablasConsolidadas);
         }
         
-        console.log('✅ Procesamiento de Plan de Pago completado exitosamente');
+        // console.log('✅ Procesamiento de Plan de Pago completado exitosamente');
 
         const textoCsv = generarTextoCsvPlanDePago(encabezadoDocumento, tablasConsolidadas);
 

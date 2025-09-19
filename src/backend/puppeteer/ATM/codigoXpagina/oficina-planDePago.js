@@ -13,7 +13,7 @@ async function navegarAPlanDePago(page) {
       throw new Error('No se pudo encontrar el contentFrame del iframe.');
     }
 
-    console.log('Navegando al menú de Plan de Pagos...');
+    // console.log('Navegando al menú de Plan de Pagos...');
 
     // Ejecutamos la lógica de clics en el menú dentro del iframe
     await frame.evaluate(() => {
@@ -34,7 +34,7 @@ async function navegarAPlanDePago(page) {
       if (submenus.length > 0 && submenus[0].childNodes.length > 0) {
         // Hacemos clic en el primer item del submenú
         submenus[0].childNodes[0].click();
-        console.log("Clic en el submenú de Plan de Pagos realizado.");
+        // console.log("Clic en el submenú de Plan de Pagos realizado.");
       } else {
         throw new Error("El submenú de Plan de Pagos no apareció como se esperaba.");
       }
@@ -46,7 +46,8 @@ async function navegarAPlanDePago(page) {
     // Pausa para que la acción se complete.
     await new Promise(res => setTimeout(res, 2000));
 
-    console.log('Navegación a Plan de Pagos completada.');
+    // console.log('Navegación a Plan de Pagos completada.');
+
 
   } catch (error) {
     console.error('Error al navegar al Plan de Pagos:', error);

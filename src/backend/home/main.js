@@ -9,15 +9,12 @@ const fs = require('fs'); // <--- Agrega esto al inicio del archivo
 const { manejarEventoATM } = require('../atm_Servicios/atm_Manager.js');
 
 ipcMain.handle('atm:ejecutar-flujo', async (event, evento) => {
-    console.log('Evento recibido en main para manejarEventoATM:', evento);
-    const downloadsPath = app.getPath('downloads'); // <-- Obtiene la ruta real
+    // console.log('Evento recibido en main para manejarEventoATM:', evento);
+    const downloadsPath = app.getPath('downloads'); // <-- Descomentado
     // evento = { tipo: 'planDePago', datos: { ... } }
     const resultado = await manejarEventoATM(evento, downloadsPath); // <-- Pasa la ruta
-
-    console.log('Resultado de manejarEventoAT desde el main:', resultado);
+    // console.log('Resultado de manejarEventoAT desde el main:', resultado);
     return resultado; // Esto se envía al frontend
-
-
 });
 
 // Importar el sistema de usuarios

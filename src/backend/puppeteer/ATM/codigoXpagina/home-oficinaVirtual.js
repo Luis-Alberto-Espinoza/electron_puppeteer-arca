@@ -5,7 +5,7 @@
  */
 async function irAOficinaVirtual(page) {
   try {
-    console.log('Buscando el botón de "Oficina Virtual"...');
+    // console.log('Buscando el botón de "Oficina Virtual"...');
 
     const browser = page.browser();
 
@@ -39,13 +39,13 @@ async function irAOficinaVirtual(page) {
       await newPage.waitForSelector('button, .modal button', { timeout: 3000 });
       // Intenta hacer click en el primer botón visible (Aceptar/Cancelar)
       await newPage.click('button, .modal button');
-      console.log('Botón de modal HTML clickeado');
+      // console.log('Botón de modal HTML clickeado');
     } catch (e) {
       // Si no aparece el modal, sigue normalmente
-      console.log('No se detectó modal HTML, continuando...');
+      // console.log('No se detectó modal HTML, continuando...');
     }
 
-    console.log('Nueva pestaña lista');
+    // console.log('Nueva pestaña lista');
     return newPage;
 
   } catch (error) {

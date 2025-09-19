@@ -2,7 +2,7 @@ const { flujoPlanDePago } = require('../puppeteer/ATM/flujosDeTareas/flujo_planD
 const { flujoConstanciaFiscal } = require('../puppeteer/ATM/flujosDeTareas/flujo_constanciaFiscal_imprimir.js');
 
 async function manejarEventoATM(evento, downloadsPath) {
-    console.log('Manejando evento ATM:', evento);
+    // console.log('Manejando evento ATM:', evento);
     let resultado = null;
 
     // Validar que el objeto usuario y sus credenciales existan
