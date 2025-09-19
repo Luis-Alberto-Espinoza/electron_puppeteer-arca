@@ -2,248 +2,212 @@ const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 const path = require('path');
 const fs = require('fs');
 
-const ruta = '/home/pinchechita/Descargas/8-25-4.pdf';
-const pdfPath = path.join(ruta);
+// FIJACIÓN DE RUTAS PARA COMPATIBILIDAD CON ELECTRON
+const basePath = path.join(__dirname, '../../../node_modules/pdfjs-dist');
+pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(basePath, 'build/pdf.worker.js');
+pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = path.join(basePath, 'standard_fonts/');
 
-const archivoJSON = 'registros_nacion.json';
-const archivoCSV = 'registros_nacion.csv';
+// --- LÓGICA DE EXTRACCIÓN SECUENCIAL INTELIGENTE ---
 
-async function leerPDF() {
-    try {
-        const loadingTask = pdfjsLib.getDocument(pdfPath);
-        const pdf = await loadingTask.promise;
-
-        // console.log(`PDF cargado. Número de páginas: ${pdf.numPages}`);
-        // Procesar todas las páginas y extraer registros
-        const registros = await procesarPDF(pdf);
-        // Exportar resultados
-        exportarResultados(registros);
-    } catch (err) {
-        console.error('Error al leer el PDF:', err);
-    }
+/**
+ * Verifica si un texto tiene el formato de la primera parte de una fecha (dd/mm).
+ * @param {string} str El texto a verificar.
+ * @returns {boolean}
+ */
+function esInicioDeFecha(str) {
+    if (!str) return false;
+    return /^\d{2}\/\d{2}$/.test(str.trim());
 }
 
+/**
+ * Verifica si un texto tiene el formato de la segunda parte de una fecha (/yyyy).
+ * @param {string} str El texto a verificar.
+ * @returns {boolean}
+ */
+function esFinalDeFecha(str) {
+    if (!str) return false;
+    return /^\/\d{4}$/.test(str.trim());
+}
+
+/**
+ * Procesa una lista de items de texto que pertenecen a una única fila lógica.
+ * @param {string} fecha - La fecha completa del registro.
+ * @param {Array<string>} itemsDeFila - Los items de texto de la fila (sin la fecha).
+ * @returns {Object} El objeto de registro construido.
+ */
+function construirRegistroDesdeSecuencia(fecha, itemsDeFila) {
+    const registro = {
+        Fecha: fecha,
+        Comprobante: '',
+        Concepto: '',
+        Importe: '',
+        Saldo: ''
+    };
+
+    // Extraer importes primero, que suelen estar al final.
+    const importes = itemsDeFila.filter(esImporteMonetario);
+    if (importes.length >= 2) {
+        registro.Importe = formatearImporte(importes[importes.length - 2]);
+        registro.Saldo = formatearImporte(importes[importes.length - 1]);
+    } else if (importes.length === 1) {
+        registro.Importe = formatearImporte(importes[0]);
+    }
+
+    // Filtrar los items que no son importes para encontrar el concepto y comprobante.
+    const noImportes = itemsDeFila.filter(item => !esImporteMonetario(item));
+
+    // El primer elemento numérico suele ser el comprobante.
+    const indiceComprobante = noImportes.findIndex(item => /^\d{4,8}[A-Z]*$/.test(item));
+
+    if (indiceComprobante !== -1) {
+        registro.Comprobante = noImportes[indiceComprobante];
+        // El resto son el concepto.
+        registro.Concepto = noImportes.filter((_, idx) => idx !== indiceComprobante).join(' ');
+    } else {
+        // Si no hay comprobante, todo es concepto.
+        registro.Concepto = noImportes.join(' ');
+    }
+
+    return registro;
+}
+
+/**
+ * Procesa todas las páginas de un PDF, extrayendo registros con una lógica secuencial.
+ * @param {pdfjs.PDFDocumentProxy} pdf - El documento PDF cargado.
+ * @returns {Promise<Array<Object>>} Una promesa que resuelve a un array de registros.
+ */
 async function procesarPDF(pdf) {
-    let registros = [];
+    let todosLosItems = [];
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        // console.log(`\nProcesando página ${pageNum}...`);
         const page = await pdf.getPage(pageNum);
         const content = await page.getTextContent();
-        // Limpiar items eliminando "$" solos y espacios vacíos
-        const itemsLimpios = limpiarItems(content.items);
-        // Buscar registros en esta página
-        const registrosPagina = extraerRegistrosDePagina(itemsLimpios, pageNum);
-        registros = registros.concat(registrosPagina);
+        // Añadir los items de esta página a la lista global
+        todosLosItems.push(...content.items);
     }
-    return registros;
-}
 
-function limpiarItems(items) {
-    return items.filter(item => {
-        const str = item.str ? item.str.trim() : '';
-        // Eliminar items vacíos o que solo contengan "$"
-        return str !== '' && str !== '$';
-    });
-}
+    // Limpiar y filtrar solo los textos visibles
+    const textos = todosLosItems.map(item => item.str.trim()).filter(str => str !== '' && str !== '$');
 
-function extraerRegistrosDePagina(items, pageNum) {
     const registros = [];
-    // Buscar cabeceras para determinar posiciones
-    const posicionesCabeceras = encontrarCabeceras(items);
-    // console.log(`Posiciones cabeceras página ${pageNum}:`, posicionesCabeceras);
-    // Buscar registros basándose en fechas
-    for (let i = 0; i < items.length - 1; i++) {
-        const item = items[i];
-        const siguiente = items[i + 1];
-        if (esFormatoFecha(item.str, siguiente.str)) {
-            const registro = construirRegistro(items, i, posicionesCabeceras);
-            if (registro) {
-                registros.push(registro);
-                // console.log(`Registro encontrado:`, registro);
+    let i = 0;
+    while (i < textos.length) {
+        // ESTADO 1: Buscando inicio de fecha (dd/mm)
+        if (esInicioDeFecha(textos[i]) && (i + 1 < textos.length) && esFinalDeFecha(textos[i + 1])) {
+            // ESTADO 2: Fecha encontrada, acumulando datos de la fila
+            const fecha = textos[i] + textos[i + 1];
+            const itemsDeFila = [];
+            let j = i + 2; // Empezar a buscar después de la fecha completa
+
+            // Acumular hasta encontrar el próximo inicio de fecha o el final
+            while (j < textos.length && !esInicioDeFecha(textos[j])) {
+                itemsDeFila.push(textos[j]);
+                j++;
             }
+
+            // ESTADO 3: Fin de fila detectado, construir el registro
+            if (itemsDeFila.length > 0) {
+                const registro = construirRegistroDesdeSecuencia(fecha, itemsDeFila);
+                registros.push(registro);
+            }
+
+            // Mover el índice principal a donde terminó la búsqueda de esta fila
+            i = j;
+        } else {
+            // Si no es un inicio de fecha, simplemente avanzar
+            i++;
         }
     }
     return registros;
-}
-
-function encontrarCabeceras(items) {
-    const cabeceras = ['Fecha', 'Comprobante', 'Concepto', 'Importe', 'Saldo'];
-    const posiciones = {};
-    cabeceras.forEach(cabecera => {
-        const encontrado = items.find(item => 
-            item.str && item.str.trim().toLowerCase().includes(cabecera.toLowerCase())
-        );
-        if (encontrado && encontrado.transform) {
-            posiciones[cabecera] = {
-                x: encontrado.transform[4],
-                y: encontrado.transform[5]
-            };
-        }
-    });
-    return posiciones;
-}
-
-function construirRegistro(items, startIdx, posiciones) {
-    try {
-        const fechaCompleta = items[startIdx].str.trim() + items[startIdx + 1].str.trim();
-        // Buscar los siguientes elementos válidos después de la fecha
-        const elementosRestantes = [];
-        let idx = startIdx + 2;
-        // Recoger los próximos elementos no vacíos
-        while (elementosRestantes.length < 10 && idx < items.length) {
-            const item = items[idx];
-            if (item.str && item.str.trim() !== '') {
-                elementosRestantes.push({
-                    str: item.str.trim(),
-                    x: item.transform ? item.transform[4] : 0,
-                    y: item.transform ? item.transform[5] : 0
-                });
-            }
-            idx++;
-        }
-        // Construir registro basándose en los elementos encontrados
-        const registro = {
-            Fecha: fechaCompleta,
-            Comprobante: '',
-            Concepto: '',
-            Importe: '',
-            Saldo: ''
-        };
-        // Análisis inteligente de los elementos
-        let conceptoParts = [];
-        let importeEncontrado = false;
-        let saldoEncontrado = false;
-        for (let i = 0; i < elementosRestantes.length; i++) {
-            const elemento = elementosRestantes[i];
-            const str = elemento.str;
-            // Detectar número de comprobante (números de 4-8 dígitos, puede incluir letras al final)
-            if (!registro.Comprobante && /^\d{4,8}[A-Z]*$/.test(str)) {
-                registro.Comprobante = str;
-                continue;
-            }
-            // Detectar importes (números con formato monetario)
-            if (esImporteMonetario(str)) {
-                if (!importeEncontrado) {
-                    registro.Importe = formatearImporte(str);
-                    importeEncontrado = true;
-                } else if (!saldoEncontrado) {
-                    registro.Saldo = formatearImporte(str);
-                    saldoEncontrado = true;
-                }
-                continue;
-            }
-            // Si no es comprobante ni importe, es parte del concepto
-            if (!importeEncontrado) {
-                conceptoParts.push(str);
-            }
-        }
-        // Unir las partes del concepto
-        registro.Concepto = conceptoParts.join(' ').trim();
-        // Validar que el registro tenga al menos fecha y algún dato más
-        if (registro.Fecha && (registro.Comprobante || registro.Concepto)) {
-            return registro;
-        }
-        return null;
-    } catch (error) {
-        // console.error('Error construyendo registro:', error);
-        return null;
-    }
-}
-
-function esFormatoFecha(itemStr, siguienteStr) {
-    if (!itemStr || !siguienteStr) return false;
-    
-    const tieneFormatoFecha = /^\d{2}\/\d{2}$/.test(itemStr.trim()); // dd/mm
-    const siguienteEsAnio = /^\/\d{4}$/.test(siguienteStr.trim());   // /aaaa
-    
-    return tieneFormatoFecha && siguienteEsAnio;
 }
 
 function esImporteMonetario(str) {
-    // Detectar formatos como: $1.234.567,89, 1.234.567,89, $1234567.89, etc.
     const patterns = [
-        /^\$?\s*-?\d{1,3}(\.\d{3})*,\d{2}$/,  // $1.234.567,89
-        /^\$?\s*-?\d{1,3}(\.\d{3})*\.\d{2}$/,  // $1.234.567.89
-        /^\$?\s*-?\d+,\d{2}$/,                 // $1234,89
-        /^\$?\s*-?\d+\.\d{2}$/                 // $1234.89
+        /^\$?\s*-?\d{1,3}(\.\d{3})*,\d{2}$/,
+        /^\$?\s*-?\d{1,3}(\.\d{3})*\.\d{2}$/,
+        /^\$?\s*-?\d+,\d{2}$/,
+        /^\$?\s*-?\d+\.\d{2}$/
     ];
-    
     return patterns.some(pattern => pattern.test(str.trim()));
 }
 
 function formatearImporte(str) {
-    // Remover $ y espacios
     let numero = str.replace(/\$|\s/g, '');
-    
-    // Si tiene puntos como separadores de miles y coma como decimal
     if (numero.includes(',') && numero.lastIndexOf('.') < numero.lastIndexOf(',')) {
-        // Formato: 1.234.567,89 -> quitar puntos y cambiar coma por punto temporalmente
         numero = numero.replace(/\./g, '').replace(',', '.');
-        // Convertir a float y luego formatear con coma decimal
-        const valor = parseFloat(numero);
-        return valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else if (!numero.includes('.') && numero.includes(',')) {
+        numero = numero.replace(',', '.');
     }
-    
-    // Si solo tiene puntos (formato americano)
-    if (numero.includes('.') && !numero.includes(',')) {
-        const valor = parseFloat(numero);
-        return valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    
-    // Si solo tiene comas
-    if (numero.includes(',') && !numero.includes('.')) {
-        const valor = parseFloat(numero.replace(',', '.'));
-        return valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-    
-    // Fallback: devolver como está pero sin $
-    return numero;
+    const valor = parseFloat(numero);
+    if (isNaN(valor)) return str;
+    return valor.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function exportarResultados(registros) {
-    if (registros.length === 0) {
-        // console.log('No se encontraron registros válidos.');
-        return;
+// --- FUNCIONES PÚBLICAS Y DE EXPORTACIÓN ---
+
+function generarTextoCsvBancoNacion(registros) {
+    if (!registros || registros.length === 0) {
+        return '';
     }
-    // Exportar a JSON
-    fs.writeFileSync(archivoJSON, JSON.stringify(registros, null, 2), 'utf8');
-    // console.log(`\nArchivo ${archivoJSON} creado con ${registros.length} registros.`);
-    // Exportar a CSV
-    const headers = ['Fecha', 'Comprobante', 'Concepto', 'Importe', 'Saldo'];
-    const csvRows = [headers.join(',')];
+    const cabeceras = ['Fecha', 'Comprobante', 'Concepto', 'Importe', 'Saldo'];
+    const filasCsv = [cabeceras.join(',')];
     registros.forEach(registro => {
-        const row = headers.map(header => {
-            const value = registro[header] || '';
-            // Escapar comillas dobles en CSV
-            return `"${value.toString().replace(/"/g, '""')}"`;
+        const fila = cabeceras.map(cabecera => {
+            const valor = registro[cabecera] || '';
+            return `"${valor.toString().replace(/"/g, '""')}"`;
         });
-        csvRows.push(row.join(','));
+        filasCsv.push(fila.join(','));
     });
-    fs.writeFileSync(archivoCSV, csvRows.join('\n'), 'utf8');
-    // console.log(`Archivo ${archivoCSV} creado con ${registros.length} registros.`);
-    // Mostrar resumen
-    // console.log('\n=== RESUMEN DE PROCESAMIENTO ===');
-    // console.log(`Total de registros procesados: ${registros.length}`);
-    if (registros.length > 0) {
-        // console.log('\nPrimeros 3 registros:');
-        // registros.slice(0, 3).forEach((reg, idx) => {
-        //     console.log(`${idx + 1}:`, reg);
-        // });
-    }
+    return filasCsv.join('\n');
 }
 
-// Procesar el PDF de Banco Nación
-async function procesarBancoNacion(pdfPath) {
+async function procesarBancoNacion(filePath) {
     try {
-        const loadingTask = pdfjsLib.getDocument(pdfPath);
+        const loadingTask = pdfjsLib.getDocument(filePath);
         const pdf = await loadingTask.promise;
         const registros = await procesarPDF(pdf);
-        exportarResultados(registros);
-        return registros;
+        
+        const textoCsv = generarTextoCsvBancoNacion(registros);
+
+        return {
+            datos: registros,
+            textoCsv: textoCsv
+        };
     } catch (err) {
-        return [];
+        console.error(`Error al procesar PDF de Banco Nación: ${err.message}`);
+        return null;
     }
 }
 
-// Exporta la función para uso externo
-module.exports = { procesarBancoNacion };
+// --- BLOQUE DE EJECUCIÓN INDEPENDIENTE ---
+
+if (require.main === module) {
+    (async () => {
+        console.log('Ejecutando [banco_nacion.js] en modo de prueba independiente...');
+        
+        const rutaDePrueba = '/home/pinchechita/Descargas/8-25-4.pdf';
+        const archivoJsonSalida = 'registros_nacion.json';
+        const archivoCsvSalida = 'registros_nacion.csv';
+
+        console.log(`Procesando archivo: ${rutaDePrueba}`);
+        const resultado = await procesarBancoNacion(rutaDePrueba);
+
+        if (resultado && resultado.datos.length > 0) {
+            console.log(`Se encontraron ${resultado.datos.length} registros.`);
+            
+            fs.writeFileSync(archivoJsonSalida, JSON.stringify(resultado.datos, null, 2), 'utf8');
+            console.log(`✓ Archivo JSON de prueba guardado en: ${archivoJsonSalida}`);
+
+            fs.writeFileSync(archivoCsvSalida, resultado.textoCsv, 'utf8');
+            console.log(`✓ Archivo CSV de prueba guardado en: ${archivoCsvSalida}`);
+        } else {
+            console.log('No se pudo procesar el PDF o no se encontraron registros.');
+        }
+    })();
+}
+
+// --- EXPORTACIONES DEL MÓDULO ---
+
+module.exports = { 
+    procesarBancoNacion, 
+    generarTextoCsvBancoNacion 
+};

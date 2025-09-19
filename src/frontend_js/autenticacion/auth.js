@@ -57,7 +57,7 @@ export class AuthManager {
         const usuarioAfip = usuario.cuit || usuario.cuil;
         return {
             usuario: usuarioAfip,
-            contrasena: usuario.clave
+            contrasena: usuario.claveAFIP
         };
     }
 

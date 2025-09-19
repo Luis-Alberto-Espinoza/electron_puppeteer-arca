@@ -1,197 +1,354 @@
 import { inicializarInterfazFacturas } from './facturas/interfazFacturas.js';
 
+/**
+ * Oculta todos los submódulos al cambiar de módulo
+ */
+function ocultarSubmodulos() {
+    // Oculta submódulos de AFIP
+    ['facturasDiv', 'leerMercadoPagoDiv', 'libroIvaDiv'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('contenido-oculto');
+    });
+    // Si tienes submódulos en ATM, agrégalos aquí
+    // ['atmSubmodulo1', 'atmSubmodulo2'].forEach(...)
+}
+
 // ========================================
 // VARIABLES GLOBALES
 // ========================================
-let usuarioSeleccionado = null;
-let modulosAfipCargados = false;
+let usuarioSeleccionado = null; // Usuario actualmente seleccionado en la aplicación
+let modulosAfipCargados = false; // Flag para evitar inicializar los módulos AFIP múltiples veces
+let onUsuarioSeleccionado = null; // Callback para la acción a ejecutar después de seleccionar un usuario
+let selectorListenerAgregado = false; // Flag para asegurar que el listener del selector se agregue solo una vez
+
+// ========================================
+// CONFIGURACIÓN CENTRALIZADA DE MÓDULOS
+// ========================================
+// Array que define todos los módulos principales con su botón, contenedor y función de carga
+const MODULOS_PRINCIPALES = [
+    {
+        btn: 'btnEntrarAfip',
+        modulo: 'selectorUsuarioDiv',
+        callback: () => {
+            onUsuarioSeleccionado = mostrarModulosAfip;
+            mostrarSelectorUsuario();
+        }
+    },
+    {
+        btn: 'btnUsuarios',
+        modulo: 'usuariosDiv',
+        callback: cargarModuloUsuarios
+    },
+    {
+        btn: 'btnExtraerTablasPDF',
+        modulo: 'extraerTablasPDFDiv',
+        callback: cargarModuloExtraerTablasPDF
+    },
+    {
+        btn: 'btnEntrarATM',
+        modulo: 'selectorUsuarioDiv',
+        callback: () => {
+            onUsuarioSeleccionado = cargarModuloATM;
+            mostrarSelectorUsuario();
+        }
+    }
+];
+
+// ========================================
+// FUNCIONES CENTRALIZADAS DE NAVEGACIÓN
+// ========================================
+
+/**
+ * Oculta todos los módulos principales y muestra solo el especificado
+ * @param {string} idMostrar - ID del div que se debe mostrar
+ */
+function mostrarSoloModulo(idMostrar) {
+    // Ocultar todos los módulos principales
+    MODULOS_PRINCIPALES.forEach(({ modulo }) => {
+        const elemento = document.getElementById(modulo);
+        if (elemento) elemento.classList.add('contenido-oculto');
+    });
+
+    ocultarSubmodulos(); // Oculta todos los submódulos
+
+    // Mostrar el módulo solicitado
+    const mostrar = document.getElementById(idMostrar);
+    if (mostrar) mostrar.classList.remove('contenido-oculto');
+}
+
+/**
+ * Inicializa todos los botones principales basándose en la configuración del array
+ */
+function inicializarBotonesPrincipales() {
+    MODULOS_PRINCIPALES.forEach(({ btn, modulo, callback }) => {
+        const boton = document.getElementById(btn);
+        if (boton) {
+            boton.addEventListener('click', () => {
+                mostrarSoloModulo(modulo); // Mostrar el módulo correspondiente
+                if (typeof callback === 'function') callback(); // Ejecutar función de carga específica
+            });
+        }
+    });
+}
 
 // ========================================
 // INICIALIZACIÓN PRINCIPAL
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
-    inicializarInterfazPrincipal();
-    inicializarGestionUsuarios();
+    inicializarBotonesPrincipales(); // Inicializar toda la navegación centralizada
 });
 
 // ========================================
-// INTERFAZ PRINCIPAL - FLUJO DE NAVEGACIÓN
+// CALLBACKS DE CARGA PARA CADA MÓDULO
 // ========================================
-function inicializarInterfazPrincipal() {
-    const btnEntrarAfip = document.getElementById('btnEntrarAfip');
-    const btnGestionUsuarios = document.getElementById('btnUsuarios');
-    const selectorUsuarioDiv = document.getElementById('selectorUsuarioDiv');
-    const modulosAfipDiv = document.getElementById('modulosAfipDiv');
-    const btnExtraerTablasPDF = document.getElementById('btnExtraerTablasPDF');
-    const extraerTablasPDFDiv = document.getElementById('extraerTablasPDFDiv');
+
+/**
+ * Muestra el selector de usuario y carga los usuarios disponibles
+ */
+function mostrarSelectorUsuario() {
+    cargarUsuariosEnSelector(); // Cargar lista de usuarios en el select
+}
+
+/**
+ * Carga el módulo de gestión de usuarios
+ */
+function cargarModuloUsuarios() {
     const usuariosDiv = document.getElementById('usuariosDiv');
+    let usuarioCssLink = document.getElementById('usuario-css-link');
 
-    // DEBUG: Verifica si los elementos existen
-    console.log('btnExtraerTablasPDF:', btnExtraerTablasPDF);
-    console.log('extraerTablasPDFDiv:', extraerTablasPDFDiv);
+    if (usuariosDiv) {
+        // Limpiar contenido anterior
+        usuariosDiv.innerHTML = '';
 
-    // Botón Entrar AFIP
-    if (btnEntrarAfip) {
-        btnEntrarAfip.addEventListener('click', () => {
-            mostrarSelectorUsuario();
-        });
-    }
+        // Cargar HTML del módulo de usuarios
+        fetch('../usuario/usuario.html')
+            .then(response => response.text())
+            .then(html => {
+                usuariosDiv.innerHTML = html;
 
-    // ...existing code...
-    if (btnExtraerTablasPDF && extraerTablasPDFDiv) {
-        btnExtraerTablasPDF.addEventListener('click', async () => {
-            // Oculta otras secciones principales
-            if (selectorUsuarioDiv) selectorUsuarioDiv.classList.add('contenido-oculto');
-            if (modulosAfipDiv) modulosAfipDiv.classList.add('contenido-oculto');
-            if (usuariosDiv) usuariosDiv.classList.add('contenido-oculto');
-            extraerTablasPDFDiv.classList.remove('contenido-oculto');
-
-            // Limpia el div antes de cargar el HTML para evitar nodos "fantasma"
-            extraerTablasPDFDiv.innerHTML = '';
-
-            try {
-                const htmlPath = '../extraerTablasPdf_F/tablasPDF.html';
-                const cssPath = '../extraerTablasPdf_F/tablasPDF.css';
-                const jsPath = '../extraerTablasPdf_F/tablasPDF.js';
-
-                // DEBUG: Mostrar ruta y ubicación actual
-                console.log('Intentando cargar:', htmlPath);
-                console.log('window.location.pathname:', window.location.pathname);
-
-                const response = await fetch(htmlPath);
-                const html = await response.text();
-                extraerTablasPDFDiv.innerHTML = html;
-
-                // Cargar el CSS solo si no está presente
-                if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
-                    const cssLink = document.createElement('link');
-                    cssLink.rel = 'stylesheet';
-                    cssLink.href = cssPath;
-                    document.head.appendChild(cssLink);
+                // Cargar CSS del módulo si no está presente
+                if (!usuarioCssLink) {
+                    usuarioCssLink = document.createElement('link');
+                    usuarioCssLink.rel = 'stylesheet';
+                    usuarioCssLink.href = '../usuario/usuario.css';
+                    usuarioCssLink.id = 'usuario-css-link';
+                    document.head.appendChild(usuarioCssLink);
                 }
 
-                // Cargar el JS y luego inicializar eventos
-                const script = document.createElement('script');
-                script.src = jsPath;
-                script.defer = true;
-                script.onload = () => {
-                    if (window.inicializarEventosExtraerTablasPDF) {
-                        window.inicializarEventosExtraerTablasPDF();
-                    }
-                };
-                document.head.appendChild(script);
+                // Cargar JavaScript del módulo después de un breve delay
+                setTimeout(() => {
+                    // Remover script anterior para evitar duplicados
+                    const oldScript = document.head.querySelector('script[src="../usuario/usuario.js"]');
+                    if (oldScript) oldScript.remove();
 
-            } catch (err) {
-                console.error('Error cargando tablasPDF.html:', err);
-                extraerTablasPDFDiv.innerHTML = '<div style="color:red;">Error cargando el módulo de extracción de tablas PDF.</div>';
+                    // Agregar nuevo script
+                    const script = document.createElement('script');
+                    script.src = '../usuario/usuario.js';
+                    script.defer = true;
+                    script.onload = () => {
+                        // Inicializar funcionalidad del módulo una vez cargado
+                        if (window.inicializarUsuarioFrontend) {
+                            window.inicializarUsuarioFrontend();
+                        }
+                    };
+                    document.head.appendChild(script);
+                }, 100);
+            })
+            .catch(error => {
+                console.error('Error cargando módulo de usuarios:', error);
+                usuariosDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+            });
+    }
+}
+
+/**
+ * Carga el módulo de extracción de tablas PDF
+ */
+async function cargarModuloExtraerTablasPDF() {
+    const extraerTablasPDFDiv = document.getElementById('extraerTablasPDFDiv');
+
+    if (extraerTablasPDFDiv) {
+        // Limpiar contenido anterior para evitar elementos duplicados
+        extraerTablasPDFDiv.innerHTML = '';
+
+        try {
+            // Rutas de los archivos del módulo
+            const htmlPath = '../extraerTablasPdf_F/tablasPDF.html';
+            const cssPath = '../extraerTablasPdf_F/tablasPDF.css';
+            const jsPath = '../extraerTablasPdf_F/tablasPDF.js';
+
+            // Cargar HTML del módulo
+            const response = await fetch(htmlPath);
+            const html = await response.text();
+            extraerTablasPDFDiv.innerHTML = html;
+
+            // Cargar CSS solo si no está presente
+            if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+                const cssLink = document.createElement('link');
+                cssLink.rel = 'stylesheet';
+                cssLink.href = cssPath;
+                document.head.appendChild(cssLink);
             }
-        });
-    }
-}
 
-function mostrarSelectorUsuario() {
-    // Ocultar todos los módulos principales
-    ocultarTodosLosModulos();
-    
-    const selectorUsuarioDiv = document.getElementById('selectorUsuarioDiv');
-    if (selectorUsuarioDiv) {
-        selectorUsuarioDiv.classList.remove('contenido-oculto');
-        cargarUsuariosEnSelector();
-    }
-}
+            // Cargar JavaScript e inicializar funcionalidad
+            const script = document.createElement('script');
+            script.src = jsPath;
+            script.defer = true;
+            script.onload = () => {
+                // Inicializar eventos del módulo una vez cargado
+                if (window.inicializarEventosExtraerTablasPDF) {
+                    window.inicializarEventosExtraerTablasPDF();
+                }
+            };
+            document.head.appendChild(script);
 
-function ocultarTodosLosModulos() {
-    const modulos = [
-        'modulosAfipDiv',
-        'usuariosDiv',
-        'selectorUsuarioDiv'
-    ];
-    
-    modulos.forEach(moduloId => {
-        const elemento = document.getElementById(moduloId);
-        if (elemento) {
-            elemento.classList.add('contenido-oculto');
+        } catch (error) {
+            console.error('Error cargando módulo de extracción PDF:', error);
+            extraerTablasPDFDiv.innerHTML = '<div style="color:red;">Error cargando el módulo de extracción de tablas PDF.</div>';
         }
-    });
+    }
 }
 
+/**
+ * Carga el módulo ATM
+ */
+async function cargarModuloATM() {
+    mostrarSoloModulo('atmsDiv'); // Asegurarse de que el contenedor ATM esté visible
+    const atmsDiv = document.getElementById('atmsDiv');
 
-// Función para capitalizar una cadena de texto
+    if (atmsDiv) {
+        // Limpiar contenido anterior para evitar elementos duplicados
+        atmsDiv.innerHTML = '';
+
+        try {
+            // Rutas de los archivos del módulo
+            const htmlPath = '../ATM_f/ATM_vistas/atm.html';
+            const cssPath = '../ATM_f/ATM_vistas/atm.css';
+            const jsPath = '../ATM_f/ATM_vistas/atm.js';
+
+            // Cargar HTML del módulo
+            const response = await fetch(htmlPath);
+            if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+            const html = await response.text();
+            atmsDiv.innerHTML = html;
+
+            // Cargar CSS solo si no está presente
+            if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+                const cssLink = document.createElement('link');
+                cssLink.rel = 'stylesheet';
+                cssLink.href = cssPath;
+                document.head.appendChild(cssLink);
+            }
+
+            // Cargar JavaScript e inicializar funcionalidad
+            const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.src = jsPath;
+            script.defer = true;
+            script.onload = () => {
+                // Inicializar eventos del módulo una vez cargado
+                if (window.inicializarModuloATM) {
+                    window.inicializarModuloATM();
+                }
+            };
+            document.head.appendChild(script);
+
+        } catch (error) {
+            console.error('Error cargando módulo ATM:', error);
+            atmsDiv.innerHTML = '<div style="color:red;">Error cargando el módulo ATM.</div>';
+        }
+    }
+}
+
+// ========================================
+// GESTIÓN DE USUARIOS
+// ========================================
+
+/**
+ * Capitaliza la primera letra de cada palabra en una cadena
+ * @param {string} nombre - Nombre a capitalizar
+ * @returns {string} Nombre capitalizado
+ */
 function capitalizarNombre(nombre) {
-    if (!nombre) {
-        return '';
-    }
-    // Convertir todo a minúsculas para unificarlas
-    const nombreEnMinusculas = nombre.toLowerCase();
+    if (!nombre) return '';
 
-    // Separar el nombre en palabras, capitalizar cada una y unirlas de nuevo
+    const nombreEnMinusculas = nombre.toLowerCase();
     return nombreEnMinusculas.split(' ').map(palabra => {
-        if (palabra.length === 0) {
-            return '';
-        }
+        if (palabra.length === 0) return '';
         return palabra.charAt(0).toUpperCase() + palabra.slice(1);
     }).join(' ');
 }
 
+/**
+ * Carga todos los usuarios en el selector y configura el evento de selección
+ */
 async function cargarUsuariosEnSelector() {
     const selectUsuarios = document.getElementById('selectUsuariosSelector');
     if (!selectUsuarios) return;
-    
+
     try {
-        // Mostrar estado de carga
         selectUsuarios.innerHTML = '<option value="">Cargando usuarios...</option>';
         selectUsuarios.disabled = true;
-        
-        // Obtener usuarios usando tu función existente
+
         const result = await window.electronAPI.user.getAll();
-        
+
         if (result.success && Array.isArray(result.users)) {
-            // Limpiar opciones existentes
             selectUsuarios.innerHTML = '<option value="">Seleccione un usuario</option>';
-            
-            // Agregar usuarios con todos los datos necesarios
+
             result.users.forEach(user => {
                 const option = document.createElement('option');
                 option.value = user.id;
+
                 const nombreCapitalizado = capitalizarNombre(user.nombre);
                 const apellidoCapitalizado = user.apellido ? ` ${capitalizarNombre(user.apellido)}` : '';
                 option.textContent = `${nombreCapitalizado}${apellidoCapitalizado}`.trim();
 
-                // Agregar todos los datos como dataset para uso posterior
+                // Store all data, including new keys, in the dataset
                 option.dataset.cuit = user.cuit || '';
                 option.dataset.cuil = user.cuil || '';
                 option.dataset.tipoContribuyente = user.tipoContribuyente || '';
-                option.dataset.clave = user.clave || '';
+                option.dataset.claveAFIP = user.claveAFIP || user.clave || ''; // Fallback to old 'clave'
+                option.dataset.claveATM = user.claveATM || '';
                 option.dataset.nombre = user.nombre || '';
                 option.dataset.apellido = user.apellido || '';
-                option.dataset.empresasDisponibles = JSON.stringify(user.empresasDisponible || []); 
+                option.dataset.empresasDisponibles = JSON.stringify(user.empresasDisponible || []);
+
                 selectUsuarios.appendChild(option);
             });
-            
+
             selectUsuarios.disabled = false;
         } else {
             selectUsuarios.innerHTML = '<option value="">No se encontraron usuarios</option>';
         }
-        
-        // Event listener para la selección
-        selectUsuarios.addEventListener('change', (e) => {
-            if (e.target.value) {
-                const selectedOption = selectUsuarios.options[selectUsuarios.selectedIndex];
-                const usuarioCompleto = {
-                    id: selectedOption.value,
-                    nombre: selectedOption.textContent,
-                    cuit: selectedOption.dataset.cuit,
-                    cuil: selectedOption.dataset.cuil,
-                    clave: selectedOption.dataset.clave,
-                    tipoContribuyente: selectedOption.dataset.tipoContribuyente,
-                    nombreSolo: selectedOption.dataset.nombre,
-                    apellido: selectedOption.dataset.apellido,
-                    empresasDisponibles: selectedOption.dataset.empresasDisponibles ? JSON.parse(selectedOption.dataset.empresasDisponibles) : []
-                };
-                seleccionarUsuario(usuarioCompleto);
-            }
-        }, { once: true }); // Solo agregar el listener una vez
-        
+
+        if (!selectorListenerAgregado) {
+            selectUsuarios.addEventListener('change', (e) => {
+                if (e.target.value) {
+                    const selectedOption = selectUsuarios.options[selectUsuarios.selectedIndex];
+
+                    // Reconstruct the full user object from the dataset
+                    const usuarioCompleto = {
+                        id: selectedOption.value,
+                        nombre: selectedOption.textContent,
+                        cuit: selectedOption.dataset.cuit,
+                        cuil: selectedOption.dataset.cuil,
+                        claveAFIP: selectedOption.dataset.claveAFIP, // Read new key
+                        claveATM: selectedOption.dataset.claveATM,   // Read new key
+                        tipoContribuyente: selectedOption.dataset.tipoContribuyente,
+                        nombreSolo: selectedOption.dataset.nombre,
+                        apellido: selectedOption.dataset.apellido,
+                        empresasDisponibles: selectedOption.dataset.empresasDisponibles ?
+                            JSON.parse(selectedOption.dataset.empresasDisponibles) : []
+                    };
+
+                    seleccionarUsuario(usuarioCompleto);
+                }
+            });
+            selectorListenerAgregado = true;
+        }
+
     } catch (error) {
         console.error('Error cargando usuarios:', error);
         selectUsuarios.innerHTML = '<option value="">Error cargando usuarios</option>';
@@ -199,39 +356,39 @@ async function cargarUsuariosEnSelector() {
     }
 }
 
+/**
+ * Establece el usuario seleccionado y muestra los módulos AFIP
+ * @param {Object} usuarioCompleto - Objeto con todos los datos del usuario
+ */
 function seleccionarUsuario(usuarioCompleto) {
+    // Guardar usuario en variables globales
     usuarioSeleccionado = usuarioCompleto;
-    
-    // Guardar en variable global para compatibilidad con tu código existente
-    window.usuarioSeleccionado = usuarioSeleccionado;
-    
-    // Mostrar los módulos AFIP
-    mostrarModulosAfip();
+    window.usuarioSeleccionado = usuarioSeleccionado; // Para compatibilidad con otros módulos
+
+    // Ejecutar el callback definido al entrar al selector de usuario (AFIP o ATM)
+    if (typeof onUsuarioSeleccionado === 'function') {
+        onUsuarioSeleccionado();
+    }
 }
 
+/**
+ * Muestra la interface de módulos AFIP y oculta el selector de usuario
+ */
 function mostrarModulosAfip() {
-    // Ocultar selector de usuario
-    const selectorUsuarioDiv = document.getElementById('selectorUsuarioDiv');
-    if (selectorUsuarioDiv) {
-        selectorUsuarioDiv.classList.add('contenido-oculto');
+    mostrarSoloModulo('modulosAfipDiv'); // Usar la función centralizada para mostrar el módulo
+
+    // Inicializar módulos AFIP solo la primera vez
+    if (!modulosAfipCargados) {
+        inicializarModulosAfip();
+        modulosAfipCargados = true;
     }
-    
-    // Mostrar módulos AFIP
-    const modulosAfipDiv = document.getElementById('modulosAfipDiv');
-    if (modulosAfipDiv) {
-        modulosAfipDiv.classList.remove('contenido-oculto');
-        
-        // Si no se han inicializado los módulos AFIP, hacerlo ahora
-        if (!modulosAfipCargados) {
-            inicializarModulosAfip();
-            modulosAfipCargados = true;
-        }
-        
-        // Mostrar información del usuario seleccionado
-        mostrarUsuarioSeleccionado();
-    }
+
+    mostrarUsuarioSeleccionado(); // Mostrar información del usuario activo
 }
 
+/**
+ * Muestra la información del usuario seleccionado con opción para cambiarlo
+ */
 function mostrarUsuarioSeleccionado() {
     const infoUsuarioDiv = document.getElementById('infoUsuarioSeleccionado');
     if (infoUsuarioDiv && usuarioSeleccionado) {
@@ -243,8 +400,8 @@ function mostrarUsuarioSeleccionado() {
                 <button id="btnCambiarUsuario" class="btn-secundario">Cambiar Usuario</button>
             </div>
         `;
-        
-        // Agregar funcionalidad para cambiar usuario
+
+        // Configurar botón para cambiar usuario
         const btnCambiarUsuario = document.getElementById('btnCambiarUsuario');
         if (btnCambiarUsuario) {
             btnCambiarUsuario.addEventListener('click', () => {
@@ -255,36 +412,46 @@ function mostrarUsuarioSeleccionado() {
 }
 
 // ========================================
-// INICIALIZAR MÓDULOS AFIP
+// INICIALIZACIÓN DE MÓDULOS AFIP
 // ========================================
+
+/**
+ * Inicializa todos los módulos específicos de AFIP
+ */
 function inicializarModulosAfip() {
-    inicializarInterfazFacturas();
-    inicializarMercadoPago();
-    inicializarLibroIVA();
+    inicializarInterfazFacturas(); // Módulo de facturas
+    inicializarMercadoPago();      // Módulo de MercadoPago
+    inicializarLibroIVA();         // Módulo de Libro IVA
 }
 
-// ========================================
-// FUNCIÓN PARA OBTENER USUARIO SELECCIONADO
-// ========================================
-function obtenerUsuarioSeleccionado() {
-    return usuarioSeleccionado;
+/**
+ * Inicializa todos los módulos específicos de ATM
+ */
+function inicializarModulosATM() {
+    // Aquí puedes inicializar los módulos específicos de ATM
+    // Por ejemplo: inicializarInterfazATM(), inicializarReportesATM(), etc.
+    console.log('Inicializando módulos ATM...');
+    // inicializarInterfazATM();
+    // inicializarReportesATM(); 
+    // inicializarConfiguracionATM();
 }
 
-// Exportar la función para que otros módulos puedan acceder al usuario
-window.obtenerUsuarioSeleccionado = obtenerUsuarioSeleccionado;
-
-// ========================================
-// INICIALIZAR MERCADO PAGO (Modificado)
-// ========================================
-function getBasePath() {
-    const currentScript = document.currentScript || document.querySelector('script[src*="controlador"]');
-    if (currentScript && currentScript.src) {
-        const scriptPath = currentScript.src;
-        return scriptPath.substring(0, scriptPath.lastIndexOf('/') + 1);
+/**
+ * Obtiene la ruta base del script actual para cargar recursos relativos
+ * @returns {string} Ruta base
+ */
+function obtenerRutaBase() {
+    const scriptActual = document.currentScript || document.querySelector('script[src*="controlador"]');
+    if (scriptActual && scriptActual.src) {
+        const rutaScript = scriptActual.src;
+        return rutaScript.substring(0, rutaScript.lastIndexOf('/') + 1);
     }
     return window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
 }
 
+/**
+ * Inicializa el módulo de MercadoPago con carga dinámica
+ */
 function inicializarMercadoPago() {
     const btnLectorMP = document.getElementById('btnLectorMP');
     const lectorMPDiv = document.getElementById('leerMercadoPagoDiv');
@@ -292,33 +459,34 @@ function inicializarMercadoPago() {
     if (btnLectorMP && lectorMPDiv) {
         btnLectorMP.addEventListener('click', async () => {
             try {
-                // Toggle de visibilidad
+                // Toggle: si ya está visible, ocultarlo
                 if (!lectorMPDiv.classList.contains('contenido-oculto')) {
                     lectorMPDiv.classList.add('contenido-oculto');
                     return;
                 }
 
-                // Cargar el contenido
-                const basePath = getBasePath();
-                const htmlPath = basePath + './leerMercadoPago/mercadoPago_leer.html';
+                // Cargar contenido del módulo
+                const rutaBase = obtenerRutaBase();
+                const htmlPath = rutaBase + './leerMercadoPago/mercadoPago_leer.html';
                 const response = await fetch(htmlPath);
                 const html = await response.text();
 
-                // Actualizar el contenido
+                // Insertar HTML y mostrar módulo
                 lectorMPDiv.innerHTML = html;
                 lectorMPDiv.classList.remove('contenido-oculto');
 
-                // CARGAR MANUALMENTE EL SCRIPT
+                // Cargar JavaScript del módulo
                 const script = document.createElement('script');
                 script.type = 'module';
-                script.src = basePath + './leerMercadoPago/mercadoPago.js';
+                script.src = rutaBase + './leerMercadoPago/mercadoPago.js';
 
                 script.onload = () => {
-                    // Inicializar usuario y flatpickr después de que el JS esté cargado y el HTML insertado
+                    // Configurar usuario una vez cargado el script
                     if (window.configurarUsuarioMercadoPago && window.usuarioSeleccionado) {
                         window.configurarUsuarioMercadoPago(window.usuarioSeleccionado);
                     }
-                    // Inicializar flatpickr para fechaComprobanteMP
+
+                    // Inicializar selector de fechas si está disponible
                     const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
                     if (fechaComprobanteMP && typeof flatpickr !== 'undefined') {
                         flatpickr(fechaComprobanteMP, {
@@ -331,16 +499,16 @@ function inicializarMercadoPago() {
                 document.head.appendChild(script);
 
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error cargando módulo MercadoPago:', error);
                 lectorMPDiv.innerHTML = '<p>Error cargando el componente</p>';
             }
         });
     }
 }
 
-// ========================================
-// INICIALIZAR LIBRO IVA
-// ========================================
+/**
+ * Inicializa el módulo de Libro IVA con carga dinámica
+ */
 function inicializarLibroIVA() {
     const btnLibroIVA = document.getElementById('btnLibroIVA');
     const libroIvaDiv = document.getElementById('libroIvaDiv');
@@ -348,20 +516,20 @@ function inicializarLibroIVA() {
     if (btnLibroIVA && libroIvaDiv) {
         btnLibroIVA.addEventListener('click', async () => {
             try {
-                // Toggle de visibilidad
+                // Toggle: si ya está visible, ocultarlo y limpiar
                 if (!libroIvaDiv.classList.contains('contenido-oculto')) {
                     libroIvaDiv.classList.add('contenido-oculto');
                     libroIvaDiv.innerHTML = '';
                     return;
                 }
 
-                // Cargar el contenido de libroIVA.html
+                // Cargar HTML del módulo
                 const response = await fetch('../libroIVA/libroIVA.html');
                 const html = await response.text();
                 libroIvaDiv.innerHTML = html;
                 libroIvaDiv.classList.remove('contenido-oculto');
 
-                // Cargar el script de inicialización si existe
+                // Cargar JavaScript del módulo si no está presente
                 const scriptPath = '../libroIVA/inicializarLibroIVA.js';
                 if (!document.head.querySelector(`script[src="${scriptPath}"]`)) {
                     const script = document.createElement('script');
@@ -369,8 +537,9 @@ function inicializarLibroIVA() {
                     script.defer = true;
                     document.head.appendChild(script);
                 }
+
             } catch (error) {
-                console.error('Error cargando libroIVA:', error);
+                console.error('Error cargando módulo Libro IVA:', error);
                 libroIvaDiv.innerHTML = '<p>Error cargando el componente Libro IVA</p>';
             }
         });
@@ -378,76 +547,21 @@ function inicializarLibroIVA() {
 }
 
 // ========================================
-// GESTION DE USUARIOS (Sin cambios)
+// FUNCIONES DE UTILIDAD
 // ========================================
-function inicializarGestionUsuarios() {
-    const btnUsuarios = document.getElementById('btnUsuarios');
-    const usuariosDiv = document.getElementById('usuariosDiv');
-    let usuarioCssLink = null;
 
-    if (btnUsuarios && usuariosDiv) {
-        btnUsuarios.addEventListener('click', async () => {
-            try {
-                // Si el módulo está abierto, ocultar y quitar estilos
-                if (!usuariosDiv.classList.contains('contenido-oculto')) {
-                    usuariosDiv.classList.add('contenido-oculto');
-                    usuariosDiv.innerHTML = '';
-                    if (usuarioCssLink) {
-                        usuarioCssLink.remove();
-                        usuarioCssLink = null;
-                    }
-                    return;
-                }
-
-                // Ocultar otros módulos
-                ocultarTodosLosModulos();
-                
-                usuariosDiv.innerHTML = '';
-                const response = await fetch('../usuario/usuario.html');
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-                const html = await response.text();
-                usuariosDiv.innerHTML = html;
-                usuariosDiv.classList.remove('contenido-oculto');
-
-                // Agregar el CSS de usuario solo si no está presente
-                if (!usuarioCssLink) {
-                    usuarioCssLink = document.createElement('link');
-                    usuarioCssLink.rel = 'stylesheet';
-                    usuarioCssLink.href = '../usuario/usuario.css';
-                    usuarioCssLink.id = 'usuario-css-link';
-                    document.head.appendChild(usuarioCssLink);
-                }
-
-                setTimeout(() => {
-                    // Elimina cualquier script previo de usuario.js
-                    const oldScript = document.head.querySelector('script[src="../usuario/usuario.js"]');
-                    if (oldScript) oldScript.remove();
-
-                    // Carga usuario.js desde el head
-                    const script = document.createElement('script');
-                    script.src = '../usuario/usuario.js';
-                    script.defer = true;
-                    script.onload = () => {
-                        if (window.inicializarUsuarioFrontend) {
-                            window.inicializarUsuarioFrontend();
-                        }
-                    };
-                    document.head.appendChild(script);
-                }, 100);
-
-            } catch (error) {
-                console.error('Error:', error);
-                usuariosDiv.innerHTML = `<p>Error: ${error.message}</p>`;
-            }
-        });
-    }
+/**
+ * Obtiene el usuario actualmente seleccionado
+ * @returns {Object|null} Usuario seleccionado o null
+ */
+function obtenerUsuarioSeleccionado() {
+    return usuarioSeleccionado;
 }
 
-// ========================================
-// FUNCIÓN AUXILIAR PARA OBTENER USUARIOS
-// ========================================
+/**
+ * Obtiene lista completa de usuarios desde la base de datos
+ * @returns {Array} Array de usuarios formateados
+ */
 async function obtenerUsuarios() {
     try {
         const result = await window.electronAPI.user.getAll();
@@ -459,8 +573,7 @@ async function obtenerUsuarios() {
                 cuil: user.cuil || '',
                 tipoContribuyente: user.tipoContribuyente || '',
                 clave: user.clave || '',
-                // Mantener datos originales por si se necesitan
-                datosOriginales: user
+                datosOriginales: user // Mantener datos originales por compatibilidad
             }));
         }
         return [];
@@ -469,3 +582,6 @@ async function obtenerUsuarios() {
         return [];
     }
 }
+
+// Exportar funciones para uso en otros módulos
+window.obtenerUsuarioSeleccionado = obtenerUsuarioSeleccionado;

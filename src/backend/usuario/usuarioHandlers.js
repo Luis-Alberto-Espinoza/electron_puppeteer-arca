@@ -2,7 +2,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
     ipcMain.handle('user:create', async (event, userData) => {
         try {
             const data = userStorage.loadData();
-            // Verificar existencia solo por cuit o cuil
             const existingUser = data.users.find(user =>
                 (user.cuit && user.cuit === userData.cuit && user.cuit !== null && user.cuit !== '') ||
                 (user.cuil && user.cuil === userData.cuil && user.cuil !== null && user.cuil !== '')
@@ -18,7 +17,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 cuit: userData.cuit || null,
                 cuil: userData.cuil || null,
                 tipoContribuyente: userData.tipoContribuyente || null,
-                clave: userData.clave,
+                claveAFIP: userData.claveAFIP,
+                claveATM: userData.claveATM,
                 empresasDisponible: userData.empresasDisponible || [],
                 fechaCreacion: new Date().toISOString()
             };
@@ -43,19 +43,14 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
     ipcMain.handle('user:update', async (event, updatedUser) => {
         try {
-            console.log('Recibiendo actualización:', updatedUser); // Debug
-            
             const data = userStorage.loadData();
-            console.log('Datos actuales:', data); // Debug
-            
             const index = data.users.findIndex(user => String(user.id) === String(updatedUser.id));
-            console.log('Usuario encontrado en índice:', index); // Debug
             
             if (index === -1) {
-                console.log('Usuario no encontrado:', updatedUser.id); // Debug
                 return { success: false, error: 'Usuario no encontrado' };
             }
 
+            // Mantener los datos existentes y sobreescribir con los nuevos
             data.users[index] = {
                 ...data.users[index],
                 nombre: updatedUser.nombre,
@@ -63,47 +58,37 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 cuit: updatedUser.cuit,
                 cuil: updatedUser.cuil,
                 tipoContribuyente: updatedUser.tipoContribuyente,
-                clave: updatedUser.clave,
+                claveAFIP: updatedUser.claveAFIP,
+                claveATM: updatedUser.claveATM,
                 fechaModificacion: new Date().toISOString()
             };
 
             const saveResult = userStorage.saveData(data);
-            console.log('Resultado de guardado:', saveResult); // Debug
 
             return saveResult
                 ? { success: true, user: data.users[index] }
                 : { success: false, error: 'Error al guardar' };
         } catch (error) {
-            console.error('Error en update:', error); // Debug
             return { success: false, error: error.message };
         }
     });
 
     ipcMain.handle('user:delete', async (event, userId) => {
         try {
-            console.log('Intentando eliminar usuario:', userId); // Debug
-            
             const data = userStorage.loadData();
             const index = data.users.findIndex(user => String(user.id) === String(userId));
-            
-            console.log('Usuario encontrado en índice:', index); // Debug
 
             if (index === -1) {
-                console.log('Usuario no encontrado:', userId); // Debug
                 return { success: false, error: 'Usuario no encontrado' };
             }
 
             const deletedUser = data.users.splice(index, 1)[0];
             const saveResult = userStorage.saveData(data);
-            
-            console.log('Usuario eliminado:', deletedUser); // Debug
-            console.log('Resultado de guardado:', saveResult); // Debug
 
             return saveResult
                 ? { success: true, user: deletedUser }
                 : { success: false, error: 'Error al guardar' };
         } catch (error) {
-            console.error('Error en delete:', error); // Debug
             return { success: false, error: error.message };
         }
     });
@@ -123,7 +108,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         const result = await dialog.showOpenDialog(mainWindow, {
             properties: ['openFile'],
             filters: [
-                { name: 'Archivos PDF MercadoPago', extensions: ['pdf'] }, // Solo PDFs
+                { name: 'Archivos PDF MercadoPago', extensions: ['pdf'] },
                 { name: 'Todos los archivos', extensions: ['*'] }
             ],
             title: 'Seleccionar archivo PDF de MercadoPago'
@@ -134,31 +119,19 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
     ipcMain.handle('mercadopago:procesar-archivo', async (event, ruta) => {
         try {
             if (!ruta || ruta.trim() === '') {
-                console.error('Ruta inválida detectada en handler');
                 throw new Error('No se recibió una ruta válida para procesar');
             }
-
             const fs = require('fs');
             const path = require('path');
             const archivoServicio = path.join(__dirname, '..', 'extraerDemercadoPago', 'leer_procesar_resumen_MercadoPago.js');
-
             if (!fs.existsSync(ruta)) {
                 throw new Error(`El archivo PDF no existe en la ruta: ${ruta}`);
             }
-
             const PDFProcessorService = require(archivoServicio);
-
             const pdfService = new PDFProcessorService();
-
             const resultado = await pdfService.procesarPDF(ruta);
             return resultado;
-
         } catch (error) {
-            console.error('=== ERROR EN PROCESAMIENTO MERCADOPAGO ===');
-            console.error('Error completo:', error);
-            console.error('Stack:', error.stack);
-            console.error('=== FIN ERROR ===');
-
             return {
                 success: false,
                 error: {
@@ -172,14 +145,12 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         }
     });
 
-    // Requiere acceso a ejecutar_verificacionCredenciales
     const { ejecutar_verificacionCredenciales } = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales');
 
     ipcMain.handle('user:verifyAndUpdate', async (event, updatedUser) => {
         try {
-            // Verificar credenciales con el flujo existente
             const credenciales = {
-                clave: updatedUser.clave,
+                claveAFIP: updatedUser.claveAFIP,
                 cuit: updatedUser.cuit,
                 cuil: updatedUser.cuil
             };
@@ -189,7 +160,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 return { success: false, error: 'Credenciales inválidas o error en verificación' };
             }
 
-            // Actualizar usuario y empresasDisponible
             const data = userStorage.loadData();
             const index = data.users.findIndex(user => String(user.id) === String(updatedUser.id));
             if (index === -1) {
@@ -203,7 +173,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 cuit: updatedUser.cuit,
                 cuil: updatedUser.cuil,
                 tipoContribuyente: updatedUser.tipoContribuyente,
-                clave: updatedUser.clave,
+                claveAFIP: updatedUser.claveAFIP,
+                claveATM: updatedUser.claveATM,
                 empresasDisponible: verificacion.puntosDeVentaArray || [],
                 fechaModificacion: new Date().toISOString()
             };

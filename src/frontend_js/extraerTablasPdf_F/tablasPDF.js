@@ -62,22 +62,23 @@ window.inicializarEventosExtraerTablasPDF = function() {
             // Usa el canal extraerTablasPDF
             const resultado = await window.electronAPI.extraerTablasPDF.procesarArchivo(rutaSeleccionada);
 
-            if (resultado && resultado.success) {
+            if (resultado && resultado.exito) { // Corregido: se espera 'exito' desde el backend
                 statusMessage.textContent = '¡PDF procesado exitosamente!';
-                if (resultado.csvPath) {
-                    rutaCsvGenerado = resultado.csvPath;
+                if (resultado.rutaCsv) { // Corregido: la propiedad es 'rutaCsv'
+                    rutaCsvGenerado = resultado.rutaCsv;
                     // Mostrar la ruta y el botón para abrir
                     csvPathDiv.innerHTML = `
                         <span>Archivo CSV generado:</span>
                         <input type="text" value="${rutaCsvGenerado}" readonly style="width:60%;margin:5px;">
-                        <button id="abrirCsvBtn" style="margin-left:10px;">Abrir CSV</button>
+                        <button id="abrirCsvBtn" style="margin-left:10px;">Abrir Archivo</button>
                     `;
                     document.getElementById('abrirCsvBtn').onclick = () => {
+                        // Usamos la función existente para abrir archivos
                         window.electronAPI.abrirArchivo(rutaCsvGenerado);
                     };
                 }
             } else {
-                statusMessage.textContent = 'Error al procesar el PDF: ' + (resultado && resultado.error && resultado.error.message ? resultado.error.message : 'Error desconocido');
+                statusMessage.textContent = 'Error al procesar el PDF: ' + (resultado && resultado.error ? resultado.error : 'Error desconocido');
             }
         } catch (err) {
             statusMessage.textContent = 'Error inesperado: ' + err.message;

@@ -1,0 +1,67 @@
+/* Estilos generales para el módulo ATM */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    margin: 20px;
+}
+
+h2 {
+    color: #0056b3; /* Un azul oscuro para el título principal */
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.atm-seccion {
+    background-color: #ffffff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 0.3s ease;
+}
+
+.atm-seccion:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+h3 {
+    color: #17a2b8; /* Un tono cian para los subtítulos */
+    border-bottom: 2px solid #17a2b8;
+    padding-bottom: 10px;
+    margin-top: 0;
+}
+
+button {
+    background-color: #28a745; /* Verde para acciones positivas */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+button:hover {
+    background-color: #218838; /* Un verde más oscuro al pasar el mouse */
+    transform: translateY(-2px);
+}
+
+button:active {
+    background-color: #1e7e34;
+    transform: translateY(0);
+}
+
+.atm-respuesta {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-left: 4px solid #007bff; /* Azul para resaltar la respuesta */
+    min-height: 30px;
+    white-space: pre-wrap; /* Para conservar los saltos de línea y espacios */
+    word-wrap: break-word;
+    font-family: "Courier New", Courier, monospace;
+    color: #495057;
+}

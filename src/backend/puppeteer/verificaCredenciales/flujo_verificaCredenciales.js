@@ -15,8 +15,8 @@ const ejecutar_verificacionCredenciales = async (datos) => {
         let page;
         try {// Utiliza el cuit o el cuil el que tenga valor
             const credenciales = {};
-            credenciales.usuario = datos.cuit || datos.credenciales.cuil;
-            credenciales.contrasena = datos.clave;
+            credenciales.usuario = datos.cuit || datos.cuil;
+            credenciales.contrasena = datos.claveAFIP;
 
             // mostrar el objeto creado 
             console.log("Credenciales para login:", credenciales);

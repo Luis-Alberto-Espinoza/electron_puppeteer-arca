@@ -3,8 +3,22 @@ const path = require('path');
 const { comunicacionConFactura, comunicacionConLibroIVA } = require('../index.js');
 const facturaManager = require('../puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
-const { PDFTableExtractor } = require('../extraerTablasPdf/extraerTablas_B.js'); // Importa la clase y/o función según lo exportado en extraerTablas_B.js
+const procesarPdfConFallback = require('../extraerTablasPdf/extraerTablas_B.js'); // Importa la función orquestadora
 const fs = require('fs'); // <--- Agrega esto al inicio del archivo
+
+const { manejarEventoATM } = require('../atm_Servicios/atm_Manager.js');
+
+ipcMain.handle('atm:ejecutar-flujo', async (event, evento) => {
+    console.log('Evento recibido en main para manejarEventoATM:', evento);
+    const downloadsPath = app.getPath('downloads'); // <-- Obtiene la ruta real
+    // evento = { tipo: 'planDePago', datos: { ... } }
+    const resultado = await manejarEventoATM(evento, downloadsPath); // <-- Pasa la ruta
+
+    console.log('Resultado de manejarEventoAT desde el main:', resultado);
+    return resultado; // Esto se envía al frontend
+
+
+});
 
 // Importar el sistema de usuarios
 const { JsonStorage } = require('../usuario/usuario.js');
@@ -313,27 +327,33 @@ function setupIpcListeners() {
 
     // Handler para procesar el archivo PDF (asegúrate de que esté dentro de setupIpcListeners)
     ipcMain.handle('extraerTablasPDF:procesar-archivo', async (event, rutaPDF) => {
-        console.log('Procesando archivo en main:', rutaPDF);
-        const extractor = new PDFTableExtractor();
-        const resultado = await extractor.extractFromPDF(rutaPDF);
+        console.log('Procesando archivo con el nuevo orquestador en main:', rutaPDF);
+        
+        // Llama a la nueva y única función orquestadora
+        const resultado = await procesarPdfConFallback(rutaPDF);
 
-        if (resultado.success) {
-            // console.log('Registros:', resultado['data'].records[resultado['data'].records.length - 1]);
-            // Guardar resultado en archivo JSON
+        // La lógica de guardado de CSV ya está centralizada dentro del orquestador.
+        // El resultado ahora contiene la ruta al CSV generado (`rutaCsv`).
+        // Opcionalmente, guardamos un JSON aquí para depuración si es necesario.
+        if (resultado.exito) {
+            console.log(`Procesamiento exitoso con el método: ${resultado.metodo}`);
+            console.log(`CSV del resultado guardado en: ${resultado.rutaCsv}`);
             try {
+                // Guardamos los datos crudos para depuración o uso futuro
                 fs.writeFileSync(
                     path.join(__dirname, 'resultadoMain.json'),
-                    JSON.stringify(resultado.data, null, 2),
+                    JSON.stringify(resultado.datos, null, 2),
                     'utf8'
                 );
-                console.log('Resultado guardado en resultadoMain.json');
+                console.log('Datos crudos guardados en resultadoMain.json para depuración.');
             } catch (err) {
-                console.error('Error al guardar resultadoMain.json:', err);
+                console.error('Error al guardar el JSON de depuración:', err);
             }
         } else {
-            console.log('Error:', resultado.error);
+            console.error('Error en el procesamiento PDF orquestado:', resultado.error);
         }
 
+        // Devolvemos el objeto de resultado completo al frontend
         return resultado;
     });
 
@@ -343,6 +363,26 @@ function setupIpcListeners() {
             return true;
         } catch (err) {
             return false;
+        }
+    });
+
+    ipcMain.handle('shell:open-directory', async (event, path) => {
+        try {
+            await shell.openPath(path);
+            return { success: true };
+        } catch (error) {
+            console.error(`Failed to open path: ${path}`, error);
+            return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('shell:open-directory', async (event, path) => {
+        try {
+            await shell.openPath(path);
+            return { success: true };
+        } catch (error) {
+            console.error(`Failed to open path: ${path}`, error);
+            return { success: false, error: error.message };
         }
     });
 }
@@ -363,7 +403,6 @@ app.whenReady().then(async () => {
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
         setupIpcListeners(); // <--- asegúrate de que esta línea se ejecuta
-        console.log('✅ Manejadores IPC configurados');
     } catch (error) {
         console.error('❌ Error en inicialización:', error);
     }

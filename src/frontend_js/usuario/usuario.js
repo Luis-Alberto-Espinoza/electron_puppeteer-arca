@@ -36,14 +36,12 @@ function inicializarVerificarCredenciales() {
         btnVerificarCredenciales.addEventListener('click', async function(e) {
             e.preventDefault();
 
-            // Oculta ambos botones y muestra el loader
             btnVerificarCredenciales.style.display = 'none';
             btnCrearUsuario.style.display = 'none';
             verificarLoading.classList.remove('hidden');
-            // Solo el spinner gira, el texto queda quieto
             verificarLoading.innerHTML = '<span class="spinner"></span><span class="loader-text">Verificando...</span>';
 
-            const clave = document.getElementById('clave').value.trim();
+            const clave = document.getElementById('claveAFIP').value.trim();
             const cuit = document.getElementById('cuit').value.trim();
             const cuil = document.getElementById('cuil').value.trim();
 
@@ -60,13 +58,11 @@ function inicializarVerificarCredenciales() {
                 resultado = false;
             }
 
-            // Oculta el loader y muestra el botón de verificar
             verificarLoading.classList.add('hidden');
             verificarLoading.innerHTML = '';
             btnVerificarCredenciales.style.display = '';
             btnCrearUsuario.style.display = resultado ? '' : 'none';
 
-            // Mensaje de error si la verificación falla
             const alertDiv = document.getElementById('alert');
             const alertMsg = document.getElementById('alertMessage');
             if (!resultado) {
@@ -84,15 +80,15 @@ function inicializarVerificarCredenciales() {
 async function createUser() {
     try {
         const nombre = document.getElementById('nombre').value.trim();
-        const clave = document.getElementById('clave').value.trim();
+        const claveAFIP = document.getElementById('claveAFIP').value.trim();
+        const claveATM = document.getElementById('claveATM').value.trim();
         const cuit = document.getElementById('cuit').value.trim();
         const cuil = document.getElementById('cuil').value.trim();
         const tipoContribuyente = document.getElementById('tipoContribuyente').value;
         const apellido = document.getElementById('apellido').value.trim();
 
-        // Validaciones
-        if (!nombre || !clave) {
-            showAlert('Por favor completa todos los campos obligatorios', 'error');
+        if (!nombre || !claveAFIP) {
+            showAlert('Por favor completa nombre y Clave AFIP', 'error');
             return;
         }
         if (!cuit && !cuil) {
@@ -112,29 +108,22 @@ async function createUser() {
             return;
         }
 
-        if (!window.electronAPI) {
-            console.error('electronAPI no está disponible');
+        if (!window.electronAPI || !window.electronAPI.user) {
+            console.error('electronAPI.user no está disponible');
             showAlert('Error de configuración de la aplicación', 'error');
             return;
         }
 
-        if (!window.electronAPI.user) {
-            console.error('electronAPI.user no está disponible');
-            showAlert('Error de configuración de la API', 'error');
-            return;
-        }
-
-        // Agregar empresasDisponible al objeto usuario
         const result = await window.electronAPI.user.create({
-            nombre, clave, cuit, cuil, tipoContribuyente, apellido,
+            nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido,
             empresasDisponible: window.empresasDisponible || []
         });
-        console.log('Resultado de crear usuario:', result);
 
         if (result.success) {
             showAlert(`Usuario "${nombre}" creado exitosamente!`);
             document.getElementById('nombre').value = '';
-            document.getElementById('clave').value = '';
+            document.getElementById('claveAFIP').value = '';
+            document.getElementById('claveATM').value = '';
             document.getElementById('cuit').value = '';
             document.getElementById('cuil').value = '';
             document.getElementById('tipoContribuyente').value = '';
@@ -152,14 +141,8 @@ async function createUser() {
 // Cargar usuarios
 async function loadUsers() {
     setLoading('loadLoading', true);
-
     try {
-        console.log('📖 Frontend: Solicitando lista de usuarios');
-
         const result = await window.electronAPI.user.getAll();
-
-        console.log('📨 Frontend: Lista recibida:', result);
-
         if (result.success) {
             displayUsers(result.users);
         } else {
@@ -188,19 +171,22 @@ function displayUsers(users) {
     }
 
     const usersHTML = users.map(user => {
+        const claveAFIP = user.claveAFIP || user.clave || '';
+        const claveATM = user.claveATM || '';
         return `
             <div class="user-item">
                 <div class="user-info">
                     <div class="user-name">👤 ${user.nombre}</div>
                     <div class="user-details">
-                        🔑 Clave: ${'*'.repeat(user.clave.length)}<br>
+                        🔑 Clave AFIP: ${claveAFIP ? '*'.repeat(claveAFIP.length) : 'N/A'}<br>
+                        🔑 Clave ATM: ${claveATM ? '*'.repeat(claveATM.length) : 'N/A'}<br>
                         🆔 CUIT: ${user.cuit || ''}<br>
                         🆔 CUIL: ${user.cuil || ''}<br>
                         🏷️ Tipo Contribuyente: ${user.tipoContribuyente || ''}
                     </div>
                 </div>
                 <div class="user-actions">
-                    <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.clave}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}')">
+                    <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${claveAFIP}', '${claveATM}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}')">
                         ✏️ Editar
                     </button>
                     <button class="btn btn-delete" onclick="window.deleteUser('${user.id}', '${user.nombre}')">
@@ -215,11 +201,12 @@ function displayUsers(users) {
 }
 
 // Editar usuario
-window.editUser = function (id, nombre, clave, cuit, cuil, tipoContribuyente, apellido) {
-    window.currentEditingUser = { id, nombre, clave, cuit, cuil, tipoContribuyente, apellido };
+window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido) {
+    window.currentEditingUser = { id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido };
 
     document.getElementById('editNombre').value = nombre;
-    document.getElementById('editClave').value = clave;
+    document.getElementById('editClaveAFIP').value = claveAFIP;
+    document.getElementById('editClaveATM').value = claveATM;
     document.getElementById('editCuit').value = cuit;
     document.getElementById('editCuil').value = cuil;
     document.getElementById('editTipoContribuyente').value = tipoContribuyente;
@@ -230,20 +217,15 @@ window.editUser = function (id, nombre, clave, cuit, cuil, tipoContribuyente, ap
 
 // Eliminar usuario
 async function deleteUser(id, nombre) {
-    console.log('Intentando eliminar usuario:', { id, nombre });
-
     if (!confirm(`¿Estás seguro que deseas eliminar al usuario "${nombre}"?`)) {
         return;
     }
-
     try {
         setLoading('loadLoading', true);
         const result = await window.electronAPI.user.delete(id);
-        console.log('Resultado de eliminar:', result);
-
         if (result.success) {
             showAlert(`Usuario "${nombre}" eliminado exitosamente!`);
-            await loadUsers(); // Recargar lista después de eliminar
+            await loadUsers();
         } else {
             showAlert(result.error || 'Error al eliminar usuario', 'error');
         }
@@ -263,15 +245,15 @@ async function updateUser() {
     }
 
     const nombre = document.getElementById('editNombre').value.trim();
-    const clave = document.getElementById('editClave').value.trim();
+    const claveAFIP = document.getElementById('editClaveAFIP').value.trim();
+    const claveATM = document.getElementById('editClaveATM').value.trim();
     const cuit = document.getElementById('editCuit').value.trim();
     const cuil = document.getElementById('editCuil').value.trim();
     const tipoContribuyente = document.getElementById('editTipoContribuyente').value;
     const apellido = document.getElementById('editApellido').value.trim();
 
-    // Validaciones
-    if (!nombre || !clave) {
-        showAlert('Por favor completa todos los campos obligatorios', 'error');
+    if (!nombre || !claveAFIP) {
+        showAlert('Por favor completa nombre y Clave AFIP', 'error');
         return;
     }
     if (!cuit && !cuil) {
@@ -291,37 +273,29 @@ async function updateUser() {
         return;
     }
 
-    // Detectar si cambió clave/cuit/cuil
-    const claveCambio = clave !== window.currentEditingUser.clave;
+    const claveCambio = claveAFIP !== window.currentEditingUser.claveAFIP;
     const cuitCambio = cuit !== window.currentEditingUser.cuit;
     const cuilCambio = cuil !== window.currentEditingUser.cuil;
 
     try {
         setLoading('updateLoading', true);
 
+        const userData = {
+            id: window.currentEditingUser.id,
+            nombre,
+            claveAFIP,
+            claveATM,
+            cuit,
+            cuil,
+            tipoContribuyente,
+            apellido
+        };
+
         let result;
         if (claveCambio || cuitCambio || cuilCambio) {
-            // Verificar credenciales y actualizar empresasDisponible
-            result = await window.electronAPI.user.verifyAndUpdate({
-                id: window.currentEditingUser.id,
-                nombre,
-                clave,
-                cuit,
-                cuil,
-                tipoContribuyente,
-                apellido
-            });
+            result = await window.electronAPI.user.verifyAndUpdate(userData);
         } else {
-            // Solo actualizar datos normales
-            result = await window.electronAPI.user.update({
-                id: window.currentEditingUser.id,
-                nombre,
-                clave,
-                cuit,
-                cuil,
-                tipoContribuyente,
-                apellido
-            });
+            result = await window.electronAPI.user.update(userData);
         }
 
         if (result.success) {
@@ -344,21 +318,20 @@ function cancelEdit() {
     window.currentEditingUser = null;
     document.getElementById('editForm').classList.add('hidden');
     document.getElementById('editNombre').value = '';
-    document.getElementById('editClave').value = '';
+    document.getElementById('editClaveAFIP').value = '';
+    document.getElementById('editClaveATM').value = '';
 }
 
 function inicializarUsuarioFrontend() {
-    console.log('Inicializando eventos de usuario (llamado manualmente)');
     const btnCrear = document.getElementById('btnCrearUsuario');
     const btnRecargar = document.getElementById('btnRecargarLista');
-    const claveInput = document.getElementById('clave');
-    const editClaveInput = document.getElementById('editClave');
+    const claveInput = document.getElementById('claveAFIP');
+    const editClaveInput = document.getElementById('editClaveAFIP');
     const btnVerificarCredenciales = document.getElementById('btnVerificarCredenciales');
 
     if (btnVerificarCredenciales) {
         btnVerificarCredenciales.addEventListener('click', (e) => {
           e.preventDefault();
-          console.log("llegue al evento_00000");
          inicializarVerificarCredenciales();
         });
     }
@@ -389,67 +362,21 @@ function inicializarUsuarioFrontend() {
         });
     }
 
-    // Cargar usuarios inicialmente
     loadUsers().catch(error => {
         console.error('Error cargando usuarios:', error);
         showAlert('Error cargando la lista de usuarios', 'error');
     });
 }
 
-// Exportar la función para que el controlador la pueda llamar
 window.inicializarUsuarioFrontend = inicializarUsuarioFrontend;
 
-// Inicializar eventos cuando el contenido se carga
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Inicializando eventos de usuario');
-
-    // Esperar a que el HTML esté realmente en el DOM
     setTimeout(() => {
-        const btnCrear = document.getElementById('btnCrearUsuario');
-        const btnRecargar = document.getElementById('btnRecargarLista');
-        const claveInput = document.getElementById('clave');
-        const editClaveInput = document.getElementById('editClave');
-
-        if (btnCrear) {
-            btnCrear.addEventListener('click', (e) => {
-                e.preventDefault();
-                createUser();
-            });
-        }
-
-        if (btnRecargar) {
-            btnRecargar.addEventListener('click', loadUsers);
-        }
-
-        if (claveInput) {
-            claveInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    createUser();
-                }
-            });
-        }
-
-        if (editClaveInput) {
-            editClaveInput.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    updateUser();
-                }
-            });
-        }
-
-        inicializarVerificarCredenciales();
-
-        // Cargar usuarios inicialmente
-        loadUsers().catch(error => {
-            console.error('Error cargando usuarios:', error);
-            showAlert('Error cargando la lista de usuarios', 'error');
-        });
-    }, 100); // Espera 100ms para asegurar que el HTML esté en el DOM
+        inicializarUsuarioFrontend();
+    }, 100);
 });
 
-// Mostrar lista de puntos de venta en el frontend
 function mostrarPuntosDeVenta(puntosDeVentaArray) {
-    console.log('mostrarPuntosDeVenta llamado con:', puntosDeVentaArray);
     const contenedor = document.getElementById('elegirEmpresa');
     if (!contenedor) {
         console.warn('No se encontró el div elegirEmpresa');
