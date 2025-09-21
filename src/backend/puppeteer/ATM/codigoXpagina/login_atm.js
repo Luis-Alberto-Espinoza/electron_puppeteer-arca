@@ -50,7 +50,7 @@ async function loginATM(page, credencialesATM) {
 
   } catch (error) {
     console.error('Error durante el login (con evaluate):', error);
-    throw new Error('Fallo el proceso de login con evaluate.');
+    throw new Error('Fallo el proceso de login, revisar credenciales o error en la página.');
   }
 }
 

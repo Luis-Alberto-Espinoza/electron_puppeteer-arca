@@ -1,0 +1,266 @@
+.lote-container {
+    padding: 20px;
+    background-color: #1a2a47; /* Azul oscuro principal */
+    border: 1px solid #3c5a8a;
+    border-radius: 8px;
+    color: #f0f8ff; /* Texto claro para contraste */
+}
+
+.lote-header h2 {
+    color: #ffc107; /* Título principal en amarillo */
+    margin: 0;
+    text-align: center; /* Centrar título principal */
+}
+
+.lote-subheader p {
+    margin: 0;
+    color: #cde4ff; /* Texto de sub-encabezado más claro */
+    font-style: italic;
+}
+
+/* Estilo para la lista de usuarios */
+.lote-lista-usuarios {
+    max-height: 400px; /* Más espacio para la lista de usuarios */
+    overflow-y: auto;
+    border: 1px solid #3c5a8a;
+    padding: 10px;
+    background-color: #1f365c; /* Fondo de lista azul más oscuro */
+    margin-bottom: 40px; /* Más espacio */
+}
+
+/* Área de resultados */
+.lote-resultados {
+    margin-top: 30px;
+    padding: 15px;
+    border-radius: 5px;
+    min-height: 200px; /* Altura mínima para el contenedor de resultados */
+}
+
+.usuario-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #3c5a8a; /* Borde más oscuro */
+}
+
+.usuario-item:last-child {
+    border-bottom: none;
+}
+
+.usuario-item input[type="checkbox"] {
+    margin-right: 15px;
+    width: 18px;
+    height: 18px;
+}
+
+.usuario-item label {
+    font-size: 1.1em;
+    color: #f0f8ff; /* Texto de item claro */
+}
+
+/* Botones de acción principal con temática amarilla/dorada */
+.lote-acciones {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #3c5a8a; /* Azul oscuro */
+}
+
+.lote-acciones .btn {
+    margin-right: 10px;
+    font-weight: bold;
+}
+
+/* Área de resultados */
+.lote-resultados {
+    margin-top: 30px;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+/* Estilos para los nuevos paneles de resultados */
+.lote-procesando {
+    margin-top: 35px;
+    margin-bottom: 20px;
+}
+
+.lote-procesando .progreso-usuario {
+    border: 2px dashed #ffc107; /* Borde amarillo discontinuo */
+    animation: pulse-border 2s infinite;
+    background-color: #2a4a7d; /* Fondo azul oscuro para el usuario en proceso */
+    color: #f0f8ff; /* Texto claro */
+}
+
+@keyframes pulse-border {
+    0% { border-color: #ffc107; } /* Amarillo */
+    50% { border-color: #007bff; } /* Azul */
+    100% { border-color: #ffc107; } /* Amarillo */
+}
+
+.lote-finalizados h3 {
+    color: #ffc107; /* Título de finalizados en amarillo */
+    border-bottom: 1px solid #3c5a8a;
+    margin-top: 25px;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.lote-finalizados .progreso-usuario {
+    border: 1px solid #3c5a8a; /* Borde estándar para finalizados */
+    background-color: #1f365c; /* Fondo de finalizados azul oscuro */
+    color: #f0f8ff; /* Texto claro */
+}
+
+/* Colores personalizados para botones */
+.btn-seleccionar {
+    background-color: #007bff; /* Azul primario */
+    color: white;
+}
+.btn-seleccionar:hover {
+    background-color: #0056b3;
+}
+
+.btn-deseleccionar {
+    background-color: #ffc107; /* Amarillo */
+    color: #1a2a47 !important; /* Texto oscuro para contraste */
+}
+.btn-deseleccionar:hover {
+    background-color: #e0a800;
+}
+
+.btn-accion-azul {
+    background-color: #17a2b8; /* Cian/Azul claro */
+    color: white;
+}
+.btn-accion-azul:hover {
+    background-color: #138496;
+}
+
+.btn-accion-amarillo {
+    background-color: #ffeb3b; /* Amarillo más brillante */
+    color: #1a2a47 !important; /* Texto oscuro para contraste */
+}
+.btn-accion-amarillo:hover {
+    background-color: #fbc02d;
+}
+
+/* Estilos base para botones en esta vista */
+.lote-controles .btn, .lote-acciones .btn {
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    margin-right: 10px;
+    color: white; /* Asegurar texto blanco por defecto */
+}
+
+.lote-controles .btn:hover, .lote-acciones .btn:hover {
+    transform: translateY(-2px);
+}
+
+/* Mensajes de progreso */
+.progreso-usuario h4 {
+    color: #ffc107; /* Nombre de usuario en amarillo */
+    margin-bottom: 10px;
+}
+
+
+.progreso-usuario .message-container .progreso-item {
+    padding: 5px;
+    font-family: monospace;
+    color: #f0f8ff; /* Mensajes de progreso en blanco/claro */
+}
+
+.progreso-usuario {
+    margin-top: 15px;
+}
+
+.progreso-item.status-exito, .progreso-item.status-exito_final {
+    color: #28a745; /* Verde */
+}
+
+.progreso-item.status-error, .progreso-item.status-error_fatal {
+    color: #dc3545; /* Rojo */
+    font-weight: bold;
+}
+
+.progreso-item.status-iniciando, .progreso-item.status-info {
+    color: #007bff; /* Azul */
+}
+
+/* Badges de estado */
+.badge {
+    margin-left: 10px;
+    padding: 0.4em 0.6em;
+    border-radius: 0.25rem;
+    font-size: 0.8em;
+    vertical-align: middle;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+    color: white;
+}
+
+.badge.bg-success {
+    background-color: #28a745 !important;
+    color: white;
+}
+
+/* Listas de archivos */
+.list-group-item.bg-transparent {
+    background-color: transparent !important;
+}
+
+.list-group-item.text-light {
+    color: #f0f8ff !important;
+}
+
+/* --- ESTILOS PARA RESULTADOS DE ARCHIVOS --- */
+
+.lote-dir-container {
+    /* 1. Usar Flexbox para la alineación */
+    display: flex;
+    justify-content: space-between; /* Empuja la ruta a la izq. y el botón a la der. */
+    align-items: center;           /* Centra todo verticalmente */
+
+    /* 2. Estilos visuales que pediste */
+    background-color: #2a4a7d; /* Fondo azul oscuro */
+    border: 1px solid #6c757d;   /* Borde gris */
+    border-radius: 5px;
+    padding: 0.5rem 1rem; /* Padding interno */
+}
+
+/* 3. El "toque personal" para el texto de la ruta */
+.lote-dir-container code {
+    color: #cde4ff;             /* Texto azul claro para legibilidad */
+    background-color: #1f365c;   /* Fondo sutilmente más oscuro */
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+
+    /* Importante: para manejar rutas muy largas */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lote-btn-abrir-carpeta {
+    background-color: #ffc107; 
+    color: #1a2a47 !important;
+    font-weight: bold;
+    flex-shrink: 0; /* Evita que el botón se encoja */
+}
+.lote-btn-abrir-carpeta:hover {
+    background-color: #e0a800;
+}
+
+.lote-btn-abrir-archivo {
+    background-color: #17a2b8; 
+    color: white !important;
+    flex-shrink: 0; /* Evita que el botón se encoja */
+}
+.lote-btn-abrir-archivo:hover {
+    background-color: #138496;
+}

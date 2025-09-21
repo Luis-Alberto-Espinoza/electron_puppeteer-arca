@@ -55,4 +55,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     abrirArchivo: (ruta) => ipcRenderer.invoke('abrir-archivo', ruta),
+    abrirDirectorio: (ruta) => ipcRenderer.invoke('shell:open-directory', ruta),
+
+    // APIs para ATM
+    atm: {
+        ejecutarFlujo: (datos) => ipcRenderer.invoke('atm:ejecutar-flujo', datos), // Para un solo usuario
+        iniciarLote: (datos) => ipcRenderer.invoke('atm:iniciar-lote', datos),   // Para lotes
+        onLoteUpdate: (callback) => ipcRenderer.on('atm:lote-update', (_event, datos) => callback(datos))
+    },
 });

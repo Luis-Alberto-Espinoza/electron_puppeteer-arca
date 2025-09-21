@@ -65,3 +65,20 @@ button:active {
     font-family: "Courier New", Courier, monospace;
     color: #495057;
 }
+
+/* Estilos para el agrupador de secciones normales */
+.atm-seccion-agrupada {
+    border: 2px solid #0056b3; /* Borde azul oscuro */
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 30px;
+    background-color: #fdfdff; /* Un blanco ligeramente azulado */
+}
+
+.atm-seccion-agrupada legend {
+    font-weight: bold;
+    color: #0056b3; /* Mismo color que el borde */
+    padding: 0 10px;
+    margin-left: 10px; /* Para alinear con el padding del fieldset */
+    font-size: 1.2em;
+}

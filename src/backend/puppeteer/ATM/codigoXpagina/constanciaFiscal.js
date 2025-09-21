@@ -65,10 +65,10 @@ async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPat
 
     // 3. Esperar a que la nueva pestaña con el visor de PDF se abra
     const pdfPage = await newPagePromise;
-    console.log('Nueva pestaña con visor de PDF detectada.');
+    // console.log('Nueva pestaña con visor de PDF detectada.');
 
     // 4. Preparar nombres de archivo y forzar la descarga
-    console.log('Forzando la descarga del PDF desde el visor...');
+    // console.log('Forzando la descarga del PDF desde el visor...');
     const finalFilename = getFilename('constancia_fiscal', cuit, 'pdf');
     const tempFilename = `temp_${Date.now()}.pdf`; // Nombre temporal
 
@@ -97,7 +97,7 @@ async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPat
     if (!finalPath) {
         throw new Error('La descarga del archivo PDF falló o excedió el tiempo de espera.');
     }
-    console.log(`¡Archivo descargado y verificado en: ${finalPath}!`);
+    // console.log(`¡Archivo descargado y verificado en: ${finalPath}!`);
 
     // 6. Limpieza
     await pdfPage.close();

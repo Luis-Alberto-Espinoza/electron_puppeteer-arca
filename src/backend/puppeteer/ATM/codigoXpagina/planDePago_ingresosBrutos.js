@@ -1,14 +1,15 @@
 /**
  * Hace clic en el botón "Ingresos Brutos" para asegurar que la tabla de planes esté visible.
  * @param {import('puppeteer').Page} page - La instancia de la página de Puppeteer.
+ * @param {Function} enviarProgreso - Callback para enviar actualizaciones de estado.
  */
-async function prepararTablaIngresosBrutos(page) {
+async function prepararTablaIngresosBrutos(page, enviarProgreso = () => {}) {
   try {
     const frameHandle = await page.waitForSelector('iframe[src="nucleo/inicio.zul"]');
     const frame = await frameHandle.contentFrame();
     if (!frame) throw new Error('No se pudo encontrar el contentFrame del iframe.');
 
-    console.log('Preparando tabla de Ingresos Brutos...');
+    enviarProgreso('info', 'Preparando tabla de Ingresos Brutos...');
 
     await frame.evaluate(async () => {
       const buttons = document.querySelectorAll('.z-button');
@@ -23,9 +24,8 @@ async function prepararTablaIngresosBrutos(page) {
       if (!clicked) throw new Error('No se encontró el botón "Ingresos Brutos".');
     });
 
-    // Espera prudencial para que la tabla se cargue después del clic
     await new Promise(resolve => setTimeout(resolve, 2000));
-    console.log('Tabla de Ingresos Brutos preparada.');
+    enviarProgreso('info', 'Tabla de Ingresos Brutos preparada.');
 
   } catch (error) {
     console.error('Error al preparar la tabla de Ingresos Brutos:', error);
@@ -36,19 +36,20 @@ async function prepararTablaIngresosBrutos(page) {
 /**
  * Navega al iframe principal y cuenta cuántas filas de planes de pago tienen el estado "VIGENTE".
  * @param {import('puppeteer').Page} page - La instancia de la página de Puppeteer.
+ * @param {Function} enviarProgreso - Callback para enviar actualizaciones de estado.
  * @returns {Promise<number>} - El número de filas vigentes encontradas.
  */
-async function contarFilasVigentes(page) {
+async function contarFilasVigentes(page, enviarProgreso = () => {}) {
   try {
     const frameHandle = await page.waitForSelector('iframe[src="nucleo/inicio.zul"]');
     const frame = await frameHandle.contentFrame();
     if (!frame) throw new Error('No se pudo encontrar el contentFrame del iframe.');
 
-    console.log('Contando filas con estado VIGENTE...');
+    enviarProgreso('info', 'Contando filas con estado VIGENTE...');
 
     return await frame.evaluate(() => {
       const tables = document.querySelectorAll('table');
-      if (tables.length < 2) return 0; // Si no está la tabla esperada, no hay filas.
+      if (tables.length < 2) return 0;
       
       const targetTbody = tables[1].querySelector('tbody');
       if (!targetTbody) return 0;
@@ -57,7 +58,7 @@ async function contarFilasVigentes(page) {
       let count = 0;
       for (const row of filas) {
         if (row.children.length > 2) {
-          const cell = row.children[2]; // La tercera celda corresponde al estado
+          const cell = row.children[2];
           if (cell && cell.textContent.trim().toUpperCase() === "VIGENTE") {
             count++;
           }
@@ -76,14 +77,15 @@ async function contarFilasVigentes(page) {
  * Hace clic en el botón "Imprimir Constancia" para una fila "VIGENTE" específica, identificada por su índice.
  * @param {import('puppeteer').Page} page - La instancia de la página de Puppeteer.
  * @param {number} indice - El índice de la fila VIGENTE a descargar (basado en 0).
+ * @param {Function} enviarProgreso - Callback para enviar actualizaciones de estado.
  */
-async function descargarFilaVigentePorIndice(page, indice) {
+async function descargarFilaVigentePorIndice(page, indice, enviarProgreso = () => {}) {
   try {
     const frameHandle = await page.waitForSelector('iframe[src="nucleo/inicio.zul"]');
     const frame = await frameHandle.contentFrame();
     if (!frame) throw new Error('No se pudo encontrar el contentFrame del iframe.');
 
-    console.log(`Descargando fila VIGENTE en el índice ${indice}...`);
+    enviarProgreso('info', `Iniciando descarga para el plan de pago #${indice + 1}...`);
 
     const resultado = await frame.evaluate(async (idx) => {
       const tables = document.querySelectorAll('table');
@@ -136,7 +138,7 @@ async function descargarFilaVigentePorIndice(page, indice) {
         throw new Error(resultado.error);
     }
 
-    console.log(`Clic para descarga del índice ${indice} completado.`);
+    enviarProgreso('info', `Clic para descarga del plan #${indice + 1} completado.`);
 
   } catch (error) {
     console.error(`Error al descargar la fila en el índice ${indice}:`, error);

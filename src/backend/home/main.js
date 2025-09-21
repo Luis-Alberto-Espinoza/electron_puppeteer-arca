@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { Worker } = require('worker_threads');
 const path = require('path');
 const { comunicacionConFactura, comunicacionConLibroIVA } = require('../index.js');
 const facturaManager = require('../puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
@@ -15,6 +16,61 @@ ipcMain.handle('atm:ejecutar-flujo', async (event, evento) => {
     const resultado = await manejarEventoATM(evento, downloadsPath); // <-- Pasa la ruta
     // console.log('Resultado de manejarEventoAT desde el main:', resultado);
     return resultado; // Esto se envía al frontend
+});
+
+ipcMain.handle('atm:iniciar-lote', async (evento, datos) => {
+   // console.log('BACKEND MAIN: Recibida solicitud (handle) para iniciar lote.', datos);
+    const { usuarios, tipoAccion } = datos;
+
+    try {
+        // console.log('BACKEND MAIN: Creando worker en segundo plano...');
+        const worker = new Worker(path.join(__dirname, '../atm_Servicios/atm_worker.js'), {
+            workerData: {
+                usuarios: usuarios,
+                tipoAccion: tipoAccion,
+                downloadsPath: app.getPath('downloads')
+            }
+        });
+
+        worker.on('message', (mensaje) => {
+            // console.log('BACKEND MAIN: Mensaje recibido del worker:', mensaje);
+            // Reenviar el mensaje de progreso a la ventana del frontend
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('atm:lote-update', mensaje);
+            }
+        });
+
+        worker.on('error', (error) => {
+            console.error('BACKEND MAIN: Error en el worker de ATM:', error);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('atm:lote-update', {
+                    status: 'error_fatal',
+                    mensaje: `Error crítico en el worker: ${error.message}`
+                });
+            }
+        });
+
+        worker.on('exit', (code) => {
+            if (code !== 0) {
+                console.error(`BACKEND MAIN: El worker de ATM se detuvo con el código de salida ${code}`);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('atm:lote-update', {
+                        status: 'error_fatal',
+                        mensaje: `El worker se detuvo inesperadamente con el código ${code}.`
+                    });
+                }
+            } else {
+               // console.log('El worker de ATM ha finalizado correctamente.');
+            }
+        });
+
+        // Responder inmediatamente al frontend que el proceso ha comenzado
+        return { success: true, message: 'El proceso por lote ha comenzado.' };
+
+    } catch (error) {
+        console.error('BACKEND MAIN: Error al iniciar el worker de ATM:', error);
+        return { success: false, error: `No se pudo iniciar el proceso por lote: ${error.message}` };
+    }
 });
 
 // Importar el sistema de usuarios
@@ -360,16 +416,6 @@ function setupIpcListeners() {
             return true;
         } catch (err) {
             return false;
-        }
-    });
-
-    ipcMain.handle('shell:open-directory', async (event, path) => {
-        try {
-            await shell.openPath(path);
-            return { success: true };
-        } catch (error) {
-            console.error(`Failed to open path: ${path}`, error);
-            return { success: false, error: error.message };
         }
     });
 

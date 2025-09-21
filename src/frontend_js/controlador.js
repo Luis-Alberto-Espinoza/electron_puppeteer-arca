@@ -46,11 +46,8 @@ const MODULOS_PRINCIPALES = [
     },
     {
         btn: 'btnEntrarATM',
-        modulo: 'selectorUsuarioDiv',
-        callback: () => {
-            onUsuarioSeleccionado = cargarModuloATM;
-            mostrarSelectorUsuario();
-        }
+        modulo: 'atmsDiv',
+        callback: cargarModuloLoteATM
     }
 ];
 
@@ -210,29 +207,28 @@ async function cargarModuloExtraerTablasPDF() {
 }
 
 /**
- * Carga el módulo ATM
+ * Carga el módulo de procesamiento por lotes de ATM
  */
-async function cargarModuloATM() {
-    mostrarSoloModulo('atmsDiv'); // Asegurarse de que el contenedor ATM esté visible
+async function cargarModuloLoteATM() {
+    mostrarSoloModulo('atmsDiv'); // Reutilizamos el mismo contenedor principal
     const atmsDiv = document.getElementById('atmsDiv');
 
     if (atmsDiv) {
-        // Limpiar contenido anterior para evitar elementos duplicados
-        atmsDiv.innerHTML = '';
+        atmsDiv.innerHTML = ''; // Limpiar contenido anterior
 
         try {
-            // Rutas de los archivos del módulo
-            const htmlPath = '../ATM_f/ATM_vistas/atm.html';
-            const cssPath = '../ATM_f/ATM_vistas/atm.css';
-            const jsPath = '../ATM_f/ATM_vistas/atm.js';
+            // Rutas de los nuevos archivos de lote
+            const htmlPath = '../ATM_f/ATM_vistas/atm_lote.html';
+            const cssPath = '../ATM_f/ATM_vistas/atm_lote.css';
+            const jsPath = '../ATM_f/ATM_vistas/atm_lote.js';
 
-            // Cargar HTML del módulo
+            // Cargar HTML
             const response = await fetch(htmlPath);
             if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
             const html = await response.text();
             atmsDiv.innerHTML = html;
 
-            // Cargar CSS solo si no está presente
+            // Cargar CSS
             if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
                 const cssLink = document.createElement('link');
                 cssLink.rel = 'stylesheet';
@@ -240,7 +236,7 @@ async function cargarModuloATM() {
                 document.head.appendChild(cssLink);
             }
 
-            // Cargar JavaScript e inicializar funcionalidad
+            // Cargar JS
             const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
             if (oldScript) oldScript.remove();
 
@@ -248,19 +244,21 @@ async function cargarModuloATM() {
             script.src = jsPath;
             script.defer = true;
             script.onload = () => {
-                // Inicializar eventos del módulo una vez cargado
-                if (window.inicializarModuloATM) {
-                    window.inicializarModuloATM();
+                if (window.inicializarModuloLoteATM) {
+                    window.inicializarModuloLoteATM();
                 }
             };
             document.head.appendChild(script);
 
         } catch (error) {
-            console.error('Error cargando módulo ATM:', error);
-            atmsDiv.innerHTML = '<div style="color:red;">Error cargando el módulo ATM.</div>';
+            console.error('Error cargando módulo de lote ATM:', error);
+            atmsDiv.innerHTML = '<div style="color:red;">Error cargando el módulo de lotes ATM.</div>';
         }
     }
 }
+// Exponer la función globalmente para que pueda ser llamada desde otros scripts
+window.cargarModuloLoteATM = cargarModuloLoteATM;
+
 
 // ========================================
 // GESTIÓN DE USUARIOS

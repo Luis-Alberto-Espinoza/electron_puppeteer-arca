@@ -1,0 +1,33 @@
+<div class="lote-container">
+    <div class="lote-header">
+        <h2>Procesamiento por Lote ATM</h2>
+    </div>
+    <div class="lote-subheader">
+        <p>Seleccione los usuarios y la acción que desea ejecutar.</p>
+    </div>
+
+    <div class="lote-controles">
+        <button id="btnSeleccionarTodos" class="btn btn-seleccionar">Seleccionar Todos</button>
+        <button id="btnDeseleccionarTodos" class="btn btn-deseleccionar">Deseleccionar Todos</button>
+    </div>
+
+    <div id="listaUsuariosLote" class="lote-lista-usuarios">
+        <!-- Los usuarios se cargarán aquí dinámicamente -->
+    </div>
+
+    <div class="lote-acciones">
+        <button id="btnConstanciasLote" class="btn btn-accion-azul">Obtener Constancias (Lote)</button>
+        <button id="btnPlanesPagoLote" class="btn btn-accion-amarillo">Obtener Planes de Pago (Lote)</button>
+    </div>
+
+    <div id="lote-resultados-container">
+        <div id="lote-procesando-ahora" class="lote-procesando">
+            <h3>Procesando Usuario Actual:</h3>
+            <!-- El usuario en proceso aparecerá aquí -->
+        </div>
+        <div id="lote-finalizados-container" class="lote-finalizados">
+            <h3>Finalizados</h3>
+            <div id="lote-finalizados"></div>
+        </div>
+    </div>
+</div>

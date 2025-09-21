@@ -16,15 +16,15 @@ async function navegarAPlanDePago(page) {
     // console.log('Navegando al menú de Plan de Pagos...');
 
     // Ejecutamos la lógica de clics en el menú dentro del iframe
-    await frame.evaluate(() => {
-
-
+    await frame.evaluate(async () => {
+      // Espera breve para asegurar que el DOM esté cargado
+      await new Promise(res => setTimeout(res, 1000));
 
       const menuItems = document.querySelectorAll('a[role="menuitem"]');
 
-      if (menuItems.length < 6) {
-        throw new Error("No se encontraron suficientes elementos en el menú para Plan de Pagos.");
-      }
+      // if (menuItems.length < 6) {
+      //   throw new Error("No se encontraron suficientes elementos en el menú para Plan de Pagos.");
+      // }
 
       // Clic en el 6to elemento del menú (índice 5)
       menuItems[5].click();
@@ -38,9 +38,6 @@ async function navegarAPlanDePago(page) {
       } else {
         throw new Error("El submenú de Plan de Pagos no apareció como se esperaba.");
       }
-
-
-      
     });
 
     // Pausa para que la acción se complete.

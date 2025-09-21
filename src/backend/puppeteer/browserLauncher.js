@@ -1,17 +1,14 @@
-const { app } = require('electron');
 const fs = require('fs');
 const puppeteer = require('puppeteer-core');
 
 async function launchBrowser({ headless = false } = {}) { // <-- permite pasar headless
-  const { screen } = require('electron');
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
-
+  // Se eliminó la dependencia de 'electron.screen' para que sea compatible con workers.
+  // El tamaño de la ventana será el predeterminado de Puppeteer.
   let launchOptions = {
     headless, // <-- configurable
     args: [
-      `--window-size=${width},${height}`,
-      `--window-position=0,0`,
+      //`--window-size=${width},${height}`, // Removido
+      //`--window-position=0,0`, // Removido
       '--no-first-run',
       '--no-default-browser-check',
       '--disable-infobars',

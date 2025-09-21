@@ -75,7 +75,8 @@ async function procesarPlanDePago(filePath, options = { saveFiles: false }) {
 
         return {
             datos: tablasConsolidadas.flatMap(tabla => tabla.datos),
-            textoCsv: textoCsv
+            textoCsv: textoCsv,
+            contenidoPaginas: contenidoPaginas // Añadir el contenido de las páginas
         };
         
     } catch (error) {
