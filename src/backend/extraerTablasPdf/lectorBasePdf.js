@@ -4,7 +4,7 @@ const path = require('path');
 // FIJACIÓN DE RUTAS PARA COMPATIBILIDAD CON ELECTRON
 const basePath = path.join(__dirname, '../../../node_modules/pdfjs-dist');
 pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(basePath, 'build/pdf.worker.js');
-pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = path.join(basePath, 'standard_fonts/');
+pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = `https://unpkg.com/pdfjs-dist@3.11.174/standard_fonts/`;
 
 /**
  * Clase base para extraer tablas de documentos PDF de manera genérica,
