@@ -293,28 +293,34 @@ async function cargarUsuariosEnSelector() {
         const result = await window.electronAPI.user.getAll();
 
         if (result.success && Array.isArray(result.users)) {
-            selectUsuarios.innerHTML = '<option value="">Seleccione un usuario</option>';
+            // Filtrar usuarios para que solo muestre aquellos con clave de AFIP
+            const usuariosAFIP = result.users.filter(user => (user.claveAFIP && user.claveAFIP.trim() !== '') || (user.clave && user.clave.trim() !== ''));
 
-            result.users.forEach(user => {
-                const option = document.createElement('option');
-                option.value = user.id;
+            if (usuariosAFIP.length > 0) {
+                selectUsuarios.innerHTML = '<option value="">Seleccione un usuario</option>';
+                usuariosAFIP.forEach(user => {
+                    const option = document.createElement('option');
+                    option.value = user.id;
 
-                const nombreCapitalizado = capitalizarNombre(user.nombre);
-                const apellidoCapitalizado = user.apellido ? ` ${capitalizarNombre(user.apellido)}` : '';
-                option.textContent = `${nombreCapitalizado}${apellidoCapitalizado}`.trim();
+                    const nombreCapitalizado = capitalizarNombre(user.nombre);
+                    const apellidoCapitalizado = user.apellido ? ` ${capitalizarNombre(user.apellido)}` : '';
+                    option.textContent = `${nombreCapitalizado}${apellidoCapitalizado}`.trim();
 
-                // Store all data, including new keys, in the dataset
-                option.dataset.cuit = user.cuit || '';
-                option.dataset.cuil = user.cuil || '';
-                option.dataset.tipoContribuyente = user.tipoContribuyente || '';
-                option.dataset.claveAFIP = user.claveAFIP || user.clave || ''; // Fallback to old 'clave'
-                option.dataset.claveATM = user.claveATM || '';
-                option.dataset.nombre = user.nombre || '';
-                option.dataset.apellido = user.apellido || '';
-                option.dataset.empresasDisponibles = JSON.stringify(user.empresasDisponible || []);
+                    // Store all data, including new keys, in the dataset
+                    option.dataset.cuit = user.cuit || '';
+                    option.dataset.cuil = user.cuil || '';
+                    option.dataset.tipoContribuyente = user.tipoContribuyente || '';
+                    option.dataset.claveAFIP = user.claveAFIP || user.clave || ''; // Fallback to old 'clave'
+                    option.dataset.claveATM = user.claveATM || '';
+                    option.dataset.nombre = user.nombre || '';
+                    option.dataset.apellido = user.apellido || '';
+                    option.dataset.empresasDisponibles = JSON.stringify(user.empresasDisponible || []);
 
-                selectUsuarios.appendChild(option);
-            });
+                    selectUsuarios.appendChild(option);
+                });
+            } else {
+                selectUsuarios.innerHTML = '<option value="">No hay usuarios con clave de AFIP</option>';
+            }
 
             selectUsuarios.disabled = false;
         } else {

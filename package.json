@@ -21,7 +21,8 @@
     "luxon": "^3.5.0",
     "pdf-parse": "^1.1.1",
     "pdfjs-dist": "^3.11.174",
-    "puppeteer-core": "^24.1.1"
+    "puppeteer-core": "^24.1.1",
+    "xlsx": "^0.18.5"
   },
   "build": {
     "appId": "com.tuorganizacion.afipelectron",

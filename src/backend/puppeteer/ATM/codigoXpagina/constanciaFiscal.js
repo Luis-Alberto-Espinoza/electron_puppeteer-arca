@@ -58,9 +58,9 @@ async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPat
     });
 
     await clickButtonInFrame("Imprimir Constancia");
-    await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Aceptar"), { timeout: 5000 });
+    await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Aceptar"), { timeout: 8000 });
     await clickButtonInFrame("Aceptar");
-    await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Imprimir Deuda"), { timeout: 5000 });
+    await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Imprimir Deuda"), { timeout: 8000 });
     await clickButtonInFrame("Imprimir Deuda");
 
     // 3. Esperar a que la nueva pestaña con el visor de PDF se abra

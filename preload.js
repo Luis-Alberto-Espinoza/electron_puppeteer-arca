@@ -49,6 +49,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         verifyAndUpdate: (userData) => ipcRenderer.invoke('user:verifyAndUpdate', userData)
     },
 
+    // API para carga masiva de usuarios
+    cargarUsuariosMasivo: (filePath) => ipcRenderer.invoke('cargar-usuarios-masivo', filePath),
+
     // Canal para recibir la respuesta final de facturación
     onFacturaResultado: (callback) => {
         ipcRenderer.on('factura:resultado', (_event, resultado) => callback(resultado));

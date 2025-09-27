@@ -9,7 +9,7 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: true });
+        browser = await launchBrowser({ headless: false });
         const page = await browser.newPage();
 
         const urlATM = 'https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp';
@@ -70,7 +70,7 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
         throw error; // Lanzar para que el worker lo capture
     } finally {
         if (browser) {
-            await browser.close();
+            // await browser.close();
             enviarProgreso('info', 'Navegador cerrado.');
         }
     }

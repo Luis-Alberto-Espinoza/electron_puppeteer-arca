@@ -3,6 +3,7 @@ async function wait(ms) {
 }
 
 async function seleccionarEmpresa(newPage, nombreEmpresa) {
+    console.log('        [SUBFLUJO] ==> Entrando a seleccionarEmpresa');
     try {
         // Esperar a que la nueva página esté lista
         try {
@@ -11,7 +12,7 @@ async function seleccionarEmpresa(newPage, nombreEmpresa) {
                 wait(1000) // Timeout de seguridad
             ]);
         } catch (error) {
-            console.log('Timeout esperando la carga inicial de la página');
+            console.log('        [SUBFLUJO] Timeout esperando la carga inicial de la página');
         }
 
         // Dar un tiempo adicional para que la página termine de cargar
@@ -19,9 +20,11 @@ async function seleccionarEmpresa(newPage, nombreEmpresa) {
 
         let empresaAElegir = '.btn_empresa'; // selector de clase
 
+        console.log('        [SUBFLUJO] -> Esperando por selector .btn_empresa');
         await newPage.waitForSelector(empresaAElegir, { timeout: 20000 });
 
         // Usar evaluate() para hacer click y recolectar textos
+        console.log('        [SUBFLUJO] -> Evaluando página para hacer clic...');
         const textoBotones = await newPage.evaluate((selector, nombreEmpresa) => {
             const botones = document.querySelectorAll(selector);
             let textoBotones = [];
@@ -40,9 +43,15 @@ async function seleccionarEmpresa(newPage, nombreEmpresa) {
             return textoBotones;
         }, empresaAElegir, nombreEmpresa);
 
+        // Esperar explícitamente a que la navegación (causada por el clic de adentro) termine
+        console.log('        [SUBFLUJO] -> Clic realizado, esperando navegación...');
+        // await newPage.waitForNavigation({ waitUntil: 'networkidle2' }); // Eliminado: Causa timeout si el clic no navega.
+        console.log('        [SUBFLUJO] -> Navegación completada.');
+
+        console.log('        [SUBFLUJO] <== Saliendo de seleccionarEmpresa con éxito.');
         return [newPage, textoBotones];
     } catch (error) {
-        console.error("Error en seleccionarEmpresa:", error);
+        console.error("        [SUBFLUJO] ERROR en seleccionarEmpresa:", error.message);
         throw error;
     }
 }

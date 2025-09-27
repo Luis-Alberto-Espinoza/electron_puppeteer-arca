@@ -30,6 +30,11 @@ async function navegarAConstanciaFiscal(page) {
           console.log('Redirigiendo a la URL actual del iframe...');
         }, 1000);
       }
+
+      // antes de interactuar con los elementos
+      const wait = (ms) => new Promise(res => setTimeout(res, ms));
+      wait(1500);
+
       const menuItems = document.querySelectorAll('a[role="menuitem"]');
 
       if (menuItems.length < 4) {

@@ -65,4 +65,10 @@ async function launchBrowser({ headless = false } = {}) { // <-- permite pasar h
   }
 }
 
-module.exports = { launchBrowser };
+async function launchBrowserAndPage({ headless = false } = {}) {
+  const browser = await launchBrowser({ headless });
+  const page = await browser.newPage();
+  return { browser, page };
+}
+
+module.exports = { launchBrowser, launchBrowserAndPage };

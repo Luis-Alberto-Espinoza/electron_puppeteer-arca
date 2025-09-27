@@ -1,3 +1,5 @@
+console.log('CARGANDO SCRIPT usuario.js...');
+
 window.currentEditingUser = window.currentEditingUser || null;
 
 // Variable global para empresas disponibles
@@ -41,11 +43,26 @@ function inicializarVerificarCredenciales() {
             verificarLoading.classList.remove('hidden');
             verificarLoading.innerHTML = '<span class="spinner"></span><span class="loader-text">Verificando...</span>';
 
-            const clave = document.getElementById('claveAFIP').value.trim();
+            const claveAFIP = document.getElementById('claveAFIP').value.trim();
+            const claveATM = document.getElementById('claveATM').value.trim();
             const cuit = document.getElementById('cuit').value.trim();
             const cuil = document.getElementById('cuil').value.trim();
 
-            const pruebaCredenciales = { clave, cuit, cuil };
+            if (!cuit && !cuil) {
+                showAlert('Debes ingresar un CUIT o CUIL para verificar.', 'error');
+                verificarLoading.classList.add('hidden');
+                btnVerificarCredenciales.style.display = '';
+                return;
+            }
+
+            if (!claveAFIP && !claveATM) {
+                showAlert('Debes ingresar al menos una clave (AFIP o ATM) para verificar.', 'error');
+                verificarLoading.classList.add('hidden');
+                btnVerificarCredenciales.style.display = '';
+                return;
+            }
+
+            const pruebaCredenciales = { claveAFIP, claveATM, cuit, cuil };
 
             let response = {};
             let resultado = false;
@@ -366,15 +383,105 @@ function inicializarUsuarioFrontend() {
         console.error('Error cargando usuarios:', error);
         showAlert('Error cargando la lista de usuarios', 'error');
     });
+    inicializarCargaMasiva(); // Mover la inicialización aquí
 }
 
 window.inicializarUsuarioFrontend = inicializarUsuarioFrontend;
 
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(() => {
-        inicializarUsuarioFrontend();
-    }, 100);
-});
+// --- Lógica para Carga Masiva ---
+function inicializarCargaMasiva() {
+    // Usamos delegación de eventos en el documento
+    document.addEventListener('click', async (event) => {
+        // Si el elemento clickeado no es nuestro botón (o algo dentro de él), no hacemos nada
+        if (!event.target.closest('#btnCargarExcel')) {
+            return;
+        }
+
+        console.log('¡Clic en btnCargarExcel detectado por delegación de eventos!');
+
+        const excelFile = document.getElementById('excelFile');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const uploadLoading = document.getElementById('uploadLoading');
+
+        if (excelFile.files.length === 0) {
+            showAlert('Por favor, selecciona un archivo de Excel primero.', 'error');
+            return;
+        }
+
+        const file = excelFile.files[0];
+        const reader = new FileReader();
+
+        reader.onload = async (e) => {
+            const fileBuffer = e.target.result;
+            const uploadButton = document.getElementById('btnCargarExcel');
+            const buttonText = document.getElementById('btnCargarExcelText');
+
+            // Iniciar estado de carga
+            uploadLoading.classList.remove('hidden');
+            buttonText.classList.add('hidden');
+            uploadButton.disabled = true;
+            uploadStatus.classList.add('hidden');
+            uploadStatus.textContent = '';
+
+            // Usar setTimeout para dar tiempo al navegador a renderizar los cambios
+            setTimeout(async () => {
+                try {
+                    const result = await window.electronAPI.cargarUsuariosMasivo(fileBuffer);
+
+                                    if (result.success) {
+                                        let message = `<div class="result-summary">✅ Proceso completado: Leídos: ${result.usuariosLeidos}, Creados: ${result.usuariosCreados}, Actualizados: ${result.usuariosActualizados}.</div>`;
+
+                                        // Sección para usuarios que requieren actualización de clave
+                                        if (result.usuariosParaActualizar && result.usuariosParaActualizar.length > 0) {
+                                            message += `<span class="result-section-title warning">⚠️ Acciones Requeridas:</span><ul>`;
+                                            result.usuariosParaActualizar.forEach(u => {
+                                                message += `<li><b>${u.nombre}</b> (CUIT: ${u.cuit}) - Actualizar clave de: <b>${u.servicios}</b></li>`;
+                                            });
+                                            message += `</ul>`;
+                                        }
+
+                                        // Sección para usuarios con credenciales inválidas
+                                        if (result.usuariosConFallos && result.usuariosConFallos.length > 0) {
+                                            message += `<span class="result-section-title error-title">❌ Credenciales con Fallos:</span><ul>`;
+                                            result.usuariosConFallos.forEach(u => {
+                                                message += `<li><b>${u.nombre}</b> (CUIT: ${u.cuit}) - Fallo en: <b>${u.fallos}</b></li>`;
+                                            });
+                                            message += `</ul>`;
+                                        }
+
+                                        uploadStatus.innerHTML = message;
+                                        uploadStatus.className = 'status-message success';
+                                    } else {
+                        if(result.errores > 1) {
+                            errorMessage += ` (y ${result.errores - 1} más errores)`;
+                        }
+                        uploadStatus.innerHTML = errorMessage;
+                        uploadStatus.className = 'status-message error';
+                    }
+
+                } catch (error) {
+                    console.error('Error en la comunicación de carga masiva:', error);
+                    uploadStatus.textContent = 'Error fatal de comunicación con el proceso principal.';
+                    uploadStatus.className = 'status-message error';
+                } finally {
+                    // Restaurar estado del botón
+                    uploadLoading.classList.add('hidden');
+                    buttonText.classList.remove('hidden');
+                    uploadButton.disabled = false;
+                    uploadStatus.classList.remove('hidden');
+                    excelFile.value = ''; // Limpiar el input de archivo
+                }
+            }, 50); // 50ms es un buen valor para asegurar el re-dibujado
+        };
+        
+        reader.onerror = (error) => {
+            console.error("Error leyendo el archivo:", error);
+            showAlert('Error al leer el archivo seleccionado.', 'error');
+        };
+
+        reader.readAsArrayBuffer(file);
+    });
+}
 
 function mostrarPuntosDeVenta(puntosDeVentaArray) {
     const contenedor = document.getElementById('elegirEmpresa');

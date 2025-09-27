@@ -18,7 +18,7 @@ async function navegarAPlanDePago(page) {
     // Ejecutamos la lógica de clics en el menú dentro del iframe
     await frame.evaluate(async () => {
       // Espera breve para asegurar que el DOM esté cargado
-      await new Promise(res => setTimeout(res, 1000));
+      await new Promise(res => setTimeout(res, 1500));
 
       const menuItems = document.querySelectorAll('a[role="menuitem"]');
 

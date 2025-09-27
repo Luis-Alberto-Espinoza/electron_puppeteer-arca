@@ -80,8 +80,16 @@ let userStorage;
 // Importar los handlers de usuario modularizados
 const setupUserHandlers = require('../usuario/usuarioHandlers.js');
 
+// Importar la nueva función de carga masiva
+const { procesarArchivoUsuarios } = require('../usuario/cargaMasiva.js');
+
+// Lanzador de navegador y verificador de ATM para la validación manual
+const { launchBrowserAndPage } = require('../puppeteer/browserLauncher');
+const verificarCredencialesATM = require('../puppeteer/ATM/flujosDeTareas/flujo_verificaCredenciales_atm');
+
+
 // importar sistema de credenciales
-const { ejecutar_verificacionCredenciales } = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales');
+const ejecutar_verificacionCredenciales = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales');
 //import { ejecutar_verificacionCredenciales } from '../puppeteer/verificaCredenciales/flujo_verificaCredenciales.js';      
 
 let mainWindow;
@@ -316,48 +324,61 @@ function setupIpcListeners() {
 
     // Handler exclusivo para verificación de credenciales
     ipcMain.handle('user:verifyCredentials', async (event, credenciales) => {
+        let browser;
+        console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);
+
         try {
-            let retornoCredenciales = await ejecutar_verificacionCredenciales(credenciales);
-            let usuario = null;
-            if (credenciales.cuit) {
-                usuario = userStorage.getAll().find(u => u.cuit === credenciales.cuit);
-            } else if (credenciales.cuil) {
-                usuario = userStorage.getAll().find(u => u.cuil === credenciales.cuil);
-            }
+            const { browser: b, page } = await launchBrowserAndPage({ headless: false });
+            browser = b;
 
-            if (retornoCredenciales.success && Array.isArray(retornoCredenciales.puntosDeVentaArray) && retornoCredenciales.puntosDeVentaArray.length > 0) {
-                return {
-                    success: true,
-                    usuario,
-                    puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray
-                };
-            }
-
-            // Si el usuario existe y la clave coincide, también success: true
-            if (usuario && usuario.clave === credenciales.clave) {
-                if (Array.isArray(retornoCredenciales.puntosDeVentaArray) && retornoCredenciales.puntosDeVentaArray.length > 0) {
-                    usuario.empresasDisponibles = retornoCredenciales.puntosDeVentaArray; // <-- Cambiado a plural
-                    const usuarios = userStorage.getAll();
-                    const idx = usuarios.findIndex(u => u.id === usuario.id);
-                    if (idx !== -1) {
-                        usuarios[idx] = usuario;
-                        userStorage.saveData({ users: usuarios });
-                    }
-                }
-                return {
-                    success: true,
-                    usuario,
-                    puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || []
-                };
-            }
-
-            return {
-                success: false,
-                error: 'Credenciales inválidas',
-                puntosDeVentaArray: retornoCredenciales.puntosDeVentaArray || []
+            let finalResult = {
+                success: false, // Será true si CUALQUIER credencial es válida
+                puntosDeVentaArray: [],
+                error: null
             };
+
+            // --- Verificación AFIP ---
+            if (credenciales.claveAFIP) {
+                console.log('[Verificación Manual] Verificando credenciales de AFIP...');
+                const afipResult = await ejecutar_verificacionCredenciales(page, credenciales);
+                if (afipResult.success) {
+                    finalResult.success = true;
+                    finalResult.puntosDeVentaArray = afipResult.data.puntosDeVentaArray || [];
+                    console.log('[Verificación Manual] AFIP: Éxito.');
+                } else {
+                    finalResult.error = afipResult.error || 'Credenciales AFIP inválidas.';
+                    console.log('[Verificación Manual] AFIP: Fallo.');
+                }
+            }
+
+            // --- Verificación ATM ---
+            if (credenciales.claveATM) {
+                console.log('[Verificación Manual] Verificando credenciales de ATM...');
+                const atmPage = await browser.newPage();
+                const cuit = credenciales.cuit || credenciales.cuil;
+                const atmResult = await verificarCredencialesATM(atmPage, cuit, credenciales.claveATM);
+                await atmPage.close();
+
+                if (atmResult.success) {
+                    finalResult.success = true; // Si ATM es válido, el resultado general es un éxito
+                    console.log('[Verificación Manual] ATM: Éxito.');
+                } else if (!finalResult.success) { // Solo registrar error de ATM si AFIP no fue exitoso o no se probó
+                    finalResult.error = atmResult.message || 'Credenciales ATM inválidas.';
+                    console.log('[Verificación Manual] ATM: Fallo.');
+                }
+            }
+
+            console.log('[Verificación Manual] Verificación completada. Resultado:', finalResult);
+            return finalResult;
+
         } catch (error) {
-            return { success: false, error: error.message || 'Error verificando credenciales' };
+            console.error('❌ Error catastrófico en la verificación manual:', error);
+            return { success: false, error: error.message || 'Error inesperado en la verificación.' };
+        } finally {
+            if (browser) {
+                await browser.close();
+                console.log('[Verificación Manual] Navegador cerrado.');
+            }
         }
     });
 
@@ -445,6 +466,23 @@ app.whenReady().then(async () => {
 
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
+
+        // Handler para la carga masiva de usuarios desde Excel
+        ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {
+            console.log(`[Debug Backend] IPC 'cargar-usuarios-masivo' recibido con datos.`);
+            try {
+                const resultado = await procesarArchivoUsuarios(fileBuffer);
+                return resultado;
+            } catch (error) {
+                console.error('Error en el proceso de carga masiva (main.js):', error);
+                return { 
+                    success: false, 
+                    errores: 1,
+                    listaErrores: [{ fila: 'General', error: error.message }] 
+                };
+            }
+        });
+
         setupIpcListeners(); // <--- asegúrate de que esta línea se ejecuta
     } catch (error) {
         console.error('❌ Error en inicialización:', error);

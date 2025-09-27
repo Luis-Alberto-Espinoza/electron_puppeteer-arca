@@ -26,18 +26,25 @@ window.inicializarModuloLoteATM = () => {
         try {
             const result = await window.electronAPI.user.getAll();
             if (result.success && result.users.length > 0) {
-                listaUsuariosDiv.innerHTML = '';
-                result.users.forEach(user => {
-                    const nombreCompleto = `${user.nombre || ''} ${user.apellido || ''}`.trim();
-                    const userElement = document.createElement('div');
-                    userElement.className = 'usuario-item';
-                    userElement.innerHTML = `
-                        <input type="checkbox" id="user-${user.id}" data-userid="${user.id}">
-                        <label for="user-${user.id}">${nombreCompleto} (Cuit: ${user.cuit})</label>
-                    `;
-                    userElement.querySelector('input')._userData = user;
-                    listaUsuariosDiv.appendChild(userElement);
-                });
+                // Filtrar usuarios para que solo muestre aquellos con clave de ATM
+                const usuariosATM = result.users.filter(user => user.claveATM && user.claveATM.trim() !== '');
+
+                if (usuariosATM.length > 0) {
+                    listaUsuariosDiv.innerHTML = '';
+                    usuariosATM.forEach(user => {
+                        const nombreCompleto = `${user.nombre || ''} ${user.apellido || ''}`.trim();
+                        const userElement = document.createElement('div');
+                        userElement.className = 'usuario-item';
+                        userElement.innerHTML = `
+                            <input type="checkbox" id="user-${user.id}" data-userid="${user.id}">
+                            <label for="user-${user.id}">${nombreCompleto} (Cuit: ${user.cuit})</label>
+                        `;
+                        userElement.querySelector('input')._userData = user;
+                        listaUsuariosDiv.appendChild(userElement);
+                    });
+                } else {
+                    listaUsuariosDiv.innerHTML = '<p class="text-danger">No se encontraron usuarios con clave de ATM configurada.</p>';
+                }
             } else {
                 listaUsuariosDiv.innerHTML = '<p class="text-danger">No se encontraron usuarios.</p>';
             }
@@ -122,6 +129,7 @@ window.inicializarModuloLoteATM = () => {
         const messageContainer = userDiv.querySelector('.message-container');
 
         // Update the message
+        console.log("==>>", mensaje)
         messageContainer.innerHTML = `<div class="progreso-item">[${new Date().toLocaleTimeString()}] ${mensaje}</div>`;
 
         // Mover entre paneles
@@ -157,7 +165,42 @@ window.inicializarModuloLoteATM = () => {
 
             // Add buttons and summary if success final with files
             if (status === 'exito_final') {
-                if (resumen) { /* ... código de resumen ... */ }
+                if (resumen && Array.isArray(resumen) && resumen.length > 0) {
+                    // 1. Calcular el Gran Total
+                    const granTotal = resumen.reduce((sum, item) => {
+                        const valorNumerico = parseFloat(item.total.replace(/\./g, '').replace(',', '.'));
+                        return sum + (isNaN(valorNumerico) ? 0 : valorNumerico);
+                    }, 0);
+
+                    // 2. Construir el contenedor principal usando clases de CSS
+                    const resumenContainer = document.createElement('div');
+                    resumenContainer.className = 'resumen-deudas-container';
+                    
+                    const resumenTitle = document.createElement('h6');
+                    resumenTitle.textContent = 'Resumen de Deudas';
+                    resumenContainer.appendChild(resumenTitle);
+
+                    const resumenList = document.createElement('ul');
+                    resumenList.className = 'list-group list-group-flush';
+
+                    resumen.forEach(item => {
+                        const listItem = document.createElement('li');
+                        listItem.className = 'list-group-item';
+                        listItem.innerHTML = `<span>${item.nombreTabla}</span><span class="badge">$ ${item.total}</span>`;
+                        resumenList.appendChild(listItem);
+                    });
+
+                    resumenContainer.appendChild(resumenList);
+
+                    // 3. Crear y añadir el elemento para el Gran Total usando clases de CSS
+                    const totalElement = document.createElement('div');
+                    totalElement.className = 'resumen-total';
+                    totalElement.innerHTML = `<span>GRAN TOTAL</span><span>$ ${granTotal.toFixed(2).replace('.', ',')}</span>`;
+                    resumenContainer.appendChild(totalElement);
+
+                    userDiv.appendChild(resumenContainer);
+                }
+
                 if (downloadDir && files && Array.isArray(files) && files.length > 0) {
                     const dirWrapper = document.createElement('div');
                     dirWrapper.className = 'lote-dir-container d-flex justify-content-between align-items-center';

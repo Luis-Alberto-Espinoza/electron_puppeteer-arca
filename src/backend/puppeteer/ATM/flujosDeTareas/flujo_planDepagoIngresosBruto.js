@@ -52,7 +52,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: true });
+        browser = await launchBrowser({ headless: false });
         const page = await browser.newPage();
 
         enviarProgreso('info', 'Navegando a la página de login de ATM...');
