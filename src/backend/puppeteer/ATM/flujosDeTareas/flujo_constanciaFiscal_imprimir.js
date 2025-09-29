@@ -29,7 +29,7 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
 
         if (success && files.length > 0) {
             enviarProgreso('info', 'Constancia Fiscal descargada. Procesando PDF...');
-            const { procesarConstanciaFiscal } = require('../../../extraerTablasPdf/constancia_fiscal.js');
+            const { procesarConstanciaFiscal } = require('../../../extraerTablasPdf/leer_pdf_ATM/constancia_fiscal.js');
 
             const parseCurrency = (value) => {
                 if (typeof value !== 'string') return 0;

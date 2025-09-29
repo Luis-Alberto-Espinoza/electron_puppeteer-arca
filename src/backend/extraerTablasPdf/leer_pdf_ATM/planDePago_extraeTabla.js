@@ -1,25 +1,12 @@
-// ================================
-// EXTRACTOR MODULARIZADO DE TABLAS PDF
-// ================================
-
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 const path = require('path');
 const fs = require('fs');
 
-// FIJACIÓN DE RUTAS PARA COMPATIBILIDAD CON ELECTRON
-const basePath = path.join(__dirname, '../../../node_modules/pdfjs-dist');
-pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(basePath, 'build/pdf.worker.js');
-pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = path.join(basePath, 'standard_fonts/');
+// NOTA: La importación y configuración de pdfjs-dist se eliminan.
 
 // ================================
 // CONFIGURACIÓN
 // ================================
 const CONFIG = {
-    rutaPDF: '/home/pinchechita/Downloads/descargasATM/constanciaDeCumplimientoFiscal/plan_pago.pdf',
-    archivoJSON: 'planDePago_archivo.json',
-    archivoCSV: 'planDePago_archivo.csv',
-    archivoEncabezado: 'encabezadoDocumento.txt',
-    
     palabrasClaveTablasTablas: [
         "OBLIGACIONES",
         "CUOTAS DE LA FORMA DE PAGO",
@@ -30,16 +17,13 @@ const CONFIG = {
         "PAGOS",
         "TABLA"
     ],
-
     palabrasClaveExclusion: [
         "CANTIDAD CUOTAS",
         "IMPORTE CUOTA"
     ],
-
     lineasExclusionFooter: [
         "Ante cualquier consulta"
     ],
-    
     maxLineasEncabezado: 15,
     minElementosFila: 2,
     maxElementosFila: 8,
@@ -49,14 +33,12 @@ const CONFIG = {
 // ================================
 // FUNCIÓN ORGANIZADORA PRINCIPAL
 // ================================
-async function procesarPlanDePago(filePath, options = { saveFiles: false }) {
+// La función ahora recibe 'allFilas' del orquestador.
+async function procesarPlanDePago(allFilas) {
     try {
-        const pathToProcess = filePath || CONFIG.rutaPDF;
-        // console.log(`🚀 Iniciando procesamiento de PDF para Plan de Pago: ${pathToProcess}`);
-        
-        const pdf = await cargarPDF(pathToProcess);
-        // console.log(`📄 PDF cargado: ${pdf.numPages} páginas`);
-        const contenidoPaginas = await extraerContenidoTodasPaginas(pdf);
+        // El contenido de las páginas ya viene procesado en allFilas.
+        const contenidoPaginas = organizarFilasPorPagina(allFilas);
+
         const encabezadoDocumento = extraerEncabezadoDocumento(contenidoPaginas[0]);
         const todasLasTablas = buscarTodasLasTablas(contenidoPaginas);
         
@@ -64,19 +46,12 @@ async function procesarPlanDePago(filePath, options = { saveFiles: false }) {
         let tablasTituladas = corregirTitulosDeContinuacion(tablasLimpias);
         const tablasConsolidadas = consolidarTablas(tablasTituladas);
         
-        if (options.saveFiles) {
-            await guardarTodosLosResultados(encabezadoDocumento, tablasConsolidadas);
-            mostrarResumenProcesamiento(tablasConsolidadas);
-        }
-        
-        // console.log('✅ Procesamiento de Plan de Pago completado exitosamente');
-
         const textoCsv = generarTextoCsvPlanDePago(encabezadoDocumento, tablasConsolidadas);
 
         return {
             datos: tablasConsolidadas.flatMap(tabla => tabla.datos),
-            textoCsv: textoCsv,
-            contenidoPaginas: contenidoPaginas // Añadir el contenido de las páginas
+            csv: textoCsv, // Estandarizado a 'csv'
+            tablas: tablasConsolidadas
         };
         
     } catch (error) {
@@ -85,36 +60,38 @@ async function procesarPlanDePago(filePath, options = { saveFiles: false }) {
     }
 }
 
-// ================================
-// MÓDULO: CARGA DE PDF
-// ================================
-async function cargarPDF(pdfPath) {
-    const loadingTask = pdfjsLib.getDocument(pdfPath);
-    const pdf = await loadingTask.promise;
-    console.log(`📄 PDF cargado: ${pdf.numPages} páginas`);
-    return pdf;
+// Nueva función para reconstruir la estructura por páginas que este módulo esperaba
+function organizarFilasPorPagina(allFilas) {
+    // Este especialista tiene una estructura interna compleja que espera los datos
+    // organizados por página. Reconstruimos esa estructura.
+    // NOTA: Esta función asume que las filas vienen ordenadas por página y luego por Y.
+    // El orquestador no garantiza el orden por página, así que esto es una simplificación.
+    // Una versión más robusta necesitaría que el orquestador pase el número de página con cada fila.
+    const paginasMap = new Map();
+    // Como no tenemos número de página, lo tratamos todo como una gran página 1.
+    const paginaUnica = {
+        numero: 1,
+        items: allFilas.flatMap(fila => fila.items),
+        itemsPorY: {},
+        yKeys: []
+    };
+
+    allFilas.forEach(fila => {
+        const y = fila.y.toFixed(2);
+        if (!paginaUnica.itemsPorY[y]) {
+            paginaUnica.itemsPorY[y] = [];
+        }
+        paginaUnica.itemsPorY[y].push(...fila.items);
+    });
+
+    paginaUnica.yKeys = Object.keys(paginaUnica.itemsPorY).sort((a, b) => b - a);
+    return [paginaUnica];
 }
 
-// ================================
-// MÓDULO: EXTRACCIÓN DE CONTENIDO
-// ================================
-async function extraerContenidoTodasPaginas(pdf) {
-    const contenidoPaginas = [];
-    for (let numPagina = 1; numPagina <= pdf.numPages; numPagina++) {
-        const page = await pdf.getPage(numPagina);
-        const content = await page.getTextContent();
-        const contenidoPagina = {
-            numero: numPagina,
-            items: content.items,
-            itemsPorY: organizarItemsPorCoordenadas(content.items),
-            totalElementos: content.items.length
-        };
-        contenidoPagina.yKeys = Object.keys(contenidoPagina.itemsPorY).sort((a, b) => b - a);
-        contenidoPaginas.push(contenidoPagina);
-    }
-    return contenidoPaginas;
-}
 
+// ================================
+// MÓDULO: EXTRACCIÓN DE CONTENIDO (Simplificado)
+// ================================
 function organizarItemsPorCoordenadas(items) {
     const itemsPorY = {};
     items.forEach(item => {
@@ -268,36 +245,24 @@ function convertirFilaAObjeto(filaItems, encabezados) {
 }
 
 function encontrarColumnaParaItem(itemX, encabezados) {
-    // Asume que 'encabezados' está ordenado por X, lo cual es cierto por cómo se construye.
     if (encabezados.length === 0) return -1;
     if (encabezados.length === 1) return 0;
 
     for (let i = 0; i < encabezados.length; i++) {
         const colActualX = encabezados[i].x;
-
         if (i === 0) {
-            // Primera columna: su zona va desde el inicio hasta el punto medio con la siguiente.
             const puntoMedio = (colActualX + encabezados[i + 1].x) / 2;
-            if (itemX < puntoMedio) {
-                return i;
-            }
+            if (itemX < puntoMedio) return i;
         } else if (i === encabezados.length - 1) {
-            // Última columna: su zona va desde el punto medio con la anterior hasta el final.
             const puntoMedio = (encabezados[i - 1].x + colActualX) / 2;
-            if (itemX >= puntoMedio) {
-                return i;
-            }
+            if (itemX >= puntoMedio) return i;
         } else {
-            // Columnas intermedias: su zona está entre dos puntos medios.
             const puntoMedioAnterior = (encabezados[i - 1].x + colActualX) / 2;
             const puntoMedioSiguiente = (colActualX + encabezados[i + 1].x) / 2;
-            if (itemX >= puntoMedioAnterior && itemX < puntoMedioSiguiente) {
-                return i;
-            }
+            if (itemX >= puntoMedioAnterior && itemX < puntoMedioSiguiente) return i;
         }
     }
-
-    return -1; // No debería ocurrir si los encabezados están bien definidos.
+    return -1;
 }
 
 // ================================
@@ -336,23 +301,17 @@ function limpiarYProcesarTablas(tablas) {
         const datosLimpios = tabla.datos.map(fila => {
             const cuotaKey = Object.keys(fila).find(k => k.toLowerCase() === 'cuota');
             const conceptoKey = Object.keys(fila).find(k => k.toLowerCase() === 'concepto');
-
-            // Parche para corregir la asignación de Concepto a la columna Cuota
             if (cuotaKey && conceptoKey && fila[cuotaKey] && typeof fila[cuotaKey] === 'string') {
                 const parts = fila[cuotaKey].trim().split(/\s+/);
                 if (parts.length > 1 && !isNaN(parts[0])) {
                     const cuotaValue = parts[0];
                     const conceptoValue = parts.slice(1).join(' ');
-                    
                     fila[cuotaKey] = cuotaValue;
-                    // Si Concepto ya tenía algo (poco probable), lo concatenamos
                     fila[conceptoKey] = fila[conceptoKey] ? conceptoValue + ' ' + fila[conceptoKey] : conceptoValue;
                 }
             }
-
             return fila;
         });
-
         return { ...tabla, datos: datosLimpios };
     });
 }
@@ -402,21 +361,6 @@ function generarTextoCsvPlanDePago(encabezadoDocumento, tablas) {
     return textoCsv;
 }
 
-async function guardarTodosLosResultados(encabezadoDocumento, tablas) {
-    const resultadoJSON = {
-        encabezadoDocumento,
-        totalTablas: tablas.length,
-        fechaProcesamiento: new Date().toISOString(),
-        tablas
-    };
-    fs.writeFileSync(CONFIG.archivoJSON, JSON.stringify(resultadoJSON, null, 2), 'utf8');
-    console.log(`   ✓ JSON guardado: ${CONFIG.archivoJSON}`);
-    
-    const textoCsv = generarTextoCsvPlanDePago(encabezadoDocumento, tablas);
-    fs.writeFileSync(CONFIG.archivoCSV, textoCsv, 'utf8');
-    console.log(`   ✓ CSV guardado: ${CONFIG.archivoCSV}`);
-}
-
 // ================================
 // MÓDULO: UTILIDADES
 // ================================
@@ -433,25 +377,13 @@ function formatearNumero(str) {
     return str;
 }
 
-function mostrarResumenProcesamiento(tablas) {
-    console.log('\n📊 RESUMEN DE PROCESAMIENTO');
-    console.log('=====================================');
-    console.log(`Total de tablas procesadas: ${tablas.length}`);
-    tablas.forEach((tabla, index) => {
-        console.log(`${index + 1}. "${tabla.titulo}"`);
-        console.log(`   📄 Página: ${tabla.pagina}`);
-        console.log(`   📝 Filas: ${tabla.datos.length}`);
-        console.log(`   🏷️  Columnas: ${tabla.encabezados.map(h => h.text).join(', ')}`);
-        console.log('');
-    });
-}
-
 // ================================
 // EJECUCIÓN PRINCIPAL Y EXPORTACIÓN
 // ================================
 if (require.main === module) {
     (async () => {
-        await procesarPlanDePago(null, { saveFiles: true });
+        console.log('Este script ahora es un especialista y debe ser llamado por el orquestador.');
+        console.log('Para probarlo, ejecute el orquestador (extraerTablas_B.js) con la ruta a un PDF de plan de pago.');
     })();
 }
 

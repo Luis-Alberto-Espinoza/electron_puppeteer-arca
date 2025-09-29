@@ -1,11 +1,8 @@
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 const path = require('path');
 const fs = require('fs');
 
-// FIJACIÓN DE RUTAS PARA COMPATIBILIDAD CON ELECTRON
-const basePath = path.join(__dirname, '../../../node_modules/pdfjs-dist');
-pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(basePath, 'build/pdf.worker.js');
-pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = path.join(basePath, 'standard_fonts/');
+// NOTA: La importación y configuración de pdfjs-dist se eliminan de este archivo.
+// El parseo del PDF ahora lo realiza el orquestador 'extraerTablas_B.js'.
 
 // --- CONFIGURACIÓN Y PALABRAS CLAVE ---
 const CONFIG = {
@@ -189,39 +186,16 @@ function consolidarTablas(tablas) {
     return Array.from(tablasConsolidadasMap.values());
 }
 
-async function procesarConstanciaFiscal(filePath) {
+// La función principal ahora recibe las filas ya parseadas, no una ruta de archivo.
+async function procesarConstanciaFiscal(allFilas) {
     try {
-        const loadingTask = pdfjsLib.getDocument(filePath);
-        const pdf = await loadingTask.promise;
-        
-        let todasLasLineas = [];
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const content = await page.getTextContent();
-            const items = content.items;
-
-            const filasMap = new Map();
-            const toleranciaY = 3;
-            items.forEach(item => {
-                const y = item.transform[5];
-                let yExistente = [...filasMap.keys()].find(key => Math.abs(y - key) <= toleranciaY);
-                if (yExistente) {
-                    filasMap.get(yExistente).push(item);
-                } else {
-                    filasMap.set(y, [item]);
-                }
-            });
-            const lineasOrdenadas = [...filasMap.values()].sort((a, b) => b[0].transform[5] - a[0].transform[5]);
-            todasLasLineas.push(...lineasOrdenadas);
-        }
-
         let cabeceraDocumento = [];
         let todasLasTablas = [];
         let tablaActual = null;
         let estado = 'cabecera_documento';
 
-        for (let i = 0; i < todasLasLineas.length; i++) {
-            const lineaItems = todasLasLineas[i];
+        for (let i = 0; i < allFilas.length; i++) {
+            const lineaItems = allFilas[i].items; // Accedemos a la propiedad .items de cada fila
             const textoLinea = lineaItems.map(item => item.str.trim()).join(' ').toUpperCase();
 
             if (CONFIG.PALABRAS_CLAVE_FOOTER.some(k => textoLinea.includes(k.toUpperCase()))) continue;
@@ -230,12 +204,17 @@ async function procesarConstanciaFiscal(filePath) {
 
             if (tituloEncontrado) {
                 estado = 'procesando_tabla';
-                const cabeceras = extraerCabecerasDesdeLineas(todasLasLineas[i + 1], todasLasLineas[i + 2], todasLasLineas[i + 3]);
+                // La estructura de 'allFilas' es un array de objetos {y, items}, por lo que accedemos a .items
+                const cabeceras = extraerCabecerasDesdeLineas(
+                    allFilas[i + 1] ? allFilas[i + 1].items : [],
+                    allFilas[i + 2] ? allFilas[i + 2].items : [],
+                    allFilas[i + 3] ? allFilas[i + 3].items : []
+                );
                 tablaActual = {
                     titulo: tituloEncontrado,
-                    cabeceras: cabeceras, // Las guardamos para el CSV
+                    cabeceras: cabeceras,
                     datos: [],
-                    layout: MAPA_DE_DISEÑO[tituloEncontrado] // Adjuntamos el layout
+                    layout: MAPA_DE_DISEÑO[tituloEncontrado]
                 };
                 todasLasTablas.push(tablaActual);
                 i += 3; 
@@ -266,38 +245,24 @@ async function procesarConstanciaFiscal(filePath) {
 
         return {
             datos: tablasConsolidadas.flatMap(t => t.datos),
-            textoCsv: textoCsv,
+            csv: textoCsv, // Cambiado de textoCsv a csv para consistencia
             tablas: tablasConsolidadas
         };
 
     } catch (err) {
-        console.error(`Error al procesar PDF de Constancia Fiscal: ${err.message}`);
+        console.error(`Error al procesar datos de Constancia Fiscal: ${err.message}`);
         return null;
     }
 }
 
 
-// --- BLOQUE DE EJECUCIÓN INDEPENDIENTE ---
+// --- BLOQUE DE EJECUCIÓN INDEPENDIENTE (MODO DE PRUEBA) ---
 
 if (require.main === module) {
     (async () => {
-        console.log('Ejecutando [constancia_fiscal.js] en modo de prueba independiente...');
-        const rutaDePrueba = '/home/pinchechita/Downloads/descargasATM/constanciaDeCumplimientoFiscal/constancia_fiscal.pdf';
-        const archivoJsonSalida = 'constanciaFiscal.json';
-        const archivoCsvSalida = 'constanciaFiscal.csv';
-
-        console.log(`Procesando archivo: ${rutaDePrueba}`);
-        const resultado = await procesarConstanciaFiscal(rutaDePrueba);
-
-        if (resultado && resultado.tablas.length > 0) {
-            console.log(`Se encontraron ${resultado.tablas.length} tablas con un total de ${resultado.datos.length} registros.`);
-            fs.writeFileSync(archivoJsonSalida, JSON.stringify(resultado.tablas, null, 2), 'utf8');
-            console.log(`✓ Archivo JSON de prueba guardado en: ${archivoJsonSalida}`);
-            fs.writeFileSync(archivoCsvSalida, resultado.textoCsv, 'utf8');
-            console.log(`✓ Archivo CSV de prueba guardado en: ${archivoCsvSalida}`);
-        } else {
-            console.log('No se pudo procesar el PDF o no se encontraron tablas/registros.');
-        }
+        console.log('Este script ahora es un especialista y debe ser llamado por el orquestador.');
+        console.log('Para probarlo, ejecute el orquestador (extraerTablas_B.js) con la ruta a un PDF de constancia fiscal.');
+        // Ejemplo: node src/backend/extraerTablasPdf/extraerTablas_B.js ruta/a/la/constancia_fiscal.pdf
     })();
 }
 

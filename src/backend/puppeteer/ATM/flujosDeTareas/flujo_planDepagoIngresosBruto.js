@@ -6,7 +6,7 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
 const { contarFilasVigentes, descargarFilaVigentePorIndice, prepararTablaIngresosBrutos } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
-const { procesarPlanDePago } = require('../../../extraerTablasPdf/planDePago_extraeTabla.js');
+const { procesarPlanDePago } = require('../../../extraerTablasPdf/leer_pdf_ATM/planDePago_extraeTabla.js');
 const { launchBrowser } = require('../../browserLauncher.js'); // Importar el lanzador autónomo
 
 // --- Helper para encontrar la fecha de vencimiento en los datos del PDF ---
