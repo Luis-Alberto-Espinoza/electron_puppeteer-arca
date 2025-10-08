@@ -79,6 +79,7 @@ let userStorage;
 
 // Importar los handlers de usuario modularizados
 const setupUserHandlers = require('../usuario/usuarioHandlers.js');
+const setupMercadoPagoHandlers = require('../extraerDemercadoPago/mercadoPagoHandlers.js');
 
 // Importar la nueva función de carga masiva
 const { procesarArchivoUsuarios } = require('../usuario/cargaMasiva.js');
@@ -328,7 +329,7 @@ function setupIpcListeners() {
         console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);
 
         try {
-            const { browser: b, page } = await launchBrowserAndPage({ headless: false });
+            const { browser: b, page } = await launchBrowserAndPage({ headless: true });
             browser = b;
 
             let finalResult = {
@@ -453,6 +454,7 @@ app.whenReady().then(async () => {
 
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
+        setupMercadoPagoHandlers(ipcMain, mainWindow, dialog);
 
         // Handler para la carga masiva de usuarios desde Excel
         ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {

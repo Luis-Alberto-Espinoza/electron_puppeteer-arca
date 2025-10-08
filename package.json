@@ -1,6 +1,6 @@
 {
-  "name": "afip_electron",
-  "version": "1.0.1",
+  "name": "afip_atm",
+  "version": "2.0.2",
   "main": "src/backend/home/main.js",
   "scripts": {
     "start": "electron .",
@@ -26,7 +26,7 @@
   },
   "build": {
     "appId": "com.tuorganizacion.afipelectron",
-    "productName": "AFIP Electron",
+    "productName": "Servie C P",
     "asar": true,
     "directories": {
       "output": "dist"

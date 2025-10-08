@@ -58,10 +58,23 @@ async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPat
     });
 
     await clickButtonInFrame("Imprimir Constancia");
-    await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Aceptar"), { timeout: 8000 });
-    await clickButtonInFrame("Aceptar");
-    await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Imprimir Deuda"), { timeout: 8000 });
-    await clickButtonInFrame("Imprimir Deuda");
+
+    try {
+        // INTENTA encontrar y procesar el diálogo de deuda (escenario CON deuda)
+        // Se usa un timeout más corto para no demorar el flujo si no hay deuda.
+        await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Aceptar"), { timeout: 5000 });
+        await clickButtonInFrame("Aceptar");
+        
+        // Una vez aceptado, se espera el botón para imprimir la deuda
+        await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Imprimir Deuda"), { timeout: 8000 });
+        await clickButtonInFrame("Imprimir Deuda");
+
+    } catch (error) {
+        // CATCH: Se asume que no hay diálogo de deuda (escenario SIN deuda)
+        // El error de timeout es esperado en este caso. No hacemos nada y dejamos que el flujo continúe,
+        // ya que la promesa 'newPagePromise' se resolverá con la apertura directa del PDF.
+        console.log('No se encontró diálogo de deuda, se asume descarga directa de la constancia.');
+    }
 
     // 3. Esperar a que la nueva pestaña con el visor de PDF se abra
     const pdfPage = await newPagePromise;

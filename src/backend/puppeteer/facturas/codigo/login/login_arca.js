@@ -4,7 +4,7 @@ async function hacerLogin(url, credenciales, opciones = {}) {
   let browser;
   let page;
   try {
-    browser = await launchBrowser({ headless: opciones.headless === false });
+    browser = await launchBrowser({ headless: opciones.headless === true });
     const pages = await browser.pages();
     page = pages.length > 0 ? pages[0] : await browser.newPage();
     if (pages.length > 1) {

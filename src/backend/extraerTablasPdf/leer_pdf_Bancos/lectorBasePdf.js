@@ -209,7 +209,7 @@ class PDFTableExtractor {
                     return (num >= 1 && num <= 20) ? saldo : match;
                 });
             }
-            if (['saldo', 'saldos', 'debito', 'débito', 'débitos', 'importe', 'crédito', 'créditos', 'credito'].some(k => column.toLowerCase().includes(k))) {
+            if (['saldo', 'saldos', 'valor', 'debito', 'débito', 'débitos', 'importe', 'crédito', 'créditos', 'credito'].some(k => column.toLowerCase().includes(k))) {
                 text = this.formatNumero(text);
             }
             cleanedRecord[column] = text;

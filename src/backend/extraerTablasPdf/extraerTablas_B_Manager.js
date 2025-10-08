@@ -226,7 +226,7 @@ async function procesarPdfConFallback(filePath, options = {}) {
         try {
             fs.writeFileSync(rutaCsv, resultado.csv, 'utf8');
             console.log(`✓ Archivo CSV guardado en: ${rutaCsv}`);
-            return { exito: true, metodo: metodoUsado, rutaCsv: rutaCsv, datos: resultado.tabla || resultado.datos, cuit: cuitFinal };
+            return { exito: true, metodo: metodoUsado, rutaCsv: rutaCsv, datos: resultado.tabla || resultado.datos, tablas: resultado.tablas, cuit: cuitFinal, allFilas: allFilas };
         } catch (writeError) {
             console.error(`Error al guardar el archivo CSV: ${writeError.message}`);
             return { exito: false, error: `Fallo al escribir el archivo: ${writeError.message}` };

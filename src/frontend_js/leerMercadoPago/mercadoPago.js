@@ -107,9 +107,29 @@ function mostrarDetalleTransferencias(transferencias) {
     // Esta función se puede expandir para mostrar una tabla detallada de todas las transferencias
 }
 
+
+function injectMercadoPagoCSS() {
+    const cssFileId = 'mercado-pago-styles';
+    if (document.getElementById(cssFileId)) {
+        return; // Evita inyectar el CSS múltiples veces
+    }
+
+    const head = document.head;
+    const link = document.createElement('link');
+
+    link.id = cssFileId;
+    link.rel = 'stylesheet';
+    link.type = 'text/css';
+    link.href = '../leerMercadoPago/mercadoPago.css'; // Ruta relativa desde index.html
+    link.media = 'all';
+
+    head.appendChild(link);
+}
+
 initializeMercadoPago();
 
 function initializeMercadoPago() {
+    injectMercadoPagoCSS(); // <-- Inyectar el CSS específico del módulo
     try {
         // Pequeña pausa para asegurar que el DOM esté listo
         setTimeout(() => {

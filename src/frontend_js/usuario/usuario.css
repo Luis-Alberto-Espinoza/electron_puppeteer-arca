@@ -15,7 +15,7 @@ body {
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1100px;
     margin: 0 auto;
     background-color: #2d3748; /* Fondo de contenedor: Un poco más claro */
     border-radius: 15px;
@@ -194,3 +194,173 @@ body {
 .validation-error {
     color: #e53e3e;
 }
+
+/* --- Nuevos Estilos para Lista de Usuarios Mejorada --- */
+
+.user-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+}
+
+.user-select {
+    flex-shrink: 0;
+}
+
+.user-info {
+    flex-grow: 1;
+}
+
+.user-status {
+    flex-basis: 200px; /* Ancho base para la columna de estados */
+    flex-shrink: 0;
+    font-size: 0.9em;
+}
+
+.service-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column; /* Apilar botones verticalmente */
+    gap: 5px; /* Espacio reducido para botones apilados */
+    align-items: flex-start; /* Alinear botones a la izquierda */
+    min-width: 150px; /* Ancho mínimo para mantener consistencia */
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-validado {
+    background-color: #2f855a; /* Verde oscuro */
+    color: #f0fff4;
+}
+
+.status-invalido {
+    background-color: #c53030; /* Rojo oscuro */
+    color: #fff5f5;
+}
+
+.status-advertencia {
+    background-color: #dd6b20; /* Naranja oscuro */
+    color: #fffaf0;
+}
+
+.status-pendiente {
+    background-color: #4a5568; /* Gris */
+    color: #e2e8f0;
+}
+
+.status-default {
+    background-color: #718096; /* Gris más claro */
+    color: #e2e8f0;
+}
+
+.btn-sm {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.bulk-actions-header {
+    background-color: #1a202c;
+    justify-content: flex-start;
+    gap: 20px;
+    font-size: 0.9em;
+}
+
+.bulk-actions-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bulk-actions-header label {
+    color: #e2e8f0; /* Asegurar que el texto sea legible */
+    cursor: pointer;
+}
+
+.btn-edit, .btn-delete {
+    background-color: transparent;
+    color: #e2e8f0;
+    border: 1px solid #4a5568;
+}
+
+.btn-edit:hover, .btn-delete:hover {
+    background-color: #4a5568;
+    border-color: #a0aec0;
+}
+
+/* --- Estilos para Checkboxes Personalizados --- */
+.service-status label,
+.bulk-actions-header label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+/* Ocultar el checkbox por defecto */
+.service-checkbox, .select-all-service-checkbox {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+}
+
+/* Crear un pseudo-elemento para el cuadro del checkbox */
+.service-checkbox + span::before,
+.select-all-service-checkbox + span::before {
+    content: '';
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #a0aec0; /* Borde gris claro */
+    border-radius: 4px;
+    margin-right: 8px;
+    background-color: #1a202c; /* Fondo oscuro */
+    transition: all 0.2s ease;
+}
+
+/* Estilo cuando el checkbox está marcado */
+.service-checkbox:checked + span::before,
+.select-all-service-checkbox:checked + span::before {
+    background-color: #f6e05e; /* Fondo amarillo */
+    border-color: #f6e05e;
+}
+
+/* Crear la marca de verificación (check) */
+.service-checkbox:checked + span::after,
+.select-all-service-checkbox:checked + span::after {
+    content: '';
+    position: absolute;
+    left: 6px;
+    top: 3px;
+    width: 5px;
+    height: 10px;
+    border: solid #1a202c; /* Color de la marca (negro) */
+    border-width: 0 3px 3px 0;
+    transform: rotate(45deg);
+}
+
+/* Contenedor relativo para la marca */
+.service-status label,
+.bulk-actions-header label {
+    position: relative;
+}
+
+/* Ajuste para el estado deshabilitado */
+.service-checkbox:disabled + span::before {
+    background-color: #4a5568;
+    border-color: #718096;
+    cursor: not-allowed;
+}
+

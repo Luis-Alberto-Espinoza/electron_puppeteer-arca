@@ -1,16 +1,6 @@
+/* Estilos base que ya estaban en el archivo original */
 text {
     background-color: blue;
-}
-
-.resultados-container {
-        margin: 20px auto;
-    padding: 30px;
-    max-width: 700px;
-    background: linear-gradient(108deg, rgb(241 235 235 / 90%), rgb(167 110 209 / 80%));
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-    border-radius: 20px;
-    color: #333;
-    backdrop-filter: blur(10px);
 }
 
 .inicio-container {
@@ -24,147 +14,140 @@ text {
     backdrop-filter: blur(10px);
 }
 
+.auth-options {
+    padding: 20px; border: 1px solid #ddd; border-radius: 8px; margin: 20px 0; background-color: #9de3d3;
+}
+.auth-options h3 {
+    margin-top: 0; color: #333;
+}
+.info-container {
+    margin-top: 15px; padding: 10px; background-color: #4a33a5; border-radius: 4px;
+}
+.success-message {
+    background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 10px; border-radius: 4px; margin-top: 10px;
+}
+.hidden {
+    display: none !important;
+}
 
+/* =============================================================== */
+/* === ESTILOS MEJORADOS PARA EL MÓDULO DE LECTOR MERCADO PAGO === */
+/* =============================================================== */
+
+/* 1. Contenedor de Resultados: TEMA OSCURO */
+#resultados-container {
+    background: rgba(40, 40, 60, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border-radius: 15px;
+    padding: 25px;
+    margin-top: 20px;
+    color: #f0f0f0; /* Texto claro para contraste */
+}
+
+#resultados-container h2, #resultados-container h4, #resultados-container h5 {
+    color: #ffffff;
+}
+
+/* 2. Botones con estilos notorios */
+#btn-seleccionar-archivo {
+    background: linear-gradient(45deg, #8e44ad, #6c5ce7) !important;
+    color: white !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 25px;
+    box-shadow: 0 4px 12px rgba(110, 92, 231, 0.4);
+    transition: all 0.3s ease;
+}
+
+#btn-seleccionar-archivo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 7px 20px rgba(110, 92, 231, 0.5);
+}
+
+#btn-procesar-archivo {
+    background: linear-gradient(45deg, #f55124, #e04110) !important;
+    color: white !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 25px;
+    box-shadow: 0 4px 12px rgba(245, 81, 36, 0.4);
+    transition: all 0.3s ease;
+}
+
+#btn-procesar-archivo:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 7px 20px rgba(245, 81, 36, 0.5);
+}
+
+#btn-hacer-factura {
+    background: linear-gradient(45deg, #007bff, #0056b3) !important;
+    color: white !important;
+    font-weight: bold;
+    text-transform: uppercase;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 25px;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    transition: all 0.3s ease;
+    display: block; 
+    margin: 20px auto; 
+    width: fit-content;
+}
+
+#btn-hacer-factura:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 7px 20px rgba(0, 123, 255, 0.5);
+}
+
+
+/* 3. Tablas de datos: TEMA OSCURO */
 .tabla-datos {
     width: 100%;
     border-collapse: collapse;
     margin-top: 20px;
-    color: rgb(11, 11, 10);
+    color: #f0f0f0; /* Texto claro */
+    background-color: #2c3e50; /* Fondo de tabla oscuro azulado */
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
 }
 
 .tabla-datos th,
 .tabla-datos td {
-    border: 1px solid #ddd;
-    padding: 8px;
+    padding: 15px 20px;
+    text-align: left;
+    border-bottom: 1px solid #34495e;
 }
 
-
-button {
-    display: inline-block;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    margin-top: 10px;
-    transition: background-color 0.3s ease;
-}
-
-button:hover {
-    opacity: 0.9;
-}
-
-#loginButtonMP {
-    background-color: #007bff;
-    /* Azul */
-    color: #fff;
-}
-
-#loginButtonMP:hover {
-    background-color: #0056b3;
-}
-
-#testButtonMP {
-    background-color: #28a745;
-    /* Verde */
-    color: #fff;
-}
-
-#testButtonMP:hover {
-    background-color: #218838;
-}
-
-#btn-seleccionar-archivo {
-    background-color: #b00bb0;
-    /* Gris */
-    color: #fff;
-}
-
-#btn-procesar-archivo {
-    background-color: #ff5722;
-    /* Naranja */
-    color: #fff;
-}
-
-
-.auth-options {
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    margin: 20px 0;
-    background-color: #9de3d3;
-}
-
-.auth-options h3 {
-    margin-top: 0;
-    color: #333;
-}
-
-.btn-test {
-    background-color: #ffc107;
-    color: #000;
-    border: none;
-    padding: 12px 24px;
-    margin: 8px;
-    border-radius: 6px;
-    cursor: pointer;
+.tabla-datos th {
+    background-color: #34495e; /* Cabecera un poco más oscura */
+    color: #ffffff;
     font-weight: bold;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: 0.5px;
 }
 
-.btn-login {
-    background-color: #28a745;
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    margin: 8px;
-    border-radius: 6px;
-    cursor: pointer;
+.tabla-datos tbody tr {
+    transition: background-color 0.2s ease-in-out;
+}
+
+.tabla-datos tbody tr:nth-child(even) {
+    background-color: #3a506b;
+}
+
+.tabla-datos tbody tr:hover {
+    background-color: #4a6588;
+}
+
+.tabla-datos .total-cell {
     font-weight: bold;
-}
-
-.btn-hacer-factura {
-    background-color: #007bff;
-    color: white;
-    border: none;
-    padding: 15px 30px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.info-container {
-    margin-top: 15px;
-    padding: 10px;
-    background-color: #4a33a5;
-    border-radius: 4px;
-}
-
-.success-message {
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
-    padding: 10px;
-    border-radius: 4px;
-    margin-top: 10px;
-}
-
-#leerMercadoPagoDiv {
-    margin: 20px auto;
-    padding: 20px;
-    max-width: 600px;
-    background: linear-gradient(108deg, rgb(241 235 235 / 90%), rgb(167 110 209 / 80%));
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    border-radius: 8px;
-    color: #333;
-}
-
-.btn-test:hover,
-.btn-login:hover,
-.btn-hacer-factura:hover {
-    opacity: 0.9;
-    transform: translateY(-1px);
-}
-.hidden {
-    display: none !important;
+    color: #58a6ff; /* Azul claro para totales */
+    font-size: 1.1em;
 }

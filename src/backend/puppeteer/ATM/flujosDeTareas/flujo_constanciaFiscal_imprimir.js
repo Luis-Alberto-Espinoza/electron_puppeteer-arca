@@ -3,13 +3,14 @@ const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.j
 const { navegarAConstanciaFiscal } = require('../codigoXpagina/oficina_constanciaFiscal.js');
 const { gestionarConstanciaFiscal } = require('../codigoXpagina/constanciaFiscal.js');
 const { launchBrowser } = require('../../browserLauncher.js'); // Importar el lanzador autónomo
+const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
 
 async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso) {
     let browser;
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: false });
+        browser = await launchBrowser({ headless: true });
         const page = await browser.newPage();
 
         const urlATM = 'https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp';
@@ -29,7 +30,6 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
 
         if (success && files.length > 0) {
             enviarProgreso('info', 'Constancia Fiscal descargada. Procesando PDF...');
-            const { procesarConstanciaFiscal } = require('../../../extraerTablasPdf/leer_pdf_ATM/constancia_fiscal.js');
 
             const parseCurrency = (value) => {
                 if (typeof value !== 'string') return 0;
@@ -37,12 +37,21 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
             };
 
             const filePath = files[0];
-            const resultado = await procesarConstanciaFiscal(filePath);
+            const resultado = await procesarPdfConFallback(filePath);
 
-            if (!resultado || !resultado.tablas) {
-                throw new Error('El procesamiento del PDF no devolvió tablas.');
+            // Si el orquestador no devuelve tablas, asumimos que es una constancia sin deuda.
+            if (!resultado || !resultado.exito || !resultado.tablas || resultado.tablas.length === 0) {
+                enviarProgreso('info', 'Constancia fiscal sin tablas de deuda. Se asume constancia de no deuda.');
+                return {
+                    exito: true,
+                    mensaje: 'Constancia fiscal procesada (sin deuda).',
+                    resumen: [], // No hay resumen de deudas
+                    downloadDir: downloadDir,
+                    files: [filePath]
+                };
             }
 
+            // Si hay tablas, procedemos con el resumen de deudas
             const resumenDeudas = resultado.tablas.map(tabla => {
                 const total = tabla.datos.reduce((sum, fila) => {
                     const saldo = parseCurrency(fila["Saldo Actualizado"]);

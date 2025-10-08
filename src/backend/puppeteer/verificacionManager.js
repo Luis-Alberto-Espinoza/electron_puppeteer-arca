@@ -7,18 +7,29 @@ const verificarCredencialesATM = require('./ATM/flujosDeTareas/flujo_verificaCre
  * @param {import('puppeteer').Browser} browser La instancia del navegador Puppeteer.
  * @param {object} usuario El objeto de usuario a procesar.
  */
-async function gestionarValidacion(browser, usuario) {
+async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
     console.log(`[MANAGER] ==> Entrando a gestionarValidacion para CUIT: ${usuario.cuit}`);
 
-    // Reiniciar estados de validación
-    usuario.claveAfipValida = false;
-    usuario.claveAfipRequiereActualizacion = false;
-    usuario.claveAtmValida = false;
-    usuario.claveAtmRequiereActualizacion = false;
-    usuario.claveAtmInvalida = false; // Estado limpio
+    // Determinar qué servicios verificar
+    const allAvailableServices = [];
+    if (usuario.claveAFIP) allAvailableServices.push('afip');
+    if (usuario.claveATM) allAvailableServices.push('atm');
+
+    const servicesToCheck = servicesToVerify || allAvailableServices;
+
+    // Reiniciar estados de validación para los servicios que se van a chequear
+    if (servicesToCheck.includes('afip')) {
+        usuario.claveAfipValida = false;
+        usuario.claveAfipRequiereActualizacion = false;
+    }
+    if (servicesToCheck.includes('atm')) {
+        usuario.claveAtmValida = false;
+        usuario.claveAtmRequiereActualizacion = false;
+        usuario.claveAtmInvalida = false; // Estado limpio
+    }
 
     // --- Flujo de AFIP ---
-    if (usuario.claveAFIP) {
+    if (servicesToCheck.includes('afip') && usuario.claveAFIP) {
         console.log('[MANAGER] -> Iniciando flujo AFIP...');
         const afipPage = await browser.newPage();
         try {
@@ -47,7 +58,7 @@ async function gestionarValidacion(browser, usuario) {
     }
 
     // --- Flujo de ATM ---
-    if (usuario.claveATM) {
+    if (servicesToCheck.includes('atm') && usuario.claveATM) {
         console.log('[MANAGER] -> Iniciando flujo ATM...');
         const atmPage = await browser.newPage();
         try {

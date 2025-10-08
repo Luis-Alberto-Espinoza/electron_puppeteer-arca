@@ -147,7 +147,6 @@ h2 {
 #resultado {
     margin: 20px auto;
     padding: 20px;
-    max-width: 600px;
     background: linear-gradient(108deg, rgb(241 235 235 / 90%), rgb(167 110 209 / 80%));
     /* Fondo de los contenedores */
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
@@ -247,24 +246,24 @@ button:hover {
     margin-bottom: 30px;
 }
 
-#loginButton {
+.btn-login {
     background-color: #007bff;
     /* desplazar a la derecha */
     margin-left: 10px;
     color: #fff;
 }
 
-#loginButton:hover {
+.btn-login:hover {
     background-color: #0056b3;
 }
 
-#testButton {
+.btn-test {
     background-color: #28a745;
     /* Verde */
     color: #fff;
 }
 
-#testButton:hover {
+.btn-test:hover {
     background-color: #218838;
 }
 

@@ -1,7 +1,7 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer-core');
 
-async function launchBrowser({ headless = false } = {}) { // <-- permite pasar headless
+async function launchBrowser({ headless = true } = {}) { // <-- permite pasar headless
   // Se eliminó la dependencia de 'electron.screen' para que sea compatible con workers.
   // El tamaño de la ventana será el predeterminado de Puppeteer.
   let launchOptions = {
@@ -65,7 +65,7 @@ async function launchBrowser({ headless = false } = {}) { // <-- permite pasar h
   }
 }
 
-async function launchBrowserAndPage({ headless = false } = {}) {
+async function launchBrowserAndPage({ headless = true } = {}) {
   const browser = await launchBrowser({ headless });
   const page = await browser.newPage();
   return { browser, page };

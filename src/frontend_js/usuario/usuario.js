@@ -28,69 +28,52 @@ function setLoading(elementId, show) {
         loading.classList.add('hidden');
     }
 }
-// funcion para verificar credenciales
 function inicializarVerificarCredenciales() {
     const btnVerificarCredenciales = document.getElementById('btnVerificarCredenciales');
-    const btnCrearUsuario = document.getElementById('btnCrearUsuario');
-    const verificarLoading = document.getElementById('verificarLoading');
+    if (!btnVerificarCredenciales) return;
 
-    if (btnVerificarCredenciales) {
-        btnVerificarCredenciales.addEventListener('click', async function(e) {
-            e.preventDefault();
+    btnVerificarCredenciales.addEventListener('click', async function (e) {
+        e.preventDefault();
+        const btnCrearUsuario = document.getElementById('btnCrearUsuario');
+        const verificarLoading = document.getElementById('verificarLoading');
 
-            btnVerificarCredenciales.style.display = 'none';
-            btnCrearUsuario.style.display = 'none';
-            verificarLoading.classList.remove('hidden');
-            verificarLoading.innerHTML = '<span class="spinner"></span><span class="loader-text">Verificando...</span>';
+        btnVerificarCredenciales.style.display = 'none';
+        btnCrearUsuario.style.display = 'none';
+        verificarLoading.classList.remove('hidden');
+        verificarLoading.innerHTML = '<span class="spinner"></span><span class="loader-text">Verificando...</span>';
 
-            const claveAFIP = document.getElementById('claveAFIP').value.trim();
-            const claveATM = document.getElementById('claveATM').value.trim();
-            const cuit = document.getElementById('cuit').value.trim();
-            const cuil = document.getElementById('cuil').value.trim();
+        const credenciales = {
+            claveAFIP: document.getElementById('claveAFIP').value.trim(),
+            claveATM: document.getElementById('claveATM').value.trim(),
+            cuit: document.getElementById('cuit').value.trim(),
+            cuil: document.getElementById('cuil').value.trim(),
+        };
 
-            if (!cuit && !cuil) {
-                showAlert('Debes ingresar un CUIT o CUIL para verificar.', 'error');
-                verificarLoading.classList.add('hidden');
-                btnVerificarCredenciales.style.display = '';
-                return;
-            }
-
-            if (!claveAFIP && !claveATM) {
-                showAlert('Debes ingresar al menos una clave (AFIP o ATM) para verificar.', 'error');
-                verificarLoading.classList.add('hidden');
-                btnVerificarCredenciales.style.display = '';
-                return;
-            }
-
-            const pruebaCredenciales = { claveAFIP, claveATM, cuit, cuil };
-
-            let response = {};
-            let resultado = false;
-            try {
-                response = await window.electronAPI.user.verifyCredentials(pruebaCredenciales);
-                window.empresasDisponible = response.puntosDeVentaArray || [];
-                mostrarPuntosDeVenta(response.puntosDeVentaArray);
-                resultado = !!response.success;
-            } catch (error) {
-                resultado = false;
-            }
-
+        if (!credenciales.cuit && !credenciales.cuil) {
+            showAlert('Debes ingresar un CUIT o CUIL para verificar.', 'error');
             verificarLoading.classList.add('hidden');
-            verificarLoading.innerHTML = '';
             btnVerificarCredenciales.style.display = '';
-            btnCrearUsuario.style.display = resultado ? '' : 'none';
+            return;
+        }
 
-            const alertDiv = document.getElementById('alert');
-            const alertMsg = document.getElementById('alertMessage');
-            if (!resultado) {
-                alertMsg.textContent = response.error || 'Credenciales inválidas. Intenta nuevamente.';
-                alertDiv.classList.remove('hidden');
-                setTimeout(() => alertDiv.classList.add('hidden'), 3000);
+        try {
+            const response = await window.electronAPI.user.verifyOnCreate(credenciales);
+            window.empresasDisponible = response.puntosDeVentaArray || [];
+            mostrarPuntosDeVenta(response.puntosDeVentaArray);
+            
+            if (response.success) {
+                btnCrearUsuario.style.display = '';
+                showAlert('Credenciales validadas correctamente.', 'success');
             } else {
-                alertDiv.classList.add('hidden');
+                showAlert(response.error || 'Credenciales inválidas. Intenta nuevamente.', 'error');
             }
-        });
-    }
+        } catch (error) {
+            showAlert(`Error de comunicación: ${error.message}`, 'error');
+        } finally {
+            verificarLoading.classList.add('hidden');
+            btnVerificarCredenciales.style.display = '';
+        }
+    });
 }
 
 // Crear usuario
@@ -104,8 +87,8 @@ async function createUser() {
         const tipoContribuyente = document.getElementById('tipoContribuyente').value;
         const apellido = document.getElementById('apellido').value.trim();
 
-        if (!nombre || !claveAFIP) {
-            showAlert('Por favor completa nombre y Clave AFIP', 'error');
+        if (!nombre ) {
+            showAlert('Por favor completa nombre', 'error');
             return;
         }
         if (!cuit && !cuil) {
@@ -120,11 +103,13 @@ async function createUser() {
             showAlert('CUIL debe tener exactamente 11 números', 'error');
             return;
         }
-        if (tipoContribuyente !== "C" && tipoContribuyente !== "B") {
-            showAlert('Selecciona el tipo de contribuyente', 'error');
-            return;
-        }
 
+        if (claveAFIP) {
+            if (tipoContribuyente !== "C" && tipoContribuyente !== "B") {
+                showAlert('Selecciona el tipo de contribuyente', 'error');
+                return;
+            }
+        }
         if (!window.electronAPI || !window.electronAPI.user) {
             console.error('electronAPI.user no está disponible');
             showAlert('Error de configuración de la aplicación', 'error');
@@ -173,48 +158,88 @@ async function loadUsers() {
     }
 }
 
+function renderStatus(status) {
+    switch (status) {
+        case 'validado':
+            return '<span class="status-badge status-validado">✔ Validado</span>';
+        case 'invalido':
+            return '<span class="status-badge status-invalido">✖ Inválido</span>';
+        case 'requiere_actualizacion':
+            return '<span class="status-badge status-advertencia">⚠️ Actualizar</span>';
+        case 'pendiente':
+            return '<span class="status-badge status-pendiente">⌛ Pendiente</span>';
+        default:
+            return '<span class="status-badge status-default">- N/A</span>';
+    }
+}
+
+const SERVICIOS = ['afip', 'atm'];
+
 // Mostrar usuarios en la lista
 function displayUsers(users) {
     const usersList = document.getElementById('usersList');
-
     if (!users || users.length === 0) {
-        usersList.innerHTML = `
-            <div class="empty-state">
-                <div class="icon">📋</div>
-                <p>No hay usuarios registrados</p>
-            </div>
-        `;
+        usersList.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No hay usuarios registrados</p></div>`;
         return;
     }
 
+    const selectAllCheckboxes = SERVICIOS.map(s => `
+        <label>
+            <input type="checkbox" id="selectAll-${s}" class="select-all-service-checkbox" data-service="${s}"> 
+            <span>Sel. todo ${s.toUpperCase()}</span>
+        </label>
+    `).join('');
+
+    const bulkActionsHeader = `
+        <div class="user-item bulk-actions-header">
+            <div class="bulk-actions-controls">
+                ${selectAllCheckboxes}
+                <button class="btn btn-primary" id="btnVerificarSeleccionados">Verificar Seleccionados</button>
+            </div>
+        </div>
+    `;
+
     const usersHTML = users.map(user => {
-        const claveAFIP = user.claveAFIP || user.clave || '';
-        const claveATM = user.claveATM || '';
+        const servicesHTML = SERVICIOS.map(service => {
+            const status = user[`estado_${service}`] || 'no_aplica';
+            const hasKey = !!user[`clave${service.toUpperCase()}`];
+            const isCheckable = hasKey && status !== 'validado';
+
+            return `
+                <div class="service-status">
+                    <label>
+                        <input 
+                            type="checkbox" 
+                            class="service-checkbox" 
+                            data-user-id="${user.id}" 
+                            data-service="${service}" 
+                            ${isCheckable ? '' : 'disabled'}
+                        >
+                        <span>${service.toUpperCase()}:</span>
+                    </label>
+                    ${renderStatus(status)}
+                </div>
+            `;
+        }).join('');
+
         return `
-            <div class="user-item">
+            <div class="user-item" data-user-id="${user.id}">
                 <div class="user-info">
-                    <div class="user-name">👤 ${user.nombre}</div>
-                    <div class="user-details">
-                        🔑 Clave AFIP: ${claveAFIP ? '*'.repeat(claveAFIP.length) : 'N/A'}<br>
-                        🔑 Clave ATM: ${claveATM ? '*'.repeat(claveATM.length) : 'N/A'}<br>
-                        🆔 CUIT: ${user.cuit || ''}<br>
-                        🆔 CUIL: ${user.cuil || ''}<br>
-                        🏷️ Tipo Contribuyente: ${user.tipoContribuyente || ''}
-                    </div>
+                    <div class="user-name">👤 ${user.nombre} ${user.apellido || ''}</div>
+                    <div class="user-details">🆔 CUIT/L: ${user.cuit || user.cuil || 'N/A'}</div>
+                </div>
+                <div class="user-status">
+                    ${servicesHTML}
                 </div>
                 <div class="user-actions">
-                    <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${claveAFIP}', '${claveATM}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}')">
-                        ✏️ Editar
-                    </button>
-                    <button class="btn btn-delete" onclick="window.deleteUser('${user.id}', '${user.nombre}')">
-                        🗑️ Eliminar
-                    </button>
+                    <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.claveAFIP || ''}', '${user.claveATM || ''}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}')">✏️ Editar</button>
+                    <button class="btn btn-delete" onclick="window.deleteUser('${user.id}', '${user.nombre}')">🗑️ Eliminar</button>
                 </div>
             </div>
         `;
     }).join('');
 
-    usersList.innerHTML = usersHTML;
+    usersList.innerHTML = bulkActionsHeader + usersHTML;
 }
 
 // Editar usuario
@@ -269,10 +294,10 @@ async function updateUser() {
     const tipoContribuyente = document.getElementById('editTipoContribuyente').value;
     const apellido = document.getElementById('editApellido').value.trim();
 
-    if (!nombre || !claveAFIP) {
-        showAlert('Por favor completa nombre y Clave AFIP', 'error');
-        return;
-    }
+    // if (!nombre || !claveAFIP) {
+    //     showAlert('Por favor completa nombre y Clave AFIP', 'error');
+    //     return;
+    // }
     if (!cuit && !cuil) {
         showAlert('Debes ingresar CUIT o CUIL', 'error');
         return;
@@ -340,50 +365,68 @@ function cancelEdit() {
 }
 
 function inicializarUsuarioFrontend() {
-    const btnCrear = document.getElementById('btnCrearUsuario');
-    const btnRecargar = document.getElementById('btnRecargarLista');
-    const claveInput = document.getElementById('claveAFIP');
-    const editClaveInput = document.getElementById('editClaveAFIP');
-    const btnVerificarCredenciales = document.getElementById('btnVerificarCredenciales');
+    const usersList = document.getElementById('usersList');
 
-    if (btnVerificarCredenciales) {
-        btnVerificarCredenciales.addEventListener('click', (e) => {
-          e.preventDefault();
-         inicializarVerificarCredenciales();
-        });
-    }
-    if (btnCrear) {
-        btnCrear.addEventListener('click', (e) => {
-            e.preventDefault();
-            createUser();
-        });
-    }
+    usersList.addEventListener('click', async (event) => {
+        const target = event.target;
 
-    if (btnRecargar) {
-        btnRecargar.addEventListener('click', loadUsers);
-    }
+        // --- Verificación en lote ---
+        if (target.matches('#btnVerificarSeleccionados')) {
+            const verificationJobs = Array.from(usersList.querySelectorAll('.service-checkbox:checked'))
+                .map(cb => ({ userId: cb.dataset.userId, service: cb.dataset.service }));
 
-    if (claveInput) {
-        claveInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                createUser();
+            if (verificationJobs.length === 0) {
+                showAlert('No hay servicios seleccionados para verificar.', 'warning');
+                return;
             }
-        });
-    }
 
-    if (editClaveInput) {
-        editClaveInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                updateUser();
+            if (!confirm(`¿Iniciar la verificación para los ${verificationJobs.length} servicios seleccionados?`)) return;
+
+            setLoading('loadLoading', true);
+            try {
+                const result = await window.electronAPI.user.verifyBatch({ verificationJobs });
+                if (result.success) {
+                    showAlert(`Verificación completada. Validados: ${result.stats.validados}, Fallos: ${result.stats.con_fallos}.`);
+                    
+                    // Refrescar el usuario seleccionado en memoria si fue actualizado
+                    if (result.updatedUsers && window.usuarioSeleccionado) {
+                        const updatedCurrentUser = result.updatedUsers.find(u => String(u.id) === String(window.usuarioSeleccionado.id));
+                        if (updatedCurrentUser) {
+                            console.log('Refrescando el usuario seleccionado en memoria...');
+                            window.usuarioSeleccionado = updatedCurrentUser;
+                        }
+                    }
+                } else {
+                    showAlert(result.error || 'Error en la verificación masiva.', 'error');
+                }
+            } catch (error) {
+                showAlert(`Error de comunicación: ${error.message}`, 'error');
+            } finally {
+                await loadUsers();
             }
-        });
-    }
+        }
 
+        // --- Checkbox "Seleccionar Todo por Servicio" ---
+        if (target.matches('.select-all-service-checkbox')) {
+            const service = target.dataset.service;
+            const isChecked = target.checked;
+            usersList.querySelectorAll(`.service-checkbox[data-service="${service}"]:not(:disabled)`).forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        }
+    });
+
+    // --- Eventos existentes ---
+    document.getElementById('btnCrearUsuario')?.addEventListener('click', createUser);
+    document.getElementById('btnRecargarLista')?.addEventListener('click', loadUsers);
+
+    // Carga inicial y otros inicializadores
     loadUsers().catch(error => {
         console.error('Error cargando usuarios:', error);
         showAlert('Error cargando la lista de usuarios', 'error');
     });
-    inicializarCargaMasiva(); // Mover la inicialización aquí
+    inicializarCargaMasiva();
+    inicializarVerificarCredenciales();
 }
 
 window.inicializarUsuarioFrontend = inicializarUsuarioFrontend;
@@ -428,31 +471,31 @@ function inicializarCargaMasiva() {
                 try {
                     const result = await window.electronAPI.cargarUsuariosMasivo(fileBuffer);
 
-                                    if (result.success) {
-                                        let message = `<div class="result-summary">✅ Proceso completado: Leídos: ${result.usuariosLeidos}, Creados: ${result.usuariosCreados}, Actualizados: ${result.usuariosActualizados}.</div>`;
+                    if (result.success) {
+                        let message = `<div class="result-summary">✅ Proceso completado: Leídos: ${result.usuariosLeidos}, Creados: ${result.usuariosCreados}, Actualizados: ${result.usuariosActualizados}.</div>`;
 
-                                        // Sección para usuarios que requieren actualización de clave
-                                        if (result.usuariosParaActualizar && result.usuariosParaActualizar.length > 0) {
-                                            message += `<span class="result-section-title warning">⚠️ Acciones Requeridas:</span><ul>`;
-                                            result.usuariosParaActualizar.forEach(u => {
-                                                message += `<li><b>${u.nombre}</b> (CUIT: ${u.cuit}) - Actualizar clave de: <b>${u.servicios}</b></li>`;
-                                            });
-                                            message += `</ul>`;
-                                        }
+                        // Sección para usuarios que requieren actualización de clave
+                        if (result.usuariosParaActualizar && result.usuariosParaActualizar.length > 0) {
+                            message += `<span class="result-section-title warning">⚠️ Acciones Requeridas:</span><ul>`;
+                            result.usuariosParaActualizar.forEach(u => {
+                                message += `<li><b>${u.nombre}</b> (CUIT: ${u.cuit}) - Actualizar clave de: <b>${u.servicios}</b></li>`;
+                            });
+                            message += `</ul>`;
+                        }
 
-                                        // Sección para usuarios con credenciales inválidas
-                                        if (result.usuariosConFallos && result.usuariosConFallos.length > 0) {
-                                            message += `<span class="result-section-title error-title">❌ Credenciales con Fallos:</span><ul>`;
-                                            result.usuariosConFallos.forEach(u => {
-                                                message += `<li><b>${u.nombre}</b> (CUIT: ${u.cuit}) - Fallo en: <b>${u.fallos}</b></li>`;
-                                            });
-                                            message += `</ul>`;
-                                        }
+                        // Sección para usuarios con credenciales inválidas
+                        if (result.usuariosConFallos && result.usuariosConFallos.length > 0) {
+                            message += `<span class="result-section-title error-title">❌ Credenciales con Fallos:</span><ul>`;
+                            result.usuariosConFallos.forEach(u => {
+                                message += `<li><b>${u.nombre}</b> (CUIT: ${u.cuit}) - Fallo en: <b>${u.fallos}</b></li>`;
+                            });
+                            message += `</ul>`;
+                        }
 
-                                        uploadStatus.innerHTML = message;
-                                        uploadStatus.className = 'status-message success';
-                                    } else {
-                        if(result.errores > 1) {
+                        uploadStatus.innerHTML = message;
+                        uploadStatus.className = 'status-message success';
+                    } else {
+                        if (result.errores > 1) {
                             errorMessage += ` (y ${result.errores - 1} más errores)`;
                         }
                         uploadStatus.innerHTML = errorMessage;
@@ -473,7 +516,7 @@ function inicializarCargaMasiva() {
                 }
             }, 50); // 50ms es un buen valor para asegurar el re-dibujado
         };
-        
+
         reader.onerror = (error) => {
             console.error("Error leyendo el archivo:", error);
             showAlert('Error al leer el archivo seleccionado.', 'error');

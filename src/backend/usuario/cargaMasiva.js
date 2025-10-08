@@ -1,8 +1,8 @@
 
 const xlsx = require('xlsx');
 const { JsonStorage } = require('./usuario.js');
-const { launchBrowserAndPage } = require('../puppeteer/browserLauncher');
-const { gestionarValidacion } = require('../puppeteer/verificacionManager.js');
+// const { launchBrowserAndPage } = require('../puppeteer/browserLauncher');
+// const { gestionarValidacion } = require('../puppeteer/verificacionManager.js');
 
 /**
  * Procesa un archivo Excel para la carga masiva de usuarios, validando
@@ -84,57 +84,58 @@ async function procesarArchivoUsuarios(fileBuffer) {
             usuariosAProcesar.push(usuarioParaProcesar);
         }
 
-        // 4. Validación en lote a través del manejador central
-        if (usuariosAProcesar.length > 0) {
-            console.log(`Iniciando procesamiento en lote para ${usuariosAProcesar.length} usuarios.`);
-            const { browser, page } = await launchBrowserAndPage({ headless: false });
+        // 4. Validación en lote a través del manejador central (Temporalmente deshabilitado)
+        // if (usuariosAProcesar.length > 0) {
+        //     console.log(`Iniciando procesamiento en lote para ${usuariosAProcesar.length} usuarios.`);
+        //     const { browser, page } = await launchBrowserAndPage({ headless: true });
 
-            for (const usuario of usuariosAProcesar) {
-                await gestionarValidacion(browser, usuario);
-            }
+        //     for (const usuario of usuariosAProcesar) {
+        //         await gestionarValidacion(browser, usuario);
+        //     }
 
-            await browser.close();
-            console.log("Procesamiento en lote finalizado.");
-        }
+        //     await browser.close();
+        //     console.log("Procesamiento en lote finalizado.");
+        // }
 
-        // 5. Recopilar usuarios para el reporte final
-        const usuariosParaActualizar = [];
-        const usuariosConFallos = [];
+        // 5. Recopilar usuarios para el reporte final (Temporalmente deshabilitado)
+        // const usuariosParaActualizar = [];
+        // const usuariosConFallos = [];
 
-        for (const u of usuariosAProcesar) {
-            const serviciosParaActualizar = [];
-            if (u.claveAfipRequiereActualizacion) {
-                serviciosParaActualizar.push('AFIP');
-            }
-            if (u.claveAtmRequiereActualizacion) {
-                serviciosParaActualizar.push('ATM');
-            }
+        // for (const u of usuariosAProcesar) {
+        //     const serviciosParaActualizar = [];
+        //     if (u.claveAfipRequiereActualizacion) {
+        //         serviciosParaActualizar.push('AFIP');
+        //     }
+        //     if (u.claveAtmRequiereActualizacion) {
+        //         serviciosParaActualizar.push('ATM');
+        //     }
 
-            if (serviciosParaActualizar.length > 0) {
-                usuariosParaActualizar.push({ nombre: u.nombre, cuit: u.cuit, servicios: serviciosParaActualizar.join(', ') });
-            }
+        //     if (serviciosParaActualizar.length > 0) {
+        //         usuariosParaActualizar.push({ nombre: u.nombre, cuit: u.cuit, servicios: serviciosParaActualizar.join(', ') });
+        //     }
 
-            const fallos = [];
-            if (u.claveAFIP && !u.claveAfipValida && !u.claveAfipRequiereActualizacion) {
-                fallos.push('AFIP');
-            }
-            if (u.claveATM && !u.claveAtmValida && !u.claveAtmRequiereActualizacion) {
-                // Gracias a los cambios, claveAtmInvalida nos da la certeza.
-                if (u.claveAtmInvalida) {
-                    fallos.push('ATM (Inválida)');
-                } else {
-                    fallos.push('ATM (Error)');
-                }
-            }
+        //     const fallos = [];
+        //     if (u.claveAFIP && !u.claveAfipValida && !u.claveAfipRequiereActualizacion) {
+        //         fallos.push('AFIP');
+        //     }
+        //     if (u.claveATM && !u.claveAtmValida && !u.claveAtmRequiereActualizacion) {
+        //         // Gracias a los cambios, claveAtmInvalida nos da la certeza.
+        //         if (u.claveAtmInvalida) {
+        //             fallos.push('ATM (Inválida)');
+        //         } else {
+        //             fallos.push('ATM (Error)');
+        //         }
+        //     }
 
-            if (fallos.length > 0) {
-                usuariosConFallos.push({ nombre: u.nombre, cuit: u.cuit, fallos: fallos.join(', ') });
-            }
-        }
+        //     if (fallos.length > 0) {
+        //         usuariosConFallos.push({ nombre: u.nombre, cuit: u.cuit, fallos: fallos.join(', ') });
+        //     }
+        // }
 
         // 6. Guardar datos actualizados
         storage.saveData({ users: usuariosExistentes });
-        return { success: true, ...stats, usuariosParaActualizar, usuariosConFallos };
+        return { success: true, ...stats };
+        // return { success: true, ...stats, usuariosParaActualizar, usuariosConFallos };
 
     } catch (error) {
         console.error('Error en la carga masiva:', error);

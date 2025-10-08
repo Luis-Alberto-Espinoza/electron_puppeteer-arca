@@ -5,8 +5,8 @@ const { getDownloadPath } = require('../../../utils/fileManager.js');
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
-const { contarFilasVigentes, descargarFilaVigentePorIndice, prepararTablaIngresosBrutos } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
-const { procesarPlanDePago } = require('../../../extraerTablasPdf/leer_pdf_ATM/planDePago_extraeTabla.js');
+const { prepararTablaIngresosBrutos, descargarFilaVigentePorIndice, contarFilasVigentes } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
+const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
 const { launchBrowser } = require('../../browserLauncher.js'); // Importar el lanzador autónomo
 
 // --- Helper para encontrar la fecha de vencimiento en los datos del PDF ---
@@ -25,21 +25,22 @@ function encontrarFechaVencimiento(datosPdf) {
 }
 
 function encontrarNumeroDeBoleto(datosPdf) {
-    if (!datosPdf || !datosPdf.contenidoPaginas || !Array.isArray(datosPdf.contenidoPaginas) || datosPdf.contenidoPaginas.length === 0) {
-        return 'SinBoleto';
-    }
-
-    const primeraPagina = datosPdf.contenidoPaginas[0];
-    if (!primeraPagina.items || !Array.isArray(primeraPagina.items)) {
+    // El orquestador ahora devuelve las filas crudas en la propiedad 'allFilas'
+    if (!datosPdf || !datosPdf.allFilas || !Array.isArray(datosPdf.allFilas)) {
         return 'SinBoleto';
     }
 
     const regexBoleto = /\b\d{10,}\b/; // Busca 10 o más dígitos como palabra completa
 
-    for (const item of primeraPagina.items) {
-        const match = item.str.match(regexBoleto);
-        if (match) {
-            return match[0]; // Devuelve el primer match encontrado
+    // Buscar dentro de los items crudos devueltos por el orquestador
+    for (const fila of datosPdf.allFilas) {
+        if (fila.items && Array.isArray(fila.items)) {
+            for (const item of fila.items) {
+                const match = item.str.match(regexBoleto);
+                if (match) {
+                    return match[0];
+                }
+            }
         }
     }
 
@@ -52,7 +53,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: false });
+        browser = await launchBrowser({ headless: true });
         const page = await browser.newPage();
 
         enviarProgreso('info', 'Navegando a la página de login de ATM...');
@@ -104,7 +105,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
             }
             const tempFilePath = path.join(tempDir, archivos[0]);
 
-            const datosPdf = await procesarPlanDePago(tempFilePath);
+            const datosPdf = await procesarPdfConFallback(tempFilePath);
             const fechaVenc = encontrarFechaVencimiento(datosPdf);
             const numeroBoleto = encontrarNumeroDeBoleto(datosPdf);
             const nuevoNombre = `PlanPago_${credencialesATM.cuit}_boleto_${numeroBoleto}_Consulta_${diaConsulta}.pdf`;

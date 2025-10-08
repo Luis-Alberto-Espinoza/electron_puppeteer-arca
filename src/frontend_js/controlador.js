@@ -314,7 +314,7 @@ async function cargarUsuariosEnSelector() {
                     option.dataset.claveATM = user.claveATM || '';
                     option.dataset.nombre = user.nombre || '';
                     option.dataset.apellido = user.apellido || '';
-                    option.dataset.empresasDisponibles = JSON.stringify(user.empresasDisponible || []);
+                    option.dataset.empresasDisponibles = JSON.stringify(user.puntosDeVenta || []);
 
                     selectUsuarios.appendChild(option);
                 });
@@ -331,7 +331,6 @@ async function cargarUsuariosEnSelector() {
             selectUsuarios.addEventListener('change', (e) => {
                 if (e.target.value) {
                     const selectedOption = selectUsuarios.options[selectUsuarios.selectedIndex];
-
                     // Reconstruct the full user object from the dataset
                     const usuarioCompleto = {
                         id: selectedOption.value,
