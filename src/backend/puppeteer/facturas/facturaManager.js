@@ -1,5 +1,5 @@
-const loginManager = require('./login/login_arca');
-const flujo_Factura = require('./hacerFacturas/flujo_Factura');
+const loginManager = require('./codigo/login/login_arca.js');
+const flujo_Factura = require('./codigo/hacerFacturas/flujos/flujo_Factura.js');
 async function iniciarProcesoFacturas(url, credenciales, datosProcesados, test = false, usuarioSeleccionado, empresa) {
     let browser; // La definimos aquí para que sea accesible en el bloque `finally`
     console.log("Iniciando proceso de manager de facturación...", usuarioSeleccionado);

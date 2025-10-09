@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
 const { comunicacionConFactura, comunicacionConLibroIVA } = require('../index.js');
-const facturaManager = require('../puppeteer/facturas/codigo/facturaManager'); // Importa el manager de facturas
+const facturaManager = require('../puppeteer/facturas/facturaManager.js'); // Importa el manager de facturas
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
 const procesarPdfConFallback = require('../extraerTablasPdf/extraerTablas_B_Manager.js'); // Importa la función orquestadora
 const fs = require('fs'); // <--- Agrega esto al inicio del archivo
@@ -90,8 +90,8 @@ const verificarCredencialesATM = require('../puppeteer/ATM/flujosDeTareas/flujo_
 
 
 // importar sistema de credenciales
-const ejecutar_verificacionCredenciales = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales');
-//import { ejecutar_verificacionCredenciales } from '../puppeteer/verificaCredenciales/flujo_verificaCredenciales.js';      
+const ejecutar_verificacionCredenciales = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP');
+//import { ejecutar_verificacionCredenciales } from '../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js';      
 
 let mainWindow;
 let puppeteerWindow;

@@ -1,4 +1,4 @@
-const fecha = require('./utils.js');
+const fecha = require('../utils.js');
 const path = require('path');
 const { fork } = require('child_process');
 const fs = require('fs').promises;
@@ -54,7 +54,7 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
 
             // Verifica que el archivo existe antes de intentar abrirlo
             if (await fs.access(screenshotPath).then(() => true).catch(() => false)) {
-                const visorProcess = fork(path.join(__dirname, 'visorImagen.js'));
+                const visorProcess = fork(path.join(__dirname, './../visorImagen.js'));
                 visorProcess.on('error', (err) => {
                     console.error('Error en el proceso visor:', err);
                 });

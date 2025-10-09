@@ -1,17 +1,16 @@
-// src/backend/puppeteer/facturas/codigo/hacerFacturas/index.js
 
-const { menuPrincipal } = require('./menuPrincipal');
-const { paso_0_seleccionarPuntoDeVenta } = require('./paso_0_PuntosDeVentas');
-const { paso_1_DatosDeEmision_Productos } = require('./paso_1_DatosDeEmision_Productos');
-const { paso_1_DatosDeEmision_Servicio } = require('./paso_1_DatosDeEmision_Servicio');
-const { paso_2_DatosDelReceptor } = require('./paso_2_DatosDelReceptor');
-const { paso_3_DatosDeOperacion_Factura_B } = require('./paso_3_DatosDeOperacion_Factura_B');
-const { paso_3_DatosDeOperacion_Factura_C } = require('./paso_3_DatosDeOperacion_Factura_C');
-const { paso_4_ConfirmarFactura } = require('./paso_4_ConfirmarFactura');
-const { paso_X_ConsultaComprobantes } = require('./consultaDeComprobante_formulario');
-const { elegirComprobanteEnLinea } = require('../../../elegirComprobanteEnLinea');
-const { elegirEmpresaDisponible } = require('../../../elegirEmpresaDisponible');
-const { extraerDatosDeConsultaComprobantes } = require('../consultarFacturas/comprobarFacturado');
+const { menuPrincipal } = require('../codigoXpagina/menuPrincipal');
+const { paso_0_seleccionarPuntoDeVenta } = require('../codigoXpagina/paso_0_PuntosDeVentas');
+const { paso_1_DatosDeEmision_Productos } = require('../codigoXpagina/paso_1_DatosDeEmision_Productos');
+const { paso_1_DatosDeEmision_Servicio } = require('../codigoXpagina/paso_1_DatosDeEmision_Servicio');
+const { paso_2_DatosDelReceptor } = require('../codigoXpagina/paso_2_DatosDelReceptor');
+const { paso_3_DatosDeOperacion_Factura_B } = require('../codigoXpagina/paso_3_DatosDeOperacion_Factura_B');
+const { paso_3_DatosDeOperacion_Factura_C } = require('../codigoXpagina/paso_3_DatosDeOperacion_Factura_C');
+const { paso_4_ConfirmarFactura } = require('../codigoXpagina/paso_4_ConfirmarFactura');
+const { paso_X_ConsultaComprobantes } = require('../codigoXpagina/consultaDeComprobante_formulario');
+const { elegirComprobanteEnLinea } = require('../../../../elegirComprobanteEnLinea');
+const { elegirEmpresaDisponible } = require('../../../../elegirEmpresaDisponible');
+const { extraerDatosDeConsultaComprobantes } = require('../../consultarFacturas/comprobarFacturado');
 
 let respuesta;
 

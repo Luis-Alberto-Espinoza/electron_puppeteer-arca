@@ -1,4 +1,4 @@
-const verificarYObtenerDatosAFIP = require('./verificaCredenciales/flujo_verificaCredenciales.js');
+const verificarYObtenerDatosAFIP = require('./verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
 const verificarCredencialesATM = require('./ATM/flujosDeTareas/flujo_verificaCredenciales_atm');
 
 /**
