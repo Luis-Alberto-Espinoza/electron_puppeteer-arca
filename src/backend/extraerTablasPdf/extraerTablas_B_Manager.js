@@ -19,6 +19,7 @@ const { procesarObligacionesPdf } = require('./leer_pdf_AFIP/detalle_de_obligaci
 const { procesarPlanDePagoPdf } = require('./leer_pdf_AFIP/detalle_pagos_estado_1.js');  
 const { procesarPlanDePagoPdf2 } = require('./leer_pdf_AFIP/detalle_pagos_estado_2.js');
 const { procesarImputacionesDeCuota } = require('./leer_pdf_AFIP/detalle_de_imputaciones_de_cuota.js');
+const { procesarCarrilRodriguezPena } = require('./leer_pdf_Bancos/carril_rodriguez_pena.js');
 
 const NOMBRE_ESPECIALISTAS = {
     'procesarDeudaPdf': 'Detalle_de_Deuda_Impaga',
@@ -40,6 +41,11 @@ const REGLAS_DE_SELECCION = {
         procesador: procesarBancoNacion,
         palabrasClave: ['Fecha:', 'Últimos movimientos', 'Fecha', 'Comprobante'],
         umbral: 4
+    },
+    carrilRodriguezPena: {
+        procesador: procesarCarrilRodriguezPena,
+        palabrasClave: ['CARRIL RODRIGUEZ', 'CUENTA CORRIENTE BANCARIA', 'Periodo del Extracto', '396 GODOY CRUZ'],
+        umbral: 3
     },
     constanciaFiscal: {// constancia fiscal 
         procesador: procesarConstanciaFiscal,
