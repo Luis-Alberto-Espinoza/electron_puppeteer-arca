@@ -66,6 +66,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     atm: {
         ejecutarFlujo: (datos) => ipcRenderer.invoke('atm:ejecutar-flujo', datos), // Para un solo usuario
         iniciarLote: (datos) => ipcRenderer.invoke('atm:iniciar-lote', datos),   // Para lotes
-        onLoteUpdate: (callback) => ipcRenderer.on('atm:lote-update', (_event, datos) => callback(datos))
+        onLoteUpdate: (callback) => ipcRenderer.on('atm:lote-update', (_event, datos) => callback(datos)),
+
+        // API para Tasa Cero
+        iniciarLoteTasaCero: (datos) => ipcRenderer.invoke('atm:iniciar-lote-tasa-cero', datos), // Para lotes de Tasa Cero
+        onTasaCeroUpdate: (callback) => ipcRenderer.on('atm:tasa-cero-update', (_event, datos) => callback(datos))
     },
 });

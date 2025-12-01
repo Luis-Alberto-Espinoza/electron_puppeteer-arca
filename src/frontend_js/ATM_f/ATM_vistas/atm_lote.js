@@ -9,6 +9,7 @@ window.inicializarModuloLoteATM = () => {
     const btnDeseleccionarTodos = document.getElementById('btnDeseleccionarTodos');
     const btnConstanciasLote = document.getElementById('btnConstanciasLote');
     const btnPlanesPagoLote = document.getElementById('btnPlanesPagoLote');
+    const btnTasaCeroLote = document.getElementById('btnTasaCeroLote');
 
     const resultadosContainer = document.getElementById('lote-resultados-container');
     const procesandoContainer = document.getElementById('lote-procesando-ahora');
@@ -92,28 +93,71 @@ window.inicializarModuloLoteATM = () => {
         }
     };
 
+    // --- LÓGICA DE TASA CERO ---
+    const iniciarProcesoLoteTasaCero = async () => {
+        const checkboxesSeleccionados = listaUsuariosDiv.querySelectorAll('input[type="checkbox"]:checked');
+        if (checkboxesSeleccionados.length === 0) {
+            alert('Por favor, seleccione al menos un usuario.');
+            return;
+        }
+
+        const clientesParaProcesar = Array.from(checkboxesSeleccionados).map(chk => chk._userData);
+        const nombresClientes = clientesParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
+
+        const confirmacion = confirm(`Se iniciará el proceso de Tasa Cero para los siguientes ${clientesParaProcesar.length} cliente(s):\n\n - ${nombresClientes}\n\n¿Desea continuar?`);
+        if (!confirmacion) return;
+
+        procesandoContainer.innerHTML = '<h3>Procesando Cliente Actual:</h3>'; // Resetear y poner título
+        finalizadosDiv.innerHTML = '';
+        procesandoContainer.style.display = 'block';
+        finalizadosContainer.style.display = 'none';
+
+        // Auto-scroll a los resultados
+        setTimeout(() => {
+            window.scrollTo({
+                top: document.body.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
+
+        try {
+            // Llamar a la API de Tasa Cero
+            // NOTA: El periodo se selecciona automáticamente (último disponible)
+            await window.electronAPI.atm.iniciarLoteTasaCero({
+                clientes: clientesParaProcesar
+            });
+        } catch (error) {
+            procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación al iniciar Tasa Cero: ${error.message}</div>`;
+        }
+    };
+
     if (btnConstanciasLote) btnConstanciasLote.addEventListener('click', () => iniciarProcesoLote('constanciaFiscal'));
     if (btnPlanesPagoLote) btnPlanesPagoLote.addEventListener('click', () => iniciarProcesoLote('planDePago'));
+    if (btnTasaCeroLote) btnTasaCeroLote.addEventListener('click', () => iniciarProcesoLoteTasaCero());
 
     // Map to keep track of userDivs
     const userDivMap = new Map();
 
-    // --- LISTENER DE PROGRESO ---
-    window.electronAPI.atm.onLoteUpdate((datos) => {
-        const { userId, nombre, status, mensaje, files = [], downloadDir, resumen } = datos;
+    // --- FUNCIÓN COMPARTIDA PARA MANEJAR ACTUALIZACIONES ---
+    const manejarActualizacionProgreso = (datos) => {
+        const { userId, clienteId, nombre, status, estado, mensaje, files = [], archivoPdf, downloadDir, resumen, periodo, caso } = datos;
 
-        if (status === 'general') return;
-        if (status === 'finalizado') {
+        // Normalizar los nombres de campos (compatibilidad entre ATM y Tasa Cero)
+        const idUsuario = userId || clienteId;
+        const estadoFinal = status || estado;
+
+        if (estadoFinal === 'general') return;
+        if (estadoFinal === 'finalizado') {
             procesandoContainer.style.display = 'none';
             return;
         }
 
-        let userDiv = userDivMap.get(userId);
+        let userDiv = userDivMap.get(idUsuario);
         if (!userDiv) {
             userDiv = document.createElement('div');
             userDiv.className = 'progreso-usuario';
-            userDiv.setAttribute('data-userid', userId);
-            userDivMap.set(userId, userDiv); // Store it in the map
+            userDiv.setAttribute('data-userid', idUsuario);
+            userDivMap.set(idUsuario, userDiv); // Store it in the map
 
             const userHeader = document.createElement('h4');
             userHeader.textContent = nombre;
@@ -125,7 +169,7 @@ window.inicializarModuloLoteATM = () => {
             userDiv.appendChild(messageContainer);
         }
 
-        const isFinalStatus = (status === 'exito_final' || status === 'error');
+        const isFinalStatus = (estadoFinal === 'exito_final' || estadoFinal === 'error' || estadoFinal === 'exito');
         const messageContainer = userDiv.querySelector('.message-container');
 
         // Update the message
@@ -147,7 +191,7 @@ window.inicializarModuloLoteATM = () => {
 
             // Add badge
             let badge = '';
-            if (status === 'error') {
+            if (estadoFinal === 'error') {
                 badge = '<span class="badge bg-danger">FALLO</span>';
             } else {
                 const fileCount = files.length;
@@ -164,7 +208,9 @@ window.inicializarModuloLoteATM = () => {
             userDiv.querySelector('h4').innerHTML = `${nombre} ${badge}`;
 
             // Add buttons and summary if success final with files
-            if (status === 'exito_final') {
+            if (estadoFinal === 'exito_final' || estadoFinal === 'exito') {
+                // Para Tasa Cero: archivoPdf es un string único, no un array
+                const archivosParaMostrar = files.length > 0 ? files : (archivoPdf ? [archivoPdf] : []);
                 if (resumen && Array.isArray(resumen) && resumen.length > 0) {
                     // 1. Calcular el Gran Total
                     const granTotal = resumen.reduce((sum, item) => {
@@ -201,7 +247,7 @@ window.inicializarModuloLoteATM = () => {
                     userDiv.appendChild(resumenContainer);
                 }
 
-                if (downloadDir && files && Array.isArray(files) && files.length > 0) {
+                if (downloadDir && archivosParaMostrar.length > 0) {
                     const dirWrapper = document.createElement('div');
                     dirWrapper.className = 'lote-dir-container d-flex justify-content-between align-items-center';
 
@@ -220,7 +266,7 @@ window.inicializarModuloLoteATM = () => {
 
                     const fileList = document.createElement('ul');
                     fileList.className = 'list-group mt-1';
-                    files.forEach(filePath => {
+                    archivosParaMostrar.forEach(filePath => {
                         const fileItem = document.createElement('li');
                         fileItem.className = 'list-group-item bg-transparent text-light d-flex justify-content-between align-items-center p-1';
                         const fileName = document.createElement('span');
@@ -246,6 +292,17 @@ window.inicializarModuloLoteATM = () => {
                 procesandoContainer.appendChild(userDiv);
             }
         }
+    };
+
+    // --- LISTENERS DE PROGRESO ---
+    // Listener para ATM general (Plan de Pago y Constancias)
+    window.electronAPI.atm.onLoteUpdate((datos) => {
+        manejarActualizacionProgreso(datos);
+    });
+
+    // Listener para Tasa Cero
+    window.electronAPI.atm.onTasaCeroUpdate((datos) => {
+        manejarActualizacionProgreso(datos);
     });
 
     cargarYMostrarUsuarios();

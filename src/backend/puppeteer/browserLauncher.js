@@ -1,12 +1,13 @@
 const fs = require('fs');
 const puppeteer = require('puppeteer-core');
 
-async function launchBrowser({ headless = true } = {}) { // <-- permite pasar headless
+async function launchBrowser({ headless = true, args = [] } = {}) { // <-- permite pasar headless y args personalizados
   // Se eliminó la dependencia de 'electron.screen' para que sea compatible con workers.
   // El tamaño de la ventana será el predeterminado de Puppeteer.
   let launchOptions = {
     headless, // <-- configurable
     args: [
+      ...args, // <-- Argumentos personalizados primero
       //`--window-size=${width},${height}`, // Removido
       //`--window-position=0,0`, // Removido
       '--no-first-run',
@@ -16,7 +17,10 @@ async function launchBrowser({ headless = true } = {}) { // <-- permite pasar he
       '--disable-dev-shm-usage',
       '--disable-background-timer-throttling',
       '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding'
+      '--disable-renderer-backgrounding',
+      '--disable-prompt-on-repost', // Desactivar prompt de repost
+      '--disable-hang-monitor', // Desactivar monitor de cuelgue
+      '--disable-features=DownloadBubble,DownloadBubbleV2' // Desactivar diálogo de descarga moderno
     ],
     defaultViewport: null,
     ignoreDefaultArgs: ['--enable-automation'],

@@ -14,7 +14,8 @@ const { launchBrowser } = require('../../browserLauncher.js');
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { navegarATasaCero } = require('../codigoXpagina/aplicativos-tasaCero.js');
 const {
-    ejecutarFlujoTasaCero
+    ejecutarFlujoTasaCero,
+    ejecutarFlujoReimpresion
 } = require('../codigoXpagina/tasaCero-formulario.js');
 const { getDownloadPath } = require('../../../utils/fileManager.js');
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
@@ -296,8 +297,64 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         );
 
         // ========================================================================
-        // PASO 7: Verificar que el flujo fue exitoso
+        // PASO 7: Verificar el resultado del flujo
         // ========================================================================
+
+        // CASO ESPECIAL: Solicitud ya aprobada - requiere reimpresión
+        if (resultado.necesitaReimpresion) {
+            console.log('🔄 [Flujo Tasa Cero] Solicitud ya fue aprobada. Ejecutando flujo de reimpresión...');
+            enviarProgreso('info', 'Su Solicitud ya fue aprobada. Reimprimiendo comprobante...');
+
+            // Ejecutar flujo de reimpresión
+            const resultadoReimpresion = await ejecutarFlujoReimpresion(
+                paginaTasaCero,
+                navegador,
+                tempDir, // Descarga al directorio temporal
+                nombreCliente,
+                credenciales.cuit
+            );
+
+            // Verificar resultado de reimpresión
+            if (!resultadoReimpresion.exito) {
+                enviarProgreso('error', resultadoReimpresion.mensaje || 'Error al reimprimir la solicitud');
+                return {
+                    exito: false,
+                    mensaje: resultadoReimpresion.mensaje || 'Error en reimpresión'
+                };
+            }
+
+            // Mover el archivo reimpreso a la carpeta destino
+            const archivosReimpresos = await fs.readdir(tempDir);
+            const archivoPdfReimpreso = archivosReimpresos.find(f => f.endsWith('.pdf'));
+
+            if (!archivoPdfReimpreso) {
+                enviarProgreso('error', 'No se encontró archivo PDF reimpreso.');
+                return {
+                    exito: false,
+                    mensaje: 'No se encontró archivo PDF reimpreso'
+                };
+            }
+
+            const rutaOrigenReimpreso = path.join(tempDir, archivoPdfReimpreso);
+            const rutaDestinoReimpreso = path.join(carpetaDestino, archivoPdfReimpreso);
+
+            enviarProgreso('info', 'Moviendo archivo reimpreso a carpeta de destino...');
+            await fs.rename(rutaOrigenReimpreso, rutaDestinoReimpreso);
+
+            console.log(`[Flujo Tasa Cero] Archivo reimpreso guardado: ${rutaDestinoReimpreso}`);
+            enviarProgreso('exito', `✅ Solicitud reimpresa. PDF descargado: ${archivoPdfReimpreso}`);
+
+            return {
+                exito: true,
+                success: true,
+                estado: 'ACEPTADA',
+                rutaArchivo: rutaDestinoReimpreso,
+                mensaje: 'Solicitud ya estaba aprobada. PDF reimpreso exitosamente.',
+                reimpresion: true
+            };
+        }
+
+        // CASO NORMAL: Error en el flujo
         if (!resultado.exito) {
             enviarProgreso('error', resultado.mensaje || 'Error desconocido al procesar la solicitud');
             return {

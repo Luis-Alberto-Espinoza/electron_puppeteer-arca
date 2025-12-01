@@ -73,6 +73,62 @@ ipcMain.handle('atm:iniciar-lote', async (evento, datos) => {
     }
 });
 
+// Handler para Tasa Cero - Procesar lote de clientes
+ipcMain.handle('atm:iniciar-lote-tasa-cero', async (evento, datos) => {
+    console.log('[BACKEND MAIN] Recibida solicitud para iniciar lote de Tasa Cero:', datos);
+    const { clientes } = datos;
+
+    try {
+        console.log('[BACKEND MAIN] Creando worker para Tasa Cero en segundo plano...');
+        const workerTasaCero = new Worker(path.join(__dirname, '../atm_Servicios/flujos/flujo_tasaCero.js'), {
+            workerData: {
+                clientes: clientes,
+                downloadsPath: app.getPath('downloads')
+                // NOTA: El periodo se selecciona automáticamente (último disponible)
+            }
+        });
+
+        workerTasaCero.on('message', (mensaje) => {
+            console.log('[BACKEND MAIN] Mensaje recibido del worker de Tasa Cero:', mensaje);
+            // Reenviar el mensaje de progreso a la ventana del frontend
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('atm:tasa-cero-update', mensaje);
+            }
+        });
+
+        workerTasaCero.on('error', (error) => {
+            console.error('[BACKEND MAIN] Error en el worker de Tasa Cero:', error);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send('atm:tasa-cero-update', {
+                    estado: 'error_fatal',
+                    mensaje: `Error crítico en el worker de Tasa Cero: ${error.message}`
+                });
+            }
+        });
+
+        workerTasaCero.on('exit', (codigoSalida) => {
+            if (codigoSalida !== 0) {
+                console.error(`[BACKEND MAIN] El worker de Tasa Cero se detuvo con el código de salida ${codigoSalida}`);
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('atm:tasa-cero-update', {
+                        estado: 'error_fatal',
+                        mensaje: `El worker de Tasa Cero se detuvo inesperadamente con el código ${codigoSalida}.`
+                    });
+                }
+            } else {
+                console.log('[BACKEND MAIN] El worker de Tasa Cero ha finalizado correctamente.');
+            }
+        });
+
+        // Responder inmediatamente al frontend que el proceso ha comenzado
+        return { exito: true, mensaje: 'El proceso de Tasa Cero por lote ha comenzado.' };
+
+    } catch (error) {
+        console.error('[BACKEND MAIN] Error al iniciar el worker de Tasa Cero:', error);
+        return { exito: false, error: `No se pudo iniciar el proceso de Tasa Cero: ${error.message}` };
+    }
+});
+
 // Importar el sistema de usuarios
 const { JsonStorage } = require('../usuario/usuario.js');
 let userStorage;
