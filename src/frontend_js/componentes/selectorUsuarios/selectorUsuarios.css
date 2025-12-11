@@ -1,0 +1,396 @@
+/* ========================================
+   COMPONENTE SELECTOR DE USUARIOS
+   Componente genérico reutilizable
+   ======================================== */
+
+/* Contenedor principal */
+.selector-usuarios-container {
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #1f2937;
+}
+
+/* ========================================
+   BUSCADOR
+   ======================================== */
+.buscador-section {
+    padding: 20px;
+    background: #f3f4f6;
+    border-bottom: 2px solid #d1d5db;
+    border-radius: 8px 8px 0 0;
+}
+
+.buscador-titulo {
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.buscador-input-wrapper {
+    display: flex;
+    gap: 10px;
+}
+
+.buscador-input {
+    flex: 1;
+    padding: 10px 14px;
+    font-size: 14px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    transition: all 0.2s;
+    outline: none;
+}
+
+.buscador-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.buscador-input::placeholder {
+    color: #9ca3af;
+}
+
+.btn-limpiar {
+    padding: 10px 20px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-limpiar:hover {
+    background: #dc2626;
+}
+
+/* ========================================
+   LISTA DE USUARIOS DISPONIBLES
+   ======================================== */
+.lista-disponibles-section {
+    margin-top: 20px;
+}
+
+.lista-header {
+    padding: 12px 16px;
+    background: #e5e7eb;
+    font-weight: 600;
+    font-size: 14px;
+    color: #374151;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lista-contador {
+    font-weight: 400;
+    color: #6b7280;
+}
+
+.lista-usuarios-disponibles {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+/* Scrollbar personalizado */
+.lista-usuarios-disponibles::-webkit-scrollbar {
+    width: 8px;
+}
+
+.lista-usuarios-disponibles::-webkit-scrollbar-track {
+    background: #f3f4f6;
+}
+
+.lista-usuarios-disponibles::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+}
+
+.lista-usuarios-disponibles::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* ========================================
+   FILAS DE USUARIOS DISPONIBLES
+   ======================================== */
+.usuario-fila {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+/* Colores alternados FIJOS por índice */
+.usuario-fila.par {
+    background-color: #ffffff;
+}
+
+.usuario-fila.impar {
+    background-color: #f9fafb;
+}
+
+/* Estado SELECCIONADO sobrescribe el color base */
+.usuario-fila.seleccionado {
+    background-color: #dbeafe !important;
+    border-left: 4px solid #3b82f6;
+    padding-left: 12px;
+}
+
+/* Hover (solo si NO está seleccionado) */
+.usuario-fila:not(.seleccionado):hover {
+    background-color: #f3f4f6;
+    transform: translateX(2px);
+}
+
+/* Checkmark visual */
+.usuario-check {
+    width: 20px;
+    height: 20px;
+    font-size: 16px;
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+
+.usuario-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.usuario-nombre {
+    font-weight: 500;
+    font-size: 14px;
+    color: #1f2937;
+}
+
+.usuario-cuit {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+/* ========================================
+   LISTA DE SELECCIONADOS
+   ======================================== */
+.lista-seleccionados-section {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 3px double #d1d5db;
+}
+
+.seleccionados-header {
+    padding: 12px 16px;
+    background: #dbeafe;
+    border: 2px solid #3b82f6;
+    border-radius: 6px 6px 0 0;
+    font-weight: 600;
+    font-size: 14px;
+    color: #1e40af;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.contador-validacion {
+    font-size: 13px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    background: white;
+}
+
+.contador-validacion.completo {
+    color: #059669;
+    background: #d1fae5;
+}
+
+.contador-validacion.incompleto {
+    color: #dc2626;
+    background: #fee2e2;
+}
+
+/* Tabla de seleccionados */
+.tabla-seleccionados-wrapper {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+.tabla-seleccionados {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tabla-seleccionados thead {
+    position: sticky;
+    top: 0;
+    background: #f9fafb;
+    z-index: 10;
+}
+
+.tabla-seleccionados th {
+    padding: 10px 8px;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.tabla-seleccionados th:first-child {
+    width: 60px;
+    text-align: center;
+}
+
+.tabla-seleccionados tbody tr {
+    transition: background 0.15s;
+}
+
+/* Colores alternados en tabla seleccionados */
+.tabla-seleccionados tbody tr.par {
+    background-color: #ffffff;
+}
+
+.tabla-seleccionados tbody tr.impar {
+    background-color: #f9fafb;
+}
+
+/* Fila sin medio de pago */
+.tabla-seleccionados tbody tr.sin-medio-pago {
+    border: 2px solid #ef4444;
+    background-color: #fef2f2 !important;
+}
+
+.tabla-seleccionados tbody tr:hover {
+    background-color: #f3f4f6;
+}
+
+.tabla-seleccionados td {
+    padding: 12px 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+/* Botón quitar */
+.btn-quitar {
+    width: 32px;
+    height: 32px;
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 700;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-quitar:hover {
+    background: #dc2626;
+    color: white;
+    transform: scale(1.1);
+}
+
+/* Radio buttons de medios de pago */
+.medio-pago-cell {
+    text-align: center;
+    padding: 8px 4px;
+}
+
+.medio-pago-radio {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #3b82f6;
+}
+
+/* Mensaje tabla vacía */
+.tabla-vacia {
+    padding: 40px 20px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 14px;
+}
+
+/* ========================================
+   ADVERTENCIAS Y BOTONES
+   ======================================== */
+.advertencia-medios {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 6px;
+    color: #92400e;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-generar-vep {
+    margin-top: 20px;
+    width: 100%;
+    padding: 14px 24px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-generar-vep:hover:not(:disabled) {
+    background: #2563eb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-generar-vep:disabled {
+    background: #d1d5db;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 768px) {
+    .tabla-seleccionados {
+        font-size: 12px;
+    }
+
+    .tabla-seleccionados th,
+    .tabla-seleccionados td {
+        padding: 8px 4px;
+    }
+
+    .usuario-nombre {
+        font-size: 13px;
+    }
+
+    .usuario-cuit {
+        font-size: 11px;
+    }
+}

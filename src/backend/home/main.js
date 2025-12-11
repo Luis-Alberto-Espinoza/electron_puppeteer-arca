@@ -8,6 +8,7 @@ const procesarPdfConFallback = require('../extraerTablasPdf/extraerTablas_B_Mana
 const fs = require('fs'); // <--- Agrega esto al inicio del archivo
 
 const { manejarEventoATM } = require('../atm_Servicios/atm_Manager.js');
+const vepManager = require('../puppeteer/VEP/vepManager.js');
 
 ipcMain.handle('atm:ejecutar-flujo', async (event, evento) => {
     // console.log('Evento recibido en main para manejarEventoATM:', evento);
@@ -535,6 +536,215 @@ app.whenReady().then(async () => {
 });
 
 // App event listeners
+// ========================================
+// HANDLER PARA VEP (Volante Electrónico de Pago)
+// ========================================
+ipcMain.handle('vep:generar', async (event, datos) => {
+    console.log('🔵 BACKEND: Recibida solicitud para generar VEP');
+    console.log('Datos recibidos:', JSON.stringify(datos, null, 2));
+
+    const { usuarios, periodosSeleccionados, clientesSeleccionadosParaProcesar } = datos;
+
+    if (!usuarios || !Array.isArray(usuarios) || usuarios.length === 0) {
+        return {
+            success: false,
+            message: 'No se recibieron usuarios para procesar'
+        };
+    }
+
+    try {
+        const url = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
+
+        // ==============================================
+        // PRIMERA PASADA: Procesar TODOS los clientes
+        // ==============================================
+        if (!periodosSeleccionados && !clientesSeleccionadosParaProcesar) {
+            console.log(`📋 Primera pasada: Procesando ${usuarios.length} cliente(s)...`);
+
+            const procesadosAuto = [];
+            const requierenSeleccion = [];
+            const errores = [];
+
+            for (let i = 0; i < usuarios.length; i++) {
+                const item = usuarios[i];
+                const { usuario, medioPago } = item;
+
+                console.log(`\n🔵 [${i + 1}/${usuarios.length}] Procesando ${usuario.nombre} (${usuario.cuit})`);
+
+                try {
+                    // Obtener credenciales
+                    const dataBD = userStorage.loadData();
+                    const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
+
+                    if (!usuarioCompleto) {
+                        throw new Error(`No se pudieron obtener las credenciales`);
+                    }
+
+                    const credenciales = {
+                        usuario: usuarioCompleto.cuit || usuario.cuit,
+                        contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
+                    };
+
+                    // Llamar al VEP Manager SIN períodos seleccionados
+                    const downloadsPath = app.getPath('downloads');
+                    const resultado = await vepManager.iniciarProceso(url, credenciales, item, null, downloadsPath);
+
+                    if (resultado.requiereSeleccion) {
+                        // Cliente con múltiples períodos
+                        console.log(`  ⏸️ ${usuario.nombre} requiere selección (${resultado.periodos.length} períodos)`);
+                        requierenSeleccion.push({
+                            usuario: usuario,
+                            medioPago: medioPago,
+                            periodos: resultado.periodos
+                        });
+                    } else if (resultado.success && resultado.autoprocesado) {
+                        // Cliente con 1 período (procesado automáticamente)
+                        console.log(`  ✅ ${usuario.nombre} procesado automáticamente`);
+                        procesadosAuto.push({
+                            usuario: usuario,
+                            medioPago: medioPago,
+                            pdfDescargado: resultado.pdfDescargado
+                        });
+                    } else if (resultado.success) {
+                        // Completado exitosamente (segunda pasada o sin períodos)
+                        console.log(`  ✅ ${usuario.nombre} completado`);
+                        procesadosAuto.push({
+                            usuario: usuario,
+                            medioPago: medioPago,
+                            pdfDescargado: resultado.pdfDescargado
+                        });
+                    } else {
+                        // Error
+                        console.error(`  ❌ ${usuario.nombre} falló: ${resultado.message}`);
+                        errores.push({
+                            usuario: usuario,
+                            medioPago: medioPago,
+                            error: resultado.message
+                        });
+                    }
+
+                } catch (error) {
+                    console.error(`❌ Error procesando ${usuario.nombre}:`, error);
+                    errores.push({
+                        usuario: usuario,
+                        medioPago: medioPago,
+                        error: error.message
+                    });
+                }
+
+                // Enviar progreso al frontend
+                if (mainWindow && !mainWindow.isDestroyed()) {
+                    mainWindow.webContents.send('vep:update', {
+                        tipo: 'progreso',
+                        usuario: usuario.nombre,
+                        procesados: i + 1,
+                        total: usuarios.length
+                    });
+                }
+            }
+
+            console.log(`\n📊 Resumen primera pasada:`);
+            console.log(`   ✅ Procesados automáticamente: ${procesadosAuto.length}`);
+            console.log(`   ⏸️ Requieren selección: ${requierenSeleccion.length}`);
+            console.log(`   ❌ Errores: ${errores.length}`);
+
+            // Si todos fueron procesados automáticamente o fallaron, retornar resultado final
+            if (requierenSeleccion.length === 0) {
+                return {
+                    success: true,
+                    message: 'Todos los clientes procesados',
+                    procesadosAuto: procesadosAuto,
+                    errores: errores
+                };
+            }
+
+            // Retornar agrupación para que el usuario seleccione
+            return {
+                success: true,
+                requiereSeleccion: true,
+                procesadosAuto: procesadosAuto,
+                requierenSeleccion: requierenSeleccion,
+                errores: errores
+            };
+        }
+
+        // =====================================================
+        // SEGUNDA PASADA: Procesar solo clientes con selección
+        // =====================================================
+        console.log(`📋 Segunda pasada: Procesando clientes con períodos seleccionados...`);
+        console.log(`   Períodos por cliente:`, periodosSeleccionados);
+
+        const resultadosFinales = [];
+
+        for (const clienteId of Object.keys(periodosSeleccionados)) {
+            const item = usuarios.find(u => String(u.usuario.id) === String(clienteId));
+            if (!item) continue;
+
+            const { usuario, medioPago } = item;
+            const periodosCliente = periodosSeleccionados[clienteId];
+
+            console.log(`\n🔵 Procesando ${usuario.nombre} con ${periodosCliente.length} período(s)`);
+
+            try {
+                const dataBD = userStorage.loadData();
+                const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
+
+                const credenciales = {
+                    usuario: usuarioCompleto.cuit || usuario.cuit,
+                    contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
+                };
+
+                // Llamar con los períodos seleccionados
+                const downloadsPath = app.getPath('downloads');
+                const resultado = await vepManager.iniciarProceso(url, credenciales, item, periodosCliente, downloadsPath);
+
+                if (resultado.success) {
+                    console.log(`  ✅ ${usuario.nombre} completado`);
+                    resultadosFinales.push({
+                        usuario: usuario,
+                        medioPago: medioPago,
+                        status: 'success',
+                        pdfDescargado: resultado.pdfDescargado
+                    });
+                } else {
+                    console.error(`  ❌ ${usuario.nombre} falló`);
+                    resultadosFinales.push({
+                        usuario: usuario,
+                        medioPago: medioPago,
+                        status: 'error',
+                        error: resultado.message
+                    });
+                }
+
+            } catch (error) {
+                console.error(`❌ Error en segunda pasada:`, error);
+                resultadosFinales.push({
+                    usuario: usuario,
+                    medioPago: medioPago,
+                    status: 'error',
+                    error: error.message
+                });
+            }
+        }
+
+        console.log(`\n✅ Segunda pasada completada`);
+
+        return {
+            success: true,
+            message: 'Procesamiento completado',
+            resultados: resultadosFinales
+        };
+
+    } catch (error) {
+        console.error('❌ Error general generando VEPs:', error);
+        return {
+            success: false,
+            message: `Error al generar VEPs: ${error.message}`,
+            error: error.toString()
+        };
+    }
+});
+
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();

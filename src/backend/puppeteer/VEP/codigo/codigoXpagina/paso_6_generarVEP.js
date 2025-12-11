@@ -1,0 +1,156 @@
+/**
+ * PASO 6: Click en "Generar VEP o QR"
+ * Carga nueva vista en la misma pestaña
+ *
+ * IMPORTANTE: Existen dos botones posibles según la sección seleccionada:
+ * - GenerarVEPAlone: usado cuando hay una sola tabla (ej: Provincial)
+ * - GenerarVEP: usado cuando hay múltiples tablas (ej: Monotributo)
+ * Ambos existen en el DOM pero uno está oculto con display: none
+ */
+async function ejecutar(page) {
+    try {
+        console.log("  → Buscando botones 'Generar VEP o QR' (GenerarVEPAlone o GenerarVEP)...");
+
+        // 1. Definir los selectores de los dos botones
+        const selectorVEPAlone = 'input[name="GenerarVEPAlone"]';
+        const selectorVEP = 'input[name="GenerarVEP"]';
+        const selectorVEPMONO = 'input[name="GenerarVEPMONO"]';
+
+        // DEBUG: Verificar qué botones existen y su estado
+        console.log("  → DEBUG: Verificando estado de todos los botones...");
+        const estadoBotones = await page.evaluate(() => {
+            const botones = [];
+
+            // Buscar todos los botones posibles
+            const ids = ['GenerarVEP', 'GenerarVEPAlone', 'GenerarVEPMONO'];
+            ids.forEach(id => {
+                const btn = document.getElementById(id);
+                if (btn) {
+                    const estilo = window.getComputedStyle(btn);
+                    botones.push({
+                        id: id,
+                        name: btn.getAttribute('name'),
+                        type: btn.type,
+                        display: estilo.display,
+                        visibility: estilo.visibility,
+                        disabled: btn.disabled,
+                        haydeuda: btn.getAttribute('haydeuda'),
+                        visible: estilo.display !== 'none' && estilo.visibility !== 'hidden'
+                    });
+                }
+            });
+
+            // También verificar qué div está visible
+            const divs = ['divAM', 'divPROV', 'divSD'];
+            const divsVisibles = {};
+            divs.forEach(divId => {
+                const div = document.getElementById(divId);
+                if (div) {
+                    const estilo = window.getComputedStyle(div);
+                    divsVisibles[divId] = estilo.display !== 'none';
+                }
+            });
+
+            return { botones, divsVisibles };
+        });
+
+        console.log("  → DEBUG: Estado de botones:", JSON.stringify(estadoBotones.botones, null, 2));
+        console.log("  → DEBUG: Divs visibles:", JSON.stringify(estadoBotones.divsVisibles, null, 2));
+
+        // El selector CSS para buscar CUALQUIERA de los tres
+        const selectores = `${selectorVEPAlone}, ${selectorVEP}, ${selectorVEPMONO}`;
+
+        // 2. Esperar al menos uno de los botones (SIN verificar visible por ahora)
+        await page.waitForSelector(selectores, {
+            timeout: 15000
+        });
+
+        console.log("  → Botón encontrado. Esperando que esté habilitado...");
+
+        // Espera adicional para asegurar la habilitación
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 3. Hacer click usando JavaScript en el botón que esté presente, visible y habilitado
+        const resultado = await page.evaluate((selAlone, selVEP, selMONO) => {
+            let boton = null;
+            let nombreBoton = '';
+
+            // Orden de prioridad: GenerarVEPAlone -> GenerarVEP -> GenerarVEPMONO
+            const botonesAPrueba = [
+                { selector: selAlone, nombre: 'GenerarVEPAlone' },
+                { selector: selVEP, nombre: 'GenerarVEP' },
+                { selector: selMONO, nombre: 'GenerarVEPMONO' }
+            ];
+
+            for (const item of botonesAPrueba) {
+                const btn = document.querySelector(item.selector);
+                if (btn) {
+                    const estilo = window.getComputedStyle(btn);
+                    if (estilo.display !== 'none' && estilo.visibility !== 'hidden' && !btn.disabled) {
+                        boton = btn;
+                        nombreBoton = item.nombre;
+                        break;
+                    }
+                }
+            }
+
+            // Si encontramos un botón visible y habilitado, hacemos click
+            if (boton) {
+                boton.click();
+                return { clicked: true, boton: nombreBoton };
+            }
+            return { clicked: false, boton: null };
+        }, selectorVEPAlone, selectorVEP, selectorVEPMONO);
+
+        if (!resultado.clicked) {
+            throw new Error('Ninguno de los botones GenerarVEP (Alone o normal) está disponible o habilitado.');
+        }
+
+        console.log(`  → Click realizado en: ${resultado.boton}. Esperando nueva pestaña...`);
+
+        // 4. Detectar y cambiar a la nueva pestaña que se abre
+        const browser = page.browser();
+
+        // Esperar a que aparezca una nueva pestaña
+        console.log("  → Esperando que se abra la nueva pestaña...");
+        const nuevaPagina = await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Timeout esperando nueva pestaña (30s)'));
+            }, 30000);
+
+            browser.once('targetcreated', async (target) => {
+                clearTimeout(timeout);
+                try {
+                    const newPage = await target.page();
+                    if (newPage) {
+                        console.log("  → Nueva pestaña detectada. Esperando carga completa...");
+                        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {
+                            console.log("  ⚠️ networkidle2 no alcanzado, continuando...");
+                        });
+                        resolve(newPage);
+                    }
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        });
+
+        console.log("  ✅ Paso 6 completado: Nueva pestaña de VEP cargada");
+
+        return {
+            success: true,
+            message: "Nueva pestaña de VEP cargada correctamente",
+            botonUtilizado: resultado.boton,
+            newPage: nuevaPagina
+        };
+
+    } catch (error) {
+        console.error("  ❌ Error en paso_6_generarVEP:", error);
+        return {
+            success: false,
+            message: error.message
+        };
+    }
+}
+
+module.exports = { ejecutar };

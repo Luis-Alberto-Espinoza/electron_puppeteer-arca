@@ -72,4 +72,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         iniciarLoteTasaCero: (datos) => ipcRenderer.invoke('atm:iniciar-lote-tasa-cero', datos), // Para lotes de Tasa Cero
         onTasaCeroUpdate: (callback) => ipcRenderer.on('atm:tasa-cero-update', (_event, datos) => callback(datos))
     },
+
+    // APIs para VEP (Volante Electrónico de Pago)
+    vep: {
+        generar: (datos) => ipcRenderer.invoke('vep:generar', datos),
+        onVEPUpdate: (callback) => ipcRenderer.on('vep:update', (_event, datos) => callback(datos))
+    },
 });

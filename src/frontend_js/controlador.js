@@ -28,11 +28,8 @@ let selectorListenerAgregado = false; // Flag para asegurar que el listener del 
 const MODULOS_PRINCIPALES = [
     {
         btn: 'btnEntrarAfip',
-        modulo: 'selectorUsuarioDiv',
-        callback: () => {
-            onUsuarioSeleccionado = mostrarModulosAfip;
-            mostrarSelectorUsuario();
-        }
+        modulo: 'homeAfipDiv',
+        callback: cargarModuloHomeAfip
     },
     {
         btn: 'btnUsuarios',
@@ -66,6 +63,12 @@ function mostrarSoloModulo(idMostrar) {
         if (elemento) elemento.classList.add('contenido-oculto');
     });
 
+    // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv'].forEach(id => {
+        const elemento = document.getElementById(id);
+        if (elemento) elemento.classList.add('contenido-oculto');
+    });
+
     ocultarSubmodulos(); // Oculta todos los submódulos
 
     // Mostrar el módulo solicitado
@@ -93,6 +96,21 @@ function inicializarBotonesPrincipales() {
 // ========================================
 document.addEventListener('DOMContentLoaded', () => {
     inicializarBotonesPrincipales(); // Inicializar toda la navegación centralizada
+
+    // Listeners para eventos personalizados de los módulos
+    document.addEventListener('cargarModuloVEP', () => {
+        cargarModuloGenerarVEP();
+    });
+
+    document.addEventListener('cargarModuloFactura', () => {
+        mostrarSoloModulo('selectorUsuarioDiv');
+        cargarModuloGenerarFactura();
+    });
+
+    document.addEventListener('volverHomeAfip', () => {
+        mostrarSoloModulo('homeAfipDiv');
+        cargarModuloHomeAfip();
+    });
 });
 
 // ========================================
@@ -258,6 +276,150 @@ async function cargarModuloLoteATM() {
 }
 // Exponer la función globalmente para que pueda ser llamada desde otros scripts
 window.cargarModuloLoteATM = cargarModuloLoteATM;
+
+/**
+ * Carga el módulo Home AFIP (menú de servicios AFIP)
+ */
+async function cargarModuloHomeAfip() {
+    const homeAfipDiv = document.getElementById('homeAfipDiv');
+
+    if (homeAfipDiv) {
+        homeAfipDiv.innerHTML = ''; // Limpiar contenido anterior
+
+        try {
+            // Rutas de los archivos del módulo
+            const htmlPath = '../home_AFIP/home_afip.html';
+            const cssPath = '../home_AFIP/home_afip.css';
+            const jsPath = '../home_AFIP/home_afip.js';
+
+            // Cargar HTML del módulo
+            const response = await fetch(htmlPath);
+            if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+            const html = await response.text();
+            homeAfipDiv.innerHTML = html;
+
+            // Cargar CSS solo si no está presente
+            if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+                const cssLink = document.createElement('link');
+                cssLink.rel = 'stylesheet';
+                cssLink.href = cssPath;
+                document.head.appendChild(cssLink);
+            }
+
+            // Cargar JavaScript e inicializar funcionalidad
+            const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+            if (oldScript) oldScript.remove();
+
+            const script = document.createElement('script');
+            script.src = jsPath;
+            script.defer = true;
+            script.onload = () => {
+                if (window.inicializarHomeAfip) {
+                    window.inicializarHomeAfip();
+                }
+            };
+            document.head.appendChild(script);
+
+        } catch (error) {
+            console.error('Error cargando módulo Home AFIP:', error);
+            homeAfipDiv.innerHTML = '<div style="color:red;">Error cargando el módulo Home AFIP.</div>';
+        }
+    }
+}
+
+/**
+ * Carga el módulo de Generar VEP (Volante Electrónico de Pago)
+ */
+async function cargarModuloGenerarVEP() {
+    console.log('🔵 cargarModuloGenerarVEP() - Iniciando...');
+    mostrarSoloModulo('generarVEPDiv');
+    const generarVEPDiv = document.getElementById('generarVEPDiv');
+
+    if (generarVEPDiv) {
+        generarVEPDiv.innerHTML = ''; // Limpiar contenido anterior
+
+        try {
+            // Rutas de los archivos del módulo (NUEVOS)
+            const htmlPath = '../generar_VEP/index.html';
+            const cssPath = '../generar_VEP/styles.css';
+            const jsPath = '../generar_VEP/controlador_nuevo.js';
+
+            // Rutas del componente genérico
+            const selectorCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+            const selectorJsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+
+            console.log('🔵 Cargando HTML desde:', htmlPath);
+            // Cargar HTML del módulo
+            const response = await fetch(htmlPath);
+            if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+            const html = await response.text();
+            generarVEPDiv.innerHTML = html;
+            console.log('✅ HTML cargado correctamente');
+
+            // Cargar CSS del componente genérico
+            if (!document.head.querySelector(`link[href="${selectorCssPath}"]`)) {
+                const selectorCssLink = document.createElement('link');
+                selectorCssLink.rel = 'stylesheet';
+                selectorCssLink.href = selectorCssPath;
+                document.head.appendChild(selectorCssLink);
+                console.log('✅ CSS componente genérico cargado');
+            }
+
+            // Cargar CSS específico de VEP
+            if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+                const cssLink = document.createElement('link');
+                cssLink.rel = 'stylesheet';
+                cssLink.href = cssPath;
+                document.head.appendChild(cssLink);
+                console.log('✅ CSS VEP cargado');
+            }
+
+            // Cargar JS del componente genérico primero
+            const oldSelectorScript = document.head.querySelector(`script[src="${selectorJsPath}"]`);
+            if (oldSelectorScript) oldSelectorScript.remove();
+
+            const selectorScript = document.createElement('script');
+            selectorScript.src = selectorJsPath;
+            selectorScript.defer = true;
+            selectorScript.onload = () => {
+                console.log('✅ Script componente genérico cargado');
+
+                // AHORA cargar el controlador de VEP como módulo ES6 (después de que el genérico esté listo)
+                const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+                if (oldScript) oldScript.remove();
+
+                const script = document.createElement('script');
+                script.type = 'module'; // ES6 modules
+                script.src = jsPath;
+                script.onload = () => {
+                    console.log('✅ Módulo controlador VEP cargado. Verificando window.inicializarGenerarVEP...');
+                    if (window.inicializarGenerarVEP) {
+                        console.log('✅ Llamando a inicializarGenerarVEP()');
+                        window.inicializarGenerarVEP();
+                    } else {
+                        console.error('❌ window.inicializarGenerarVEP no está definida');
+                    }
+                };
+                document.head.appendChild(script);
+            };
+            document.head.appendChild(selectorScript);
+
+        } catch (error) {
+            console.error('❌ Error cargando módulo Generar VEP:', error);
+            generarVEPDiv.innerHTML = '<div style="color:red;">Error cargando el módulo Generar VEP.</div>';
+        }
+    } else {
+        console.error('❌ No se encontró el elemento generarVEPDiv');
+    }
+}
+
+/**
+ * Carga el módulo de Generar Factura (selector de usuario existente)
+ */
+function cargarModuloGenerarFactura() {
+    onUsuarioSeleccionado = mostrarModulosAfip;
+    mostrarSelectorUsuario();
+}
 
 
 // ========================================

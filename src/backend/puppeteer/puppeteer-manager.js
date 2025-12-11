@@ -24,7 +24,7 @@ async function nuevaPagina(url, encabezados) {
 async function cerrarNavegador() {
   try {
     if (browser && browser.isConnected()) {
-      await browser.close();
+    //  await browser.close();
       browser = null; // Resetea la variable del navegador
     }
   } catch (error) {

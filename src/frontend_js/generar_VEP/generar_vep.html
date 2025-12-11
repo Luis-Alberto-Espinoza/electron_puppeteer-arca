@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generar VEP</title>
+</head>
+<body>
+    <div class="contenedor-generar-vep">
+        <div class="cabecera-vep">
+            <h2 class="titulo-vep">Generar Volante Electrónico de Pago (VEP)</h2>
+            <p class="descripcion-vep">Seleccione el usuario y el medio de pago para generar el VEP</p>
+        </div>
+
+        <div class="tabla-container">
+            <table class="tabla-usuarios-vep" id="tablaUsuariosVEP">
+                <thead>
+                    <tr>
+                        <th class="col-usuario">Usuario</th>
+                        <th class="col-cuit">CUIT</th>
+                        <th class="col-medio-pago">
+                            <div class="header-medio-pago">
+                                <img src="../generar_VEP/assets/pago_qr.gif" alt="Pago QR" class="img-medio-pago">
+                                <span>Pago QR</span>
+                            </div>
+                        </th>
+                        <th class="col-medio-pago">
+                            <div class="header-medio-pago">
+                                <img src="../generar_VEP/assets/pagar_link.gif" alt="Pagar Link" class="img-medio-pago">
+                                <span>Pagar Link</span>
+                            </div>
+                        </th>
+                        <th class="col-medio-pago">
+                            <div class="header-medio-pago">
+                                <img src="../generar_VEP/assets/mis_cuentas.gif" alt="Pago Mis Cuentas" class="img-medio-pago">
+                                <span>Mis Cuentas</span>
+                            </div>
+                        </th>
+                        <th class="col-medio-pago">
+                            <div class="header-medio-pago">
+                                <img src="../generar_VEP/assets/interbanking.gif" alt="Interbanking" class="img-medio-pago">
+                                <span>Interbanking</span>
+                            </div>
+                        </th>
+                        <th class="col-medio-pago">
+                            <div class="header-medio-pago">
+                                <img src="../generar_VEP/assets/xn_group.gif" alt="XN Group" class="img-medio-pago">
+                                <span>XN Group</span>
+                            </div>
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="cuerpoTablaVEP">
+                    <!-- Las filas se cargarán dinámicamente desde JavaScript -->
+                    <tr>
+                        <td colspan="7" class="cargando-usuarios">
+                            Cargando usuarios...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="acciones-vep">
+            <button id="btnGenerarVEPProcesar" class="btn-procesar-vep" disabled>
+                Generar VEP
+            </button>
+            <button id="btnVolverHomeAfip" class="btn-volver">
+                Volver
+            </button>
+        </div>
+
+        <div id="mensajeEstadoVEP" class="mensaje-estado oculto"></div>
+    </div>
+
+    <!-- Modal de Selección de Períodos -->
+    <div id="modalSeleccionPeriodos" class="modal-periodos" style="display: none;">
+        <div class="modal-contenido-periodos">
+            <div class="modal-cabecera">
+                <h3>Seleccione los períodos a pagar</h3>
+                <p class="modal-descripcion">Se encontraron obligaciones pendientes. Seleccione los períodos que desea incluir en el VEP:</p>
+            </div>
+
+            <div class="modal-tabla-container">
+                <table class="tabla-periodos">
+                    <thead>
+                        <tr>
+                            <th class="col-seleccionar">Seleccionar</th>
+                            <th class="col-periodo">Período</th>
+                            <th class="col-impuesto">Impuesto</th>
+                            <th class="col-categoria">Categoría</th>
+                            <th class="col-importe">Importe</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cuerpoTablaPeriodos">
+                        <!-- Se llena dinámicamente desde JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-acciones">
+                <button id="btnConfirmarPeriodos" class="btn-confirmar-periodos" disabled>
+                    Confirmar Selección
+                </button>
+                <button id="btnCancelarPeriodos" class="btn-cancelar-periodos">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
