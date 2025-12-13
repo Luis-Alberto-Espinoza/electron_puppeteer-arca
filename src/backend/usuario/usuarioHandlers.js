@@ -10,6 +10,28 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 return { success: false, error: 'Ya existe un usuario con ese CUIT o CUIL' };
             }
 
+            // Determinar estado de verificación AFIP
+            let estadoAFIP = 'no_aplica';
+            if (userData.claveAFIP) {
+                // Si fue verificado previamente, usar estado 'validado'
+                if (userData.verificadoAFIP === true) {
+                    estadoAFIP = 'validado';
+                } else {
+                    estadoAFIP = 'pendiente';
+                }
+            }
+
+            // Determinar estado de verificación ATM
+            let estadoATM = 'no_aplica';
+            if (userData.claveATM) {
+                // Si fue verificado previamente, usar estado 'validado'
+                if (userData.verificadoATM === true) {
+                    estadoATM = 'validado';
+                } else {
+                    estadoATM = 'pendiente';
+                }
+            }
+
             const newUser = {
                 id: userStorage.generateId(),
                 nombre: userData.nombre || null,
@@ -21,9 +43,9 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 claveATM: userData.claveATM,
                 empresasDisponible: userData.empresasDisponible || [],
                 fechaCreacion: new Date().toISOString(),
-                estado_afip: userData.claveAFIP ? 'pendiente' : 'no_aplica',
-                estado_atm: userData.claveATM ? 'pendiente' : 'no_aplica',
-                fechaVerificacion: null
+                estado_afip: estadoAFIP,
+                estado_atm: estadoATM,
+                fechaVerificacion: (userData.verificadoAFIP || userData.verificadoATM) ? new Date().toISOString() : null
             };
 
             data.users.push(newUser);
@@ -140,17 +162,172 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
     const { gestionarValidacion } = require('../puppeteer/verificacionManager.js');
     const { launchBrowserAndPage } = require('../puppeteer/browserLauncher.js');
 
-    const { ejecutar_verificacionCredenciales } = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP');
+    const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP');
+    const verificarCredencialesATM = require('../puppeteer/ATM/flujosDeTareas/flujo_verificaCredenciales_atm');
 
     ipcMain.handle('user:verify-on-create', async (event, credenciales) => {
-        console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit);
+        console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);
+
+        // NUEVO: Usaremos el flujo unificado de verificación
+        // Primero, obtenemos puntos de venta si es AFIP (esto sigue siendo necesario para crear usuario)
+        let puntosDeVentaArray = [];
+        let browser;
+
         try {
-            const resultado = await ejecutar_verificacionCredenciales(credenciales);
-            console.log('[Verificación Manual] Verificación completada. Resultado:', resultado);
-            return resultado;
+            // Si tiene AFIP, obtener puntos de venta primero
+            if (credenciales.claveAFIP) {
+                const { browser: b, page } = await launchBrowserAndPage({ headless: false });
+                browser = b;
+                console.log('[Verificación Manual] Obteniendo puntos de venta de AFIP...');
+                const afipResult = await verificarYObtenerDatosAFIP(page, credenciales);
+                if (afipResult.success) {
+                    puntosDeVentaArray = afipResult.data.puntosDeVentaArray || [];
+                    console.log('[Verificación Manual] Puntos de venta obtenidos:', puntosDeVentaArray);
+                }
+                await browser.close();
+                browser = null;
+            }
+
+            // Crear un usuario temporal para verificar (sin guardarlo)
+            const tempUser = {
+                id: 'temp_' + Date.now(),
+                nombre: credenciales.nombre || 'Verificación Temporal',
+                cuit: credenciales.cuit || null,
+                cuil: credenciales.cuil || null,
+                claveAFIP: credenciales.claveAFIP || null,
+                claveATM: credenciales.claveATM || null,
+                tipoContribuyente: credenciales.tipoContribuyente || null
+            };
+
+            // Guardar usuario temporal
+            const data = userStorage.loadData();
+            data.users.push(tempUser);
+            userStorage.saveData(data);
+
+            // Preparar jobs de verificación
+            const verificationJobs = [];
+            if (credenciales.claveAFIP) {
+                verificationJobs.push({ userId: tempUser.id, service: 'afip' });
+            }
+            if (credenciales.claveATM) {
+                verificationJobs.push({ userId: tempUser.id, service: 'atm' });
+            }
+
+            // Llamar al handler unificado (sin eventos IPC para no confundir al frontend)
+            console.log('[Verificación Manual] Llamando a verificación unificada...');
+            const result = await new Promise(async (resolve) => {
+                // Ejecutar la lógica de verify-credentials pero sin eventos
+                const stats = { validados: 0, con_fallos: 0, no_encontrados: 0 };
+                let verificationSuccess = false;
+
+                try {
+                    const { browser: launchedBrowser } = await launchBrowserAndPage({ headless: false });
+                    browser = launchedBrowser;
+
+                    const userIndex = data.users.findIndex(u => String(u.id) === String(tempUser.id));
+                    const usuario = data.users[userIndex];
+                    const servicesToVerify = verificationJobs.map(j => j.service);
+
+                    // Validar
+                    await gestionarValidacion(browser, usuario, servicesToVerify);
+
+                    // Traducir resultados
+                    const finalResult = {
+                        success: false,
+                        puntosDeVentaArray,
+                        error: null,
+                        verificaciones: {
+                            afip: { intentado: false, exitoso: false, error: null },
+                            atm: { intentado: false, exitoso: false, error: null }
+                        }
+                    };
+
+                    if (servicesToVerify.includes('afip')) {
+                        finalResult.verificaciones.afip.intentado = true;
+                        if (usuario.claveAfipValida) {
+                            finalResult.verificaciones.afip.exitoso = true;
+                            finalResult.success = true;
+                        } else {
+                            finalResult.verificaciones.afip.error = 'Credenciales AFIP inválidas';
+                        }
+                    }
+
+                    if (servicesToVerify.includes('atm')) {
+                        finalResult.verificaciones.atm.intentado = true;
+                        if (usuario.claveAtmValida) {
+                            finalResult.verificaciones.atm.exitoso = true;
+                            finalResult.success = true;
+                        } else {
+                            finalResult.verificaciones.atm.error = 'Credenciales ATM inválidas';
+                        }
+                    }
+
+                    // Construir mensaje de error consolidado
+                    const errores = [];
+                    if (finalResult.verificaciones.afip.intentado && !finalResult.verificaciones.afip.exitoso) {
+                        errores.push(`AFIP: ${finalResult.verificaciones.afip.error}`);
+                    }
+                    if (finalResult.verificaciones.atm.intentado && !finalResult.verificaciones.atm.exitoso) {
+                        errores.push(`ATM: ${finalResult.verificaciones.atm.error}`);
+                    }
+                    if (errores.length > 0) {
+                        finalResult.error = errores.join(' | ');
+                    }
+
+                    resolve(finalResult);
+                } catch (error) {
+                    console.error('[Verificación Manual] Error:', error);
+                    resolve({
+                        success: false,
+                        error: error.message,
+                        puntosDeVentaArray,
+                        verificaciones: {
+                            afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
+                            atm: { intentado: !!credenciales.claveATM, exitoso: false, error: error.message }
+                        }
+                    });
+                } finally {
+                    if (browser) {
+                        await browser.close();
+                        browser = null;
+                    }
+                }
+            });
+
+            // Eliminar usuario temporal
+            const updatedData = userStorage.loadData();
+            updatedData.users = updatedData.users.filter(u => String(u.id) !== String(tempUser.id));
+            userStorage.saveData(updatedData);
+
+            console.log('[Verificación Manual] Verificación completada. Resultado:', result);
+            return result;
+
         } catch (error) {
             console.error('[Verificación Manual] Error catastrófico:', error);
-            return { success: false, error: error.message };
+
+            // Limpiar usuario temporal en caso de error
+            try {
+                const updatedData = userStorage.loadData();
+                updatedData.users = updatedData.users.filter(u => !String(u.id).startsWith('temp_'));
+                userStorage.saveData(updatedData);
+            } catch (cleanupError) {
+                console.error('[Verificación Manual] Error al limpiar usuario temporal:', cleanupError);
+            }
+
+            return {
+                success: false,
+                error: error.message,
+                puntosDeVentaArray: [],
+                verificaciones: {
+                    afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
+                    atm: { intentado: !!credenciales.claveATM, exitoso: false, error: error.message }
+                }
+            };
+        } finally {
+            if (browser) {
+                await browser.close();
+                console.log('[Verificación Manual] Navegador cerrado.');
+            }
         }
     });
 
@@ -173,6 +350,9 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             return acc;
         }, {});
 
+        const totalUsers = Object.keys(jobsByUser).length;
+        let processedUsers = 0;
+
         try {
             const { browser: launchedBrowser } = await launchBrowserAndPage({ headless: true });
             browser = launchedBrowser;
@@ -181,24 +361,61 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 const userIndex = data.users.findIndex(u => String(u.id) === String(userId));
                 if (userIndex === -1) {
                     stats.no_encontrados++;
+                    processedUsers++;
+
+                    // Emitir evento de progreso
+                    mainWindow.webContents.send('verification:progress', {
+                        userId,
+                        processed: processedUsers,
+                        total: totalUsers,
+                        stats: { ...stats },
+                        status: 'not_found',
+                        services: []  // ✅ AGREGADO: Array vacío porque no se encontró el usuario
+                    });
                     continue;
                 }
-                
+
                 const usuario = data.users[userIndex];
+
+                // Emitir evento: iniciando verificación de este usuario
+                mainWindow.webContents.send('verification:progress', {
+                    userId,
+                    userName: usuario.nombre,
+                    processed: processedUsers,
+                    total: totalUsers,
+                    stats: { ...stats },
+                    status: 'processing',
+                    services: servicesToVerify
+                });
 
                 if (!usuario.cuit) {
                     console.error(`Usuario con ID ${userId} (${usuario.nombre}) no tiene CUIT. Omitiendo verificación.`);
                     stats.con_fallos++;
+                    processedUsers++;
+
+                    // Emitir evento de error
+                    mainWindow.webContents.send('verification:progress', {
+                        userId,
+                        userName: usuario.nombre,
+                        processed: processedUsers,
+                        total: totalUsers,
+                        stats: { ...stats },
+                        status: 'error',
+                        services: servicesToVerify,  // ✅ AGREGADO
+                        error: 'Sin CUIT'
+                    });
                     continue;
                 }
-                
+
                 // Llama a la función de validación modular
                 await gestionarValidacion(browser, usuario, servicesToVerify);
 
                 // Traducir resultados a los nuevos estados
+                let userSuccess = false;
                 if (servicesToVerify.includes('afip')) {
                     if (usuario.claveAfipValida) {
                         usuario.estado_afip = 'validado';
+                        userSuccess = true;
                     } else if (usuario.claveAfipRequiereActualizacion) {
                         usuario.estado_afip = 'requiere_actualizacion';
                     } else {
@@ -209,6 +426,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 if (servicesToVerify.includes('atm')) {
                     if (usuario.claveAtmValida) {
                         usuario.estado_atm = 'validado';
+                        userSuccess = true;
                     } else if (usuario.claveAtmRequiereActualizacion) {
                         usuario.estado_atm = 'requiere_actualizacion';
                     } else if (usuario.claveAtmInvalida) {
@@ -217,17 +435,40 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                         usuario.estado_atm = 'error_desconocido';
                     }
                 }
-                
+
                 usuario.fechaVerificacion = new Date().toISOString();
                 data.users[userIndex] = usuario;
                 updatedUsers.push(usuario);
 
-                // Actualizar estadísticas (simplificado)
-                if (usuario.claveAfipValida || usuario.claveAtmValida) {
+                // Actualizar estadísticas
+                if (userSuccess) {
                     stats.validados++;
                 } else {
                     stats.con_fallos++;
                 }
+
+                processedUsers++;
+
+                // Emitir evento: usuario procesado exitosamente
+                mainWindow.webContents.send('verification:progress', {
+                    userId,
+                    userName: usuario.nombre,
+                    processed: processedUsers,
+                    total: totalUsers,
+                    stats: { ...stats },
+                    status: userSuccess ? 'success' : 'failed',
+                    services: servicesToVerify,  // ✅ AGREGADO: Lista de servicios verificados
+                    results: {
+                        afip: servicesToVerify.includes('afip') ? {
+                            validado: usuario.claveAfipValida,
+                            requiereActualizacion: usuario.claveAfipRequiereActualizacion
+                        } : null,
+                        atm: servicesToVerify.includes('atm') ? {
+                            validado: usuario.claveAtmValida,
+                            requiereActualizacion: usuario.claveAtmRequiereActualizacion
+                        } : null
+                    }
+                });
             }
 
             userStorage.saveData(data);

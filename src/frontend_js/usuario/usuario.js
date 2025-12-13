@@ -5,6 +5,15 @@ window.currentEditingUser = window.currentEditingUser || null;
 // Variable global para empresas disponibles
 window.empresasDisponible = [];
 
+// Variables globales para rastrear si las credenciales fueron verificadas
+window.verificacionRealizada = {
+    afip: false,
+    atm: false
+};
+
+// Variable global para almacenar todos los usuarios
+window.allUsers = [];
+
 // Función para mostrar alertas
 function showAlert(message, type = 'success') {
     const alert = document.getElementById('alert');
@@ -28,6 +37,500 @@ function setLoading(elementId, show) {
         loading.classList.add('hidden');
     }
 }
+
+// ========== FUNCIONES DEL PANEL DE PROGRESO ==========
+
+// Mostrar panel de progreso y llevar foco
+function showProgressPanel(total) {
+    const panel = document.getElementById('progressPanel');
+
+    // Resetear valores
+    resetProgressPanel();
+
+    // Actualizar contador total
+    document.getElementById('progressCounter').textContent = `0 / ${total} usuarios`;
+
+    // Mostrar panel
+    panel.classList.remove('hidden');
+
+    // Scroll automático al panel con un pequeño delay para que se vea la animación
+    setTimeout(() => {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+}
+
+// Actualizar progreso del panel
+function updateProgress(current, total, validados, fallos) {
+    const percentage = Math.round((current / total) * 100);
+
+    // Actualizar barra de progreso
+    document.getElementById('progressBar').style.width = `${percentage}%`;
+
+    // Actualizar contador
+    document.getElementById('progressCounter').textContent = `${current} / ${total} usuarios`;
+
+    // Actualizar estadísticas
+    document.getElementById('statValidados').textContent = validados;
+    document.getElementById('statFallos').textContent = fallos;
+}
+
+// Ocultar panel con resumen final
+function hideProgressPanel(validados, fallos, delay = 5000) {
+    const panel = document.getElementById('progressPanel');
+    const title = panel.querySelector('.progress-title');
+    const processingStatus = panel.querySelector('.stat-processing');
+
+    // Cambiar a mensaje final
+    title.textContent = '✅ Verificación completada';
+    processingStatus.style.display = 'none';
+
+    // Ocultar después del delay
+    setTimeout(() => {
+        panel.classList.add('hidden');
+        resetProgressPanel();
+    }, delay);
+}
+
+// Resetear panel a estado inicial
+function resetProgressPanel() {
+    const panel = document.getElementById('progressPanel');
+    const title = panel.querySelector('.progress-title');
+    const processingStatus = panel.querySelector('.stat-processing');
+
+    // Resetear textos
+    title.textContent = 'Verificando credenciales...';
+    document.getElementById('progressCounter').textContent = '0 / 0 usuarios';
+
+    // Resetear barra
+    document.getElementById('progressBar').style.width = '0%';
+
+    // Resetear estadísticas
+    document.getElementById('statValidados').textContent = '0';
+    document.getElementById('statFallos').textContent = '0';
+
+    // Mostrar estado de procesando
+    if (processingStatus) {
+        processingStatus.style.display = 'flex';
+    }
+}
+
+// ========== FIN FUNCIONES DEL PANEL DE PROGRESO ==========
+
+// ========== FUNCIONES DEL PANEL DE RESULTADOS PERSISTENTE ==========
+
+// Variable global para guardar timestamp de verificación
+let verificationTimestamp = null;
+let timestampUpdateInterval = null;
+
+/**
+ * Calcula el tiempo transcurrido desde un timestamp y retorna texto legible
+ * @param {Date} timestamp - Fecha/hora de la verificación
+ * @returns {string} Texto formateado ("Hace 5 minutos", etc.)
+ */
+function getRelativeTime(timestamp) {
+    const now = new Date();
+    const diffMs = now - timestamp;
+    const diffSecs = Math.floor(diffMs / 1000);
+    const diffMins = Math.floor(diffSecs / 60);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffSecs < 60) return 'Hace unos momentos';
+    if (diffMins < 60) return `Hace ${diffMins} minuto${diffMins > 1 ? 's' : ''}`;
+    if (diffHours < 24) return `Hace ${diffHours} hora${diffHours > 1 ? 's' : ''}`;
+    return `Hace ${diffDays} día${diffDays > 1 ? 's' : ''}`;
+}
+
+/**
+ * Actualiza el timestamp relativo cada minuto
+ */
+function startTimestampUpdater() {
+    // Limpiar intervalo anterior si existe
+    if (timestampUpdateInterval) {
+        clearInterval(timestampUpdateInterval);
+    }
+
+    // Actualizar cada 30 segundos
+    timestampUpdateInterval = setInterval(() => {
+        if (verificationTimestamp) {
+            const timestampElement = document.getElementById('resultsTimestamp');
+            if (timestampElement) {
+                timestampElement.textContent = getRelativeTime(verificationTimestamp);
+            }
+        }
+    }, 30000); // 30 segundos
+}
+
+/**
+ * Muestra el panel de resultados con los datos de la verificación
+ * @param {Object} results - Objeto con resultados { successCount, failedCount, details: [...] }
+ */
+function showResultsPanel(results) {
+    console.log('📋 [showResultsPanel] Mostrando panel con datos:', results);
+
+    const panel = document.getElementById('resultsPanel');
+    const summarySuccess = document.getElementById('summarySuccess');
+    const summaryFailed = document.getElementById('summaryFailed');
+    const detailsList = document.getElementById('resultsDetailsList');
+    const timestampElement = document.getElementById('resultsTimestamp');
+
+    // Guardar timestamp actual
+    verificationTimestamp = new Date();
+
+    // Actualizar resumen
+    summarySuccess.textContent = results.successCount || 0;
+    summaryFailed.textContent = results.failedCount || 0;
+
+    // Actualizar timestamp
+    timestampElement.textContent = getRelativeTime(verificationTimestamp);
+    startTimestampUpdater();
+
+    // Limpiar lista de detalles
+    detailsList.innerHTML = '';
+
+    console.log('📋 [showResultsPanel] results.details:', results.details);
+    console.log('📋 [showResultsPanel] results.details.length:', results.details?.length);
+
+    // Poblar detalles si existen
+    if (results.details && results.details.length > 0) {
+        console.log('📋 [showResultsPanel] Poblando detalles...');
+
+        // Agrupar por usuario
+        const userGroups = {};
+        results.details.forEach((detail, index) => {
+            console.log(`📋 [showResultsPanel] Detalle ${index}:`, detail);
+
+            const userId = detail.userId;
+            if (!userGroups[userId]) {
+                userGroups[userId] = {
+                    userName: detail.userName || 'Usuario',
+                    services: []
+                };
+            }
+
+            userGroups[userId].services.push({
+                service: detail.service,
+                success: detail.success,
+                error: detail.error
+            });
+        });
+
+        console.log('📋 [showResultsPanel] Grupos de usuarios:', userGroups);
+
+        // Renderizar agrupado por usuario
+        Object.entries(userGroups).forEach(([userId, userData]) => {
+            // Determinar si todo fue exitoso o hubo algún fallo
+            const allSuccess = userData.services.every(s => s.success);
+            const allFailed = userData.services.every(s => !s.success);
+
+            let groupClass = 'result-mixed';
+            let groupIcon = '⚠️';
+
+            if (allSuccess) {
+                groupClass = 'result-success';
+                groupIcon = '✅';
+            } else if (allFailed) {
+                groupClass = 'result-failed';
+                groupIcon = '❌';
+            }
+
+            // Crear HTML del grupo de usuario
+            let userGroupHTML = `
+                <div class="result-user-group ${groupClass}">
+                    <div class="result-user-header">
+                        <span class="result-item-icon">${groupIcon}</span>
+                        <span class="result-item-name">${userData.userName}</span>
+                    </div>
+                    <div class="result-user-services">
+            `;
+
+            // Agregar cada servicio
+            userData.services.forEach(service => {
+                const serviceIcon = service.success ? '✅' : '❌';
+                const statusText = service.success ? 'Validado' : (service.error || 'Falló');
+                const serviceClass = service.success ? 'service-success' : 'service-failed';
+
+                userGroupHTML += `
+                    <div class="result-service-item ${serviceClass}">
+                        <span class="service-bullet">└─</span>
+                        <span class="service-icon">${serviceIcon}</span>
+                        <span class="service-name">${service.service?.toUpperCase() || 'N/A'}</span>
+                        <span class="service-status">${statusText}</span>
+                    </div>
+                `;
+            });
+
+            userGroupHTML += `
+                    </div>
+                </div>
+            `;
+
+            detailsList.innerHTML += userGroupHTML;
+        });
+
+        console.log('📋 [showResultsPanel] HTML generado:', detailsList.innerHTML);
+    } else {
+        console.warn('⚠️ [showResultsPanel] No hay detalles para mostrar o el array está vacío');
+    }
+
+    // Mostrar panel con scroll automático
+    panel.classList.remove('hidden');
+    setTimeout(() => {
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+}
+
+/**
+ * Cierra el panel de resultados
+ */
+function closeResultsPanel() {
+    const panel = document.getElementById('resultsPanel');
+    const details = document.getElementById('resultsDetails');
+    const toggleIcon = document.getElementById('toggleIcon');
+
+    // Ocultar panel
+    panel.classList.add('hidden');
+
+    // Resetear estado de detalles (cerrarlos)
+    details.classList.add('hidden');
+    toggleIcon.classList.remove('rotated');
+
+    // Detener actualizador de timestamp
+    if (timestampUpdateInterval) {
+        clearInterval(timestampUpdateInterval);
+        timestampUpdateInterval = null;
+    }
+
+    verificationTimestamp = null;
+}
+
+/**
+ * Alterna la visibilidad de los detalles
+ */
+function toggleResultsDetails() {
+    const details = document.getElementById('resultsDetails');
+    const toggleIcon = document.getElementById('toggleIcon');
+    const btnToggle = document.getElementById('btnToggleDetails');
+
+    if (details.classList.contains('hidden')) {
+        details.classList.remove('hidden');
+        toggleIcon.classList.add('rotated');
+        btnToggle.innerHTML = '<span id="toggleIcon" class="rotated">▼</span> Ocultar detalles';
+    } else {
+        details.classList.add('hidden');
+        toggleIcon.classList.remove('rotated');
+        btnToggle.innerHTML = '<span id="toggleIcon">▼</span> Ver detalles';
+    }
+}
+
+/**
+ * Inicializa los event listeners del panel de resultados
+ */
+function initializeResultsPanel() {
+    // Botón cerrar
+    const btnClose = document.getElementById('btnCloseResults');
+    if (btnClose) {
+        btnClose.addEventListener('click', closeResultsPanel);
+    }
+
+    // Botón toggle detalles
+    const btnToggle = document.getElementById('btnToggleDetails');
+    if (btnToggle) {
+        btnToggle.addEventListener('click', toggleResultsDetails);
+    }
+}
+
+// ========== FIN FUNCIONES DEL PANEL DE RESULTADOS PERSISTENTE ==========
+
+// ========== FUNCIONES DE FEEDBACK VISUAL POR FILA ==========
+
+// Marcar fila como "verificando"
+function markRowAsVerifying(userId, services) {
+    const row = document.querySelector(`.user-item[data-user-id="${userId}"]`);
+    if (!row) return;
+
+    // Cambiar color de fondo
+    row.classList.add('row-verifying');
+
+    // Agregar badge "Verificando" al nombre
+    const userName = row.querySelector('.user-name');
+    if (userName && !userName.querySelector('.verification-badge')) {
+        const badge = document.createElement('span');
+        badge.className = 'verification-badge badge-verifying';
+        badge.innerHTML = '🔄 Verificando...';
+        userName.appendChild(badge);
+    }
+}
+
+// Marcar fila como "éxito"
+function markRowAsSuccess(userId) {
+    const row = document.querySelector(`.user-item[data-user-id="${userId}"]`);
+    if (!row) return;
+
+    // Remover estado anterior
+    row.classList.remove('row-verifying');
+    row.classList.add('row-success');
+
+    // Actualizar badge
+    const badge = row.querySelector('.verification-badge');
+    if (badge) {
+        badge.className = 'verification-badge badge-success';
+        badge.innerHTML = '✅ Verificado';
+        // Remover badge después de 3 segundos
+        setTimeout(() => {
+            badge.remove();
+            row.classList.remove('row-success');
+        }, 3000);
+    }
+}
+
+// Marcar fila como "error"
+function markRowAsFailed(userId) {
+    const row = document.querySelector(`.user-item[data-user-id="${userId}"]`);
+    if (!row) return;
+
+    // Remover estado anterior
+    row.classList.remove('row-verifying');
+    row.classList.add('row-failed');
+
+    // Actualizar badge
+    const badge = row.querySelector('.verification-badge');
+    if (badge) {
+        badge.className = 'verification-badge badge-failed';
+        badge.innerHTML = '❌ Falló';
+        // Remover badge después de 3 segundos
+        setTimeout(() => {
+            badge.remove();
+            row.classList.remove('row-failed');
+        }, 3000);
+    }
+}
+
+// Limpiar estados de verificación al hacer clic en otra parte
+function clearVerificationStates() {
+    document.querySelectorAll('.row-verifying, .row-success, .row-failed').forEach(row => {
+        row.classList.remove('row-verifying', 'row-success', 'row-failed');
+    });
+    document.querySelectorAll('.verification-badge').forEach(badge => {
+        badge.remove();
+    });
+}
+
+// ========== FIN FUNCIONES DE FEEDBACK VISUAL POR FILA ==========
+
+// ========== FUNCIÓN DE REORDENAMIENTO AUTOMÁTICO ==========
+
+// Flag para prevenir re-renders simultáneos
+let isReordering = false;
+
+/**
+ * Obtiene los IDs de usuarios con checkboxes seleccionados
+ * @returns {Set<string>} Set de IDs de usuarios seleccionados
+ */
+function getSelectedUserIds() {
+    const selectedCheckboxes = document.querySelectorAll('.service-checkbox:checked');
+    const selectedUserIds = new Set();
+    selectedCheckboxes.forEach(checkbox => {
+        selectedUserIds.add(checkbox.dataset.userId);
+    });
+    return selectedUserIds;
+}
+
+/**
+ * Aplica reordenamiento a un array de usuarios poniendo primero los seleccionados
+ * @param {Array} users - Array de usuarios a reordenar
+ * @returns {Array} Array reordenado
+ */
+function applySelectionOrder(users) {
+    const selectedUserIds = getSelectedUserIds();
+
+    // Si no hay seleccionados, retornar sin cambios
+    if (selectedUserIds.size === 0) {
+        return users;
+    }
+
+    // Separar usuarios en dos grupos: seleccionados y no seleccionados
+    const selectedUsers = [];
+    const unselectedUsers = [];
+
+    users.forEach(user => {
+        if (selectedUserIds.has(String(user.id))) {
+            selectedUsers.push(user);
+        } else {
+            unselectedUsers.push(user);
+        }
+    });
+
+    // Combinar: primero seleccionados, luego no seleccionados
+    return [...selectedUsers, ...unselectedUsers];
+}
+
+/**
+ * Reordena la lista de usuarios poniendo primero los que tienen checkboxes seleccionados
+ */
+function reorderUsersBySelection() {
+    // Prevenir re-renders simultáneos
+    if (isReordering) {
+        console.log('⏸️ Reordenamiento ya en progreso, ignorando...');
+        return;
+    }
+
+    isReordering = true;
+
+    try {
+        // Capturar estado ANTES de re-renderizar
+        const selectedUserIds = getSelectedUserIds();
+        const selectedStates = new Map();
+
+        // Guardar estado de TODOS los checkboxes
+        document.querySelectorAll('.service-checkbox').forEach(cb => {
+            const key = `${cb.dataset.userId}-${cb.dataset.service}`;
+            selectedStates.set(key, cb.checked);
+        });
+
+        console.log('📌 Usuarios seleccionados:', Array.from(selectedUserIds));
+
+        let usersToDisplay;
+
+        // Si no hay seleccionados, mostrar orden original
+        if (selectedUserIds.size === 0) {
+            console.log('📌 No hay seleccionados, volviendo a orden original');
+            usersToDisplay = window.allUsers;
+        } else {
+            // Aplicar reordenamiento
+            usersToDisplay = applySelectionOrder(window.allUsers);
+            console.log('📌 Lista reordenada:', {
+                seleccionados: selectedUserIds.size,
+                total: usersToDisplay.length
+            });
+        }
+
+        // Renderizar lista (reordenada o normal)
+        displayUsers(usersToDisplay);
+
+        // Restaurar el estado EXACTO de todos los checkboxes
+        // Usamos requestAnimationFrame para asegurar que el DOM esté listo
+        requestAnimationFrame(() => {
+            document.querySelectorAll('.service-checkbox').forEach(cb => {
+                const key = `${cb.dataset.userId}-${cb.dataset.service}`;
+                const wasChecked = selectedStates.get(key);
+                if (wasChecked !== undefined) {
+                    cb.checked = wasChecked;
+                }
+            });
+            console.log('📌 Checkboxes restaurados');
+
+            // Liberar el flag después de restaurar
+            isReordering = false;
+        });
+    } catch (error) {
+        console.error('❌ Error en reordenamiento:', error);
+        isReordering = false;
+    }
+}
+
+// ========== FIN FUNCIÓN DE REORDENAMIENTO AUTOMÁTICO ==========
+
 function inicializarVerificarCredenciales() {
     const btnVerificarCredenciales = document.getElementById('btnVerificarCredenciales');
     if (!btnVerificarCredenciales) return;
@@ -60,14 +563,55 @@ function inicializarVerificarCredenciales() {
             const response = await window.electronAPI.user.verifyOnCreate(credenciales);
             window.empresasDisponible = response.puntosDeVentaArray || [];
             mostrarPuntosDeVenta(response.puntosDeVentaArray);
-            
+
             if (response.success) {
+                // Marcar qué servicios fueron verificados exitosamente usando la info detallada
+                if (response.verificaciones) {
+                    window.verificacionRealizada.afip = response.verificaciones.afip?.exitoso || false;
+                    window.verificacionRealizada.atm = response.verificaciones.atm?.exitoso || false;
+                } else {
+                    // Fallback para compatibilidad
+                    if (credenciales.claveAFIP) {
+                        window.verificacionRealizada.afip = true;
+                    }
+                    if (credenciales.claveATM) {
+                        window.verificacionRealizada.atm = true;
+                    }
+                }
+
                 btnCrearUsuario.style.display = '';
-                showAlert('Credenciales validadas correctamente.', 'success');
+
+                // Mensaje detallado
+                let mensaje = 'Verificación completada.';
+                const exitosos = [];
+                const fallidos = [];
+
+                if (response.verificaciones?.afip?.exitoso) exitosos.push('AFIP');
+                if (response.verificaciones?.atm?.exitoso) exitosos.push('ATM');
+                if (response.verificaciones?.afip?.intentado && !response.verificaciones?.afip?.exitoso) {
+                    fallidos.push('AFIP');
+                }
+                if (response.verificaciones?.atm?.intentado && !response.verificaciones?.atm?.exitoso) {
+                    fallidos.push('ATM');
+                }
+
+                if (exitosos.length > 0) {
+                    mensaje += ` ✅ ${exitosos.join(', ')} validado(s).`;
+                }
+                if (fallidos.length > 0) {
+                    mensaje += ` ⚠️ ${fallidos.join(', ')} falló/fallaron.`;
+                }
+
+                showAlert(mensaje, exitosos.length > 0 ? 'success' : 'warning');
             } else {
+                // Fallo total
+                window.verificacionRealizada.afip = false;
+                window.verificacionRealizada.atm = false;
                 showAlert(response.error || 'Credenciales inválidas. Intenta nuevamente.', 'error');
             }
         } catch (error) {
+            window.verificacionRealizada.afip = false;
+            window.verificacionRealizada.atm = false;
             showAlert(`Error de comunicación: ${error.message}`, 'error');
         } finally {
             verificarLoading.classList.add('hidden');
@@ -117,12 +661,20 @@ async function createUser() {
         }
 
         const result = await window.electronAPI.user.create({
-            nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido,
-            empresasDisponible: window.empresasDisponible || []
+            nombre,
+            claveAFIP,
+            claveATM,
+            cuit,
+            cuil,
+            tipoContribuyente,
+            apellido,
+            empresasDisponible: window.empresasDisponible || [],
+            verificadoAFIP: window.verificacionRealizada.afip,  // ✅ Pasar flag de verificación
+            verificadoATM: window.verificacionRealizada.atm     // ✅ Pasar flag de verificación
         });
 
         if (result.success) {
-            showAlert(`Usuario "${nombre}" creado exitosamente!`);
+            showAlert(`Cliente "${nombre}" creado exitosamente!`);
             document.getElementById('nombre').value = '';
             document.getElementById('claveAFIP').value = '';
             document.getElementById('claveATM').value = '';
@@ -130,9 +682,17 @@ async function createUser() {
             document.getElementById('cuil').value = '';
             document.getElementById('tipoContribuyente').value = '';
             document.getElementById('apellido').value = '';
+
+            // Resetear flags de verificación después de crear
+            window.verificacionRealizada.afip = false;
+            window.verificacionRealizada.atm = false;
+            window.empresasDisponible = [];
+
+            // Cerrar formulario y recargar lista
+            document.getElementById('createSection').classList.add('hidden');
             await loadUsers();
         } else {
-            showAlert(result.error || 'Error al crear usuario', 'error');
+            showAlert(result.error || 'Error al crear cliente', 'error');
         }
     } catch (error) {
         console.error('Error completo:', error);
@@ -146,9 +706,11 @@ async function loadUsers() {
     try {
         const result = await window.electronAPI.user.getAll();
         if (result.success) {
-            displayUsers(result.users);
+            window.allUsers = result.users || [];
+            displayUsers(window.allUsers);
+            updateSearchCount(window.allUsers.length, window.allUsers.length);
         } else {
-            showAlert(result.error || 'Error al cargar usuarios', 'error');
+            showAlert(result.error || 'Error al cargar clientes', 'error');
         }
     } catch (error) {
         console.error('❌ Frontend Error:', error);
@@ -178,14 +740,17 @@ const SERVICIOS = ['afip', 'atm'];
 // Mostrar usuarios en la lista
 function displayUsers(users) {
     const usersList = document.getElementById('usersList');
+    const bulkActionsContainer = document.getElementById('bulkActionsContainer');
+
     if (!users || users.length === 0) {
-        usersList.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No hay usuarios registrados</p></div>`;
+        usersList.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No hay clientes registrados</p></div>`;
+        bulkActionsContainer.innerHTML = ''; // Ocultar bulk actions cuando no hay usuarios
         return;
     }
 
     const selectAllCheckboxes = SERVICIOS.map(s => `
         <label>
-            <input type="checkbox" id="selectAll-${s}" class="select-all-service-checkbox" data-service="${s}"> 
+            <input type="checkbox" id="selectAll-${s}" class="select-all-service-checkbox" data-service="${s}">
             <span>Sel. todo ${s.toUpperCase()}</span>
         </label>
     `).join('');
@@ -198,6 +763,9 @@ function displayUsers(users) {
             </div>
         </div>
     `;
+
+    // Renderizar bulk actions en su contenedor fijo
+    bulkActionsContainer.innerHTML = bulkActionsHeader;
 
     const usersHTML = users.map(user => {
         const servicesHTML = SERVICIOS.map(service => {
@@ -239,8 +807,135 @@ function displayUsers(users) {
         `;
     }).join('');
 
-    usersList.innerHTML = bulkActionsHeader + usersHTML;
+    usersList.innerHTML = usersHTML;
 }
+
+// ========== FUNCIONES DE BÚSQUEDA ==========
+
+// Actualizar contador de resultados
+function updateSearchCount(showing, total) {
+    const countElement = document.getElementById('searchResultsCount');
+    if (countElement) {
+        if (showing === total) {
+            countElement.textContent = `Mostrando ${total} cliente(s)`;
+        } else {
+            countElement.textContent = `Mostrando ${showing} de ${total} cliente(s)`;
+        }
+    }
+}
+
+// Filtrar usuarios según texto de búsqueda
+function filterUsers(searchText) {
+    const search = searchText.toLowerCase().trim();
+
+    let usersToDisplay;
+
+    if (!search) {
+        // Sin búsqueda, mostrar todos
+        usersToDisplay = window.allUsers;
+    } else {
+        // Filtrar usuarios
+        usersToDisplay = window.allUsers.filter(user => {
+            const nombre = (user.nombre || '').toLowerCase();
+            const apellido = (user.apellido || '').toLowerCase();
+            const cuit = String(user.cuit || '');
+            const cuil = String(user.cuil || '');
+            const nombreCompleto = `${nombre} ${apellido}`;
+
+            return nombreCompleto.includes(search) ||
+                   nombre.includes(search) ||
+                   apellido.includes(search) ||
+                   cuit.includes(search) ||
+                   cuil.includes(search);
+        });
+    }
+
+    // Aplicar reordenamiento por selección si hay checkboxes marcados
+    const reorderedUsers = applySelectionOrder(usersToDisplay);
+
+    // Mostrar usuarios (filtrados y reordenados)
+    displayUsers(reorderedUsers);
+    updateSearchCount(reorderedUsers.length, window.allUsers.length);
+
+    // Restaurar checkboxes seleccionados después de renderizar
+    const selectedUserIds = getSelectedUserIds();
+    if (selectedUserIds.size > 0) {
+        setTimeout(() => {
+            selectedUserIds.forEach(userId => {
+                const checkboxes = document.querySelectorAll(`.service-checkbox[data-user-id="${userId}"]`);
+                checkboxes.forEach(cb => {
+                    cb.checked = true;
+                });
+            });
+        }, 50);
+    }
+}
+
+// Limpiar búsqueda
+function clearSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    filterUsers('');
+}
+
+// Inicializar eventos de búsqueda
+function initializeSearchEvents() {
+    const searchInput = document.getElementById('searchInput');
+    const btnClearSearch = document.getElementById('btnClearSearch');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            filterUsers(e.target.value);
+        });
+
+        // Focus automático al presionar Ctrl+F o Cmd+F
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+                e.preventDefault();
+                searchInput.focus();
+                searchInput.select();
+            }
+        });
+    }
+
+    if (btnClearSearch) {
+        btnClearSearch.addEventListener('click', clearSearch);
+    }
+}
+
+// ========== FIN FUNCIONES DE BÚSQUEDA ==========
+
+// ========== FUNCIONES DE NAVEGACIÓN ==========
+
+// Función para mostrar/ocultar secciones
+window.toggleSection = function(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.classList.toggle('hidden');
+
+        // Si se abre "Crear", cerrar "Editar" y viceversa
+        if (sectionId === 'createSection' && !section.classList.contains('hidden')) {
+            document.getElementById('editForm')?.classList.add('hidden');
+            document.getElementById('bulkUploadSection')?.classList.add('hidden');
+            // Scroll suave a la sección
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (sectionId === 'editForm' && !section.classList.contains('hidden')) {
+            document.getElementById('createSection')?.classList.add('hidden');
+            document.getElementById('bulkUploadSection')?.classList.add('hidden');
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        if (sectionId === 'bulkUploadSection' && !section.classList.contains('hidden')) {
+            document.getElementById('createSection')?.classList.add('hidden');
+            document.getElementById('editForm')?.classList.add('hidden');
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+}
+
+// ========== FIN FUNCIONES DE NAVEGACIÓN ==========
 
 // Editar usuario
 window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido) {
@@ -257,19 +952,19 @@ window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoCon
     document.getElementById('editForm').scrollIntoView({ behavior: 'smooth' });
 }
 
-// Eliminar usuario
-async function deleteUser(id, nombre) {
-    if (!confirm(`¿Estás seguro que deseas eliminar al usuario "${nombre}"?`)) {
+// Eliminar cliente
+window.deleteUser = async function(id, nombre) {
+    if (!confirm(`¿Estás seguro que deseas eliminar al cliente "${nombre}"?`)) {
         return;
     }
     try {
         setLoading('loadLoading', true);
         const result = await window.electronAPI.user.delete(id);
         if (result.success) {
-            showAlert(`Usuario "${nombre}" eliminado exitosamente!`);
+            showAlert(`Cliente "${nombre}" eliminado exitosamente!`);
             await loadUsers();
         } else {
-            showAlert(result.error || 'Error al eliminar usuario', 'error');
+            showAlert(result.error || 'Error al eliminar cliente', 'error');
         }
     } catch (error) {
         console.error('Error al eliminar:', error);
@@ -280,7 +975,7 @@ async function deleteUser(id, nombre) {
 }
 
 // Actualizar usuario
-async function updateUser() {
+window.updateUser = async function() {
     if (!window.currentEditingUser) {
         console.error('No hay usuario seleccionado para editar');
         return;
@@ -356,7 +1051,7 @@ async function updateUser() {
 }
 
 // Cancelar edición
-function cancelEdit() {
+window.cancelEdit = function() {
     window.currentEditingUser = null;
     document.getElementById('editForm').classList.add('hidden');
     document.getElementById('editNombre').value = '';
@@ -366,8 +1061,10 @@ function cancelEdit() {
 
 function inicializarUsuarioFrontend() {
     const usersList = document.getElementById('usersList');
+    const bulkActionsContainer = document.getElementById('bulkActionsContainer');
 
-    usersList.addEventListener('click', async (event) => {
+    // Event listener para los controles de bulk actions (ahora en contenedor separado)
+    bulkActionsContainer.addEventListener('click', async (event) => {
         const target = event.target;
 
         // --- Verificación en lote ---
@@ -382,12 +1079,109 @@ function inicializarUsuarioFrontend() {
 
             if (!confirm(`¿Iniciar la verificación para los ${verificationJobs.length} servicios seleccionados?`)) return;
 
-            setLoading('loadLoading', true);
+            // Agrupar por userId para contar usuarios únicos
+            const uniqueUserIds = [...new Set(verificationJobs.map(j => j.userId))];
+            const totalUsers = uniqueUserIds.length;
+
+            // Mostrar panel de progreso
+            showProgressPanel(totalUsers);
+
+            // Deshabilitar botón durante el proceso
+            target.disabled = true;
+            target.style.opacity = '0.5';
+            target.style.cursor = 'not-allowed';
+
+            // Variables para tracking
+            let currentStats = { validados: 0, con_fallos: 0 };
+            const verificationDetails = []; // Array para guardar detalles de cada verificación
+
+            // Listener para eventos de progreso en tiempo real
+            const progressHandler = (progressData) => {
+                console.log('Progreso recibido:', progressData);
+
+                // Actualizar panel de progreso
+                updateProgress(
+                    progressData.processed,
+                    progressData.total,
+                    progressData.stats.validados,
+                    progressData.stats.con_fallos
+                );
+
+                currentStats = progressData.stats;
+
+                // Actualizar feedback visual por fila
+                if (progressData.status === 'processing') {
+                    markRowAsVerifying(progressData.userId, progressData.services);
+                } else if (progressData.status === 'success' || progressData.status === 'failed' || progressData.status === 'error') {
+                    // Guardar detalles de la verificación
+                    const isSuccess = progressData.status === 'success';
+
+                    // DEBUG: Ver qué datos llegan
+                    console.log('🔍 [DEBUG] progressData completo:', progressData);
+                    console.log('🔍 [DEBUG] progressData.services:', progressData.services);
+
+                    // Determinar servicio verificado
+                    const services = progressData.services || [];
+
+                    // Si services es un array vacío o no existe, usar un fallback
+                    if (services.length === 0) {
+                        console.warn('⚠️ No hay servicios en progressData, agregando detalle sin servicio específico');
+                        verificationDetails.push({
+                            userId: progressData.userId,
+                            userName: progressData.userName || 'Usuario',
+                            service: 'N/A',
+                            success: isSuccess,
+                            error: isSuccess ? null : (progressData.error || 'Error desconocido')
+                        });
+                    } else {
+                        services.forEach(service => {
+                            verificationDetails.push({
+                                userId: progressData.userId,
+                                userName: progressData.userName || 'Usuario',
+                                service: service,
+                                success: isSuccess,
+                                error: isSuccess ? null : (progressData.error || 'Error desconocido')
+                            });
+                        });
+                    }
+
+                    console.log('🔍 [DEBUG] verificationDetails actualizado:', verificationDetails);
+
+                    // Actualizar visual
+                    if (isSuccess) {
+                        markRowAsSuccess(progressData.userId);
+                    } else {
+                        markRowAsFailed(progressData.userId);
+                    }
+                }
+            };
+
+            // Suscribirse a eventos de progreso
+            window.electronAPI.user.onVerificationProgress(progressHandler);
+
             try {
                 const result = await window.electronAPI.user.verifyBatch({ verificationJobs });
+
                 if (result.success) {
-                    showAlert(`Verificación completada. Validados: ${result.stats.validados}, Fallos: ${result.stats.con_fallos}.`);
-                    
+                    const validados = result.stats.validados || 0;
+                    const fallos = result.stats.con_fallos || 0;
+
+                    // Actualizar panel con resultados finales
+                    updateProgress(totalUsers, totalUsers, validados, fallos);
+
+                    // Mostrar mensaje de éxito
+                    showAlert(`Verificación completada. Validados: ${validados}, Fallos: ${fallos}.`);
+
+                    // Ocultar panel de progreso después de 5 segundos
+                    hideProgressPanel(validados, fallos);
+
+                    // ✨ MOSTRAR PANEL DE RESULTADOS PERSISTENTE
+                    showResultsPanel({
+                        successCount: validados,
+                        failedCount: fallos,
+                        details: verificationDetails
+                    });
+
                     // Refrescar el usuario seleccionado en memoria si fue actualizado
                     if (result.updatedUsers && window.usuarioSeleccionado) {
                         const updatedCurrentUser = result.updatedUsers.find(u => String(u.id) === String(window.usuarioSeleccionado.id));
@@ -397,11 +1191,41 @@ function inicializarUsuarioFrontend() {
                         }
                     }
                 } else {
+                    // Error en la verificación
+                    hideProgressPanel(0, 0, 3000);
                     showAlert(result.error || 'Error en la verificación masiva.', 'error');
+
+                    // Mostrar panel de resultados con error si hay detalles
+                    if (verificationDetails.length > 0) {
+                        showResultsPanel({
+                            successCount: 0,
+                            failedCount: verificationDetails.length,
+                            details: verificationDetails
+                        });
+                    }
                 }
             } catch (error) {
+                // Error de comunicación
+                hideProgressPanel(0, 0, 3000);
                 showAlert(`Error de comunicación: ${error.message}`, 'error');
+
+                // Mostrar panel de resultados con error si hay detalles parciales
+                if (verificationDetails.length > 0) {
+                    const successCount = verificationDetails.filter(d => d.success).length;
+                    const failedCount = verificationDetails.filter(d => !d.success).length;
+                    showResultsPanel({
+                        successCount,
+                        failedCount,
+                        details: verificationDetails
+                    });
+                }
             } finally {
+                // Re-habilitar botón
+                target.disabled = false;
+                target.style.opacity = '1';
+                target.style.cursor = 'pointer';
+
+                // Recargar lista de usuarios
                 await loadUsers();
             }
         }
@@ -422,11 +1246,45 @@ function inicializarUsuarioFrontend() {
 
     // Carga inicial y otros inicializadores
     loadUsers().catch(error => {
-        console.error('Error cargando usuarios:', error);
-        showAlert('Error cargando la lista de usuarios', 'error');
+        console.error('Error cargando clientes:', error);
+        showAlert('Error cargando la lista de clientes', 'error');
     });
     inicializarCargaMasiva();
     inicializarVerificarCredenciales();
+    initializeSearchEvents();
+    initializeResultsPanel();
+
+    // Limpiar estados de verificación al hacer clic en cualquier parte (excepto en filas)
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.user-item') && !e.target.closest('#btnVerificarSeleccionados')) {
+            clearVerificationStates();
+        }
+    });
+
+    // Reordenar lista automáticamente al seleccionar checkboxes
+    usersList.addEventListener('change', (e) => {
+        if (e.target.matches('.service-checkbox')) {
+            const wasChecked = e.target.checked;
+            console.log('📌 Checkbox individual cambiado:', wasChecked ? 'SELECCIONADO' : 'DES-SELECCIONADO');
+
+            // Dar tiempo para que el checkbox complete su cambio de estado
+            // Especialmente importante al des-seleccionar para evitar que el DOM se re-renderice antes
+            setTimeout(() => {
+                reorderUsersBySelection();
+            }, 50);
+        }
+    });
+
+    // También reordenar cuando se usan los checkboxes "Seleccionar Todo"
+    bulkActionsContainer.addEventListener('change', (e) => {
+        if (e.target.matches('.select-all-service-checkbox')) {
+            console.log('📌 Checkbox "Seleccionar Todo" cambiado, reordenando lista...');
+            // Pequeño delay para que se marquen todos los checkboxes primero
+            setTimeout(() => {
+                reorderUsersBySelection();
+            }, 100);
+        }
+    });
 }
 
 window.inicializarUsuarioFrontend = inicializarUsuarioFrontend;

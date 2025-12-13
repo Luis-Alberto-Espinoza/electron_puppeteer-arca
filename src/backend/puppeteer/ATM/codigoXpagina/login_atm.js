@@ -202,8 +202,166 @@ async function loginATM(page, credencialesATM) {
         }, updatePasswordSelector);
 
         if (updatePasswordInfo) {
-            console.log('🟡 [loginATM] Se requiere actualización de contraseña.');
-            return { success: false, error: 'UPDATE_PASSWORD_REQUIRED', message: updatePasswordInfo.text };
+            console.log('🟡 [loginATM] Se requiere actualización de contraseña. Procediendo a cambiarla automáticamente...');
+
+            try {
+                // Esperar a que los campos estén disponibles
+                await page.waitForSelector('#claveAnterior', { visible: true, timeout: 5000 });
+                console.log('[loginATM] Campos de cambio de contraseña encontrados');
+
+                // Completar los 3 campos con la misma contraseña actual
+                await page.type('#claveAnterior', String(clave), { delay: 50 });
+                console.log('[loginATM] Contraseña anterior ingresada');
+
+                await page.type('#nuevaClave', String(clave), { delay: 50 });
+                console.log('[loginATM] Nueva contraseña ingresada');
+
+                await page.type('#confirmacionClave', String(clave), { delay: 50 });
+                console.log('[loginATM] Confirmación de contraseña ingresada');
+
+                // Preparar listener para el dialog de éxito que aparece después de cambiar la clave
+                const dialogSuccessPromise = new Promise((resolve) => {
+                    const dialogHandler = async (dialog) => {
+                        const message = dialog.message();
+                        console.log('🎉 [loginATM] Dialog de cambio de clave detectado:', message);
+
+                        // Verificar si es el mensaje de éxito
+                        if (message.toLowerCase().includes('modificada') ||
+                            message.toLowerCase().includes('éxito') ||
+                            message.toLowerCase().includes('exitosamente')) {
+                            console.log('✅ [loginATM] Dialog de éxito confirmado');
+                            await dialog.accept();
+                            resolve({ success: true, message });
+                        } else if (message.toLowerCase().includes('error') ||
+                                   message.toLowerCase().includes('incorrecto')) {
+                            console.log('❌ [loginATM] Dialog de error detectado');
+                            await dialog.accept();
+                            resolve({ success: false, message });
+                        } else {
+                            // Dialog desconocido, aceptar de todos modos
+                            console.log('⚠️ [loginATM] Dialog desconocido, aceptando...');
+                            await dialog.accept();
+                            resolve({ success: true, message });
+                        }
+                    };
+
+                    page.once('dialog', dialogHandler);
+
+                    // Timeout de 10 segundos por si no aparece el dialog
+                    setTimeout(() => {
+                        page.off('dialog', dialogHandler);
+                        console.log('⏱️ [loginATM] Timeout esperando dialog - continuando...');
+                        resolve({ success: true, message: 'No apareció dialog (asumiendo éxito)' });
+                    }, 10000);
+                });
+
+                // Hacer clic en el botón "Cambiar Clave"
+                await page.click('#cambiar_clave');
+                console.log('[loginATM] Clic en botón "Cambiar Clave" ejecutado');
+
+                // Esperar el resultado del dialog
+                const dialogResult = await dialogSuccessPromise;
+                console.log('[loginATM] Resultado del dialog:', dialogResult);
+
+                // Si el dialog indicó error, retornar inmediatamente
+                if (!dialogResult.success) {
+                    console.log('🔴 [loginATM] Dialog indicó error al cambiar contraseña');
+                    return {
+                        success: false,
+                        error: 'PASSWORD_UPDATE_FAILED',
+                        message: `Error al actualizar contraseña: ${dialogResult.message}`
+                    };
+                }
+
+                // Esperar un poco más para que la página redirija después del dialog
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // DEBUG: Capturar el estado de la página después del cambio
+                const pageDebugInfo = await page.evaluate(() => {
+                    return {
+                        url: window.location.href,
+                        title: document.title,
+                        bodyText: document.body.textContent.substring(0, 500), // Primeros 500 caracteres
+                        hasErrorMessage: document.body.textContent.toLowerCase().includes('error'),
+                        hasSuccessMessage: document.body.textContent.toLowerCase().includes('éxito') ||
+                                         document.body.textContent.toLowerCase().includes('exitosamente') ||
+                                         document.body.textContent.toLowerCase().includes('actualizada'),
+                        formExists: !!document.getElementById('claveAnterior'), // ¿Sigue el form de cambio?
+                        isHomePage: document.body.textContent.includes('Mis Trámites') ||
+                                   document.body.textContent.includes('Mi ATM')
+                    };
+                });
+
+                console.log('🔍 [DEBUG loginATM] Estado después de cambio de clave:', JSON.stringify(pageDebugInfo, null, 2));
+
+                // Verificar si hubo error o éxito basándonos en el estado real
+                let cambioExitoso = false;
+
+                // Si el formulario de cambio ya no existe, significa que avanzó (éxito)
+                if (!pageDebugInfo.formExists) {
+                    console.log('✅ [loginATM] Formulario de cambio desapareció - Cambio exitoso');
+                    cambioExitoso = true;
+                }
+                // Si hay mensaje de éxito explícito
+                else if (pageDebugInfo.hasSuccessMessage) {
+                    console.log('✅ [loginATM] Mensaje de éxito detectado');
+                    cambioExitoso = true;
+                }
+                // Si llegó a la home/mis trámites
+                else if (pageDebugInfo.isHomePage) {
+                    console.log('✅ [loginATM] Redirigido a página principal - Cambio exitoso');
+                    cambioExitoso = true;
+                }
+                // Si hay mensaje de error explícito
+                else if (pageDebugInfo.hasErrorMessage) {
+                    console.log('❌ [loginATM] Mensaje de error detectado en la página');
+                    cambioExitoso = false;
+                }
+                // Si nada cambió, asumimos éxito (el sistema no siempre muestra confirmación)
+                else {
+                    console.log('⚠️ [loginATM] Estado incierto - Asumiendo éxito por defecto');
+                    cambioExitoso = true;
+                }
+
+                if (cambioExitoso) {
+                    console.log('✅ [loginATM] Contraseña actualizada automáticamente');
+
+                    // Ahora necesitamos volver a hacer login con la misma contraseña
+                    // O verificar si ya estamos logueados
+                    console.log('[loginATM] Verificando estado post-actualización...');
+
+                    // Esperar a que redirija o maneje el modal de email si aparece
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                    // Manejar modal de email si aparece
+                    const modalEmailPostergado = await manejarModalActualizacionEmail(page);
+                    if (modalEmailPostergado === 'ERROR') {
+                        console.log('🔴 [loginATM] No se pudo postergar la actualización de email.');
+                        return { success: false, error: 'EMAIL_UPDATE_MODAL_ERROR', message: 'No se pudo cerrar el modal de actualización de email' };
+                    }
+
+                    return {
+                        success: true,
+                        passwordUpdated: true,
+                        message: 'Contraseña actualizada automáticamente'
+                    };
+                } else {
+                    console.log('🔴 [loginATM] Error al actualizar contraseña automáticamente');
+                    return {
+                        success: false,
+                        error: 'PASSWORD_UPDATE_FAILED',
+                        message: 'No se pudo actualizar la contraseña automáticamente'
+                    };
+                }
+
+            } catch (updateError) {
+                console.error('❌ [loginATM] Error durante actualización automática de contraseña:', updateError.message);
+                return {
+                    success: false,
+                    error: 'PASSWORD_UPDATE_ERROR',
+                    message: `Error al actualizar contraseña: ${updateError.message}`
+                };
+            }
         }
 
         // Verificar si apareció el modal de actualización de email

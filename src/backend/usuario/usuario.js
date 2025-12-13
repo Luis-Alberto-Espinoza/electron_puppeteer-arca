@@ -38,7 +38,7 @@ class JsonStorage {
   loadData() {
     try {
       const data = fs.readFileSync(this.dataPath, 'utf8');
-      console.log('📖 Datos cargados:', data);
+      //console.log('📖 Datos cargados:', data);
       return JSON.parse(data);
     } catch (error) {
       console.error('❌ Error cargando datos:', error);

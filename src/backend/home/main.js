@@ -147,8 +147,7 @@ const verificarCredencialesATM = require('../puppeteer/ATM/flujosDeTareas/flujo_
 
 
 // importar sistema de credenciales
-const ejecutar_verificacionCredenciales = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP');
-//import { ejecutar_verificacionCredenciales } from '../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js';      
+const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP');      
 
 let mainWindow;
 let puppeteerWindow;
@@ -398,7 +397,7 @@ function setupIpcListeners() {
             // --- Verificación AFIP ---
             if (credenciales.claveAFIP) {
                 console.log('[Verificación Manual] Verificando credenciales de AFIP...');
-                const afipResult = await ejecutar_verificacionCredenciales(page, credenciales);
+                const afipResult = await verificarYObtenerDatosAFIP(page, credenciales);
                 if (afipResult.success) {
                     finalResult.success = true;
                     finalResult.puntosDeVentaArray = afipResult.data.puntosDeVentaArray || [];

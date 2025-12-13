@@ -38,38 +38,51 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
         await page.waitForSelector('#F1\\:password', { visible: true });
         await page.type('#F1\\:password', String(claveAFIP));
         console.log('    [AFIP] -> Clic en Ingresar...');
-        try {
-            await Promise.all([
-                page.click('#F1\\:btnIngresar'),
-                page.waitForNavigation({ waitUntil: 'networkidle2' })
-            ]);
-        } catch (e) {
-            // Si la navegación falla (timeout), es muy probable que sea por un error de login.
-            // Buscamos el mensaje de error específico en la página para dar un reporte más claro.
-            const errorLogin = await page.evaluate(() => {
-                const el = document.querySelector('#F1\\:msg');
-                return el ? el.textContent.trim() : null;
-            });
 
-            if (errorLogin) {
-                throw new Error(errorLogin); // Lanzamos el error específico (ej: "Clave o usuario incorrecto")
-            } else {
-                throw e; // Si no hay mensaje, relanzamos el error original (ej: timeout)
-            }
+        // Hacer clic y esperar el resultado (navegación exitosa, error, o cambio de clave)
+        await page.click('#F1\\:btnIngresar');
+
+        // Usar Promise.race para detectar qué ocurre primero
+        const resultado = await Promise.race([
+            // Opción 1: Navegación exitosa (el buscador aparece)
+            page.waitForSelector('#buscadorInput', { timeout: 10000 })
+                .then(() => ({ tipo: 'exitoso' }))
+                .catch(() => null),
+
+            // Opción 2: Formulario de cambio de clave
+            page.waitForSelector('form[action*="cambioClaveForzado.xhtml"]', { timeout: 10000 })
+                .then(() => ({ tipo: 'cambio_clave' }))
+                .catch(() => null),
+
+            // Opción 3: Mensaje de error en login
+            page.waitForSelector('#F1\\:msg', { visible: true, timeout: 10000 })
+                .then(async () => {
+                    const errorText = await page.evaluate(() => {
+                        const el = document.querySelector('#F1\\:msg');
+                        return el ? el.textContent.trim() : null;
+                    });
+                    return { tipo: 'error', mensaje: errorText };
+                })
+                .catch(() => null)
+        ]).then(res => res || { tipo: 'timeout' });
+
+        // Procesar el resultado
+        if (resultado.tipo === 'error') {
+            console.log('    [AFIP] -> Error de login detectado:', resultado.mensaje);
+            throw new Error(resultado.mensaje || 'Clave o usuario incorrecto');
         }
 
-        // Lógica de detección final: buscar el formulario de cambio de clave forzado.
-        const cambioClaveFormSelector = 'form[action*="cambioClaveForzado.xhtml"]';
-        const formHandle = await page.$(cambioClaveFormSelector);
-
-        if (formHandle) {
-            // Si el formulario existe, sabemos que se requiere actualizar la clave.
+        if (resultado.tipo === 'cambio_clave') {
             console.log('    [AFIP] -> Se detectó la página de cambio de clave forzado.');
             throw new Error('UPDATE_PASSWORD_REQUIRED');
         }
 
-        // Si no se encontró el formulario, el login fue un éxito total.
-        console.log('    [AFIP] -> Login exitoso.');
+        if (resultado.tipo === 'timeout') {
+            console.log('    [AFIP] -> Timeout esperando respuesta del login');
+            throw new Error('Timeout: La página de AFIP no respondió en el tiempo esperado');
+        }
+
+        // Si llegamos aquí, el login fue exitoso (resultado.tipo === 'exitoso')
         console.log('    [AFIP] -> Login exitoso.');
 
         // 2. Navegar y extraer datos (lógica original)

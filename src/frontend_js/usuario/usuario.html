@@ -1,150 +1,263 @@
 <div class="container">
-        <div class="header">
-            <h1>🚀 CRUD Usuarios</h1>
-            <p>Gestión de usuarios con Electron + JSON</p>
-        </div>
+    <div class="header">
+        <h1>👥 Gestión de Clientes</h1>
+        <p>Administración de clientes con AFIP y ATM</p>
+    </div>
 
-        <div class="bulk-upload-section">
-            <h2>📂 Carga Masiva de Usuarios desde Excel</h2>
-            <div class="form-group">
-                <label for="excelFile">Selecciona un archivo Excel (.xlsx, .xls, .csv):</label>
-                <input type="file" id="excelFile" accept=".xlsx, .xls, .csv">
+    <!-- Alertas Globales -->
+    <div id="alert" class="alert hidden">
+        <span id="alertMessage"></span>
+    </div>
+
+    <div class="content">
+        <!-- ==================== TABLA DE CLIENTES (SIEMPRE VISIBLE) ==================== -->
+        <div class="users-section">
+            <div class="section-header">
+                <h2>📋 Clientes Registrados</h2>
+                <div class="section-actions">
+                    <button class="btn btn-success btn-sm" onclick="toggleSection('createSection')">
+                        ➕ Nuevo Cliente
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="toggleSection('bulkUploadSection')">
+                        📂 Carga Masiva
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="btnRecargarLista">
+                        <span id="loadLoading" class="loading hidden"></span>
+                        🔄 Recargar
+                    </button>
+                </div>
             </div>
-            <button class="btn btn-success" id="btnCargarExcel">
-                <span id="uploadLoading" class="loading hidden">
-                    <span class="spinner"></span>
-                    <span class="loader-text">Procesando...</span>
-                </span>
-                <span id="btnCargarExcelText">Procesar Archivo</span>
-            </button>
-            <div id="uploadStatus" class="status-message hidden"></div>
-        </div>
 
-        <div class="content">
-            <!-- Formulario de edición (oculto inicialmente) -->
-            <div id="editForm" class="edit-form hidden">
-                <h3>✏️ Editando Usuario</h3>
-                <div class="form-columns">
-                    <div class="form-column">
-                        <div class="form-group">
-                            <label for="editNombre">Nombre:</label>
-                            <input type="text" id="editNombre" placeholder="Ingresa el nombre">
-                        </div>
-                        <div class="form-group">
-                            <label for="editCuit">CUIT:</label>
-                            <input type="text" id="editCuit" maxlength="11" pattern="d{11}" placeholder="Ingresa el CUIT">
-                            <span id="editCuitError" class="validation-error"></span>
-                        </div>
-                        <div class="form-group">
-                            <label for="editTipoContribuyente">Tipo Contribuyente:</label>
-                            <select id="editTipoContribuyente">
-                                <option value="">Seleccione...</option>
-                                <option value="B">B</option>
-                                <option value="C">C</option>
-                            </select>
-                        </div>
+            <!-- Panel de Progreso de Verificación -->
+            <div id="progressPanel" class="progress-panel hidden">
+                <div class="progress-header">
+                    <span class="progress-icon">🔄</span>
+                    <span class="progress-title">Verificando credenciales...</span>
+                    <span id="progressCounter" class="progress-counter">0 / 0 usuarios</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progressBar" class="progress-bar" style="width: 0%"></div>
+                </div>
+                <div id="progressStats" class="progress-stats">
+                    <span class="stat-item stat-success">✅ <span id="statValidados">0</span> validados</span>
+                    <span class="stat-item stat-error">⚠️ <span id="statFallos">0</span> con fallos</span>
+                    <span class="stat-item stat-processing">⏳ Procesando...</span>
+                </div>
+            </div>
+
+            <!-- Panel de Resultados Persistente -->
+            <div id="resultsPanel" class="results-panel hidden">
+                <div class="results-header">
+                    <div class="results-title-section">
+                        <span class="results-icon">📋</span>
+                        <span class="results-title">Resultados de Verificación</span>
+                        <span id="resultsTimestamp" class="results-timestamp">Hace unos momentos</span>
                     </div>
-                    <div class="form-column">
-                        <div class="form-group">
-                            <label for="editApellido">Apellido:</label>
-                            <input type="text" id="editApellido" placeholder="Ingresa el apellido">
-                        </div>
-                        <div class="form-group">
-                            <label for="editCuil">CUIL:</label>
-                            <input type="text" id="editCuil" maxlength="11" pattern="d{11}" placeholder="Ingresa el CUIL">
-                            <span id="editCuilError" class="validation-error"></span>
-                        </div>
-                        <div class="form-group">
-                            <label for="editClaveAFIP">Clave de AFIP - ARCA:</label>
-                            <input type="text" id="editClaveAFIP" placeholder="Ingresa la clave de AFIP">
-                        </div>
-                        <div class="form-group">
-                            <label for="editClaveATM">Clave de ATM:</label>
-                            <input type="text" id="editClaveATM" placeholder="Ingresa la clave de ATM">
-                        </div>
+                    <button id="btnCloseResults" class="btn-close-results" title="Cerrar">✖</button>
+                </div>
+                <div class="results-summary">
+                    <div class="summary-item summary-success">
+                        <span class="summary-icon">✅</span>
+                        <span id="summarySuccess" class="summary-count">0</span>
+                        <span class="summary-label">verificados</span>
+                    </div>
+                    <div class="summary-item summary-failed">
+                        <span class="summary-icon">❌</span>
+                        <span id="summaryFailed" class="summary-count">0</span>
+                        <span class="summary-label">con fallos</span>
                     </div>
                 </div>
-                <button class="btn btn-primary" onclick="updateUser()">
-                    <span id="updateLoading" class="loading hidden"></span>
-                    Actualizar Usuario
-                </button>
-                <button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button>
+                <div class="results-toggle">
+                    <button id="btnToggleDetails" class="btn-toggle-details">
+                        <span id="toggleIcon">▼</span> Ver detalles
+                    </button>
+                </div>
+                <div id="resultsDetails" class="results-details hidden">
+                    <div id="resultsDetailsList" class="results-details-list">
+                        <!-- Se llenará dinámicamente con JavaScript -->
+                    </div>
+                </div>
             </div>
 
-            <!-- Formulario para crear usuario -->
+            <!-- Buscador -->
+            <div class="search-section">
+                <div class="search-wrapper">
+                    <input
+                        type="text"
+                        id="searchInput"
+                        class="search-input"
+                        placeholder="🔍 Buscar por nombre, apellido, CUIT, CUIL..."
+                    />
+                    <button id="btnClearSearch" class="btn-clear-search">
+                        ✕ Limpiar
+                    </button>
+                </div>
+                <div class="search-results-count">
+                    <span id="searchResultsCount"></span>
+                </div>
+            </div>
+
+            <!-- Controles de acciones masivas (fijo) -->
+            <div id="bulkActionsContainer"></div>
+
+            <div id="usersList" class="users-list">
+                <div class="empty-state">
+                    <div class="icon">📋</div>
+                    <p>No hay clientes registrados</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== FORMULARIO CREAR CLIENTE (OCULTO) ==================== -->
+        <div id="createSection" class="collapsible-section hidden">
+            <div class="section-header">
+                <h2>➕ Crear Nuevo Cliente</h2>
+                <button class="btn btn-secondary btn-sm" onclick="toggleSection('createSection')">
+                    ✖ Cerrar
+                </button>
+            </div>
             <div class="form-section">
-                <h2>➕ Crear Nuevo Usuario</h2>
                 <div class="form-columns">
                     <div class="form-column">
                         <div class="form-group">
                             <label for="nombre">Nombre:</label>
-                            <input type="text" id="nombre" placeholder="Ingresa el nombre del usuario">
+                            <input type="text" id="nombre" placeholder="Ingresa el nombre">
                         </div>
-                        <div class="form-group">
-                            <label for="cuit">CUIT:</label>
-                            <input type="text" id="cuit" maxlength="11" pattern="d{11}" placeholder="Ingresa el CUIT">
-                            <span id="cuitError" class="validation-error"></span>
-                        </div>
-                        <div class="form-group">
-                            <label for="tipoContribuyente">Tipo Contribuyente:</label>
-                            <select id="tipoContribuyente">
-                                <option value="">Seleccione...</option>
-                                <option value="B">B</option>
-                                <option value="C">C</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-column">
                         <div class="form-group">
                             <label for="apellido">Apellido:</label>
                             <input type="text" id="apellido" placeholder="Ingresa el apellido">
                         </div>
                         <div class="form-group">
+                            <label for="cuit">CUIT:</label>
+                            <input type="text" id="cuit" maxlength="11" pattern="\d{11}" placeholder="11 dígitos">
+                            <span id="cuitError" class="validation-error"></span>
+                        </div>
+                        <div class="form-group">
                             <label for="cuil">CUIL:</label>
-                            <input type="text" id="cuil" maxlength="11" pattern="d{11}" placeholder="Ingresa el CUIL">
+                            <input type="text" id="cuil" maxlength="11" pattern="\d{11}" placeholder="11 dígitos">
                             <span id="cuilError" class="validation-error"></span>
                         </div>
+                    </div>
+                    <div class="form-column">
                         <div class="form-group">
-                            <label for="claveAFIP">Clave de AFIP - ARCA:</label>
-                            <input type="text" id="claveAFIP" placeholder="Ingresa la clave de AFIP">
+                            <label for="tipoContribuyente">Tipo Contribuyente:</label>
+                            <select id="tipoContribuyente">
+                                <option value="">Seleccione...</option>
+                                <option value="B">B - Consumidor Final</option>
+                                <option value="C">C - IVA Responsable Inscripto</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label for="claveATM">Clave de ATM:</label>
-                            <input type="text" id="claveATM" placeholder="Ingresa la clave de ATM">
+                            <label for="claveAFIP">Clave AFIP - ARCA:</label>
+                            <input type="password" id="claveAFIP" placeholder="Clave de AFIP">
+                        </div>
+                        <div class="form-group">
+                            <label for="claveATM">Clave ATM:</label>
+                            <input type="password" id="claveATM" placeholder="Clave de ATM">
                         </div>
                     </div>
                 </div>
-                <div id="verificarUsuario" class="verificarUsuario">
+
+                <!-- Verificación de Credenciales -->
+                <div class="action-bar">
                     <button class="btn btn-primary" id="btnVerificarCredenciales">
-                        Verificar Credenciales
+                        🔍 Verificar Credenciales
                     </button>
                     <span id="verificarLoading" class="loading hidden"></span>
-                    <!-- Alerta para mensajes -->
-                    <div id="alert" class="alert hidden">
-                        <span id="alertMessage"></span>
-                    </div>
                 </div>
-                <!-- Contenedor para la lista de puntos de venta -->
-                <div id="elegirEmpresa" class="puntos-venta-list" style="margin: 10px 0;"></div>
-                <button class="btn btn-primary" id="btnCrearUsuario" style="display:none;">
+
+                <!-- Lista de Empresas Disponibles -->
+                <div id="elegirEmpresa" class="puntos-venta-list"></div>
+
+                <!-- Botón Crear (oculto hasta verificación) -->
+                <button class="btn btn-success" id="btnCrearUsuario" style="display:none;">
                     <span id="createLoading" class="loading hidden"></span>
-                    Crear Usuario
+                    ✅ Crear Cliente
                 </button>
             </div>
+        </div>
 
-            <!-- Lista de usuarios -->
-            <div class="users-section">
-                <h2>👥 Usuarios Registrados</h2>
-                <button class="btn btn-secondary" id="btnRecargarLista" style="margin-bottom: 20px;">
-                    <span id="loadLoading" class="loading hidden"></span>
-                    🔄 Recargar Lista
+        <!-- ==================== FORMULARIO EDITAR CLIENTE (OCULTO) ==================== -->
+        <div id="editForm" class="collapsible-section hidden">
+            <div class="section-header">
+                <h2>✏️ Editar Cliente</h2>
+                <button class="btn btn-secondary btn-sm" onclick="cancelEdit()">
+                    ✖ Cancelar
                 </button>
-                <div id="usersList" class="users-list">
-                    <div class="empty-state">
-                        <div class="icon">📋</div>
-                        <p>No hay usuarios registrados</p>
+            </div>
+            <div class="form-section">
+                <div class="form-columns">
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label for="editNombre">Nombre:</label>
+                            <input type="text" id="editNombre" placeholder="Nombre">
+                        </div>
+                        <div class="form-group">
+                            <label for="editApellido">Apellido:</label>
+                            <input type="text" id="editApellido" placeholder="Apellido">
+                        </div>
+                        <div class="form-group">
+                            <label for="editCuit">CUIT:</label>
+                            <input type="text" id="editCuit" maxlength="11" placeholder="11 dígitos">
+                            <span id="editCuitError" class="validation-error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="editCuil">CUIL:</label>
+                            <input type="text" id="editCuil" maxlength="11" placeholder="11 dígitos">
+                            <span id="editCuilError" class="validation-error"></span>
+                        </div>
                     </div>
+                    <div class="form-column">
+                        <div class="form-group">
+                            <label for="editTipoContribuyente">Tipo Contribuyente:</label>
+                            <select id="editTipoContribuyente">
+                                <option value="">Seleccione...</option>
+                                <option value="B">B - Consumidor Final</option>
+                                <option value="C">C - IVA Responsable Inscripto</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="editClaveAFIP">Clave AFIP - ARCA:</label>
+                            <input type="password" id="editClaveAFIP" placeholder="Clave de AFIP">
+                        </div>
+                        <div class="form-group">
+                            <label for="editClaveATM">Clave ATM:</label>
+                            <input type="password" id="editClaveATM" placeholder="Clave de ATM">
+                        </div>
+                    </div>
+                </div>
+                <div class="action-bar">
+                    <button class="btn btn-primary" onclick="updateUser()">
+                        <span id="updateLoading" class="loading hidden"></span>
+                        💾 Actualizar Cliente
+                    </button>
+                    <button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button>
                 </div>
             </div>
         </div>
+
+        <!-- ==================== CARGA MASIVA (OCULTA) ==================== -->
+        <div id="bulkUploadSection" class="collapsible-section hidden">
+            <div class="section-header">
+                <h2>📂 Carga Masiva desde Excel</h2>
+                <button class="btn btn-secondary btn-sm" onclick="toggleSection('bulkUploadSection')">
+                    ✖ Cerrar
+                </button>
+            </div>
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="excelFile">Selecciona archivo Excel (.xlsx, .xls, .csv):</label>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv">
+                </div>
+                <button class="btn btn-success" id="btnCargarExcel">
+                    <span id="uploadLoading" class="loading hidden">
+                        <span class="spinner"></span>
+                        <span class="loader-text">Procesando...</span>
+                    </span>
+                    <span id="btnCargarExcelText">📤 Procesar Archivo</span>
+                </button>
+                <div id="uploadStatus" class="status-message hidden"></div>
+            </div>
+        </div>
     </div>
+</div>
