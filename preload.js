@@ -48,7 +48,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
         delete: (userId) => ipcRenderer.invoke('user:delete', userId),
         verifyOnCreate: (credenciales) => ipcRenderer.invoke('user:verify-on-create', credenciales),
         verifyBatch: (jobs) => ipcRenderer.invoke('user:verify-credentials', jobs),
-        verifyAndUpdate: (userData) => ipcRenderer.invoke('user:verifyAndUpdate', userData),
         onVerificationProgress: (callback) => ipcRenderer.on('verification:progress', (_event, data) => callback(data))
     },
 

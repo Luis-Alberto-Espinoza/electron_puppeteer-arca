@@ -7,6 +7,7 @@
     <!-- Alertas Globales -->
     <div id="alert" class="alert hidden">
         <span id="alertMessage"></span>
+        <button id="btnCloseAlert" class="btn-close-alert" title="Cerrar">✖</button>
     </div>
 
     <div class="content">
@@ -149,11 +150,21 @@
                         </div>
                         <div class="form-group">
                             <label for="claveAFIP">Clave AFIP - ARCA:</label>
-                            <input type="password" id="claveAFIP" placeholder="Clave de AFIP">
+                            <div class="password-input-wrapper">
+                                <input type="password" id="claveAFIP" placeholder="Clave de AFIP">
+                                <button type="button" class="btn-toggle-password" data-target="claveAFIP">
+                                    👁️
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="claveATM">Clave ATM:</label>
-                            <input type="password" id="claveATM" placeholder="Clave de ATM">
+                            <div class="password-input-wrapper">
+                                <input type="password" id="claveATM" placeholder="Clave de ATM">
+                                <button type="button" class="btn-toggle-password" data-target="claveATM">
+                                    👁️
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -218,11 +229,21 @@
                         </div>
                         <div class="form-group">
                             <label for="editClaveAFIP">Clave AFIP - ARCA:</label>
-                            <input type="password" id="editClaveAFIP" placeholder="Clave de AFIP">
+                            <div class="password-input-wrapper">
+                                <input type="password" id="editClaveAFIP" placeholder="Clave de AFIP">
+                                <button type="button" class="btn-toggle-password" data-target="editClaveAFIP">
+                                    👁️
+                                </button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label for="editClaveATM">Clave ATM:</label>
-                            <input type="password" id="editClaveATM" placeholder="Clave de ATM">
+                            <div class="password-input-wrapper">
+                                <input type="password" id="editClaveATM" placeholder="Clave de ATM">
+                                <button type="button" class="btn-toggle-password" data-target="editClaveATM">
+                                    👁️
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

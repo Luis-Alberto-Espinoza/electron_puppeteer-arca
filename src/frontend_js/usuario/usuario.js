@@ -23,9 +23,26 @@ function showAlert(message, type = 'success') {
     alertMessage.textContent = message;
     alert.classList.remove('hidden');
 
+    // Auto-scroll al alert con un pequeño delay
     setTimeout(() => {
-        alert.classList.add('hidden');
-    }, 3000);
+        alert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+
+    // ❌ Ya NO se oculta automáticamente - el usuario debe cerrarlo manualmente
+}
+
+// Función para cerrar el alert manualmente
+function closeAlert() {
+    const alert = document.getElementById('alert');
+    alert.classList.add('hidden');
+}
+
+// Inicializar el botón de cerrar alert
+function initializeAlertCloseButton() {
+    const btnCloseAlert = document.getElementById('btnCloseAlert');
+    if (btnCloseAlert) {
+        btnCloseAlert.addEventListener('click', closeAlert);
+    }
 }
 
 // Función para mostrar/ocultar loading
@@ -273,10 +290,10 @@ function showResultsPanel(results) {
         console.warn('⚠️ [showResultsPanel] No hay detalles para mostrar o el array está vacío');
     }
 
-    // Mostrar panel con scroll automático
+    // Mostrar panel con scroll automático hacia el panel de resultados
     panel.classList.remove('hidden');
     setTimeout(() => {
-        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
 }
 
@@ -948,6 +965,13 @@ window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoCon
     document.getElementById('editCuil').value = cuil;
     document.getElementById('editTipoContribuyente').value = tipoContribuyente;
     document.getElementById('editApellido').value = apellido;
+
+    // ✨ Ocultar la sección de usuarios mientras se edita
+    const usersSection = document.querySelector('.users-section');
+    if (usersSection) {
+        usersSection.classList.add('hidden');
+    }
+
     document.getElementById('editForm').classList.remove('hidden');
     document.getElementById('editForm').scrollIntoView({ behavior: 'smooth' });
 }
@@ -1010,10 +1034,6 @@ window.updateUser = async function() {
         return;
     }
 
-    const claveCambio = claveAFIP !== window.currentEditingUser.claveAFIP;
-    const cuitCambio = cuit !== window.currentEditingUser.cuit;
-    const cuilCambio = cuil !== window.currentEditingUser.cuil;
-
     try {
         setLoading('updateLoading', true);
 
@@ -1028,17 +1048,23 @@ window.updateUser = async function() {
             apellido
         };
 
-        let result;
-        if (claveCambio || cuitCambio || cuilCambio) {
-            result = await window.electronAPI.user.verifyAndUpdate(userData);
-        } else {
-            result = await window.electronAPI.user.update(userData);
-        }
+        // Siempre usar el handler 'update' que ya existe en el backend
+        // Si cambiaron las credenciales, el backend automáticamente las marcará como 'pendiente'
+        const result = await window.electronAPI.user.update(userData);
 
         if (result.success) {
             showAlert(`Usuario "${nombre}" actualizado exitosamente!`);
             cancelEdit();
             await loadUsers();
+
+            // ✨ Mostrar nuevamente la sección de usuarios después de actualizar
+            const usersSection = document.querySelector('.users-section');
+            if (usersSection) {
+                usersSection.classList.remove('hidden');
+                setTimeout(() => {
+                    usersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+            }
         } else {
             showAlert(result.error || 'Error al actualizar usuario', 'error');
         }
@@ -1057,6 +1083,15 @@ window.cancelEdit = function() {
     document.getElementById('editNombre').value = '';
     document.getElementById('editClaveAFIP').value = '';
     document.getElementById('editClaveATM').value = '';
+
+    // ✨ Mostrar nuevamente la sección de usuarios al cancelar
+    const usersSection = document.querySelector('.users-section');
+    if (usersSection) {
+        usersSection.classList.remove('hidden');
+        setTimeout(() => {
+            usersSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+    }
 }
 
 function inicializarUsuarioFrontend() {
@@ -1078,6 +1113,9 @@ function inicializarUsuarioFrontend() {
             }
 
             if (!confirm(`¿Iniciar la verificación para los ${verificationJobs.length} servicios seleccionados?`)) return;
+
+            // ✨ AGRUPAR SELECCIONADOS AL INICIO DE LA TABLA
+            reorderUsersBySelection();
 
             // Agrupar por userId para contar usuarios únicos
             const uniqueUserIds = [...new Set(verificationJobs.map(j => j.userId))];
@@ -1119,6 +1157,7 @@ function inicializarUsuarioFrontend() {
                     // DEBUG: Ver qué datos llegan
                     console.log('🔍 [DEBUG] progressData completo:', progressData);
                     console.log('🔍 [DEBUG] progressData.services:', progressData.services);
+                    console.log('🔍 [DEBUG] progressData.results:', progressData.results);
 
                     // Determinar servicio verificado
                     const services = progressData.services || [];
@@ -1134,13 +1173,29 @@ function inicializarUsuarioFrontend() {
                             error: isSuccess ? null : (progressData.error || 'Error desconocido')
                         });
                     } else {
+                        // Agregar cada servicio con su error específico
                         services.forEach(service => {
+                            let errorMessage = null;
+
+                            // Obtener el error específico del resultado del servicio
+                            if (!isSuccess && progressData.results) {
+                                const serviceResult = progressData.results[service];
+                                if (serviceResult && serviceResult.error) {
+                                    errorMessage = serviceResult.error;
+                                }
+                            }
+
+                            // Si no hay error específico, usar el genérico
+                            if (!isSuccess && !errorMessage) {
+                                errorMessage = progressData.error || 'Error desconocido';
+                            }
+
                             verificationDetails.push({
                                 userId: progressData.userId,
                                 userName: progressData.userName || 'Usuario',
                                 service: service,
                                 success: isSuccess,
-                                error: isSuccess ? null : (progressData.error || 'Error desconocido')
+                                error: errorMessage
                             });
                         });
                     }
@@ -1253,6 +1308,7 @@ function inicializarUsuarioFrontend() {
     inicializarVerificarCredenciales();
     initializeSearchEvents();
     initializeResultsPanel();
+    initializeAlertCloseButton();
 
     // Limpiar estados de verificación al hacer clic en cualquier parte (excepto en filas)
     document.addEventListener('click', (e) => {
@@ -1261,30 +1317,61 @@ function inicializarUsuarioFrontend() {
         }
     });
 
-    // Reordenar lista automáticamente al seleccionar checkboxes
-    usersList.addEventListener('change', (e) => {
-        if (e.target.matches('.service-checkbox')) {
-            const wasChecked = e.target.checked;
-            console.log('📌 Checkbox individual cambiado:', wasChecked ? 'SELECCIONADO' : 'DES-SELECCIONADO');
+    // ❌ REORDENAMIENTO AUTOMÁTICO DESACTIVADO
+    // El reordenamiento ahora se dispara solo al presionar "Verificar Seleccionados"
+    // esto evita que la lista se reorganice constantemente mientras el usuario selecciona checkboxes
 
-            // Dar tiempo para que el checkbox complete su cambio de estado
-            // Especialmente importante al des-seleccionar para evitar que el DOM se re-renderice antes
-            setTimeout(() => {
-                reorderUsersBySelection();
-            }, 50);
+    // usersList.addEventListener('change', (e) => {
+    //     if (e.target.matches('.service-checkbox')) {
+    //         const wasChecked = e.target.checked;
+    //         console.log('📌 Checkbox individual cambiado:', wasChecked ? 'SELECCIONADO' : 'DES-SELECCIONADO');
+    //         setTimeout(() => {
+    //             reorderUsersBySelection();
+    //         }, 50);
+    //     }
+    // });
+
+    // bulkActionsContainer.addEventListener('change', (e) => {
+    //     if (e.target.matches('.select-all-service-checkbox')) {
+    //         console.log('📌 Checkbox "Seleccionar Todo" cambiado, reordenando lista...');
+    //         setTimeout(() => {
+    //             reorderUsersBySelection();
+    //         }, 100);
+    //     }
+    // });
+
+    // ========== INICIALIZAR BOTONES MOSTRAR/OCULTAR CONTRASEÑA ==========
+    initializePasswordToggleButtons();
+}
+
+// ========== FUNCIONALIDAD MOSTRAR/OCULTAR CONTRASEÑA ==========
+function initializePasswordToggleButtons() {
+    // Usar delegación de eventos en el documento para capturar botones dinámicos
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-toggle-password')) {
+            const button = e.target.closest('.btn-toggle-password');
+            const targetId = button.dataset.target;
+            const input = document.getElementById(targetId);
+
+            if (input) {
+                togglePasswordVisibility(input, button);
+            }
         }
     });
+}
 
-    // También reordenar cuando se usan los checkboxes "Seleccionar Todo"
-    bulkActionsContainer.addEventListener('change', (e) => {
-        if (e.target.matches('.select-all-service-checkbox')) {
-            console.log('📌 Checkbox "Seleccionar Todo" cambiado, reordenando lista...');
-            // Pequeño delay para que se marquen todos los checkboxes primero
-            setTimeout(() => {
-                reorderUsersBySelection();
-            }, 100);
-        }
-    });
+function togglePasswordVisibility(input, button) {
+    if (input.type === 'password') {
+        // Mostrar contraseña
+        input.type = 'text';
+        button.classList.add('active');
+        button.textContent = '🙈'; // Cambiar a ojo cerrado cuando está visible
+    } else {
+        // Ocultar contraseña
+        input.type = 'password';
+        button.classList.remove('active');
+        button.textContent = '👁️'; // Volver a ojo abierto cuando está oculta
+    }
 }
 
 window.inicializarUsuarioFrontend = inicializarUsuarioFrontend;

@@ -21,11 +21,13 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
     if (servicesToCheck.includes('afip')) {
         usuario.claveAfipValida = false;
         usuario.claveAfipRequiereActualizacion = false;
+        usuario.errorAfip = null; // Limpiar error anterior
     }
     if (servicesToCheck.includes('atm')) {
         usuario.claveAtmValida = false;
         usuario.claveAtmRequiereActualizacion = false;
         usuario.claveAtmInvalida = false; // Estado limpio
+        usuario.errorAtm = null; // Limpiar error anterior
     }
 
     // --- Flujo de AFIP ---
@@ -36,6 +38,7 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
             const resultadoAFIP = await verificarYObtenerDatosAFIP(afipPage, usuario);
             if (resultadoAFIP.success) {
                 usuario.claveAfipValida = true;
+                usuario.errorAfip = null;
                 if (resultadoAFIP.data && resultadoAFIP.data.puntosDeVentaArray) {
                     usuario.puntosDeVenta = resultadoAFIP.data.puntosDeVentaArray;
                     console.log(`  -> AFIP: Válido. Puntos de venta encontrados: ${usuario.puntosDeVenta.length}`);
@@ -44,14 +47,18 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
                 usuario.claveAfipValida = false; // La clave no es válida para la automatización
                 if (resultadoAFIP.error === 'UPDATE_PASSWORD_REQUIRED') {
                     usuario.claveAfipRequiereActualizacion = true;
+                    usuario.errorAfip = 'Requiere actualización de contraseña';
                     console.log('  -> AFIP: Requiere actualización de contraseña.');
                 } else {
+                    usuario.errorAfip = resultadoAFIP.message || resultadoAFIP.error || 'Credenciales AFIP inválidas';
                     console.log(`  -> AFIP: Inválido o con errores.`);
                 }
             }
             console.log('[MANAGER] <- Flujo AFIP terminado.');
         } catch (e) {
             console.error('Error catastrófico en el flujo AFIP:', e.message);
+            usuario.claveAfipValida = false;
+            usuario.errorAfip = `Error: ${e.message}`;
         } finally {
             await afipPage.close();
         }
@@ -65,16 +72,20 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
             const resultadoATM = await verificarCredencialesATM(atmPage, usuario.cuit, usuario.claveATM);
             if (resultadoATM.success) {
                 usuario.claveAtmValida = true;
+                usuario.errorAtm = null;
                 console.log(`  -> ATM: Válido.`);
             } else {
                 usuario.claveAtmValida = false;
                 if (resultadoATM.error === 'UPDATE_PASSWORD_REQUIRED') {
                     usuario.claveAtmRequiereActualizacion = true;
+                    usuario.errorAtm = 'Requiere actualización de contraseña';
                     console.log('  -> ATM: Requiere actualización de contraseña.');
                 } else if (resultadoATM.error === 'INVALID_CREDENTIALS') {
                     usuario.claveAtmInvalida = true; // <-- ¡CAMBIO CLAVE!
+                    usuario.errorAtm = 'CUIT o clave incorrectos';
                     console.log('  -> ATM: Credenciales incorrectas.');
                 } else {
+                    usuario.errorAtm = resultadoATM.message || resultadoATM.error || 'Error de validación ATM';
                     console.log(`  -> ATM: Inválido o con errores (${resultadoATM.error}).`);
                 }
             }
@@ -82,6 +93,7 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
         } catch (e) {
             console.error('Error catastrófico en el flujo ATM:', e.message);
             usuario.claveAtmValida = false;
+            usuario.errorAtm = `Error: ${e.message}`;
         } finally {
             await atmPage.close();
         }

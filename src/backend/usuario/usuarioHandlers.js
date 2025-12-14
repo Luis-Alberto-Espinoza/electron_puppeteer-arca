@@ -354,7 +354,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         let processedUsers = 0;
 
         try {
-            const { browser: launchedBrowser } = await launchBrowserAndPage({ headless: true });
+            const { browser: launchedBrowser } = await launchBrowserAndPage({ headless: false });
             browser = launchedBrowser;
 
             for (const [userId, servicesToVerify] of Object.entries(jobsByUser)) {
@@ -461,11 +461,13 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     results: {
                         afip: servicesToVerify.includes('afip') ? {
                             validado: usuario.claveAfipValida,
-                            requiereActualizacion: usuario.claveAfipRequiereActualizacion
+                            requiereActualizacion: usuario.claveAfipRequiereActualizacion,
+                            error: usuario.errorAfip  // ✅ AGREGADO: Mensaje de error específico
                         } : null,
                         atm: servicesToVerify.includes('atm') ? {
                             validado: usuario.claveAtmValida,
-                            requiereActualizacion: usuario.claveAtmRequiereActualizacion
+                            requiereActualizacion: usuario.claveAtmRequiereActualizacion,
+                            error: usuario.errorAtm  // ✅ AGREGADO: Mensaje de error específico
                         } : null
                     }
                 });
