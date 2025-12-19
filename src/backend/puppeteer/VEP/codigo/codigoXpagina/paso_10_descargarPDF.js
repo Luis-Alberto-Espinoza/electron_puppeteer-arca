@@ -171,11 +171,54 @@ async function ejecutar(page, usuario, medioPago, downloadsPath) {
         console.log(`  ✅ PDF descargado: ${nuevoNombre}`);
         console.log(`     Nro. VEP: ${nroVep || 'N/A'} | Período: ${periodo || 'N/A'} | CUIT: ${cuit || 'N/A'}`);
 
+        // 8. Detectar y descargar código QR (si existe)
+        let qrPath = null;
+        let qrNombre = null;
+
+        try {
+            console.log("  → Verificando si existe código QR en la página...");
+
+            const qrData = await page.evaluate(() => {
+                // Buscar imagen con src que comience con "data:image/png;base64,"
+                const imagenes = Array.from(document.querySelectorAll('img'));
+                const imgQR = imagenes.find(img =>
+                    img.src && img.src.startsWith('data:image/png;base64,')
+                );
+
+                if (imgQR) {
+                    return imgQR.src; // Retornar el data URL completo
+                }
+                return null;
+            });
+
+            if (qrData) {
+                console.log("  → Código QR detectado. Descargando...");
+
+                // Extraer el base64 puro (sin el prefijo "data:image/png;base64,")
+                const base64Data = qrData.replace(/^data:image\/png;base64,/, '');
+
+                // Generar nombre para el QR (mismo que el PDF pero con .png)
+                qrNombre = nuevoNombre.replace('.pdf', '.png');
+                qrPath = path.join(destinoDir, qrNombre);
+
+                // Guardar imagen
+                await fs.writeFile(qrPath, base64Data, 'base64');
+
+                console.log(`  ✅ Código QR descargado: ${qrNombre}`);
+            } else {
+                console.log("  ℹ️ No se encontró código QR en la página");
+            }
+        } catch (errorQR) {
+            console.error("  ⚠️ Error al descargar QR (continuando):", errorQR.message);
+        }
+
         return {
             success: true,
             message: 'PDF del VEP descargado y procesado correctamente',
             pdfPath: destinoPath,
             pdfNombre: nuevoNombre,
+            qrPath: qrPath,
+            qrNombre: qrNombre,
             datosExtraidos: { nroVep, periodo, cuit }
         };
 

@@ -4,6 +4,19 @@ async function hacerLogin(url, credenciales, opciones = {}) {
   let browser;
   let page;
   try {
+    // Validación y normalización de entrada
+    if (!credenciales?.usuario || !credenciales?.contrasena) {
+      return {
+        success: false,
+        error: 'INVALID_INPUT',
+        message: 'Credenciales incompletas'
+      };
+    }
+
+    // Normalizar credenciales a string (defensa en profundidad)
+    const usuario = String(credenciales.usuario);
+    const contrasena = String(credenciales.contrasena);
+
     browser = await launchBrowser({ headless: opciones.headless === true });
     const pages = await browser.pages();
     page = pages.length > 0 ? pages[0] : await browser.newPage();
@@ -16,14 +29,14 @@ async function hacerLogin(url, credenciales, opciones = {}) {
 
     await page.goto(url, { waitUntil: 'networkidle2' });
     await page.waitForSelector('#F1\\:username', { visible: true });
-    await page.type('#F1\\:username', credenciales.usuario);
+    await page.type('#F1\\:username', usuario);
     await Promise.all([
       page.click('#F1\\:btnSiguiente'),
       page.waitForNavigation({ waitUntil: 'networkidle2' })
     ]);
 
     await page.waitForSelector('#F1\\:password', { visible: true });
-    await page.type('#F1\\:password', credenciales.contrasena);
+    await page.type('#F1\\:password', contrasena);
 
     // --- Implementación de Promise.race ---
     const navigationPromise = page.waitForNavigation({ waitUntil: 'networkidle2' });

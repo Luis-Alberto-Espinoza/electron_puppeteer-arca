@@ -70,7 +70,77 @@ async function ejecutar(page) {
         // Espera adicional para asegurar la habilitación
         await new Promise(resolve => setTimeout(resolve, 1000));
 
-        // 3. Hacer click usando JavaScript en el botón que esté presente, visible y habilitado
+        // 3. PREPARAR el listener ANTES de hacer click
+        const browser = page.browser();
+        const URL_VEP = '/pago/veps-a-enviar';
+
+        console.log("  → Preparando detector de nueva pestaña...");
+        const promesaNuevaPagina = new Promise((resolve, reject) => {
+            let resuelto = false;
+            const timeoutFinal = setTimeout(() => {
+                if (!resuelto) {
+                    reject(new Error('Timeout esperando nueva pestaña (30s)'));
+                }
+            }, 30000);
+
+            // POLLING: Buscar la página cada 500ms
+            const intervalo = setInterval(async () => {
+                if (resuelto) return;
+
+                try {
+                    const pages = await browser.pages();
+                    const paginaVEP = pages.find(p => p.url().includes(URL_VEP));
+
+                    if (paginaVEP) {
+                        resuelto = true;
+                        clearInterval(intervalo);
+                        clearTimeout(timeoutFinal);
+                        console.log("  ✅ Página encontrada por URL. Verificando que esté lista...");
+
+                        // Esperar un momento para que la página termine de cargar
+                        await new Promise(r => setTimeout(r, 1000));
+
+                        resolve(paginaVEP);
+                    }
+                } catch (error) {
+                    // Ignorar errores de polling y continuar buscando
+                }
+            }, 500);
+
+            // Evento targetcreated como método alternativo (por si funciona)
+            browser.once('targetcreated', async (target) => {
+                if (resuelto) return;
+
+                try {
+                    const newPage = await target.page();
+                    if (newPage) {
+                        console.log("  → Nueva pestaña detectada por evento.");
+
+                        // Esperar a que la URL cambie a la esperada
+                        await newPage.waitForFunction(
+                            (urlSubstring) => window.location.href.includes(urlSubstring),
+                            { timeout: 10000 },
+                            URL_VEP
+                        ).catch(() => {
+                            console.log("  ⚠️ URL no coincide con la esperada");
+                        });
+
+                        if (newPage.url().includes(URL_VEP)) {
+                            resuelto = true;
+                            clearInterval(intervalo);
+                            clearTimeout(timeoutFinal);
+                            console.log("  ✅ Página validada por evento.");
+                            resolve(newPage);
+                        }
+                    }
+                } catch (error) {
+                    // Si falla el evento, el polling lo detectará
+                    console.log("  ⚠️ Error en evento targetcreated, usando polling...");
+                }
+            });
+        });
+
+        // 4. AHORA hacer click usando JavaScript en el botón que esté presente, visible y habilitado
         const resultado = await page.evaluate((selAlone, selVEP, selMONO) => {
             let boton = null;
             let nombreBoton = '';
@@ -108,32 +178,8 @@ async function ejecutar(page) {
 
         console.log(`  → Click realizado en: ${resultado.boton}. Esperando nueva pestaña...`);
 
-        // 4. Detectar y cambiar a la nueva pestaña que se abre
-        const browser = page.browser();
-
-        // Esperar a que aparezca una nueva pestaña
-        console.log("  → Esperando que se abra la nueva pestaña...");
-        const nuevaPagina = await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                reject(new Error('Timeout esperando nueva pestaña (30s)'));
-            }, 30000);
-
-            browser.once('targetcreated', async (target) => {
-                clearTimeout(timeout);
-                try {
-                    const newPage = await target.page();
-                    if (newPage) {
-                        console.log("  → Nueva pestaña detectada. Esperando carga completa...");
-                        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => {
-                            console.log("  ⚠️ networkidle2 no alcanzado, continuando...");
-                        });
-                        resolve(newPage);
-                    }
-                } catch (error) {
-                    reject(error);
-                }
-            });
-        });
+        // 5. Esperar a que se complete la promesa de la nueva pestaña
+        const nuevaPagina = await promesaNuevaPagina;
 
         console.log("  ✅ Paso 6 completado: Nueva pestaña de VEP cargada");
 

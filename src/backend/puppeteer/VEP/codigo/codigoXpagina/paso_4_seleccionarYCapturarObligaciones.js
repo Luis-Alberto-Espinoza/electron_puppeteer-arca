@@ -243,10 +243,16 @@ async function capturarDatosDeTabla(page, tipoTabla) {
                 };
             }
 
+            // Convertir formato US (11,871.01) a formato ARG (11.871,01)
+            const importeFormateado = importe
+                .replace(/,/g, 'TEMP')  // Comas a temporal
+                .replace(/\./g, ',')     // Puntos a comas
+                .replace(/TEMP/g, '.');  // Temporal a puntos
+
             mapaPeriodos[periodo].filas.push({
                 impuesto: impuesto,
                 categoria: categoria,
-                importe: importe
+                importe: importeFormateado
             });
         });
 
