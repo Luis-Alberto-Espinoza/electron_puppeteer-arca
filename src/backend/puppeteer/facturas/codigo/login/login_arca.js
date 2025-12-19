@@ -30,12 +30,35 @@ async function hacerLogin(url, credenciales, opciones = {}) {
     await page.goto(url, { waitUntil: 'networkidle2' });
     await page.waitForSelector('#F1\\:username', { visible: true });
     await page.type('#F1\\:username', usuario);
-    await Promise.all([
-      page.click('#F1\\:btnSiguiente'),
-      page.waitForNavigation({ waitUntil: 'networkidle2' })
-    ]);
 
-    await page.waitForSelector('#F1\\:password', { visible: true });
+    // Click en Siguiente
+    await page.click('#F1\\:btnSiguiente');
+
+    // --- Validar CUIT: detectar si hubo error o si navegó correctamente ---
+    const resultadoCUIT = await Promise.race([
+        page.waitForSelector('#F1\\:password', { visible: true, timeout: 10000 })
+            .then(() => ({ tipo: 'password_visible' }))
+            .catch(() => null),
+        page.waitForSelector('#F1\\:msg', { visible: true, timeout: 10000 })
+            .then(() => ({ tipo: 'error_cuit' }))
+            .catch(() => null)
+    ]).then(res => res || { tipo: 'timeout' });
+
+    if (resultadoCUIT.tipo === 'error_cuit') {
+        const errorMessage = await page.$eval('#F1\\:msg', el => el.textContent);
+        console.log(`🔴 [Login ARCA] CUIT incorrecto: ${errorMessage}`);
+        await browser.close();
+        return { success: false, error: 'INVALID_CUIT', message: errorMessage };
+    }
+
+    if (resultadoCUIT.tipo === 'timeout') {
+        console.log('🔴 [Login ARCA] Timeout esperando respuesta después de ingresar CUIT');
+        await browser.close();
+        return { success: false, error: 'TIMEOUT', message: 'Timeout esperando respuesta de AFIP' };
+    }
+
+    // Si llegamos aquí, el CUIT fue correcto (resultadoCUIT.tipo === 'password_visible')
+    console.log('✅ [Login ARCA] CUIT validado correctamente.');
     await page.type('#F1\\:password', contrasena);
 
     // --- Implementación de Promise.race ---

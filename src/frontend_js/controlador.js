@@ -342,7 +342,7 @@ async function cargarModuloGenerarVEP() {
             // Rutas de los archivos del módulo (NUEVOS)
             const htmlPath = '../generar_VEP/index.html';
             const cssPath = '../generar_VEP/styles.css';
-            const jsPath = '../generar_VEP/controlador_nuevo.js';
+            const jsPath = '../generar_VEP/controlador_vep.js';
 
             // Rutas del componente genérico
             const selectorCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';

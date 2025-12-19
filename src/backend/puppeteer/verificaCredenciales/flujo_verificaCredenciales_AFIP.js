@@ -1,5 +1,6 @@
 const { elegirComprobanteEnLinea } = require('../elegirComprobanteEnLinea');
 const { listarEmpresasDisponibles } = require('../listarEmpresasDisponibles');
+const { hacerLogin } = require('../facturas/codigo/login/login_arca');
 
 /**
  * Valida credenciales de AFIP, y si son correctas, extrae los puntos de venta.
@@ -9,85 +10,59 @@ const { listarEmpresasDisponibles } = require('../listarEmpresasDisponibles');
  */
 async function verificarYObtenerDatosAFIP(page, usuario) {
     console.log('    [AFIP] ==> Entrando a worker');
+    let browser;
     try {
         const { cuit, claveAFIP, nombreEmpresa } = usuario;
         if (!cuit || !claveAFIP) {
             throw new Error("CUIT o claveAFIP no proporcionados.");
         }
 
-        // 1. Ir a la página de login y autenticarse
-        console.log('    [AFIP] -> Navegando a URL de login...');
+        // 1. Usar la función compartida de login
+        console.log('    [AFIP] -> Iniciando login...');
         const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
-        await page.goto(url, { waitUntil: 'networkidle2' });
-        console.log('        [DEBUG] page.goto OK');
-        
-        // PASO 1: Ingresar CUIT y hacer clic en Siguiente
-        console.log('    [AFIP] -> Escribiendo CUIT...');
-        await page.waitForSelector('#F1\\:username', { visible: true });
-        // Triple clic para seleccionar y sobrescribir el contenido existente
-        await page.click('#F1\\:username', { clickCount: 3 });
-        await page.type('#F1\\:username', String(cuit));
-        console.log('    [AFIP] -> Clic en Siguiente...');
-        await Promise.all([
-            page.click('#F1\\:btnSiguiente'),
-            page.waitForNavigation({ waitUntil: 'networkidle2' })
-        ]);
+        const loginResult = await hacerLogin(url, {
+            usuario: cuit,
+            contrasena: claveAFIP
+        }, { headless: false }); // Ajusta headless según necesites
 
-        // PASO 2: Ingresar Contraseña y hacer clic en Ingresar
-        console.log('    [AFIP] -> Escribiendo Contraseña...');
-        await page.waitForSelector('#F1\\:password', { visible: true });
-        await page.type('#F1\\:password', String(claveAFIP));
-        console.log('    [AFIP] -> Clic en Ingresar...');
+        // 2. Verificar si el login fue exitoso
+        if (!loginResult.success) {
+            console.error('    [AFIP] -> El login falló:', loginResult.message);
 
-        // Hacer clic y esperar el resultado (navegación exitosa, error, o cambio de clave)
-        await page.click('#F1\\:btnIngresar');
+            // Mapear errores específicos de login_arca a errores de AFIP
+            let errorMessage = loginResult.message;
+            if (loginResult.error === 'INVALID_CUIT') {
+                errorMessage = loginResult.message; // "Número de CUIL/CUIT incorrecto"
+            } else if (loginResult.error === 'INVALID_CREDENTIALS') {
+                errorMessage = loginResult.message; // Error de contraseña
+            }
 
-        // Usar Promise.race para detectar qué ocurre primero
-        const resultado = await Promise.race([
-            // Opción 1: Navegación exitosa (el buscador aparece)
-            page.waitForSelector('#buscadorInput', { timeout: 10000 })
-                .then(() => ({ tipo: 'exitoso' }))
-                .catch(() => null),
-
-            // Opción 2: Formulario de cambio de clave
-            page.waitForSelector('form[action*="cambioClaveForzado.xhtml"]', { timeout: 10000 })
-                .then(() => ({ tipo: 'cambio_clave' }))
-                .catch(() => null),
-
-            // Opción 3: Mensaje de error en login
-            page.waitForSelector('#F1\\:msg', { visible: true, timeout: 10000 })
-                .then(async () => {
-                    const errorText = await page.evaluate(() => {
-                        const el = document.querySelector('#F1\\:msg');
-                        return el ? el.textContent.trim() : null;
-                    });
-                    return { tipo: 'error', mensaje: errorText };
-                })
-                .catch(() => null)
-        ]).then(res => res || { tipo: 'timeout' });
-
-        // Procesar el resultado
-        if (resultado.tipo === 'error') {
-            console.log('    [AFIP] -> Error de login detectado:', resultado.mensaje);
-            throw new Error(resultado.mensaje || 'Clave o usuario incorrecto');
+            throw new Error(errorMessage);
         }
 
-        if (resultado.tipo === 'cambio_clave') {
-            console.log('    [AFIP] -> Se detectó la página de cambio de clave forzado.');
-            throw new Error('UPDATE_PASSWORD_REQUIRED');
+        // 3. Desestructurar page y browser del resultado exitoso
+        const { page: loggedPage, browser: b } = loginResult;
+        browser = b;
+
+        // IMPORTANTE: Verificar si necesitamos esperar el buscador (específico de AFIP)
+        // El login_arca espera la navegación, pero AFIP puede requerir esperar elementos específicos
+        console.log('    [AFIP] -> Login exitoso. Esperando buscador AFIP...');
+        try {
+            await loggedPage.waitForSelector('#buscadorInput', { timeout: 10000 });
+            console.log('    [AFIP] -> Buscador AFIP detectado correctamente.');
+        } catch (cambioClaveError) {
+            // Verificar si es la página de cambio de clave forzado
+            const esCambioClave = await loggedPage.$('form[action*="cambioClaveForzado.xhtml"]');
+            if (esCambioClave) {
+                console.log('    [AFIP] -> Se detectó la página de cambio de clave forzado.');
+                throw new Error('UPDATE_PASSWORD_REQUIRED');
+            }
+            throw new Error('No se pudo detectar la página principal de AFIP tras el login');
         }
 
-        if (resultado.tipo === 'timeout') {
-            console.log('    [AFIP] -> Timeout esperando respuesta del login');
-            throw new Error('Timeout: La página de AFIP no respondió en el tiempo esperado');
-        }
-
-        // Si llegamos aquí, el login fue exitoso (resultado.tipo === 'exitoso')
-        console.log('    [AFIP] -> Login exitoso.');
-
-        // 2. Navegar y extraer datos (lógica original)
+        // 4. Navegar y extraer datos (lógica original)
         console.log('    [AFIP] -> Eligiendo comprobante en línea...');
-        const newPage = await elegirComprobanteEnLinea(page);
+        const newPage = await elegirComprobanteEnLinea(loggedPage);
 
         // Llamada a la nueva función que solo lista las empresas
         console.log('    [AFIP] -> Listando empresas disponibles...');
@@ -104,6 +79,12 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
     } catch (error) {
         console.error(`    [AFIP] ERROR: ${error.message}`);
         return { success: false, error: error.message || "Error desconocido en flujo AFIP." };
+    } finally {
+        // Cerrar el navegador si fue creado por hacerLogin
+        if (browser) {
+            console.log('    [AFIP] -> Cerrando navegador...');
+            await browser.close();
+        }
     }
 }
 

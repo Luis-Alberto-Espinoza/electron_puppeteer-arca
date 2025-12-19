@@ -201,14 +201,69 @@ async function generarVEP() {
         console.log('📥 Resultado VEP:', resultado);
 
         if (resultado.requiereSeleccion) {
-            // Primera pasada: Mostrar resultados agrupados
+            // Primera pasada: Mostrar resultados agrupados CON períodos para seleccionar
             manejarResultadosPrimeraPasada(resultado);
         } else if (resultado.success) {
-            // Todo procesado automáticamente - Mostrar archivos descargados
-            if (resultado.procesadosAuto && resultado.procesadosAuto.length > 0) {
-                renderizarArchivosDescargados(resultado.procesadosAuto);
+            // Todo procesado automáticamente - SIEMPRE mostrar vista de resultados
+            const tieneErrores = resultado.errores && resultado.errores.length > 0;
+            const tieneProcesados = resultado.procesadosAuto && resultado.procesadosAuto.length > 0;
+
+            if (tieneErrores || tieneProcesados) {
+                // Mostrar interfaz de resultados persistente (NO popup temporal)
+                console.log('📊 Mostrando resultados persistentes (sin requerir selección)');
+
+                // Actualizar estado con los resultados
+                EstadoVEP.setResultados({
+                    procesadosAuto: resultado.procesadosAuto || [],
+                    requierenSeleccion: [], // No hay períodos para seleccionar
+                    errores: resultado.errores || []
+                });
+
+                // Renderizar todos los grupos (procesados y errores)
+                renderizarTodosLosGrupos();
+
+                // Mostrar notificación según el resultado
+                if (tieneErrores && !tieneProcesados) {
+                    mostrarMensaje('error', `❌ ${resultado.errores.length} usuario(s) con errores. Revise los detalles abajo.`);
+                } else if (tieneErrores && tieneProcesados) {
+                    mostrarMensaje('warning', `⚠️ ${resultado.procesadosAuto.length} exitosos, ${resultado.errores.length} con errores`);
+                } else if (tieneProcesados) {
+                    mostrarMensaje('success', `✅ ${resultado.procesadosAuto.length} VEP generado(s) exitosamente`);
+                }
+
+                // Scroll automático a la sección de resultados
+                scrollAResultados();
+
+                // Ocultar el botón de "Confirmar y Continuar" ya que no hay nada que confirmar
+                const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
+                if (btnConfirmar) {
+                    btnConfirmar.style.display = 'none';
+                }
+
+                // Mostrar botón para iniciar nuevo proceso
+                const seccionResultados = document.getElementById('seccion-resultados');
+                if (seccionResultados) {
+                    // Agregar botón de nuevo proceso al final de resultados si no existe
+                    let btnNuevo = document.getElementById('btn-nuevo-proceso-desde-resultados');
+                    if (!btnNuevo) {
+                        const accionesDiv = seccionResultados.querySelector('.resultados-acciones');
+                        if (accionesDiv) {
+                            btnNuevo = document.createElement('button');
+                            btnNuevo.id = 'btn-nuevo-proceso-desde-resultados';
+                            btnNuevo.className = 'btn-confirmar';
+                            btnNuevo.textContent = '✓ Iniciar Nuevo Proceso';
+                            btnNuevo.style.display = 'inline-block';
+                            btnNuevo.addEventListener('click', iniciarNuevoProceso);
+                            accionesDiv.insertBefore(btnNuevo, accionesDiv.firstChild);
+                        }
+                    } else {
+                        btnNuevo.style.display = 'inline-block';
+                    }
+                }
+
                 limpiarSelecciones();
             } else {
+                // Caso extremadamente raro: success pero sin procesados ni errores
                 mostrarMensaje('success', `VEP generado exitosamente`);
                 limpiarSelecciones();
             }
@@ -234,6 +289,9 @@ function manejarResultadosPrimeraPasada(resultado) {
 
     // Inicializar eventos de períodos
     inicializarEventosPeriodos();
+
+    // Scroll automático a la sección de resultados
+    scrollAResultados();
 
     console.log('✅ Resultados renderizados');
 }
@@ -274,21 +332,79 @@ async function confirmarYContinuar() {
         console.log('📥 Resultado segunda pasada:', resultado);
 
         if (resultado.success) {
-            // Mostrar archivos descargados
+            // Segunda pasada completada - Mostrar resultados persistentes
             if (resultado.resultados && resultado.resultados.length > 0) {
                 const exitosos = resultado.resultados.filter(r => r.status === 'success');
-                if (exitosos.length > 0) {
-                    renderizarArchivosDescargados(exitosos);
-                } else {
-                    mostrarMensaje('success', 'VEP generado exitosamente');
+                const conErrores = resultado.resultados.filter(r => r.status === 'error');
+
+                console.log('📊 Segunda pasada: Mostrando resultados persistentes');
+
+                // Limpiar grupos anteriores
+                limpiarTodosLosGrupos();
+
+                // Actualizar estado con resultados finales
+                EstadoVEP.setResultados({
+                    procesadosAuto: exitosos.map(e => ({
+                        usuario: e.usuario,
+                        medioPago: e.medioPago,
+                        pdfDescargado: e.pdfDescargado
+                    })),
+                    requierenSeleccion: [], // Ya no hay nada que seleccionar
+                    errores: conErrores.map(e => ({
+                        usuario: e.usuario,
+                        medioPago: e.medioPago,
+                        error: e.error
+                    }))
+                });
+
+                // Renderizar todos los grupos
+                renderizarTodosLosGrupos();
+
+                // Mostrar notificación según el resultado
+                if (conErrores.length > 0 && exitosos.length === 0) {
+                    mostrarMensaje('error', `❌ ${conErrores.length} usuario(s) con errores. Revise los detalles abajo.`);
+                } else if (conErrores.length > 0 && exitosos.length > 0) {
+                    mostrarMensaje('warning', `⚠️ ${exitosos.length} exitosos, ${conErrores.length} con errores`);
+                } else if (exitosos.length > 0) {
+                    mostrarMensaje('success', `✅ ${exitosos.length} VEP generado(s) exitosamente`);
                 }
+
+                // Scroll automático a la sección de resultados
+                scrollAResultados();
+
+                // Ocultar botones de confirmación
+                const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
+                if (btnConfirmar) {
+                    btnConfirmar.style.display = 'none';
+                }
+
+                // Mostrar botón de nuevo proceso
+                const seccionResultados = document.getElementById('seccion-resultados');
+                if (seccionResultados) {
+                    let btnNuevo = document.getElementById('btn-nuevo-proceso-desde-resultados');
+                    if (!btnNuevo) {
+                        const accionesDiv = seccionResultados.querySelector('.resultados-acciones');
+                        if (accionesDiv) {
+                            btnNuevo = document.createElement('button');
+                            btnNuevo.id = 'btn-nuevo-proceso-desde-resultados';
+                            btnNuevo.className = 'btn-confirmar';
+                            btnNuevo.textContent = '✓ Iniciar Nuevo Proceso';
+                            btnNuevo.style.display = 'inline-block';
+                            btnNuevo.addEventListener('click', iniciarNuevoProceso);
+                            accionesDiv.insertBefore(btnNuevo, accionesDiv.firstChild);
+                        }
+                    } else {
+                        btnNuevo.style.display = 'inline-block';
+                    }
+                }
+
+                limpiarSelecciones();
             } else {
                 mostrarMensaje('success', 'VEP generado exitosamente');
+                limpiarSelecciones();
+                limpiarTodosLosGrupos();
+                EstadoVEP.reset();
             }
-
-            limpiarSelecciones();
-            limpiarTodosLosGrupos();
-            EstadoVEP.reset();
         } else {
             mostrarMensaje('error', `Error: ${resultado.message}`);
         }
@@ -380,10 +496,35 @@ function mostrarProgreso(mostrar) {
     }
 }
 
+/**
+ * Hace scroll suave hacia la sección de resultados
+ */
+function scrollAResultados() {
+    // Pequeño delay para asegurar que el contenido esté renderizado
+    setTimeout(() => {
+        const seccionResultados = document.getElementById('seccion-resultados');
+        if (seccionResultados) {
+            seccionResultados.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+                inline: 'nearest'
+            });
+            console.log('📜 Scroll automático a resultados');
+        }
+    }, 300); // 300ms para asegurar que el DOM esté actualizado
+}
+
 function mostrarMensaje(tipo, mensaje) {
     const notificacion = document.createElement('div');
     notificacion.className = `notificacion notificacion-${tipo}`;
     notificacion.textContent = mensaje;
+
+    // Colores según el tipo
+    const colores = {
+        'success': '#10b981',  // Verde
+        'error': '#ef4444',    // Rojo
+        'warning': '#f59e0b'   // Naranja/Amarillo
+    };
 
     notificacion.style.cssText = `
         position: fixed;
@@ -395,7 +536,7 @@ function mostrarMensaje(tipo, mensaje) {
         font-weight: 500;
         z-index: 10000;
         animation: slideIn 0.3s ease;
-        background: ${tipo === 'success' ? '#10b981' : '#ef4444'};
+        background: ${colores[tipo] || '#6b7280'};
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     `;
 
@@ -421,6 +562,12 @@ function iniciarNuevoProceso() {
     limpiarArchivos();
     ocultarSeccionArchivos();
     EstadoVEP.reset();
+
+    // Ocultar el botón de nuevo proceso que se crea dinámicamente
+    const btnNuevo = document.getElementById('btn-nuevo-proceso-desde-resultados');
+    if (btnNuevo) {
+        btnNuevo.style.display = 'none';
+    }
 
     // Scroll al inicio
     window.scrollTo({ top: 0, behavior: 'smooth' });
