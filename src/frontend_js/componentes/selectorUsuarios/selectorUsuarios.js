@@ -31,6 +31,28 @@ class SelectorUsuarios {
             // Headers para columnas extras (array de strings)
             headersColumnasExtras: [],
 
+            // Mostrar tabla de seleccionados (útil para casos de selección única)
+            mostrarTablaSeleccionados: true,
+
+            // ====== VALIDACIÓN Y FILTRADO ======
+            // Campo que contiene las credenciales (ej: 'claveAFIP', 'claveATM')
+            campoCredencial: null,
+
+            // Campo que indica el estado de validación (ej: 'estado_afip')
+            campoEstado: null,
+
+            // Campo con el mensaje de error (ej: 'errorAfip')
+            campoError: null,
+
+            // Permitir seleccionar usuarios con credenciales inválidas
+            permitirInvalidos: false,
+
+            // Permitir seleccionar usuarios sin validar
+            permitirSinValidar: false,
+
+            // Mensaje para usuarios sin validar
+            mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
+
             // API de Electron (pasada desde el contexto que tiene acceso)
             api: null,
 
@@ -53,6 +75,61 @@ class SelectorUsuarios {
         this.renderizar();
         this.agregarEventos();
         console.log('✅ SelectorUsuarios: Inicialización completa');
+    }
+
+    /**
+     * Determina el estado de validación de un usuario
+     * @param {Object} usuario - Usuario a evaluar
+     * @returns {Object} { estado: 'validado'|'invalido'|'sin_validar', mensaje: string, esSeleccionable: boolean }
+     */
+    obtenerEstadoValidacion(usuario) {
+        // Si no hay configuración de validación, todos son válidos
+        if (!this.opciones.campoEstado) {
+            return {
+                estado: 'validado',
+                mensaje: null,
+                esSeleccionable: true
+            };
+        }
+
+        const estadoUsuario = usuario[this.opciones.campoEstado];
+        const errorUsuario = this.opciones.campoError ? usuario[this.opciones.campoError] : null;
+
+        // GRUPO 1: Validado ✅
+        if (estadoUsuario === 'validado') {
+            return {
+                estado: 'validado',
+                mensaje: null,
+                esSeleccionable: true
+            };
+        }
+
+        // GRUPO 2: Inválido ❌
+        if (estadoUsuario === 'invalido' || usuario.claveAfipValida === false) {
+            return {
+                estado: 'invalido',
+                mensaje: errorUsuario || 'Credenciales inválidas',
+                esSeleccionable: this.opciones.permitirInvalidos
+            };
+        }
+
+        // GRUPO 3: Sin validar ⚠️
+        return {
+            estado: 'sin_validar',
+            mensaje: this.opciones.mensajeSinValidar,
+            esSeleccionable: this.opciones.permitirSinValidar
+        };
+    }
+
+    /**
+     * Cuenta cuántos usuarios son realmente seleccionables
+     * @returns {number}
+     */
+    contarUsuariosSeleccionables() {
+        return this.usuariosFiltrados.filter(usuario => {
+            const estado = this.obtenerEstadoValidacion(usuario);
+            return estado.esSeleccionable;
+        }).length;
     }
 
     async cargarUsuarios() {
@@ -89,8 +166,23 @@ class SelectorUsuarios {
                     return;
                 }
 
+                let usuarios = response.users;
+
+                // FILTRAR por credencial si está configurado (GRUPO 4 - Sin credenciales)
+                if (this.opciones.campoCredencial) {
+                    const campoCredencial = this.opciones.campoCredencial;
+                    const usuariosAntesDeFiltar = usuarios.length;
+
+                    usuarios = usuarios.filter(user => {
+                        const credencial = user[campoCredencial];
+                        return credencial && String(credencial).trim() !== '';
+                    });
+
+                    console.log(`🔵 Filtrado por ${campoCredencial}: ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
+                }
+
                 // Ordenar alfabéticamente por nombre
-                this.todosLosUsuarios = response.users.sort((a, b) => {
+                this.todosLosUsuarios = usuarios.sort((a, b) => {
                     const nombreA = a.nombre || '';
                     const nombreB = b.nombre || '';
                     return nombreA.localeCompare(nombreB);
@@ -139,17 +231,19 @@ class SelectorUsuarios {
                 <div class="lista-disponibles-section">
                     <div class="lista-header">
                         <span>📋 USUARIOS DISPONIBLES</span>
-                        <span class="lista-contador">(${this.usuariosFiltrados.length})</span>
+                        <span class="lista-contador">${this.contarUsuariosSeleccionables()} seleccionables de ${this.usuariosFiltrados.length}</span>
                     </div>
                     <div class="lista-usuarios-disponibles" id="${this.contenedorId}-lista-disponibles">
                         ${this.renderizarListaDisponibles()}
                     </div>
                 </div>
 
-                <!-- Lista de seleccionados -->
-                <div class="lista-seleccionados-section">
-                    ${this.renderizarSeccionSeleccionados()}
-                </div>
+                <!-- Lista de seleccionados (opcional) -->
+                ${this.opciones.mostrarTablaSeleccionados ? `
+                    <div class="lista-seleccionados-section">
+                        ${this.renderizarSeccionSeleccionados()}
+                    </div>
+                ` : ''}
             </div>
         `;
 
@@ -174,17 +268,38 @@ class SelectorUsuarios {
             const claseColor = indiceOriginal % 2 === 0 ? 'par' : 'impar';
             const claseSeleccionado = estaSeleccionado ? 'seleccionado' : '';
 
+            // Obtener estado de validación
+            const estadoValidacion = this.obtenerEstadoValidacion(usuario);
+            const claseEstado = `estado-${estadoValidacion.estado}`;
+            const claseDeshabilitado = !estadoValidacion.esSeleccionable ? 'deshabilitado' : '';
+
+            // Determinar ícono según estado
+            let icono = '';
+            if (estaSeleccionado) {
+                icono = '✓';
+            } else if (estadoValidacion.estado === 'invalido') {
+                icono = '❌';
+            } else if (estadoValidacion.estado === 'sin_validar') {
+                icono = '⚠️';
+            }
+
             return `
                 <div
-                    class="usuario-fila ${claseColor} ${claseSeleccionado}"
+                    class="usuario-fila ${claseColor} ${claseSeleccionado} ${claseEstado} ${claseDeshabilitado}"
                     data-usuario-id="${usuario.id}"
+                    data-seleccionable="${estadoValidacion.esSeleccionable}"
                 >
                     <span class="usuario-check">
-                        ${estaSeleccionado ? '✓' : ''}
+                        ${icono}
                     </span>
                     <div class="usuario-info">
                         <div class="usuario-nombre">${usuario.nombre || 'Sin nombre'}</div>
                         <div class="usuario-cuit">${usuario.cuit || usuario.cuil || 'N/A'}</div>
+                        ${estadoValidacion.mensaje ? `
+                            <div class="usuario-mensaje-estado">
+                                ${estadoValidacion.mensaje}
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -377,11 +492,21 @@ class SelectorUsuarios {
         const index = this.usuariosSeleccionados.findIndex(u => String(u.id) === String(usuarioId));
 
         if (index >= 0) {
-            // Ya está seleccionado → quitar
+            // Ya está seleccionado → quitar (siempre se permite quitar)
             console.log('🔵 Quitando usuario de seleccionados:', usuario.nombre);
             this.usuariosSeleccionados.splice(index, 1);
         } else {
-            // No está seleccionado → agregar
+            // No está seleccionado → verificar si se puede agregar
+            const estadoValidacion = this.obtenerEstadoValidacion(usuario);
+
+            if (!estadoValidacion.esSeleccionable) {
+                console.warn(`⚠️ No se puede seleccionar ${usuario.nombre}: ${estadoValidacion.mensaje}`);
+                // Mostrar feedback visual (opcional)
+                this.mostrarFeedbackNoSeleccionable(usuarioId, estadoValidacion.mensaje);
+                return;
+            }
+
+            // Sí se puede agregar
             console.log('🔵 Agregando usuario a seleccionados:', usuario.nombre);
             this.usuariosSeleccionados.push(usuario);
         }
@@ -389,6 +514,20 @@ class SelectorUsuarios {
         console.log('🔵 Total seleccionados:', this.usuariosSeleccionados.length);
         this.actualizarVista();
         this.notificarCambio();
+    }
+
+    /**
+     * Muestra feedback visual cuando un usuario no es seleccionable
+     */
+    mostrarFeedbackNoSeleccionable(usuarioId, mensaje) {
+        const fila = this.contenedor.querySelector(`.usuario-fila[data-usuario-id="${usuarioId}"]`);
+        if (fila) {
+            // Agregar clase de animación temporalmente
+            fila.classList.add('intento-seleccion-bloqueado');
+            setTimeout(() => {
+                fila.classList.remove('intento-seleccion-bloqueado');
+            }, 600);
+        }
     }
 
     quitarSeleccion(usuarioId) {
@@ -420,7 +559,7 @@ class SelectorUsuarios {
         // Actualizar contador
         const contador = this.contenedor.querySelector('.lista-contador');
         if (contador) {
-            contador.textContent = `(${this.usuariosFiltrados.length})`;
+            contador.textContent = `${this.contarUsuariosSeleccionables()} seleccionables de ${this.usuariosFiltrados.length}`;
         }
     }
 

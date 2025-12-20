@@ -20,6 +20,7 @@ let usuarioSeleccionado = null; // Usuario actualmente seleccionado en la aplica
 let modulosAfipCargados = false; // Flag para evitar inicializar los módulos AFIP múltiples veces
 let onUsuarioSeleccionado = null; // Callback para la acción a ejecutar después de seleccionar un usuario
 let selectorListenerAgregado = false; // Flag para asegurar que el listener del selector se agregue solo una vez
+let selectorUsuariosAfip = null; // Instancia del componente SelectorUsuarios para AFIP
 
 // ========================================
 // CONFIGURACIÓN CENTRALIZADA DE MÓDULOS
@@ -118,10 +119,115 @@ document.addEventListener('DOMContentLoaded', () => {
 // ========================================
 
 /**
- * Muestra el selector de usuario y carga los usuarios disponibles
+ * Muestra el selector de usuario y carga el componente dinámicamente
  */
-function mostrarSelectorUsuario() {
-    cargarUsuariosEnSelector(); // Cargar lista de usuarios en el select
+async function mostrarSelectorUsuario() {
+    const selectorDiv = document.getElementById('selectorUsuarioDiv');
+
+    if (!selectorDiv) {
+        console.error('❌ No se encontró selectorUsuarioDiv');
+        return;
+    }
+
+    // Mostrar el div
+    mostrarSoloModulo('selectorUsuarioDiv');
+
+    // Si ya está inyectado, no volver a inyectar
+    if (selectorUsuariosAfip) {
+        console.log('✅ Selector ya existe, reutilizando...');
+        return;
+    }
+
+    try {
+        console.log('🔵 Inyectando componente selectorUsuarios...');
+
+        // 1. INYECTAR HTML
+        selectorDiv.innerHTML = `
+            <div class="selector-usuario">
+                <h2>Seleccione el Cliente con el que trabajará</h2>
+                <div id="selector-usuarios-afip"></div>
+                <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                    Una vez seleccionado el cliente, podrá acceder a los módulos de Facturas y MercadoPago
+                </p>
+            </div>
+        `;
+
+        // 2. CARGAR CSS del componente (si no está cargado)
+        const cssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+        if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+            const cssLink = document.createElement('link');
+            cssLink.rel = 'stylesheet';
+            cssLink.href = cssPath;
+            document.head.appendChild(cssLink);
+            console.log('✅ CSS del componente cargado');
+        }
+
+        // 3. CARGAR JS del componente (si no está cargado)
+        const jsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+        if (!document.head.querySelector(`script[src="${jsPath}"]`)) {
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = jsPath;
+                script.onload = () => {
+                    console.log('✅ JS del componente cargado');
+                    resolve();
+                };
+                script.onerror = () => {
+                    console.error('❌ Error cargando JS del componente');
+                    reject(new Error('Error cargando selectorUsuarios.js'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // Pequeño delay para asegurar que SelectorUsuarios esté disponible
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // 4. CREAR INSTANCIA del componente
+        if (typeof SelectorUsuarios === 'undefined') {
+            throw new Error('SelectorUsuarios no está definido');
+        }
+
+        selectorUsuariosAfip = new SelectorUsuarios('selector-usuarios-afip', {
+            // Ocultar tabla de seleccionados (solo selección simple, avanza automático)
+            mostrarTablaSeleccionados: false,
+
+            // ====== VALIDACIÓN Y FILTRADO DE CREDENCIALES AFIP ======
+            campoCredencial: 'claveAFIP',
+            campoEstado: 'estado_afip',
+            campoError: 'errorAfip',
+            permitirInvalidos: false,
+            permitirSinValidar: false,
+            mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
+
+            onCambioSeleccion: (usuariosSeleccionados) => {
+                // Solo permitir 1 usuario
+                if (usuariosSeleccionados.length > 0) {
+                    const usuario = usuariosSeleccionados[0];
+
+                    // Limitar a 1 solo
+                    if (usuariosSeleccionados.length > 1) {
+                        selectorUsuariosAfip.usuariosSeleccionados = [usuario];
+                        selectorUsuariosAfip.actualizarVista();
+                    }
+
+                    // Llamar a la función existente (avanza a Facturas automáticamente)
+                    seleccionarUsuario(usuario);
+                }
+            }
+        });
+
+        console.log('✅ Selector de usuarios cargado correctamente');
+
+    } catch (error) {
+        console.error('❌ Error cargando selector de usuarios:', error);
+        selectorDiv.innerHTML = `
+            <div style="color:red; padding: 20px;">
+                <h3>Error cargando el selector de usuarios</h3>
+                <p>${error.message}</p>
+            </div>
+        `;
+    }
 }
 
 /**
@@ -442,8 +548,13 @@ function capitalizarNombre(nombre) {
 }
 
 /**
- * Carga todos los usuarios en el selector y configura el evento de selección
+ * ⚠️ FUNCIÓN OBSOLETA - Ya no se usa
+ * Reemplazada por el componente SelectorUsuarios que se inyecta dinámicamente
+ * en mostrarSelectorUsuario()
+ *
+ * Se mantiene comentada como referencia histórica.
  */
+/*
 async function cargarUsuariosEnSelector() {
     const selectUsuarios = document.getElementById('selectUsuariosSelector');
     if (!selectUsuarios) return;
@@ -520,6 +631,7 @@ async function cargarUsuariosEnSelector() {
         selectUsuarios.disabled = false;
     }
 }
+*/
 
 /**
  * Establece el usuario seleccionado y muestra los módulos AFIP

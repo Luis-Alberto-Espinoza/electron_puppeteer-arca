@@ -62,6 +62,14 @@ function inicializarVEP() {
 
     // Crear selector de usuarios
     selectorUsuarios = new SelectorUsuarios('selector-usuarios-vep', {
+        // ====== VALIDACIÓN Y FILTRADO DE CREDENCIALES AFIP ======
+        campoCredencial: 'claveAFIP',
+        campoEstado: 'estado_afip',
+        campoError: 'errorAfip',
+        permitirInvalidos: false,
+        permitirSinValidar: false,
+        mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
+
         onCambioSeleccion: (usuariosSeleccionados) => {
             actualizarEstadoGeneracion(usuariosSeleccionados);
         },
@@ -222,6 +230,11 @@ async function generarVEP() {
                 // Renderizar todos los grupos (procesados y errores)
                 renderizarTodosLosGrupos();
 
+                // Renderizar archivos descargados
+                if (resultado.procesadosAuto && resultado.procesadosAuto.length > 0) {
+                    renderizarArchivosDescargados(resultado.procesadosAuto);
+                }
+
                 // Mostrar notificación según el resultado
                 if (tieneErrores && !tieneProcesados) {
                     mostrarMensaje('error', `❌ ${resultado.errores.length} usuario(s) con errores. Revise los detalles abajo.`);
@@ -359,6 +372,15 @@ async function confirmarYContinuar() {
 
                 // Renderizar todos los grupos
                 renderizarTodosLosGrupos();
+
+                // Renderizar archivos descargados
+                if (exitosos.length > 0) {
+                    const archivosDescargados = exitosos.map(e => ({
+                        usuario: e.usuario,
+                        pdfDescargado: e.pdfDescargado
+                    }));
+                    renderizarArchivosDescargados(archivosDescargados);
+                }
 
                 // Mostrar notificación según el resultado
                 if (conErrores.length > 0 && exitosos.length === 0) {

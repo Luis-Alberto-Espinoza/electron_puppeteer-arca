@@ -156,6 +156,67 @@
     transform: translateX(2px);
 }
 
+/* ========================================
+   ESTADOS DE VALIDACIÓN
+   ======================================== */
+
+/* GRUPO 1: Validado - Verde claro */
+.usuario-fila.estado-validado {
+    border-left: 3px solid #10b981;
+}
+
+/* GRUPO 2: Inválido - Rojo claro */
+.usuario-fila.estado-invalido {
+    background-color: #fee2e2 !important;
+    border-left: 3px solid #ef4444;
+}
+
+/* GRUPO 3: Sin validar - Amarillo claro */
+.usuario-fila.estado-sin_validar {
+    background-color: #fef3c7 !important;
+    border-left: 3px solid #f59e0b;
+}
+
+/* Estado deshabilitado (no seleccionable) */
+.usuario-fila.deshabilitado {
+    cursor: not-allowed;
+    opacity: 0.75;
+}
+
+.usuario-fila.deshabilitado:hover {
+    transform: none;
+    background-color: inherit !important;
+}
+
+/* Mensaje de estado (error o advertencia) */
+.usuario-mensaje-estado {
+    font-size: 11px;
+    color: #dc2626;
+    font-style: italic;
+    margin-top: 4px;
+    padding: 4px 8px;
+    background-color: rgba(254, 226, 226, 0.6);
+    border-radius: 4px;
+    line-height: 1.3;
+}
+
+.usuario-fila.estado-sin_validar .usuario-mensaje-estado {
+    color: #92400e;
+    background-color: rgba(252, 211, 77, 0.3);
+}
+
+/* Animación cuando se intenta seleccionar un usuario bloqueado */
+@keyframes shake-horizontal {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+}
+
+.usuario-fila.intento-seleccion-bloqueado {
+    animation: shake-horizontal 0.4s ease-in-out;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+}
+
 /* Checkmark visual */
 .usuario-check {
     width: 20px;
@@ -170,17 +231,22 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    align-items: flex-start;
 }
 
 .usuario-nombre {
     font-weight: 500;
     font-size: 14px;
     color: #1f2937;
+    text-align: left;
+    width: 100%;
 }
 
 .usuario-cuit {
     font-size: 12px;
     color: #6b7280;
+    text-align: left;
+    width: 100%;
 }
 
 /* ========================================
@@ -245,7 +311,7 @@
 
 .tabla-seleccionados th {
     padding: 10px 8px;
-    text-align: left;
+    text-align: right;
     font-size: 12px;
     font-weight: 600;
     color: #6b7280;
@@ -285,6 +351,7 @@
     padding: 12px 8px;
     font-size: 13px;
     border-bottom: 1px solid #e5e7eb;
+    text-align: right;
 }
 
 /* Botón quitar */
