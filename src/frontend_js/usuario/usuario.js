@@ -579,6 +579,7 @@ function inicializarVerificarCredenciales() {
         try {
             const response = await window.electronAPI.user.verifyOnCreate(credenciales);
             window.empresasDisponible = response.puntosDeVentaArray || [];
+            window.cuitAsociados = response.cuitAsociados || [];
             mostrarPuntosDeVenta(response.puntosDeVentaArray);
 
             if (response.success) {
@@ -624,11 +625,13 @@ function inicializarVerificarCredenciales() {
                 // Fallo total
                 window.verificacionRealizada.afip = false;
                 window.verificacionRealizada.atm = false;
+                window.cuitAsociados = [];
                 showAlert(response.error || 'Credenciales inválidas. Intenta nuevamente.', 'error');
             }
         } catch (error) {
             window.verificacionRealizada.afip = false;
             window.verificacionRealizada.atm = false;
+            window.cuitAsociados = [];
             showAlert(`Error de comunicación: ${error.message}`, 'error');
         } finally {
             verificarLoading.classList.add('hidden');
@@ -686,6 +689,7 @@ async function createUser() {
             tipoContribuyente,
             apellido,
             empresasDisponible: window.empresasDisponible || [],
+            cuitAsociados: window.cuitAsociados || [],
             verificadoAFIP: window.verificacionRealizada.afip,  // ✅ Pasar flag de verificación
             verificadoATM: window.verificacionRealizada.atm     // ✅ Pasar flag de verificación
         });
@@ -704,6 +708,7 @@ async function createUser() {
             window.verificacionRealizada.afip = false;
             window.verificacionRealizada.atm = false;
             window.empresasDisponible = [];
+            window.cuitAsociados = [];
 
             // Cerrar formulario y recargar lista
             document.getElementById('createSection').classList.add('hidden');

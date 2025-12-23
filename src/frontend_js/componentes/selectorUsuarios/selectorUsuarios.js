@@ -181,6 +181,18 @@ class SelectorUsuarios {
                     console.log(`🔵 Filtrado por ${campoCredencial}: ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
                 }
 
+                // FILTRAR por estado de validación si está configurado
+                if (this.opciones.campoEstado && !this.opciones.permitirInvalidos && !this.opciones.permitirSinValidar) {
+                    const usuariosAntesDeFiltar = usuarios.length;
+
+                    usuarios = usuarios.filter(user => {
+                        const estadoValidacion = this.obtenerEstadoValidacion(user);
+                        return estadoValidacion.estado === 'validado';
+                    });
+
+                    console.log(`🔵 Filtrado por estado validado: ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
+                }
+
                 // Ordenar alfabéticamente por nombre
                 this.todosLosUsuarios = usuarios.sort((a, b) => {
                     const nombreA = a.nombre || '';

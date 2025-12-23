@@ -26,18 +26,62 @@ export function formatearCUIT(cuit) {
  * @returns {string}
  */
 export function formatearMoneda(monto) {
-    if (!monto) return '$ 0,00';
+    if (!monto && monto !== 0) return '$ 0,00';
 
-    // Si viene como string con comas (del backend)
-    const montoStr = String(monto).replace(/\./g, '').replace(',', '.');
-    const numero = parseFloat(montoStr);
+    let numero;
 
-    if (isNaN(numero)) return monto;
+    // Si es un número, usarlo directamente
+    if (typeof monto === 'number') {
+        numero = monto;
+    } else {
+        // Si es string, parsearlo según formato argentino
+        numero = parseImporteArgentino(monto);
+    }
+
+    if (isNaN(numero)) {
+        console.warn(`⚠️ No se pudo formatear: "${monto}"`);
+        return '$ 0,00';
+    }
 
     return `$ ${numero.toLocaleString('es-AR', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     })}`;
+}
+
+/**
+ * Convierte un importe en formato argentino a número
+ * @param {string|number} importe - Importe en formato "$ 1.234,56" o "1.234,56"
+ * @returns {number}
+ */
+function parseImporteArgentino(importe) {
+    if (!importe && importe !== 0) return 0;
+
+    // Convertir a string y limpiar
+    let importeStr = String(importe)
+        .trim()
+        .replace(/\$/g, '')           // Eliminar símbolo $
+        .replace(/\s/g, '');          // Eliminar espacios
+
+    // Si ya es un número válido sin formato, retornarlo
+    if (!isNaN(Number(importeStr)) && !importeStr.includes(',') && !importeStr.includes('.')) {
+        return parseFloat(importeStr);
+    }
+
+    // Formato argentino: punto es separador de miles, coma es decimal
+    // Ejemplo: "$ 1.234,56" → "1234.56"
+    importeStr = importeStr
+        .replace(/\./g, '')           // Eliminar puntos (separador de miles)
+        .replace(',', '.');           // Reemplazar coma por punto (separador decimal)
+
+    const numero = parseFloat(importeStr);
+
+    if (isNaN(numero)) {
+        console.warn(`⚠️ Importe inválido: "${importe}" → parseado como 0`);
+        return 0;
+    }
+
+    return numero;
 }
 
 /**
@@ -48,11 +92,15 @@ export function formatearMoneda(monto) {
 export function calcularTotalPeriodo(filas) {
     if (!filas || filas.length === 0) return 0;
 
-    return filas.reduce((total, fila) => {
-        const importeStr = String(fila.importe).replace(/\./g, '').replace(',', '.');
-        const importe = parseFloat(importeStr);
-        return total + (isNaN(importe) ? 0 : importe);
+    // Sumar usando centavos para evitar errores de precisión flotante
+    const totalCentavos = filas.reduce((total, fila) => {
+        const importe = parseImporteArgentino(fila.importe);
+        // Convertir a centavos (multiplicar por 100) y sumar
+        return total + Math.round(importe * 100);
     }, 0);
+
+    // Dividir por 100 para volver a pesos con centavos
+    return totalCentavos / 100;
 }
 
 /**

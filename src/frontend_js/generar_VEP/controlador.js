@@ -15,6 +15,9 @@ const MEDIOS_PAGO = [
 // Estado: almacena el medio de pago seleccionado para cada usuario
 const mediosPagoSeleccionados = {};
 
+// Estado: almacena el CUIT seleccionado para usuarios con múltiples CUITs
+const cuitsSeleccionados = {};
+
 // Instancia del selector de usuarios
 let selectorUsuarios = null;
 
@@ -52,19 +55,74 @@ function inicializarVEP() {
     // Crear selector de usuarios con configuración específica de VEP
     selectorUsuarios = new SelectorUsuarios('selector-usuarios-vep', {
 
+        // Configuración de filtrado: Solo usuarios validados en AFIP
+        campoEstado: 'estado_afip',
+        permitirInvalidos: false,
+        permitirSinValidar: false,
+        mensajeSinValidar: 'Solo usuarios validados en AFIP pueden generar VEP',
+
         // Callback cuando cambia la selección
         onCambioSeleccion: (usuariosSeleccionados) => {
             actualizarEstadoGeneracion(usuariosSeleccionados);
         },
 
-        // Renderizar columnas de medios de pago
+        // Renderizar columna de CUIT + columnas de medios de pago
         renderizarColumnasExtras: (usuario, index) => {
-            return MEDIOS_PAGO.map(medio => {
+            let columnasHTML = '';
+
+            // COLUMNA 1: Selector de CUIT (si tiene múltiples CUITs asociados)
+            const cuitAsociados = usuario.cuitAsociados || [];
+            const tieneCuitsAsociados = cuitAsociados.length > 1;
+
+            if (tieneCuitsAsociados) {
+                const cuitSeleccionado = cuitsSeleccionados[usuario.id];
+                const opciones = cuitAsociados.map(cuit => {
+                    const esElPrincipal = cuit === usuario.cuit;
+                    const etiqueta = esElPrincipal ? `${cuit}` : cuit;
+                    const checked = cuitSeleccionado === cuit ? 'checked' : '';
+
+                    return `
+                        <label class="cuit-radio-label" style="display: block; margin: 2px 0; font-size: 11px;">
+                            <input
+                                type="radio"
+                                name="cuit-${usuario.id}"
+                                value="${cuit}"
+                                class="cuit-radio"
+                                data-usuario-id="${usuario.id}"
+                                ${checked}
+                                style="margin-right: 4px;"
+                            />
+                            ${etiqueta}
+                        </label>
+                    `;
+                }).join('');
+
+                columnasHTML += `
+                    <td class="cuit-selector-cell" style="padding: 4px 8px; vertical-align: top;">
+                        <div style="font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #d97706;">
+                        </div>
+                        ${opciones}
+                    </td>
+                `;
+            } else {
+                // Sin CUITs asociados o solo 1: mostrar guión
+                columnasHTML += `
+                    <td class="cuit-selector-cell" style="text-align: center; color: #999;">
+                        —
+                    </td>
+                `;
+            }
+
+            // COLUMNAS 2-6: Medios de pago
+            const tieneCuitRequerido = !tieneCuitsAsociados || cuitsSeleccionados[usuario.id];
+
+            MEDIOS_PAGO.forEach(medio => {
                 const name = `medio-pago-${usuario.id}`;
                 const id = `${medio.id}-${usuario.id}`;
                 const estaSeleccionado = mediosPagoSeleccionados[usuario.id]?.id === medio.id;
+                const disabled = !tieneCuitRequerido ? 'disabled' : '';
 
-                return `
+                columnasHTML += `
                     <td class="medio-pago-cell">
                         <input
                             type="radio"
@@ -75,14 +133,17 @@ function inicializarVEP() {
                             data-usuario-id="${usuario.id}"
                             data-medio-id="${medio.id}"
                             ${estaSeleccionado ? 'checked' : ''}
+                            ${disabled}
                         />
                     </td>
                 `;
-            }).join('');
+            });
+
+            return columnasHTML;
         },
 
-        // Headers para las columnas de medios de pago
-        headersColumnasExtras: ['QR', 'Link', 'Cuentas', 'Inter', 'XN']
+        // Headers: CUIT + medios de pago
+        headersColumnasExtras: ['CUIT a Usar', 'QR', 'Link', 'Cuentas', 'Inter', 'XN']
     });
 
     // Agregar eventos para los radio buttons
@@ -109,6 +170,25 @@ function agregarEventosMediosPago() {
 
     if (contenedor) {
         contenedor.addEventListener('change', (e) => {
+            // Event listener para selección de CUIT
+            if (e.target.classList.contains('cuit-radio')) {
+                const usuarioId = e.target.dataset.usuarioId;
+                const cuitSeleccionado = e.target.value;
+
+                // Guardar CUIT seleccionado
+                cuitsSeleccionados[usuarioId] = cuitSeleccionado;
+
+                console.log(`✅ Usuario ${usuarioId} → CUIT seleccionado: ${cuitSeleccionado}`);
+
+                // Re-renderizar para habilitar medios de pago
+                selectorUsuarios.renderizar();
+
+                // Actualizar estado
+                const usuariosSeleccionados = selectorUsuarios.obtenerSeleccionados();
+                actualizarEstadoGeneracion(usuariosSeleccionados);
+            }
+
+            // Event listener para selección de medio de pago
             if (e.target.classList.contains('medio-pago-radio')) {
                 const usuarioId = e.target.dataset.usuarioId;
                 const medioId = e.target.dataset.medioId;
@@ -129,10 +209,22 @@ function agregarEventosMediosPago() {
 
 function actualizarEstadoGeneracion(usuariosSeleccionados) {
     const totalUsuarios = usuariosSeleccionados.length;
+
+    // Validar CUIT seleccionado (para usuarios con múltiples CUITs)
+    const usuariosSinCuit = usuariosSeleccionados.filter(u => {
+        const cuitAsociados = u.cuitAsociados || [];
+        const tieneCuitsAsociados = cuitAsociados.length > 1;
+        return tieneCuitsAsociados && !cuitsSeleccionados[u.id];
+    });
+
+    // Validar medio de pago seleccionado
     const usuariosConMedio = usuariosSeleccionados.filter(
         u => mediosPagoSeleccionados[u.id]
     ).length;
-    const faltantes = totalUsuarios - usuariosConMedio;
+
+    const faltantesCuit = usuariosSinCuit.length;
+    const faltantesMedio = totalUsuarios - usuariosConMedio;
+    const faltantes = faltantesCuit + faltantesMedio;
 
     // Actualizar contador en botón
     const contadorBtn = document.getElementById('contador-usuarios');
@@ -142,6 +234,7 @@ function actualizarEstadoGeneracion(usuariosSeleccionados) {
 
     // Actualizar contador de validación
     if (totalUsuarios > 0) {
+        const usuariosCompletos = totalUsuarios - faltantesCuit - (totalUsuarios - usuariosConMedio);
         const esCompleto = faltantes === 0;
         const htmlContador = `
             <span class="${esCompleto ? 'completo' : 'incompleto'}">
@@ -165,7 +258,15 @@ function actualizarEstadoGeneracion(usuariosSeleccionados) {
 
     if (faltantes > 0) {
         advertencia.style.display = 'flex';
-        textoAdvertencia.textContent = `${faltantes} usuario(s) sin medio de pago asignado`;
+        let mensaje = '';
+        if (faltantesCuit > 0 && faltantesMedio > 0) {
+            mensaje = `${faltantesCuit} usuario(s) sin CUIT seleccionado, ${faltantesMedio} sin medio de pago`;
+        } else if (faltantesCuit > 0) {
+            mensaje = `${faltantesCuit} usuario(s) sin CUIT seleccionado`;
+        } else {
+            mensaje = `${faltantesMedio} usuario(s) sin medio de pago asignado`;
+        }
+        textoAdvertencia.textContent = mensaje;
     } else {
         advertencia.style.display = 'none';
     }
@@ -185,10 +286,32 @@ async function generarVEP() {
         return;
     }
 
-    // Validar que todos tengan medio de pago
-    const faltantes = usuariosSeleccionados.filter(u => !mediosPagoSeleccionados[u.id]);
-    if (faltantes.length > 0) {
-        mostrarMensaje('error', `${faltantes.length} usuario(s) sin medio de pago`);
+    // VALIDACIÓN 1: Verificar que usuarios con múltiples CUITs tengan uno seleccionado
+    const usuariosSinCuit = usuariosSeleccionados.filter(u => {
+        const cuitAsociados = u.cuitAsociados || [];
+        const tieneCuitsAsociados = cuitAsociados.length > 1;
+        return tieneCuitsAsociados && !cuitsSeleccionados[u.id];
+    });
+
+    if (usuariosSinCuit.length > 0) {
+        const nombresUsuarios = usuariosSinCuit.map(u => u.nombre).join(', ');
+        mostrarMensaje('error',
+            `⚠️ Debe seleccionar un CUIT para continuar.\n\n` +
+            `Usuario(s) sin CUIT seleccionado: ${nombresUsuarios}\n\n` +
+            `Por favor, seleccione un CUIT en la columna "CUIT a Usar" de la tabla de usuarios seleccionados.`
+        );
+        return;
+    }
+
+    // VALIDACIÓN 2: Verificar que todos tengan medio de pago
+    const faltantesMedio = usuariosSeleccionados.filter(u => !mediosPagoSeleccionados[u.id]);
+    if (faltantesMedio.length > 0) {
+        const nombresUsuarios = faltantesMedio.map(u => u.nombre).join(', ');
+        mostrarMensaje('error',
+            `⚠️ Debe seleccionar un medio de pago para continuar.\n\n` +
+            `Usuario(s) sin medio de pago: ${nombresUsuarios}\n\n` +
+            `Por favor, seleccione un medio de pago (QR, Link, etc.) en la tabla.`
+        );
         return;
     }
 
@@ -201,14 +324,24 @@ async function generarVEP() {
 
     // Preparar datos para el backend
     const payload = {
-        usuarios: usuariosSeleccionados.map(u => ({
-            usuario: {
-                id: u.id,
-                nombre: u.nombre,
-                cuit: u.cuit || u.cuil
-            },
-            medioPago: mediosPagoSeleccionados[u.id]
-        })),
+        usuarios: usuariosSeleccionados.map(u => {
+            const cuitAsociados = u.cuitAsociados || [];
+            const tieneCuitsAsociados = cuitAsociados.length > 1;
+
+            // Usar CUIT seleccionado si existe, sino usar el CUIT principal
+            const cuitAUsar = tieneCuitsAsociados && cuitsSeleccionados[u.id]
+                ? cuitsSeleccionados[u.id]
+                : (u.cuit || u.cuil);
+
+            return {
+                usuario: {
+                    id: u.id,
+                    nombre: u.nombre,
+                    cuit: cuitAUsar  // ← CUIT seleccionado por el usuario
+                },
+                medioPago: mediosPagoSeleccionados[u.id]
+            };
+        }),
         periodosSeleccionados: periodosSeleccionados.length > 0 ? periodosSeleccionados : null
     };
 
@@ -344,11 +477,56 @@ function mostrarModalSeleccionPeriodos(periodos) {
         return;
     }
 
-    // Renderizar la tabla de períodos
-    const tbody = document.getElementById('cuerpoTablaPeriodos');
-    tbody.innerHTML = '';
+    // Obtener ambas secciones
+    const seccionObligaciones = document.getElementById('seccionObligaciones');
+    const seccionIntereses = document.getElementById('seccionIntereses');
+    const tbodyObligaciones = document.getElementById('cuerpoTablaObligaciones');
+    const tbodyIntereses = document.getElementById('cuerpoTablaIntereses');
 
-    periodos.forEach(periodo => {
+    // Limpiar ambas tablas
+    tbodyObligaciones.innerHTML = '';
+    tbodyIntereses.innerHTML = '';
+
+    // Renderizar tabla de OBLIGACIONES
+    if (periodos.obligaciones && periodos.obligaciones.length > 0) {
+        seccionObligaciones.style.display = 'block';
+        renderizarTablaPeriodos(tbodyObligaciones, periodos.obligaciones);
+    } else {
+        seccionObligaciones.style.display = 'none';
+    }
+
+    // Renderizar tabla de INTERESES
+    if (periodos.intereses && periodos.intereses.length > 0) {
+        seccionIntereses.style.display = 'block';
+        renderizarTablaPeriodos(tbodyIntereses, periodos.intereses);
+    } else {
+        seccionIntereses.style.display = 'none';
+    }
+
+    // Configurar event listeners para botones del modal
+    const btnConfirmar = document.getElementById('btnConfirmarPeriodos');
+    const btnCancelar = document.getElementById('btnCancelarPeriodos');
+
+    if (btnConfirmar) {
+        btnConfirmar.onclick = confirmarSeleccionPeriodos;
+        btnConfirmar.disabled = true; // Inicialmente deshabilitado
+    }
+
+    if (btnCancelar) {
+        btnCancelar.onclick = cerrarModalSeleccionPeriodos;
+    }
+
+    // Mostrar modal
+    modal.style.display = 'flex';
+}
+
+/**
+ * Renderiza una tabla de períodos (obligaciones o intereses)
+ * @param {HTMLElement} tbody - Elemento tbody donde renderizar
+ * @param {Array} listaPeriodos - Array de períodos con sus filas
+ */
+function renderizarTablaPeriodos(tbody, listaPeriodos) {
+    listaPeriodos.forEach(periodo => {
         // Fila del período (con checkbox)
         const filaPeriodo = document.createElement('tr');
         filaPeriodo.className = 'fila-periodo';
@@ -401,22 +579,6 @@ function mostrarModalSeleccionPeriodos(periodos) {
             tbody.appendChild(filaDetalle);
         });
     });
-
-    // Configurar event listeners para botones del modal
-    const btnConfirmar = document.getElementById('btnConfirmarPeriodos');
-    const btnCancelar = document.getElementById('btnCancelarPeriodos');
-
-    if (btnConfirmar) {
-        btnConfirmar.onclick = confirmarSeleccionPeriodos;
-        btnConfirmar.disabled = true; // Inicialmente deshabilitado
-    }
-
-    if (btnCancelar) {
-        btnCancelar.onclick = cerrarModalSeleccionPeriodos;
-    }
-
-    // Mostrar modal
-    modal.style.display = 'flex';
 }
 
 /**

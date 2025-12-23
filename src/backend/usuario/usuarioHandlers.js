@@ -42,6 +42,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 claveAFIP: userData.claveAFIP,
                 claveATM: userData.claveATM,
                 empresasDisponible: userData.empresasDisponible || [],
+                cuitAsociados: userData.cuitAsociados || [],
                 fechaCreacion: new Date().toISOString(),
                 estado_afip: estadoAFIP,
                 estado_atm: estadoATM,
@@ -171,6 +172,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         // NUEVO: Usaremos el flujo unificado de verificación
         // Primero, obtenemos puntos de venta si es AFIP (esto sigue siendo necesario para crear usuario)
         let puntosDeVentaArray = [];
+        let cuitAsociados = [];
         let browser;
 
         try {
@@ -178,11 +180,15 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             if (credenciales.claveAFIP) {
                 const { browser: b, page } = await launchBrowserAndPage({ headless: false });
                 browser = b;
-                console.log('[Verificación Manual] Obteniendo puntos de venta de AFIP...');
+                console.log('[Verificación Manual] Obteniendo datos de AFIP...');
                 const afipResult = await verificarYObtenerDatosAFIP(page, credenciales);
                 if (afipResult.success) {
                     puntosDeVentaArray = afipResult.data.puntosDeVentaArray || [];
+                    cuitAsociados = afipResult.data.cuitAsociados || [];
                     console.log('[Verificación Manual] Puntos de venta obtenidos:', puntosDeVentaArray);
+                    if (cuitAsociados.length > 0) {
+                        console.log('[Verificación Manual] CUITs asociados obtenidos:', cuitAsociados);
+                    }
                 }
                 await browser.close();
                 browser = null;
@@ -235,6 +241,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     const finalResult = {
                         success: false,
                         puntosDeVentaArray,
+                        cuitAsociados,
                         error: null,
                         verificaciones: {
                             afip: { intentado: false, exitoso: false, error: null },
@@ -281,6 +288,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                         success: false,
                         error: error.message,
                         puntosDeVentaArray,
+                        cuitAsociados,
                         verificaciones: {
                             afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
                             atm: { intentado: !!credenciales.claveATM, exitoso: false, error: error.message }
@@ -318,6 +326,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 success: false,
                 error: error.message,
                 puntosDeVentaArray: [],
+                cuitAsociados: [],
                 verificaciones: {
                     afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
                     atm: { intentado: !!credenciales.claveATM, exitoso: false, error: error.message }
