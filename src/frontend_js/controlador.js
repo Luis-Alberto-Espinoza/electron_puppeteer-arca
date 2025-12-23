@@ -341,18 +341,30 @@ async function cargarModuloLoteATM() {
         atmsDiv.innerHTML = ''; // Limpiar contenido anterior
 
         try {
-            // Rutas de los nuevos archivos de lote
+            // Rutas del componente genérico SelectorUsuarios
+            const selectorUsuariosCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+            const selectorUsuariosJsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+
+            // Rutas de los archivos de lote ATM
             const htmlPath = '../ATM_f/ATM_vistas/atm_lote.html';
             const cssPath = '../ATM_f/ATM_vistas/atm_lote.css';
             const jsPath = '../ATM_f/ATM_vistas/atm_lote.js';
 
-            // Cargar HTML
+            // 1. Cargar CSS del componente SelectorUsuarios (si no está cargado)
+            if (!document.head.querySelector(`link[href="${selectorUsuariosCssPath}"]`)) {
+                const selectorCssLink = document.createElement('link');
+                selectorCssLink.rel = 'stylesheet';
+                selectorCssLink.href = selectorUsuariosCssPath;
+                document.head.appendChild(selectorCssLink);
+            }
+
+            // 2. Cargar HTML del módulo lote
             const response = await fetch(htmlPath);
             if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
             const html = await response.text();
             atmsDiv.innerHTML = html;
 
-            // Cargar CSS
+            // 3. Cargar CSS del módulo lote
             if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
                 const cssLink = document.createElement('link');
                 cssLink.rel = 'stylesheet';
@@ -360,7 +372,30 @@ async function cargarModuloLoteATM() {
                 document.head.appendChild(cssLink);
             }
 
-            // Cargar JS
+            // 4. Cargar JS del componente SelectorUsuarios primero
+            const cargarSelectorUsuariosScript = () => {
+                return new Promise((resolve, reject) => {
+                    // Verificar si ya está cargado
+                    if (typeof SelectorUsuarios !== 'undefined') {
+                        resolve();
+                        return;
+                    }
+
+                    const oldSelectorScript = document.head.querySelector(`script[src="${selectorUsuariosJsPath}"]`);
+                    if (oldSelectorScript) oldSelectorScript.remove();
+
+                    const selectorScript = document.createElement('script');
+                    selectorScript.src = selectorUsuariosJsPath;
+                    selectorScript.defer = true;
+                    selectorScript.onload = () => resolve();
+                    selectorScript.onerror = () => reject(new Error('Error al cargar SelectorUsuarios.js'));
+                    document.head.appendChild(selectorScript);
+                });
+            };
+
+            // 5. Luego cargar JS del módulo lote
+            await cargarSelectorUsuariosScript();
+
             const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
             if (oldScript) oldScript.remove();
 

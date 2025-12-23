@@ -1,6 +1,8 @@
 const { elegirComprobanteEnLinea } = require('../elegirComprobanteEnLinea');
 const { listarEmpresasDisponibles } = require('../listarEmpresasDisponibles');
 const { hacerLogin } = require('../facturas/codigo/login/login_arca');
+const { buscarEnAfip } = require('../buscadorAfip');
+const { obtenerCuitsAsociados } = require('../obtenerCuitsAsociados');
 
 /**
  * Valida credenciales de AFIP, y si son correctas, extrae los puntos de venta.
@@ -67,13 +69,60 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
         // Llamada a la nueva función que solo lista las empresas
         console.log('    [AFIP] -> Listando empresas disponibles...');
         const puntosDeVentaArray = await listarEmpresasDisponibles(newPage);
-        
+
         console.log(`    [AFIP] -> Empresas encontradas: ${puntosDeVentaArray.length}`);
 
+        // 5. Volver a la pestaña principal para buscar CUITs asociados
+        console.log('    [AFIP] -> Volviendo a la pestaña principal para buscar CUITs asociados...');
+        let cuitAsociados = null;
+        let ccmaPage = null;
+
+        try {
+            // Usar el buscador para acceder a CCMA
+            console.log('    [AFIP] -> Buscando CCMA en el buscador...');
+            ccmaPage = await buscarEnAfip(loggedPage, 'ccma', {
+                timeoutNuevaPestana: 10000,
+                esperarNuevaPestana: true
+            });
+
+            // Intentar obtener los CUITs asociados
+            cuitAsociados = await obtenerCuitsAsociados(ccmaPage);
+
+            if (cuitAsociados && cuitAsociados.length > 0) {
+                console.log(`    [AFIP] -> Se obtuvieron ${cuitAsociados.length} CUITs asociados`);
+            } else {
+                console.log('    [AFIP] -> No se encontraron CUITs asociados (no es página de selección)');
+            }
+
+        } catch (ccmaError) {
+            console.log('    [AFIP] -> No se pudo obtener CUITs asociados:', ccmaError.message);
+            // No es crítico, continuar sin CUITs asociados
+        } finally {
+            // Cerrar la pestaña de CCMA si se abrió y es diferente a loggedPage
+            if (ccmaPage && ccmaPage !== loggedPage) {
+                try {
+                    await ccmaPage.close();
+                    console.log('    [AFIP] -> Pestaña de CCMA cerrada');
+                } catch (closeError) {
+                    console.log('    [AFIP] -> Error al cerrar pestaña CCMA:', closeError.message);
+                }
+            }
+        }
+
+        // 6. Preparar respuesta con los datos obtenidos
+        const responseData = {
+            puntosDeVentaArray: puntosDeVentaArray
+        };
+
+        // Agregar CUITs asociados solo si existen
+        if (cuitAsociados && cuitAsociados.length > 0) {
+            responseData.cuitAsociados = cuitAsociados;
+        }
+
         console.log('    [AFIP] <== Saliendo del worker con éxito.');
-        return { 
-            success: true, 
-            data: { puntosDeVentaArray: puntosDeVentaArray } 
+        return {
+            success: true,
+            data: responseData
         };
 
     } catch (error) {

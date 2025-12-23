@@ -1,4 +1,5 @@
 const paso_1_cuentaCorriente = require('../codigoXpagina/paso_1_cuentaCorriente.js');
+const paso_1b_seleccionarCuit = require('../codigoXpagina/paso_1b_seleccionarCuit.js');
 const paso_2_calculoDeuda = require('../codigoXpagina/paso_2_calculoDeuda.js');
 const paso_3_volantePago = require('../codigoXpagina/paso_3_volantePago.js');
 const paso_4_seleccionarYCapturarObligaciones = require('../codigoXpagina/paso_4_seleccionarYCapturarObligaciones.js');
@@ -29,23 +30,28 @@ async function ejecutarFlujoVEP(page, usuario, medioPago, periodosSeleccionados 
         let paginaActual = page;
 
         // PASO 1: Acceder a Cuenta Corriente de Contribuyentes (abre nueva pestaña)
-        console.log("🔵 [Flujo VEP] Paso 1/7: Accediendo a Cuenta Corriente...");
+        console.log("🔵 [Flujo VEP] Paso 1/8: Accediendo a Cuenta Corriente...");
         const resultado1 = await paso_1_cuentaCorriente.ejecutar(paginaActual);
         if (!resultado1.success) throw new Error(`Paso 1 falló: ${resultado1.message}`);
         paginaActual = resultado1.newPage; // Cambiamos a la nueva pestaña
 
+        // PASO 1B: Seleccionar CUIT (si está en la página de selección)
+        console.log("🔵 [Flujo VEP] Paso 1B/8: Verificando selección de CUIT...");
+        const resultado1b = await paso_1b_seleccionarCuit.ejecutar(paginaActual, usuario.cuit);
+        if (!resultado1b.success) throw new Error(`Paso 1B falló: ${resultado1b.message}`);
+
         // PASO 2: Click en "Cálculo de Deuda"
-        console.log("🔵 [Flujo VEP] Paso 2/7: Calculando deuda...");
+        console.log("🔵 [Flujo VEP] Paso 2/8: Calculando deuda...");
         const resultado2 = await paso_2_calculoDeuda.ejecutar(paginaActual);
         if (!resultado2.success) throw new Error(`Paso 2 falló: ${resultado2.message}`);
 
         // PASO 3: Scroll y click en "Volante de Pago"
-        console.log("🔵 [Flujo VEP] Paso 3/7: Generando volante de pago...");
+        console.log("🔵 [Flujo VEP] Paso 3/8: Generando volante de pago...");
         const resultado3 = await paso_3_volantePago.ejecutar(paginaActual);
         if (!resultado3.success) throw new Error(`Paso 3 falló: ${resultado3.message}`);
 
         // PASO 4: Seleccionar "Autónomos y Monotributistas" y capturar/seleccionar períodos
-        console.log("🔵 [Flujo VEP] Paso 4/7: Seleccionando sección y procesando obligaciones...");
+        console.log("🔵 [Flujo VEP] Paso 4/8: Seleccionando sección y procesando obligaciones...");
         const resultado4 = await paso_4_seleccionarYCapturarObligaciones.ejecutar(paginaActual, periodosSeleccionados);
         if (!resultado4.success) throw new Error(`Paso 4 falló: ${resultado4.message}`);
 
@@ -62,28 +68,28 @@ async function ejecutarFlujoVEP(page, usuario, medioPago, periodosSeleccionados 
         }
 
         // PASO 5: Click en "Generar VEP o QR" (abre nueva pestaña)
-        console.log("🔵 [Flujo VEP] Paso 5/7: Generando VEP...");
+        console.log("🔵 [Flujo VEP] Paso 5/8: Generando VEP...");
         const resultado5 = await paso_6_generarVEP.ejecutar(paginaActual);
         if (!resultado5.success) throw new Error(`Paso 5 falló: ${resultado5.message}`);
         paginaActual = resultado5.newPage; // Cambiamos a la nueva pestaña
 
         // PASO 6: Seleccionar el primer VEP de la lista
-        console.log("🔵 [Flujo VEP] Paso 6/7: Seleccionando primer VEP...");
+        console.log("🔵 [Flujo VEP] Paso 6/8: Seleccionando primer VEP...");
         const resultado6 = await paso_7_seleccionarPrimerVEP.ejecutar(paginaActual);
         if (!resultado6.success) throw new Error(`Paso 6 falló: ${resultado6.message}`);
 
         // PASO 7: Seleccionar medio de pago según la elección del usuario
-        console.log(`🔵 [Flujo VEP] Paso 7/9: Seleccionando medio de pago: ${medioPago.nombre}...`);
+        console.log(`🔵 [Flujo VEP] Paso 7/8: Seleccionando medio de pago: ${medioPago.nombre}...`);
         const resultado7 = await paso_8_seleccionarMedioPago.ejecutar(paginaActual, medioPago);
         if (!resultado7.success) throw new Error(`Paso 7 falló: ${resultado7.message}`);
 
-        // PASO 8: Aceptar modal de confirmación
-        console.log(`🔵 [Flujo VEP] Paso 8/9: Aceptando modal de confirmación...`);
+        // PASO 8: Aceptar modal de confirmación y descargar
+        console.log(`🔵 [Flujo VEP] Paso 8/8: Aceptando modal de confirmación...`);
         const resultado8 = await paso_9_aceptarModal.ejecutar(paginaActual);
         if (!resultado8.success) throw new Error(`Paso 8 falló: ${resultado8.message}`);
 
-        // PASO 9: Descargar PDF del VEP
-        console.log(`🔵 [Flujo VEP] Paso 9/9: Descargando PDF del VEP...`);
+        // PASO FINAL: Descargar PDF del VEP
+        console.log(`🔵 [Flujo VEP] Descargando PDF del VEP...`);
         const resultado9 = await paso_10_descargarPDF.ejecutar(paginaActual, usuario, medioPago, downloadsPath);
         if (!resultado9.success) throw new Error(`Paso 9 falló: ${resultado9.message}`);
 

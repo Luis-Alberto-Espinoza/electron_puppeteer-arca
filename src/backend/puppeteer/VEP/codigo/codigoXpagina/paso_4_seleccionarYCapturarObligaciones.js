@@ -32,24 +32,41 @@ async function ejecutar(page, periodosSeleccionados = null) {
         }
 
         console.log("  → Click en sAM realizado. Esperando tablas...");
-        await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // Verificar si la tabla de MONOTRIBUTO está VISIBLE en divAM
+        // Esperar con polling hasta que aparezca la tabla (máx 10 segundos)
         const tablaEnDivAM = await page.evaluate(() => {
-            const divAM = document.getElementById('divAM');
+            return new Promise((resolve) => {
+                let intentos = 0;
+                const maxIntentos = 40; // 40 intentos x 250ms = 10 segundos
 
-            // Verificar que el div esté VISIBLE
-            if (divAM && window.getComputedStyle(divAM).display !== 'none') {
-                // Buscar tabla solo dentro del div visible
-                const tablas = Array.from(divAM.querySelectorAll('table'));
-                for (const tabla of tablas) {
-                    const texto = tabla.textContent || '';
-                    if (texto.includes('MONOTRIBUTO - OBLIGACIONES')) {
-                        return true;
+                const verificar = () => {
+                    const divAM = document.getElementById('divAM');
+
+                    // Verificar que el div esté VISIBLE
+                    if (divAM && window.getComputedStyle(divAM).display !== 'none') {
+                        // Buscar tabla solo dentro del div visible
+                        const tablas = Array.from(divAM.querySelectorAll('table'));
+                        for (const tabla of tablas) {
+                            const texto = tabla.textContent || '';
+                            if (texto.includes('MONOTRIBUTO - OBLIGACIONES') ||
+                                texto.includes('AUTONOMOS') ||
+                                texto.includes('Período')) {
+                                resolve(true);
+                                return;
+                            }
+                        }
                     }
-                }
-            }
-            return false;
+
+                    intentos++;
+                    if (intentos >= maxIntentos) {
+                        resolve(false);
+                    } else {
+                        setTimeout(verificar, 250);
+                    }
+                };
+
+                verificar();
+            });
         });
 
         if (tablaEnDivAM) {
@@ -73,22 +90,39 @@ async function ejecutar(page, periodosSeleccionados = null) {
             }
 
             console.log("  → Click en sPROV realizado. Esperando tablas...");
-            await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // Verificar que la tabla esté visible en divPROV
+            // Esperar con polling hasta que aparezca la tabla (máx 10 segundos)
             const tablaEnDivPROV = await page.evaluate(() => {
-                const divPROV = document.getElementById('divPROV');
+                return new Promise((resolve) => {
+                    let intentos = 0;
+                    const maxIntentos = 40; // 40 intentos x 250ms = 10 segundos
 
-                if (divPROV && window.getComputedStyle(divPROV).display !== 'none') {
-                    const tablas = Array.from(divPROV.querySelectorAll('table'));
-                    for (const tabla of tablas) {
-                        const texto = tabla.textContent || '';
-                        if (texto.includes('MONOTRIBUTO - OBLIGACIONES')) {
-                            return true;
+                    const verificar = () => {
+                        const divPROV = document.getElementById('divPROV');
+
+                        if (divPROV && window.getComputedStyle(divPROV).display !== 'none') {
+                            const tablas = Array.from(divPROV.querySelectorAll('table'));
+                            for (const tabla of tablas) {
+                                const texto = tabla.textContent || '';
+                                if (texto.includes('MONOTRIBUTO - OBLIGACIONES') ||
+                                    texto.includes('AUTONOMOS') ||
+                                    texto.includes('Período')) {
+                                    resolve(true);
+                                    return;
+                                }
+                            }
                         }
-                    }
-                }
-                return false;
+
+                        intentos++;
+                        if (intentos >= maxIntentos) {
+                            resolve(false);
+                        } else {
+                            setTimeout(verificar, 250);
+                        }
+                    };
+
+                    verificar();
+                });
             });
 
             if (!tablaEnDivPROV) {
@@ -106,37 +140,24 @@ async function ejecutar(page, periodosSeleccionados = null) {
             console.log(`  → Capturando datos de obligaciones (${tipoTabla})...`);
             const datosCapturados = await capturarDatosDeTabla(page, tipoTabla);
 
-            if (!datosCapturados || datosCapturados.length === 0) {
+            if (!datosCapturados ||
+                (!datosCapturados.obligaciones?.length && !datosCapturados.intereses?.length)) {
                 throw new Error('No se encontraron obligaciones en la tabla');
             }
 
-            console.log(`  ✅ Paso 4 completado: ${datosCapturados.length} períodos capturados`);
+            const totalObligaciones = datosCapturados.obligaciones?.length || 0;
+            const totalIntereses = datosCapturados.intereses?.length || 0;
 
-            // OPTIMIZACIÓN: Si hay UN SOLO período, seleccionarlo automáticamente
-            if (datosCapturados.length === 1) {
-                console.log("  → Detectado 1 solo período. Seleccionando automáticamente...");
-                const periodoUnico = datosCapturados[0].periodo;
-                await seleccionarPeriodos(page, [periodoUnico], tipoTabla);
+            console.log(`  ✅ Paso 4 completado:`);
+            console.log(`     - Obligaciones: ${totalObligaciones} períodos`);
+            console.log(`     - Intereses: ${totalIntereses} períodos`);
 
-                // Habilitar el botón correspondiente
-                await habilitarBoton(page, tipoTabla);
-
-                // Esperar a que la página procese la selección y habilite el botón siguiente
-                console.log("  → Esperando que la página se actualice...");
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                return {
-                    success: true,
-                    message: `Período ${periodoUnico} seleccionado automáticamente`,
-                    autoprocesado: true
-                };
-            }
-
-            // Si hay múltiples períodos, requiere selección del usuario
+            // Siempre requiere selección del usuario (mostrar modal con ambas tablas)
+            console.log(`  → Requiere selección del usuario. Mostrando modal...`);
             return {
                 success: true,
                 requiereSeleccion: true,
-                periodos: datosCapturados
+                periodos: datosCapturados  // Ahora es { obligaciones: [...], intereses: [...] }
             };
         }
 
@@ -175,89 +196,165 @@ async function ejecutar(page, periodosSeleccionados = null) {
  */
 async function capturarDatosDeTabla(page, tipoTabla) {
     return await page.evaluate((tipo) => {
-        // 1. Buscar la tabla según el tipo
+        // Helper: Extraer datos de una tabla específica
+        const extraerDatosTabla = (tablaDatos, tipoConcepto) => {
+            const filas = Array.from(tablaDatos.querySelectorAll('tr'));
+            const filasDeDatos = filas.filter(fila => {
+                const celdas = fila.querySelectorAll('td');
+                return fila.querySelector('input[type="checkbox"]');
+            });
+
+            const mapaPeriodos = {};
+
+            filasDeDatos.forEach(filaTabla => {
+                const celdas = Array.from(filaTabla.querySelectorAll('td'));
+                const periodo = celdas[0].textContent.trim();
+
+                // Detectar el número de columnas para saber qué datos extraer
+                const numColumnas = celdas.length;
+
+                let impuesto, categoria, importe, concepto, subconcepto;
+
+                if (numColumnas === 7) {
+                    // Tabla de OBLIGACIONES: Período, Impuesto, Concepto, SubConcepto, Categoría, Importe, Selección
+                    impuesto = celdas[1].textContent.trim();
+                    concepto = celdas[2].textContent.trim();
+                    subconcepto = celdas[3].textContent.trim();
+                    categoria = celdas[4].textContent.trim();
+                    importe = celdas[5].textContent.trim();
+                } else if (numColumnas === 6) {
+                    // Tabla de INTERESES: Período, Impuesto, Concepto, Subcpto, Importe, Selección
+                    impuesto = celdas[1].textContent.trim();
+                    concepto = celdas[2].textContent.trim();
+                    subconcepto = celdas[3].textContent.trim();
+                    categoria = '-';
+                    importe = celdas[4].textContent.trim();
+                }
+
+                if (!mapaPeriodos[periodo]) {
+                    mapaPeriodos[periodo] = {
+                        periodo: periodo,
+                        obligaciones: [],
+                        intereses: []
+                    };
+                }
+
+                // Convertir formato US a ARG
+                const importeFormateado = importe
+                    .replace(/,/g, 'TEMP')
+                    .replace(/\./g, ',')
+                    .replace(/TEMP/g, '.');
+
+                const fila = {
+                    impuesto: impuesto,
+                    concepto: concepto,
+                    subconcepto: subconcepto,
+                    categoria: categoria,
+                    importe: importeFormateado
+                };
+
+                // Agregar a la categoría correspondiente
+                if (tipoConcepto === 'obligaciones') {
+                    mapaPeriodos[periodo].obligaciones.push(fila);
+                } else {
+                    mapaPeriodos[periodo].intereses.push(fila);
+                }
+            });
+
+            return mapaPeriodos;
+        };
+
+        // 1. Buscar AMBAS tablas: Obligaciones e Intereses
         const tablas = Array.from(document.querySelectorAll('table'));
-        let tablaDatos = null;
+        let tablaObligaciones = null;
+        let tablaIntereses = null;
 
-        // Definir el texto a buscar según el tipo
-        const textoBusqueda = tipo === 'MONOTRIBUTO' ? 'MONOTRIBUTO - OBLIGACIONES' : 'OBLIGACIONES';
-
+        // Buscar tabla de OBLIGACIONES
         for (const tabla of tablas) {
             const texto = tabla.textContent || '';
-            if (texto.includes(textoBusqueda)) {
-                // Buscar la tabla de datos (siguiente tabla después del encabezado)
+            if (texto.includes('OBLIGACIONES') && !texto.includes('INTERESES')) {
                 let siguienteElemento = tabla.nextElementSibling;
                 while (siguienteElemento) {
                     if (siguienteElemento.tagName === 'TABLE' &&
                         siguienteElemento.textContent.includes('Período') &&
                         siguienteElemento.textContent.includes('Importe')) {
-                        tablaDatos = siguienteElemento;
+                        tablaObligaciones = siguienteElemento;
                         break;
                     }
                     siguienteElemento = siguienteElemento.nextElementSibling;
                 }
-                if (tablaDatos) break;
+                if (tablaObligaciones) break;
             }
         }
 
-        // Si no encontramos con el texto específico, buscar cualquier tabla con Período e Importe
-        if (!tablaDatos) {
-            for (const tabla of tablas) {
-                const texto = tabla.textContent || '';
-                if (texto.includes('Período') &&
-                    texto.includes('Importe') &&
-                    tabla.querySelector('input[type="checkbox"]')) {
-                    tablaDatos = tabla;
-                    break;
+        // Buscar tabla de INTERESES
+        for (const tabla of tablas) {
+            const texto = tabla.textContent || '';
+            if (texto.includes('DIFERENCIAS E INTERESES') || texto.includes('INTERESES')) {
+                let siguienteElemento = tabla.nextElementSibling;
+                while (siguienteElemento) {
+                    if (siguienteElemento.tagName === 'TABLE' &&
+                        siguienteElemento.textContent.includes('Período') &&
+                        siguienteElemento.textContent.includes('Importe')) {
+                        tablaIntereses = siguienteElemento;
+                        break;
+                    }
+                    siguienteElemento = siguienteElemento.nextElementSibling;
+                }
+                if (tablaIntereses) break;
+            }
+        }
+
+        // 2. Extraer datos de ambas tablas y combinarlos
+        let mapaPeriodosCombinado = {};
+
+        if (tablaObligaciones) {
+            const datosObligaciones = extraerDatosTabla(tablaObligaciones, 'obligaciones');
+            mapaPeriodosCombinado = { ...datosObligaciones };
+        }
+
+        if (tablaIntereses) {
+            const datosIntereses = extraerDatosTabla(tablaIntereses, 'intereses');
+
+            // Combinar con los datos existentes
+            for (const periodo in datosIntereses) {
+                if (mapaPeriodosCombinado[periodo]) {
+                    mapaPeriodosCombinado[periodo].intereses = datosIntereses[periodo].intereses;
+                } else {
+                    mapaPeriodosCombinado[periodo] = datosIntereses[periodo];
                 }
             }
         }
 
-        if (!tablaDatos) {
-            throw new Error(`No se encontró la tabla de ${tipo}`);
+        if (!tablaObligaciones && !tablaIntereses) {
+            throw new Error(`No se encontró ninguna tabla de ${tipo}`);
         }
 
-        // 2. Extraer todas las filas de datos (excluir encabezado)
-        const filas = Array.from(tablaDatos.querySelectorAll('tr'));
-        const filasDeDatos = filas.filter(fila => {
-            const celdas = fila.querySelectorAll('td');
-            // Filtrar filas que tienen exactamente 7 columnas y un checkbox
-            return celdas.length === 7 && fila.querySelector('input[type="checkbox"]');
-        });
+        // 3. Convertir a arrays separados
+        const periodosObligaciones = [];
+        const periodosIntereses = [];
 
-        // 3. Agrupar filas por período
-        const mapaPeriodos = {};
-
-        filasDeDatos.forEach(fila => {
-            const celdas = Array.from(fila.querySelectorAll('td'));
-
-            const periodo = celdas[0].textContent.trim();
-            const impuesto = celdas[1].textContent.trim();
-            const categoria = celdas[4].textContent.trim();
-            const importe = celdas[5].textContent.trim();
-
-            if (!mapaPeriodos[periodo]) {
-                mapaPeriodos[periodo] = {
-                    periodo: periodo,
-                    filas: []
-                };
+        Object.values(mapaPeriodosCombinado).forEach(item => {
+            // Solo agregar si hay datos en cada categoría
+            if (item.obligaciones.length > 0) {
+                periodosObligaciones.push({
+                    periodo: item.periodo,
+                    filas: item.obligaciones
+                });
             }
 
-            // Convertir formato US (11,871.01) a formato ARG (11.871,01)
-            const importeFormateado = importe
-                .replace(/,/g, 'TEMP')  // Comas a temporal
-                .replace(/\./g, ',')     // Puntos a comas
-                .replace(/TEMP/g, '.');  // Temporal a puntos
-
-            mapaPeriodos[periodo].filas.push({
-                impuesto: impuesto,
-                categoria: categoria,
-                importe: importeFormateado
-            });
+            if (item.intereses.length > 0) {
+                periodosIntereses.push({
+                    periodo: item.periodo,
+                    filas: item.intereses
+                });
+            }
         });
 
-        // 4. Convertir a array
-        return Object.values(mapaPeriodos);
+        return {
+            obligaciones: periodosObligaciones,
+            intereses: periodosIntereses
+        };
     }, tipoTabla);
 }
 

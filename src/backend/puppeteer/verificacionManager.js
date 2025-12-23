@@ -43,6 +43,11 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
                     usuario.puntosDeVenta = resultadoAFIP.data.puntosDeVentaArray;
                     console.log(`  -> AFIP: Válido. Puntos de venta encontrados: ${usuario.puntosDeVenta.length}`);
                 }
+                // Agregar CUITs asociados si existen
+                if (resultadoAFIP.data && resultadoAFIP.data.cuitAsociados) {
+                    usuario.cuitAsociados = resultadoAFIP.data.cuitAsociados;
+                    console.log(`  -> AFIP: CUITs asociados encontrados: ${usuario.cuitAsociados.length}`);
+                }
             } else {
                 usuario.claveAfipValida = false; // La clave no es válida para la automatización
                 if (resultadoAFIP.error === 'UPDATE_PASSWORD_REQUIRED') {
