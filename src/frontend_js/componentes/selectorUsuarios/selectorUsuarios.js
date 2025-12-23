@@ -34,6 +34,9 @@ class SelectorUsuarios {
             // Mostrar tabla de seleccionados (útil para casos de selección única)
             mostrarTablaSeleccionados: true,
 
+            // Mostrar columna CUIT por defecto
+            mostrarColumnaCUIT: true,
+
             // ====== VALIDACIÓN Y FILTRADO ======
             // Campo que contiene las credenciales (ej: 'claveAFIP', 'claveATM')
             campoCredencial: null,
@@ -220,7 +223,7 @@ class SelectorUsuarios {
                 <!-- Buscador -->
                 <div class="buscador-section">
                     <div class="buscador-titulo">
-                        🔍 BUSCAR USUARIOS
+                        🔍 BUSCAR CLIENTES
                     </div>
                     <div class="buscador-input-wrapper">
                         <input
@@ -242,7 +245,7 @@ class SelectorUsuarios {
                 <!-- Lista de disponibles -->
                 <div class="lista-disponibles-section">
                     <div class="lista-header">
-                        <span>📋 USUARIOS DISPONIBLES</span>
+                        <span>📋 CLIENTES DISPONIBLES</span>
                         <span class="lista-contador">${this.contarUsuariosSeleccionables()} seleccionables de ${this.usuariosFiltrados.length}</span>
                     </div>
                     <div class="lista-usuarios-disponibles" id="${this.contenedorId}-lista-disponibles">
@@ -343,8 +346,8 @@ class SelectorUsuarios {
                 <thead>
                     <tr>
                         <th>Quitar</th>
-                        <th>Usuario</th>
-                        <th>CUIT</th>
+                        <th>Cliente</th>
+                        ${this.opciones.mostrarColumnaCUIT ? '<th>CUIT</th>' : ''}
                         ${this.opciones.headersColumnasExtras.map(h => `<th>${h}</th>`).join('')}
                     </tr>
                 </thead>
@@ -376,7 +379,7 @@ class SelectorUsuarios {
                         </button>
                     </td>
                     <td>${usuario.nombre || 'Sin nombre'}</td>
-                    <td>${usuario.cuit || usuario.cuil || 'N/A'}</td>
+                    ${this.opciones.mostrarColumnaCUIT ? `<td>${usuario.cuit || usuario.cuil || 'N/A'}</td>` : ''}
                     ${this.renderizarColumnasExtrasFila(usuario, index)}
                 </tr>
             `;
@@ -387,8 +390,8 @@ class SelectorUsuarios {
                 <thead>
                     <tr>
                         <th>Quitar</th>
-                        <th>Usuario</th>
-                        <th>CUIT</th>
+                        <th>Cliente</th>
+                        ${this.opciones.mostrarColumnaCUIT ? '<th>CUIT</th>' : ''}
                         ${this.opciones.headersColumnasExtras.map(h => `<th>${h}</th>`).join('')}
                     </tr>
                 </thead>

@@ -480,10 +480,10 @@ async function cargarModuloGenerarVEP() {
         generarVEPDiv.innerHTML = ''; // Limpiar contenido anterior
 
         try {
-            // Rutas de los archivos del módulo (NUEVOS)
-            const htmlPath = '../generar_VEP/index.html';
-            const cssPath = '../generar_VEP/styles.css';
-            const jsPath = '../generar_VEP/controlador_vep.js';
+            // Rutas de los archivos del módulo
+            const htmlPath = '../generar_VEP/generar_vep.html';
+            const cssPath = '../generar_VEP/generar_vep.css';
+            const jsPath = '../generar_VEP/generar_vep.js';
 
             // Rutas del componente genérico
             const selectorCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';

@@ -3,133 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generar VEP</title>
+    <title>Generar VEP - AFIP</title>
+
+    <!-- Estilos del componente genérico -->
+    <link rel="stylesheet" href="../componentes/selectorUsuarios/selectorUsuarios.css">
+
+    <!-- Estilos específicos de VEP -->
+    <link rel="stylesheet" href="generar_vep.css">
 </head>
 <body>
-    <div class="contenedor-generar-vep">
-        <div class="cabecera-vep">
-            <h2 class="titulo-vep">Generar Volante Electrónico de Pago (VEP)</h2>
-            <p class="descripcion-vep">Seleccione el usuario y el medio de pago para generar el VEP</p>
+    <div class="contenedor-principal-vep">
+        <!-- Header -->
+        <header class="header-vep">
+            <div class="breadcrumb">
+                🏠 Home › VEP
+            </div>
+            <h1 class="titulo-principal">Volante Electrónico de Pago (VEP)</h1>
+            <p class="descripcion-principal">
+                Seleccione los clientes y asigne el medio de pago para cada uno
+            </p>
+        </header>
+
+        <!-- Componente selector de usuarios (genérico) -->
+        <div id="selector-usuarios-vep"></div>
+
+        <!-- Advertencias -->
+        <div id="advertencia-medios" class="advertencia-medios" style="display: none;">
+            ⚠️ <span id="texto-advertencia"></span>
         </div>
 
-        <div class="tabla-container">
-            <table class="tabla-usuarios-vep" id="tablaUsuariosVEP">
-                <thead>
-                    <tr>
-                        <th class="col-usuario">Usuario</th>
-                        <th class="col-cuit">CUIT</th>
-                        <th class="col-medio-pago">
-                            <div class="header-medio-pago">
-                                <img src="../generar_VEP/assets/pago_qr.gif" alt="Pago QR" class="img-medio-pago">
-                                <span>Pago QR</span>
-                            </div>
-                        </th>
-                        <th class="col-medio-pago">
-                            <div class="header-medio-pago">
-                                <img src="../generar_VEP/assets/pagar_link.gif" alt="Pagar Link" class="img-medio-pago">
-                                <span>Pagar Link</span>
-                            </div>
-                        </th>
-                        <th class="col-medio-pago">
-                            <div class="header-medio-pago">
-                                <img src="../generar_VEP/assets/mis_cuentas.gif" alt="Pago Mis Cuentas" class="img-medio-pago">
-                                <span>Mis Cuentas</span>
-                            </div>
-                        </th>
-                        <th class="col-medio-pago">
-                            <div class="header-medio-pago">
-                                <img src="../generar_VEP/assets/interbanking.gif" alt="Interbanking" class="img-medio-pago">
-                                <span>Interbanking</span>
-                            </div>
-                        </th>
-                        <th class="col-medio-pago">
-                            <div class="header-medio-pago">
-                                <img src="../generar_VEP/assets/xn_group.gif" alt="XN Group" class="img-medio-pago">
-                                <span>XN Group</span>
-                            </div>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody id="cuerpoTablaVEP">
-                    <!-- Las filas se cargarán dinámicamente desde JavaScript -->
-                    <tr>
-                        <td colspan="7" class="cargando-usuarios">
-                            Cargando usuarios...
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <!-- Botón generar VEP -->
+        <button
+            id="btn-generar-vep"
+            class="btn-generar-vep"
+            disabled
+        >
+            Generar VEP para <span id="contador-usuarios">0</span> cliente(s)
+        </button>
 
-        <div class="acciones-vep">
-            <button id="btnGenerarVEPProcesar" class="btn-procesar-vep" disabled>
-                Generar VEP
-            </button>
-            <button id="btnVolverHomeAfip" class="btn-volver">
-                Volver
-            </button>
-        </div>
+        <!-- Botón volver -->
+        <button id="btn-volver" class="btn-volver">
+            ← Volver al inicio
+        </button>
 
-        <div id="mensajeEstadoVEP" class="mensaje-estado oculto"></div>
-    </div>
-
-    <!-- Modal de Selección de Períodos -->
-    <div id="modalSeleccionPeriodos" class="modal-periodos" style="display: none;">
-        <div class="modal-contenido-periodos">
-            <div class="modal-cabecera">
-                <h3>Seleccione los períodos a pagar</h3>
-                <p class="modal-descripcion">Se encontraron obligaciones pendientes. Seleccione los períodos que desea incluir en el VEP:</p>
+        <!-- Sección de resultados (se muestra después de primera pasada) -->
+        <div id="seccion-resultados" class="seccion-resultados" style="display: none;">
+            <div class="resultados-header">
+                <h2>Resultados del Procesamiento</h2>
+                <p class="resultados-descripcion">Revise los resultados y seleccione los períodos para los clientes que lo requieran</p>
             </div>
 
-            <div class="modal-tabla-container">
-                <!-- Tabla de Obligaciones -->
-                <div id="seccionObligaciones" style="margin-bottom: 30px;">
-                    <h4 style="margin-bottom: 10px; color: #333;">OBLIGACIONES</h4>
-                    <table class="tabla-periodos">
-                        <thead>
-                            <tr>
-                                <th class="col-seleccionar">Seleccionar</th>
-                                <th class="col-periodo">Período</th>
-                                <th class="col-impuesto">Impuesto</th>
-                                <th class="col-categoria">Categoría</th>
-                                <th class="col-importe">Importe</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cuerpoTablaObligaciones">
-                            <!-- Se llena dinámicamente desde JavaScript -->
-                        </tbody>
-                    </table>
+            <!-- Grupo: Procesados Automáticamente -->
+            <div id="grupo-procesados-auto" class="grupo-resultados grupo-procesados" style="display: none;">
+                <div class="grupo-header">
+                    <span class="grupo-icono">✅</span>
+                    <span class="grupo-titulo">PROCESADOS AUTOMÁTICAMENTE</span>
+                    <span class="grupo-contador" id="contador-procesados-auto">0</span>
                 </div>
-
-                <!-- Tabla de Intereses / Diferencias -->
-                <div id="seccionIntereses" style="margin-bottom: 20px;">
-                    <h4 style="margin-bottom: 10px; color: #333;">DIFERENCIAS E INTERESES</h4>
-                    <table class="tabla-periodos">
-                        <thead>
-                            <tr>
-                                <th class="col-seleccionar">Seleccionar</th>
-                                <th class="col-periodo">Período</th>
-                                <th class="col-impuesto">Impuesto</th>
-                                <th class="col-categoria">Categoría</th>
-                                <th class="col-importe">Importe</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cuerpoTablaIntereses">
-                            <!-- Se llena dinámicamente desde JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
+                <div class="grupo-contenido" id="contenido-procesados-auto"></div>
             </div>
 
-            <div class="modal-acciones">
-                <button id="btnConfirmarPeriodos" class="btn-confirmar-periodos" disabled>
-                    Confirmar Selección
+            <!-- Grupo: Requieren Selección -->
+            <div id="grupo-requieren-seleccion" class="grupo-resultados grupo-pendientes" style="display: none;">
+                <div class="grupo-header">
+                    <span class="grupo-icono">⏸️</span>
+                    <span class="grupo-titulo">REQUIEREN SELECCIÓN DE PERÍODOS</span>
+                    <span class="grupo-contador" id="contador-requieren-seleccion">0</span>
+                </div>
+                <div class="grupo-contenido" id="contenido-requieren-seleccion"></div>
+            </div>
+
+            <!-- Grupo: Errores -->
+            <div id="grupo-errores" class="grupo-resultados grupo-errores" style="display: none;">
+                <div class="grupo-header">
+                    <span class="grupo-icono">❌</span>
+                    <span class="grupo-titulo">ERRORES</span>
+                    <span class="grupo-contador" id="contador-errores">0</span>
+                </div>
+                <div class="grupo-contenido" id="contenido-errores"></div>
+            </div>
+
+            <!-- Botones de acción -->
+            <div class="resultados-acciones">
+                <button id="btn-confirmar-seleccion" class="btn-confirmar" style="display: none;">
+                    Confirmar y Continuar
                 </button>
-                <button id="btnCancelarPeriodos" class="btn-cancelar-periodos">
-                    Cancelar
+                <button id="btn-cancelar-todo" class="btn-cancelar">
+                    Cancelar Todo
                 </button>
             </div>
         </div>
+
+        <!-- Sección de archivos descargados (se muestra al finalizar) -->
+        <div id="seccion-archivos-descargados" class="seccion-archivos-descargados" style="display: none;">
+            <div class="archivos-header">
+                <h2>✅ Archivos Descargados</h2>
+                <p class="archivos-descripcion">Haga click en "Abrir" para ver el VEP descargado</p>
+            </div>
+
+            <div id="lista-archivos-descargados" class="lista-archivos">
+                <!-- Los archivos se renderizarán dinámicamente aquí -->
+            </div>
+
+            <div class="archivos-acciones">
+                <button id="btn-nuevo-proceso-vep" class="btn-nuevo-proceso">
+                    ← Generar Nuevo VEP
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal de progreso -->
+        <div id="modal-progreso" class="modal-progreso" style="display: none;">
+            <div class="modal-contenido">
+                <h3>Generando VEPs...</h3>
+                <div class="progreso-barra">
+                    <div id="progreso-fill" class="progreso-fill"></div>
+                </div>
+                <p id="progreso-texto">Procesando...</p>
+            </div>
+        </div>
     </div>
+
+    <!--
+        NOTA: Los scripts se cargan dinámicamente desde controlador.js
+        cuando se usa la carga dinámica de módulos.
+        Si se abre este HTML directamente, descomentar las líneas siguientes:
+
+        <script src="../componentes/selectorUsuarios/selectorUsuarios.js"></script>
+        <script type="module" src="./generar_vep.js"></script>
+    -->
 </body>
 </html>
