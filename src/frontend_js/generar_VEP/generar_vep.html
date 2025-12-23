@@ -82,20 +82,43 @@
             </div>
 
             <div class="modal-tabla-container">
-                <table class="tabla-periodos">
-                    <thead>
-                        <tr>
-                            <th class="col-seleccionar">Seleccionar</th>
-                            <th class="col-periodo">Período</th>
-                            <th class="col-impuesto">Impuesto</th>
-                            <th class="col-categoria">Categoría</th>
-                            <th class="col-importe">Importe</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cuerpoTablaPeriodos">
-                        <!-- Se llena dinámicamente desde JavaScript -->
-                    </tbody>
-                </table>
+                <!-- Tabla de Obligaciones -->
+                <div id="seccionObligaciones" style="margin-bottom: 30px;">
+                    <h4 style="margin-bottom: 10px; color: #333;">OBLIGACIONES</h4>
+                    <table class="tabla-periodos">
+                        <thead>
+                            <tr>
+                                <th class="col-seleccionar">Seleccionar</th>
+                                <th class="col-periodo">Período</th>
+                                <th class="col-impuesto">Impuesto</th>
+                                <th class="col-categoria">Categoría</th>
+                                <th class="col-importe">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaObligaciones">
+                            <!-- Se llena dinámicamente desde JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Tabla de Intereses / Diferencias -->
+                <div id="seccionIntereses" style="margin-bottom: 20px;">
+                    <h4 style="margin-bottom: 10px; color: #333;">DIFERENCIAS E INTERESES</h4>
+                    <table class="tabla-periodos">
+                        <thead>
+                            <tr>
+                                <th class="col-seleccionar">Seleccionar</th>
+                                <th class="col-periodo">Período</th>
+                                <th class="col-impuesto">Impuesto</th>
+                                <th class="col-categoria">Categoría</th>
+                                <th class="col-importe">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cuerpoTablaIntereses">
+                            <!-- Se llena dinámicamente desde JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div class="modal-acciones">

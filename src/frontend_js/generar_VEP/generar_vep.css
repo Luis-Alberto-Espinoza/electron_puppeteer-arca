@@ -90,8 +90,17 @@
     transition: background-color 0.2s ease;
 }
 
-.tabla-usuarios-vep tbody tr:hover {
+/* Estilos para filas pares e impares (zebra striping) */
+.tabla-usuarios-vep tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.tabla-usuarios-vep tbody tr:nth-child(even) {
     background-color: #f8f9fa;
+}
+
+.tabla-usuarios-vep tbody tr:hover {
+    background-color: #e8f4f8;
 }
 
 .tabla-usuarios-vep tbody tr.seleccionado {

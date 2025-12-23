@@ -120,21 +120,7 @@ export function renderizarGrupoRequierenSeleccion(clientes) {
 
                 <!-- Tabla de períodos -->
                 <div class="tarjeta-body">
-                    <div class="tabla-periodos-wrapper">
-                        <table class="tabla-periodos-cliente">
-                            <thead>
-                                <tr>
-                                    <th class="col-check">Seleccionar</th>
-                                    <th class="col-periodo">Período</th>
-                                    <th class="col-detalle">Detalle</th>
-                                    <th class="col-total">Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${renderizarFilasPeriodos(periodos, clienteId)}
-                            </tbody>
-                        </table>
-                    </div>
+                    ${renderizarTablasPeriodos(periodos, clienteId)}
                 </div>
             </div>
         `;
@@ -147,6 +133,66 @@ export function renderizarGrupoRequierenSeleccion(clientes) {
     if (btnConfirmar) {
         btnConfirmar.style.display = 'inline-block';
     }
+}
+
+/**
+ * Renderiza las tablas de períodos (obligaciones e intereses)
+ * @param {Object} periodos - Objeto con {obligaciones: [...], intereses: [...]}
+ * @param {string} clienteId - ID del cliente
+ * @returns {string} HTML de las tablas
+ */
+function renderizarTablasPeriodos(periodos, clienteId) {
+    let html = '';
+
+    // Renderizar tabla de OBLIGACIONES
+    if (periodos.obligaciones && periodos.obligaciones.length > 0) {
+        html += `
+            <div class="seccion-tabla-periodos">
+                <h5 class="titulo-seccion-periodos">OBLIGACIONES</h5>
+                <div class="tabla-periodos-wrapper">
+                    <table class="tabla-periodos-cliente">
+                        <thead>
+                            <tr>
+                                <th class="col-check">Seleccionar</th>
+                                <th class="col-periodo">Período</th>
+                                <th class="col-detalle">Detalle</th>
+                                <th class="col-total">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${renderizarFilasPeriodos(periodos.obligaciones, clienteId)}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    // Renderizar tabla de INTERESES
+    if (periodos.intereses && periodos.intereses.length > 0) {
+        html += `
+            <div class="seccion-tabla-periodos">
+                <h5 class="titulo-seccion-periodos">DIFERENCIAS E INTERESES</h5>
+                <div class="tabla-periodos-wrapper">
+                    <table class="tabla-periodos-cliente">
+                        <thead>
+                            <tr>
+                                <th class="col-check">Seleccionar</th>
+                                <th class="col-periodo">Período</th>
+                                <th class="col-detalle">Detalle</th>
+                                <th class="col-total">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${renderizarFilasPeriodos(periodos.intereses, clienteId)}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+
+    return html;
 }
 
 /**

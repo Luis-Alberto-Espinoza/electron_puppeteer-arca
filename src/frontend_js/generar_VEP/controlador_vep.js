@@ -33,6 +33,10 @@ const MEDIOS_PAGO = [
 
 // Estado local (solo UI del selector)
 const mediosPagoSeleccionados = {};
+
+// Estado: almacena el CUIT seleccionado para usuarios con múltiples CUITs
+const cuitsSeleccionados = {};
+
 let selectorUsuarios = null;
 
 // ==============================================
@@ -74,7 +78,7 @@ function inicializarVEP() {
             actualizarEstadoGeneracion(usuariosSeleccionados);
         },
         renderizarColumnasExtras: renderizarColumnasMediosPago,
-        headersColumnasExtras: ['QR', 'Link', 'Cuentas', 'Inter', 'XN']
+        headersColumnasExtras: ['CUIT a Usar', 'QR', 'Link', 'Cuentas', 'Inter', 'XN']
     });
 
     configurarEventListeners();
@@ -83,12 +87,62 @@ function inicializarVEP() {
 }
 
 function renderizarColumnasMediosPago(usuario) {
-    return MEDIOS_PAGO.map(medio => {
+    let columnasHTML = '';
+
+    // COLUMNA 1: Selector de CUIT (si tiene múltiples CUITs asociados)
+    const cuitAsociados = usuario.cuitAsociados || [];
+    const tieneCuitsAsociados = cuitAsociados.length > 1;
+
+    if (tieneCuitsAsociados) {
+        const cuitSeleccionado = cuitsSeleccionados[usuario.id];
+        const opciones = cuitAsociados.map(cuit => {
+            const esElPrincipal = cuit === usuario.cuit;
+            const etiqueta = esElPrincipal ? `${cuit}` : cuit;
+            const checked = cuitSeleccionado === cuit ? 'checked' : '';
+
+            return `
+                <label class="cuit-radio-label" style="display: block; margin: 2px 0; font-size: 11px;">
+                    <input
+                        type="radio"
+                        name="cuit-${usuario.id}"
+                        value="${cuit}"
+                        class="cuit-radio"
+                        data-usuario-id="${usuario.id}"
+                        ${checked}
+                        style="margin-right: 4px;"
+                    />
+                    ${etiqueta}
+                </label>
+            `;
+        }).join('');
+
+        columnasHTML += `
+            <td class="cuit-selector-cell" style="padding: 4px 8px; vertical-align: top;">
+                <div style="font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #d97706;">
+                    
+                </div>
+                ${opciones}
+            </td>
+        `;
+    } else {
+        // Sin CUITs asociados o solo 1: mostrar guión
+        columnasHTML += `
+            <td class="cuit-selector-cell" style="text-align: center; color: #999;">
+                —
+            </td>
+        `;
+    }
+
+    // COLUMNAS 2-6: Medios de pago
+    const tieneCuitRequerido = !tieneCuitsAsociados || cuitsSeleccionados[usuario.id];
+
+    MEDIOS_PAGO.forEach(medio => {
         const name = `medio-pago-${usuario.id}`;
         const id = `${medio.id}-${usuario.id}`;
         const estaSeleccionado = mediosPagoSeleccionados[usuario.id]?.id === medio.id;
+        const disabled = !tieneCuitRequerido ? 'disabled' : '';
 
-        return `
+        columnasHTML += `
             <td class="medio-pago-cell">
                 <input
                     type="radio"
@@ -99,10 +153,13 @@ function renderizarColumnasMediosPago(usuario) {
                     data-usuario-id="${usuario.id}"
                     data-medio-id="${medio.id}"
                     ${estaSeleccionado ? 'checked' : ''}
+                    ${disabled}
                 />
             </td>
         `;
-    }).join('');
+    });
+
+    return columnasHTML;
 }
 
 // ==============================================
@@ -110,10 +167,35 @@ function renderizarColumnasMediosPago(usuario) {
 // ==============================================
 
 function configurarEventListeners() {
-    // Eventos de medios de pago
+    // Eventos de medios de pago y CUITs
     const contenedor = document.getElementById('selector-usuarios-vep');
     if (contenedor) {
         contenedor.addEventListener('change', (e) => {
+            // Event listener para selección de CUIT
+            if (e.target.classList.contains('cuit-radio')) {
+                const usuarioId = e.target.dataset.usuarioId;
+                const cuitSeleccionado = e.target.value;
+
+                // Guardar CUIT seleccionado
+                cuitsSeleccionados[usuarioId] = cuitSeleccionado;
+
+                console.log(`✅ Usuario ${usuarioId} → CUIT seleccionado: ${cuitSeleccionado}`);
+
+                // Habilitar medios de pago para este usuario sin re-renderizar todo
+                const filaUsuario = document.querySelector(`.tabla-seleccionados tbody tr[data-usuario-id="${usuarioId}"]`);
+                if (filaUsuario) {
+                    const radiosMedioPago = filaUsuario.querySelectorAll('.medio-pago-radio');
+                    radiosMedioPago.forEach(radio => {
+                        radio.disabled = false;
+                    });
+                }
+
+                // Actualizar estado
+                const usuariosSeleccionados = selectorUsuarios.obtenerSeleccionados();
+                actualizarEstadoGeneracion(usuariosSeleccionados);
+            }
+
+            // Event listener para selección de medio de pago
             if (e.target.classList.contains('medio-pago-radio')) {
                 const usuarioId = e.target.dataset.usuarioId;
                 const medioId = e.target.dataset.medioId;
@@ -169,9 +251,32 @@ async function generarVEP() {
         return;
     }
 
-    const faltantes = usuariosSeleccionados.filter(u => !mediosPagoSeleccionados[u.id]);
-    if (faltantes.length > 0) {
-        mostrarMensaje('error', `${faltantes.length} usuario(s) sin medio de pago`);
+    // VALIDACIÓN 1: Verificar que usuarios con múltiples CUITs tengan uno seleccionado
+    const usuariosSinCuit = usuariosSeleccionados.filter(u => {
+        const cuitAsociados = u.cuitAsociados || [];
+        const tieneCuitsAsociados = cuitAsociados.length > 1;
+        return tieneCuitsAsociados && !cuitsSeleccionados[u.id];
+    });
+
+    if (usuariosSinCuit.length > 0) {
+        const nombresUsuarios = usuariosSinCuit.map(u => u.nombre).join(', ');
+        mostrarMensaje('error',
+            `⚠️ Debe seleccionar un CUIT para continuar.\n\n` +
+            `Usuario(s) sin CUIT seleccionado: ${nombresUsuarios}\n\n` +
+            `Por favor, seleccione un CUIT en la columna "CUIT a Usar" de la tabla de usuarios seleccionados.`
+        );
+        return;
+    }
+
+    // VALIDACIÓN 2: Verificar que todos tengan medio de pago
+    const faltantesMedio = usuariosSeleccionados.filter(u => !mediosPagoSeleccionados[u.id]);
+    if (faltantesMedio.length > 0) {
+        const nombresUsuarios = faltantesMedio.map(u => u.nombre).join(', ');
+        mostrarMensaje('error',
+            `⚠️ Debe seleccionar un medio de pago para continuar.\n\n` +
+            `Usuario(s) sin medio de pago: ${nombresUsuarios}\n\n` +
+            `Por favor, seleccione un medio de pago (QR, Link, etc.) en la tabla.`
+        );
         return;
     }
 
@@ -183,17 +288,30 @@ async function generarVEP() {
 
     // Preparar datos
     const payload = {
-        usuarios: usuariosSeleccionados.map(u => ({
-            usuario: {
-                id: u.id,
-                nombre: u.nombre,
-                cuit: u.cuit || u.cuil
-            },
-            medioPago: mediosPagoSeleccionados[u.id]
-        }))
+        usuarios: usuariosSeleccionados.map(u => {
+            const cuitAsociados = u.cuitAsociados || [];
+            const tieneCuitsAsociados = cuitAsociados.length > 1;
+
+            // Usar CUIT seleccionado si existe, sino usar el CUIT principal
+            const cuitAUsar = tieneCuitsAsociados && cuitsSeleccionados[u.id]
+                ? cuitsSeleccionados[u.id]
+                : (u.cuit || u.cuil);
+
+            return {
+                usuario: {
+                    id: u.id,
+                    nombre: u.nombre,
+                    cuit: cuitAUsar  // ← CUIT seleccionado por el usuario
+                },
+                medioPago: mediosPagoSeleccionados[u.id]
+            };
+        }),
+        periodosSeleccionados: EstadoVEP.periodosSeleccionados.length > 0
+            ? EstadoVEP.periodosSeleccionados
+            : null
     };
 
-    // Guardar para segunda pasada
+    // Guardar para segunda pasada si es necesario
     EstadoVEP.usuariosOriginales = payload.usuarios;
 
     console.log('📤 Enviando solicitud VEP (primera pasada):', payload);
@@ -456,10 +574,22 @@ function cancelarTodo() {
 
 function actualizarEstadoGeneracion(usuariosSeleccionados) {
     const totalUsuarios = usuariosSeleccionados.length;
+
+    // Validar CUIT seleccionado (para usuarios con múltiples CUITs)
+    const usuariosSinCuit = usuariosSeleccionados.filter(u => {
+        const cuitAsociados = u.cuitAsociados || [];
+        const tieneCuitsAsociados = cuitAsociados.length > 1;
+        return tieneCuitsAsociados && !cuitsSeleccionados[u.id];
+    });
+
+    // Validar medio de pago seleccionado
     const usuariosConMedio = usuariosSeleccionados.filter(
         u => mediosPagoSeleccionados[u.id]
     ).length;
-    const faltantes = totalUsuarios - usuariosConMedio;
+
+    const faltantesCuit = usuariosSinCuit.length;
+    const faltantesMedio = totalUsuarios - usuariosConMedio;
+    const faltantes = faltantesCuit + faltantesMedio;
 
     // Actualizar contador
     const contadorBtn = document.getElementById('contador-usuarios');
@@ -492,7 +622,15 @@ function actualizarEstadoGeneracion(usuariosSeleccionados) {
 
     if (faltantes > 0) {
         advertencia.style.display = 'flex';
-        textoAdvertencia.textContent = `${faltantes} usuario(s) sin medio de pago asignado`;
+        let mensaje = '';
+        if (faltantesCuit > 0 && faltantesMedio > 0) {
+            mensaje = `${faltantesCuit} usuario(s) sin CUIT seleccionado, ${faltantesMedio} sin medio de pago`;
+        } else if (faltantesCuit > 0) {
+            mensaje = `${faltantesCuit} usuario(s) sin CUIT seleccionado`;
+        } else {
+            mensaje = `${faltantesMedio} usuario(s) sin medio de pago asignado`;
+        }
+        textoAdvertencia.textContent = mensaje;
     } else {
         advertencia.style.display = 'none';
     }

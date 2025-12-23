@@ -83,15 +83,31 @@ async function cargarUsuariosEnTabla() {
 
         if (result.success && Array.isArray(result.users) && result.users.length > 0) {
             console.log('Usuarios recibidos:', result.users.length);
-            cuerpoTabla.innerHTML = ''; // Limpiar contenido previo
 
-            result.users.forEach((usuario, index) => {
-                console.log(`Creando fila para usuario ${index}:`, usuario);
-                const fila = crearFilaUsuario(usuario);
-                cuerpoTabla.appendChild(fila);
-            });
+            // Filtrar solo usuarios validados en AFIP
+            const usuariosValidados = result.users.filter(usuario => usuario.estado_afip === 'validado');
 
-            console.log(`✅ ${result.users.length} usuarios cargados en la tabla VEP`);
+            console.log('Usuarios validados en AFIP:', usuariosValidados.length);
+
+            if (usuariosValidados.length > 0) {
+                cuerpoTabla.innerHTML = ''; // Limpiar contenido previo
+
+                usuariosValidados.forEach((usuario, index) => {
+                    console.log(`Creando fila para usuario ${index}:`, usuario);
+                    const fila = crearFilaUsuario(usuario);
+                    cuerpoTabla.appendChild(fila);
+                });
+
+                console.log(`✅ ${usuariosValidados.length} usuarios validados cargados en la tabla VEP`);
+            } else {
+                cuerpoTabla.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="cargando-usuarios">
+                            No hay usuarios validados en AFIP disponibles
+                        </td>
+                    </tr>
+                `;
+            }
         } else {
             console.warn('No hay usuarios o resultado no válido:', result);
             cuerpoTabla.innerHTML = `
