@@ -548,14 +548,44 @@ function reorderUsersBySelection() {
 
 // ========== FIN FUNCIÓN DE REORDENAMIENTO AUTOMÁTICO ==========
 
+// Función para mostrar alertas dentro del formulario de verificación
+function showVerificationAlert(message, type = 'success') {
+    const alert = document.getElementById('verificacionAlert');
+    const alertMessage = document.getElementById('verificacionAlertMessage');
+
+    alert.className = `alert alert-${type}`;
+    alertMessage.textContent = message;
+    alert.classList.remove('hidden');
+
+    // Auto-scroll al alert con un pequeño delay
+    setTimeout(() => {
+        alert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
+}
+
+// Función para cerrar el alert de verificación
+function closeVerificationAlert() {
+    const alert = document.getElementById('verificacionAlert');
+    alert.classList.add('hidden');
+}
+
 function inicializarVerificarCredenciales() {
     const btnVerificarCredenciales = document.getElementById('btnVerificarCredenciales');
     if (!btnVerificarCredenciales) return;
+
+    // Inicializar botón de cerrar alert de verificación
+    const btnCloseVerificacionAlert = document.getElementById('btnCloseVerificacionAlert');
+    if (btnCloseVerificacionAlert) {
+        btnCloseVerificacionAlert.addEventListener('click', closeVerificationAlert);
+    }
 
     btnVerificarCredenciales.addEventListener('click', async function (e) {
         e.preventDefault();
         const btnCrearUsuario = document.getElementById('btnCrearUsuario');
         const verificarLoading = document.getElementById('verificarLoading');
+
+        // Ocultar alerta previa si existe
+        closeVerificationAlert();
 
         btnVerificarCredenciales.style.display = 'none';
         btnCrearUsuario.style.display = 'none';
@@ -570,7 +600,7 @@ function inicializarVerificarCredenciales() {
         };
 
         if (!credenciales.cuit && !credenciales.cuil) {
-            showAlert('Debes ingresar un CUIT o CUIL para verificar.', 'error');
+            showVerificationAlert('Debes ingresar un CUIT o CUIL para verificar.', 'error');
             verificarLoading.classList.add('hidden');
             btnVerificarCredenciales.style.display = '';
             return;
@@ -620,19 +650,19 @@ function inicializarVerificarCredenciales() {
                     mensaje += ` ⚠️ ${fallidos.join(', ')} falló/fallaron.`;
                 }
 
-                showAlert(mensaje, exitosos.length > 0 ? 'success' : 'warning');
+                showVerificationAlert(mensaje, exitosos.length > 0 ? 'success' : 'warning');
             } else {
                 // Fallo total
                 window.verificacionRealizada.afip = false;
                 window.verificacionRealizada.atm = false;
                 window.cuitAsociados = [];
-                showAlert(response.error || 'Credenciales inválidas. Intenta nuevamente.', 'error');
+                showVerificationAlert(response.error || 'Credenciales inválidas. Intenta nuevamente.', 'error');
             }
         } catch (error) {
             window.verificacionRealizada.afip = false;
             window.verificacionRealizada.atm = false;
             window.cuitAsociados = [];
-            showAlert(`Error de comunicación: ${error.message}`, 'error');
+            showVerificationAlert(`Error de comunicación: ${error.message}`, 'error');
         } finally {
             verificarLoading.classList.add('hidden');
             btnVerificarCredenciales.style.display = '';
@@ -941,6 +971,10 @@ window.toggleSection = function(sectionId) {
         if (sectionId === 'createSection' && !section.classList.contains('hidden')) {
             document.getElementById('editForm')?.classList.add('hidden');
             document.getElementById('bulkUploadSection')?.classList.add('hidden');
+
+            // ✅ RESETEAR COMPLETAMENTE EL FORMULARIO DE CREACIÓN
+            resetCreateForm();
+
             // Scroll suave a la sección
             section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -955,6 +989,66 @@ window.toggleSection = function(sectionId) {
             section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }
+}
+
+// Función para resetear el formulario de creación
+function resetCreateForm() {
+    // Limpiar todos los campos del formulario
+    document.getElementById('nombre').value = '';
+    document.getElementById('apellido').value = '';
+    document.getElementById('cuit').value = '';
+    document.getElementById('cuil').value = '';
+    document.getElementById('tipoContribuyente').value = '';
+    document.getElementById('claveAFIP').value = '';
+    document.getElementById('claveATM').value = '';
+
+    // Re-habilitar todos los inputs por si quedaron deshabilitados
+    document.getElementById('nombre').disabled = false;
+    document.getElementById('apellido').disabled = false;
+    document.getElementById('cuit').disabled = false;
+    document.getElementById('cuil').disabled = false;
+    document.getElementById('tipoContribuyente').disabled = false;
+    document.getElementById('claveAFIP').disabled = false;
+    document.getElementById('claveATM').disabled = false;
+
+    // Resetear estados de verificación
+    window.verificacionRealizada.afip = false;
+    window.verificacionRealizada.atm = false;
+    window.empresasDisponible = [];
+    window.cuitAsociados = [];
+
+    // Ocultar botón de crear hasta verificación
+    const btnCrear = document.getElementById('btnCrearUsuario');
+    if (btnCrear) {
+        btnCrear.style.display = 'none';
+    }
+
+    // Mostrar botón de verificar
+    const btnVerificar = document.getElementById('btnVerificarCredenciales');
+    if (btnVerificar) {
+        btnVerificar.style.display = '';
+    }
+
+    // Limpiar lista de puntos de venta
+    const elegirEmpresa = document.getElementById('elegirEmpresa');
+    if (elegirEmpresa) {
+        elegirEmpresa.innerHTML = '';
+    }
+
+    // Ocultar alert de verificación
+    closeVerificationAlert();
+
+    // Asegurar que los inputs de contraseña estén en modo password
+    document.getElementById('claveAFIP').type = 'password';
+    document.getElementById('claveATM').type = 'password';
+
+    // Resetear botones de toggle password
+    document.querySelectorAll('.btn-toggle-password').forEach(btn => {
+        btn.classList.remove('active');
+        btn.textContent = '👁️';
+    });
+
+    console.log('✅ Formulario de creación reseteado completamente');
 }
 
 // ========== FIN FUNCIONES DE NAVEGACIÓN ==========

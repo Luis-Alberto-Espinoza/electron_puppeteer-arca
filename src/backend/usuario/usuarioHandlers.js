@@ -169,31 +169,9 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
     ipcMain.handle('user:verify-on-create', async (event, credenciales) => {
         console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);
 
-        // NUEVO: Usaremos el flujo unificado de verificación
-        // Primero, obtenemos puntos de venta si es AFIP (esto sigue siendo necesario para crear usuario)
-        let puntosDeVentaArray = [];
-        let cuitAsociados = [];
         let browser;
 
         try {
-            // Si tiene AFIP, obtener puntos de venta primero
-            if (credenciales.claveAFIP) {
-                const { browser: b, page } = await launchBrowserAndPage({ headless: false });
-                browser = b;
-                console.log('[Verificación Manual] Obteniendo datos de AFIP...');
-                const afipResult = await verificarYObtenerDatosAFIP(page, credenciales);
-                if (afipResult.success) {
-                    puntosDeVentaArray = afipResult.data.puntosDeVentaArray || [];
-                    cuitAsociados = afipResult.data.cuitAsociados || [];
-                    console.log('[Verificación Manual] Puntos de venta obtenidos:', puntosDeVentaArray);
-                    if (cuitAsociados.length > 0) {
-                        console.log('[Verificación Manual] CUITs asociados obtenidos:', cuitAsociados);
-                    }
-                }
-                await browser.close();
-                browser = null;
-            }
-
             // Crear un usuario temporal para verificar (sin guardarlo)
             const tempUser = {
                 id: 'temp_' + Date.now(),
@@ -219,14 +197,11 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 verificationJobs.push({ userId: tempUser.id, service: 'atm' });
             }
 
-            // Llamar al handler unificado (sin eventos IPC para no confundir al frontend)
+            // Llamar a la verificación unificada (UNA SOLA VEZ)
             console.log('[Verificación Manual] Llamando a verificación unificada...');
             const result = await new Promise(async (resolve) => {
-                // Ejecutar la lógica de verify-credentials pero sin eventos
-                const stats = { validados: 0, con_fallos: 0, no_encontrados: 0 };
-                let verificationSuccess = false;
-
                 try {
+                    // ✅ ABRIR NAVEGADOR UNA SOLA VEZ
                     const { browser: launchedBrowser } = await launchBrowserAndPage({ headless: false });
                     browser = launchedBrowser;
 
@@ -234,8 +209,17 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     const usuario = data.users[userIndex];
                     const servicesToVerify = verificationJobs.map(j => j.service);
 
-                    // Validar
+                    // ✅ VALIDAR UNA SOLA VEZ (obtiene puntos de venta automáticamente)
                     await gestionarValidacion(browser, usuario, servicesToVerify);
+
+                    // ✅ Obtener puntos de venta y CUITs del usuario validado
+                    const puntosDeVentaArray = usuario.puntosDeVenta || [];
+                    const cuitAsociados = usuario.cuitAsociados || [];
+
+                    console.log('[Verificación Manual] Puntos de venta obtenidos:', puntosDeVentaArray);
+                    if (cuitAsociados.length > 0) {
+                        console.log('[Verificación Manual] CUITs asociados obtenidos:', cuitAsociados);
+                    }
 
                     // Traducir resultados
                     const finalResult = {
@@ -255,7 +239,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                             finalResult.verificaciones.afip.exitoso = true;
                             finalResult.success = true;
                         } else {
-                            finalResult.verificaciones.afip.error = 'Credenciales AFIP inválidas';
+                            finalResult.verificaciones.afip.error = usuario.errorAfip || 'Credenciales AFIP inválidas';
                         }
                     }
 
@@ -265,7 +249,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                             finalResult.verificaciones.atm.exitoso = true;
                             finalResult.success = true;
                         } else {
-                            finalResult.verificaciones.atm.error = 'Credenciales ATM inválidas';
+                            finalResult.verificaciones.atm.error = usuario.errorAtm || 'Credenciales ATM inválidas';
                         }
                     }
 
@@ -287,8 +271,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     resolve({
                         success: false,
                         error: error.message,
-                        puntosDeVentaArray,
-                        cuitAsociados,
+                        puntosDeVentaArray: [],
+                        cuitAsociados: [],
                         verificaciones: {
                             afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
                             atm: { intentado: !!credenciales.claveATM, exitoso: false, error: error.message }
