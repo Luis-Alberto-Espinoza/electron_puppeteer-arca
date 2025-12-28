@@ -78,4 +78,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
         generar: (datos) => ipcRenderer.invoke('vep:generar', datos),
         onVEPUpdate: (callback) => ipcRenderer.on('vep:update', (_event, datos) => callback(datos))
     },
+
+    // APIs para Consulta de Deuda
+    consultaDeuda: {
+        consultar: (datos) => ipcRenderer.invoke('consultaDeuda:consultar', datos),
+        onConsultaDeudaUpdate: (callback) => ipcRenderer.on('consultaDeuda:update', (_event, datos) => callback(datos))
+    },
 });

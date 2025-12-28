@@ -15,9 +15,25 @@ async function launchBrowser({ headless = true, args = [] } = {}) { // <-- permi
       '--disable-infobars',
       '--disable-extensions',
       '--disable-dev-shm-usage',
-      '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows',
-      '--disable-renderer-backgrounding',
+
+      // ===== ARGUMENTOS COMENTADOS PARA PERMITIR SEGUNDO PLANO =====
+      // Al comentar estos argumentos, el navegador puede ponerse en segundo plano
+      // y NO "robará" el foco constantemente
+
+      // '--disable-background-timer-throttling',
+      // ↑ Evita que los timers se ralenticen en segundo plano
+      // Al comentarlo: Los timers se ralentizan si el navegador está oculto (puede afectar performance)
+
+      // '--disable-backgrounding-occluded-windows',
+      // ↑ Evita que ventanas tapadas se pongan en modo background
+      // Al comentarlo: El navegador PUEDE ponerse en segundo plano si otra ventana lo tapa
+
+      // '--disable-renderer-backgrounding',
+      // ↑ Evita que el proceso de renderizado se pause
+      // Al comentarlo: El navegador puede pausar el renderizado en segundo plano (AHORRA RECURSOS)
+
+      // ============================================================
+
       '--disable-prompt-on-repost', // Desactivar prompt de repost
       '--disable-hang-monitor', // Desactivar monitor de cuelgue
       '--disable-features=DownloadBubble,DownloadBubbleV2' // Desactivar diálogo de descarga moderno

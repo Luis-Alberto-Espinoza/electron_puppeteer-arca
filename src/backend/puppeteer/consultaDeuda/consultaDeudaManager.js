@@ -1,29 +1,30 @@
 const loginManager = require('../facturas/codigo/login/login_arca.js');
-const flujo_generarVEP = require('./codigo/flujos/flujo_generarVEP.js');
+const flujo_consultaDeuda = require('./flujos/flujo_consultaDeuda.js');
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
 /**
- * Inicializa el proceso de generación de VEP (Volante Electrónico de Pago)
+ * Inicializa el proceso de consulta de deuda
  * @param {string} url - URL de AFIP
  * @param {Object} credenciales - Credenciales del usuario
- * @param {Object} usuarioData - Datos del usuario y medio de pago seleccionado
- * @param {Array<string>} periodosSeleccionados - Períodos seleccionados por el usuario (opcional)
- * @param {string} downloadsPath - Ruta base para guardar los archivos descargados
+ * @param {Object} consultaData - Datos de la consulta (usuario, períodos, fecha)
+ * @param {string} downloadsPath - Ruta base para guardar los archivos Excel
  * @returns {Object} Resultado del proceso
  */
-async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSeleccionados = null, downloadsPath = null) {
+async function iniciarConsultaDeuda(url, credenciales, consultaData, downloadsPath = null) {
     let navegador;
-    console.log("🔵 [VEP Manager] Iniciando proceso de generación de VEP...");
-    console.log(`   Usuario: ${usuarioData.usuario.nombre}`);
-    console.log(`   CUIT: ${usuarioData.usuario.cuit}`);
-    console.log(`   Medio de pago: ${usuarioData.medioPago.nombre}`);
+    console.log("🔵 [Consulta Deuda Manager] Iniciando proceso de consulta de deuda...");
+    console.log(`   Usuario: ${consultaData.usuario.nombre}`);
+    console.log(`   CUIT: ${consultaData.usuario.cuit}`);
+    console.log(`   Período Desde: ${consultaData.periodoDesde}`);
+    console.log(`   Período Hasta: ${consultaData.periodoHasta}`);
+    console.log(`   Fecha Cálculo: ${consultaData.fechaCalculo}`);
     console.log(`   Ruta de descargas: ${downloadsPath || 'NO ESPECIFICADA'}`);
 
     try {
         // 1. Login a AFIP (reutilizamos el login existente)
-        console.log("🔵 [VEP Manager] Paso 1: Haciendo login...");
+        console.log("🔵 [Consulta Deuda Manager] Paso 1: Haciendo login...");
 
         // ===== MODO HEADLESS (NAVEGADOR OCULTO) =====
         // Para mostrar el navegador durante la ejecución, cambiar headless: true a headless: false
@@ -33,7 +34,7 @@ async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSelecci
 
         // 2. Verificar login exitoso
         if (!resultadoLogin.success) {
-            console.error("❌ [VEP Manager] El login falló:", resultadoLogin.message);
+            console.error("❌ [Consulta Deuda Manager] El login falló:", resultadoLogin.message);
             return {
                 success: false,
                 error: 'LOGIN_FAILED',
@@ -45,11 +46,11 @@ async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSelecci
         const { page, browser: b } = resultadoLogin;
         navegador = b;
 
-        console.log("✅ [VEP Manager] Login exitoso. Iniciando flujo de VEP...");
+        console.log("✅ [Consulta Deuda Manager] Login exitoso. Iniciando flujo de consulta...");
 
         // 4. Verificar que downloadsPath esté definido
         if (!downloadsPath) {
-            console.warn("⚠️ [VEP Manager] downloadsPath no especificado. Usando carpeta de descargas del sistema...");
+            console.warn("⚠️ [Consulta Deuda Manager] downloadsPath no especificado. Usando carpeta de descargas del sistema...");
 
             // Intentar obtener la carpeta de descargas del sistema operativo
             const homeDir = os.homedir();
@@ -77,19 +78,20 @@ async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSelecci
             console.log(`   Usando ruta de descargas: ${downloadsPath}`);
         }
 
-        // 5. Ejecutar el flujo de generación de VEP
-        const resultado = await flujo_generarVEP.ejecutarFlujoVEP(
+        // 5. Ejecutar el flujo de consulta de deuda
+        const resultado = await flujo_consultaDeuda.ejecutarFlujoConsultaDeuda(
             page,
-            usuarioData.usuario,
-            usuarioData.medioPago,
-            periodosSeleccionados,
+            consultaData.usuario,
+            consultaData.periodoDesde,
+            consultaData.periodoHasta,
+            consultaData.fechaCalculo,
             downloadsPath
         );
 
         return resultado;
 
     } catch (error) {
-        console.error("❌ [VEP Manager] Error en iniciarProcesoVEP:", error);
+        console.error("❌ [Consulta Deuda Manager] Error en iniciarConsultaDeuda:", error);
         return {
             success: false,
             error: 'PROCESS_ERROR',
@@ -99,12 +101,12 @@ async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSelecci
     } finally {
         // 6. Cerrar navegador SIEMPRE
         if (navegador) {
-            console.log("🔵 [VEP Manager] Cerrando navegador...");
-           // await navegador.close();
+            console.log("🔵 [Consulta Deuda Manager] Cerrando navegador...");
+            // await navegador.close();
         }
     }
 }
 
 module.exports = {
-    iniciarProceso: iniciarProcesoVEP,
+    iniciarConsulta: iniciarConsultaDeuda,
 };

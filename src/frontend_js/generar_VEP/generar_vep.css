@@ -54,6 +54,82 @@ body {
 }
 
 /* ========================================
+   TABS DE NAVEGACIÓN
+   ======================================== */
+.tabs-navegacion {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0;
+}
+
+.tab-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%) !important;
+    border: 2px solid #c7d2fe !important;
+    border-radius: 8px 8px 0 0 !important;
+    color: #4c1d95 !important;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.tab-btn:hover {
+    background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.tab-btn.tab-activo {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    border-color: #667eea !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* ========================================
+   TABS DE MÓDULOS
+   ======================================== */
+.tabs-modulos {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+}
+
+.tab-modulo {
+    flex: 1;
+    padding: 14px 24px;
+    background: transparent;
+    color: #6b7280;
+    border: 2px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tab-modulo:hover {
+    background: #f3f4f6;
+    border-color: #9ca3af;
+    color: #374151;
+}
+
+.tab-modulo.tab-activo {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.modulo-contenido {
+    animation: fadeIn 0.3s ease;
+}
+
+/* ========================================
    MODAL DE PROGRESO
    ======================================== */
 .modal-progreso {
@@ -1107,6 +1183,36 @@ th br {
     transform: translateY(0);
 }
 
+/* Contenedor de botones para cada archivo */
+.archivo-acciones {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Botón para abrir carpeta */
+.btn-abrir-carpeta {
+    padding: 10px 20px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.btn-abrir-carpeta:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-abrir-carpeta:active {
+    transform: translateY(0);
+}
+
 .archivos-acciones {
     display: flex;
     justify-content: center;
@@ -1130,4 +1236,279 @@ th br {
     background: #5568d3;
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
+}
+
+/* ========================================
+   MÓDULO: CONSULTAR DEUDA
+   ======================================== */
+
+.contenedor-formularios-deuda {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card-formulario-deuda {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    border-left: 4px solid #667eea;
+    transition: all 0.3s ease;
+}
+
+.card-formulario-deuda:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.card-header-deuda {
+    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    padding: 16px 20px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.cliente-info-deuda {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.cliente-datos-deuda {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cliente-nombre-deuda {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.cliente-cuit-deuda {
+    font-size: 13px;
+    color: #6b7280;
+    font-family: monospace;
+    background: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.card-body-deuda {
+    padding: 24px 20px;
+}
+
+.formulario-periodos-deuda {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.campo-formulario-deuda {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.campo-formulario-deuda label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.campo-formulario-deuda input {
+    padding: 12px 14px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: monospace;
+    transition: all 0.2s;
+    background: white;
+    color: #1f2937; /* Color del texto */
+}
+
+/* Estilos específicos para inputs nativos type="month" y type="date" */
+.campo-formulario-deuda input[type="month"],
+.campo-formulario-deuda input[type="date"] {
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 14px 16px;
+}
+
+/* Estilos para el calendario/picker al hacer hover */
+.campo-formulario-deuda input[type="month"]:hover,
+.campo-formulario-deuda input[type="date"]:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+
+/* Estilos cuando está abierto el picker */
+.campo-formulario-deuda input[type="month"]::-webkit-calendar-picker-indicator,
+.campo-formulario-deuda input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 8px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.campo-formulario-deuda input[type="month"]::-webkit-calendar-picker-indicator:hover,
+.campo-formulario-deuda input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+}
+
+.campo-formulario-deuda input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.campo-formulario-deuda input.error {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.mensaje-error-campo {
+    font-size: 12px;
+    color: #ef4444;
+    margin-top: 4px;
+    display: none;
+}
+
+.campo-formulario-deuda input.error + .mensaje-error-campo {
+    display: block;
+}
+
+/* Botón generar VEP */
+.btn-generar-vep,
+#btn-generar-vep {
+    width: 100%;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    margin-bottom: 20px;
+}
+
+.btn-generar-vep:hover:not(:disabled),
+#btn-generar-vep:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-generar-vep:disabled,
+#btn-generar-vep:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Botón ejecutar consulta de deuda */
+#btn-ejecutar-consulta-deuda {
+    width: 100%;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    margin-bottom: 20px;
+}
+
+#btn-ejecutar-consulta-deuda:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+#btn-ejecutar-consulta-deuda:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Sección de resultados de consulta de deuda */
+.seccion-resultados-deuda {
+    margin-top: 40px;
+    padding: 30px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 2px solid #e5e7eb;
+}
+
+.resultados-header-deuda {
+    margin-bottom: 24px;
+    padding: 20px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-radius: 8px;
+}
+
+.resultados-header-deuda h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: white !important;
+    margin: 0 0 8px 0;
+}
+
+.resultados-header-deuda p {
+    color: rgba(255, 255, 255, 0.95) !important;
+    font-size: 14px;
+    margin: 0;
+}
+
+.lista-archivos-deuda {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.resultados-acciones-deuda {
+    display: flex;
+    justify-content: center;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* Advertencia para medios de pago */
+.advertencia-medios {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    color: #92400e;
+    font-weight: 500;
+}
+
+/* Responsive para formularios de deuda */
+@media (max-width: 768px) {
+    .formulario-periodos-deuda {
+        grid-template-columns: 1fr;
+    }
+
+    .cliente-info-deuda {
+        flex-direction: column;
+        align-items: flex-start;
+    }
 }

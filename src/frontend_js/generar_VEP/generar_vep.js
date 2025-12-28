@@ -79,6 +79,13 @@ function inicializarVEP() {
 
         onCambioSeleccion: (usuariosSeleccionados) => {
             actualizarEstadoGeneracion(usuariosSeleccionados);
+
+            // Si estamos en modo consulta deuda, actualizar formularios y ocultar medios de pago
+            if (moduloActivo === 'consultar-deuda') {
+                renderizarFormulariosDeuda();
+                // Asegurar que las columnas de medios de pago estén ocultas después de re-renderizar
+                setTimeout(() => ocultarColumnasMediosPago(), 50);
+            }
         },
         renderizarColumnasExtras: renderizarColumnasMediosPago,
         headersColumnasExtras: [
@@ -97,6 +104,11 @@ function inicializarVEP() {
 }
 
 function renderizarColumnasMediosPago(usuario) {
+    // Si estamos en modo consulta de deuda, no renderizar columnas de medios de pago
+    if (moduloActivo === 'consultar-deuda') {
+        return '';
+    }
+
     let columnasHTML = '';
 
     // COLUMNA 1: CUIT a Usar (muestra el CUIT que se usará para generar el VEP)
@@ -175,6 +187,18 @@ function renderizarColumnasMediosPago(usuario) {
 // ==============================================
 
 function configurarEventListeners() {
+    // Tabs de navegación entre módulos
+    const tabConsultarDeuda = document.getElementById('tab-consultar-deuda');
+    const tabGenerarVEP = document.getElementById('tab-generar-vep');
+
+    if (tabConsultarDeuda) {
+        tabConsultarDeuda.addEventListener('click', () => cambiarModulo('consultar-deuda'));
+    }
+
+    if (tabGenerarVEP) {
+        tabGenerarVEP.addEventListener('click', () => cambiarModulo('generar-vep'));
+    }
+
     // Eventos de medios de pago y CUITs
     const contenedor = document.getElementById('selector-usuarios-vep');
     if (contenedor) {
@@ -244,6 +268,24 @@ function configurarEventListeners() {
     const btnNuevoProceso = document.getElementById('btn-nuevo-proceso-vep');
     if (btnNuevoProceso) {
         btnNuevoProceso.addEventListener('click', iniciarNuevoProceso);
+    }
+
+    // Botón volver desde consulta de deuda
+    const btnVolverDeuda = document.getElementById('btn-volver-deuda');
+    if (btnVolverDeuda) {
+        btnVolverDeuda.addEventListener('click', volverAlInicio);
+    }
+
+    // Botón ejecutar consulta de deuda
+    const btnEjecutarDeuda = document.getElementById('btn-ejecutar-consulta-deuda');
+    if (btnEjecutarDeuda) {
+        btnEjecutarDeuda.addEventListener('click', ejecutarConsultaDeuda);
+    }
+
+    // Botón nueva consulta de deuda
+    const btnNuevaConsultaDeuda = document.getElementById('btn-nueva-consulta-deuda');
+    if (btnNuevaConsultaDeuda) {
+        btnNuevaConsultaDeuda.addEventListener('click', iniciarNuevaConsultaDeuda);
     }
 }
 
@@ -403,6 +445,7 @@ async function generarVEP() {
                 limpiarSelecciones();
             } else {
                 // Caso extremadamente raro: success pero sin procesados ni errores
+                // (sinDeuda se maneja en el grupo de procesados)
                 mostrarMensaje('success', `VEP generado exitosamente`);
                 limpiarSelecciones();
             }
@@ -548,6 +591,7 @@ async function confirmarYContinuar() {
 
                 limpiarSelecciones();
             } else {
+                // Caso sin procesados ni errores (sinDeuda se maneja en el grupo de procesados)
                 mostrarMensaje('success', 'VEP generado exitosamente');
                 limpiarSelecciones();
                 limpiarTodosLosGrupos();
@@ -691,7 +735,8 @@ function mostrarMensaje(tipo, mensaje) {
     const colores = {
         'success': '#10b981',  // Verde
         'error': '#ef4444',    // Rojo
-        'warning': '#f59e0b'   // Naranja/Amarillo
+        'warning': '#f59e0b',  // Naranja/Amarillo
+        'info': '#3b82f6'      // Azul (para mensajes informativos como "sin deuda")
     };
 
     notificacion.style.cssText = `
@@ -742,6 +787,516 @@ function iniciarNuevoProceso() {
 
     console.log('🔄 Iniciando nuevo proceso VEP');
 }
+
+// ==============================================
+// MÓDULO: CONSULTAR DEUDA
+// ==============================================
+
+let moduloActivo = 'generar-vep'; // Estado del módulo activo
+const formulariosPorCliente = {}; // Almacena los datos del formulario por cliente
+
+/**
+ * Cambia entre los módulos de Generar VEP y Consultar Deuda
+ */
+function cambiarModulo(modulo) {
+    moduloActivo = modulo;
+
+    // Obtener elementos
+    const tabConsultarDeuda = document.getElementById('tab-consultar-deuda');
+    const tabGenerarVEP = document.getElementById('tab-generar-vep');
+    const moduloGenerarVEP = document.getElementById('modulo-generar-vep');
+    const moduloConsultarDeuda = document.getElementById('modulo-consultar-deuda');
+    const descripcionGenerarVEP = document.getElementById('descripcion-generar-vep');
+    const descripcionConsultarDeuda = document.getElementById('descripcion-consultar-deuda');
+
+    if (modulo === 'consultar-deuda') {
+        // Activar módulo consultar deuda
+        tabConsultarDeuda.classList.add('tab-activo');
+        tabGenerarVEP.classList.remove('tab-activo');
+        moduloGenerarVEP.style.display = 'none';
+        moduloConsultarDeuda.style.display = 'block';
+        descripcionGenerarVEP.style.display = 'none';
+        descripcionConsultarDeuda.style.display = 'block';
+
+        // Ocultar columnas de medios de pago (con delay para asegurar que la tabla esté renderizada)
+        setTimeout(() => ocultarColumnasMediosPago(), 50);
+
+        // Renderizar formularios para usuarios seleccionados
+        renderizarFormulariosDeuda();
+    } else {
+        // Activar módulo generar VEP
+        tabConsultarDeuda.classList.remove('tab-activo');
+        tabGenerarVEP.classList.add('tab-activo');
+        moduloGenerarVEP.style.display = 'block';
+        moduloConsultarDeuda.style.display = 'none';
+        descripcionGenerarVEP.style.display = 'block';
+        descripcionConsultarDeuda.style.display = 'none';
+
+        // Mostrar columnas de medios de pago
+        mostrarColumnasMediosPago();
+    }
+
+    console.log(`🔄 Módulo cambiado a: ${modulo}`);
+}
+
+/**
+ * Oculta las columnas de medios de pago en la tabla
+ */
+function ocultarColumnasMediosPago() {
+    // Ocultar headers de medios de pago (columnas 3-8: CUIT a Usar + 5 medios)
+    const tabla = document.querySelector('.tabla-seleccionados');
+    if (!tabla) return;
+
+    // Ocultar headers
+    const headers = tabla.querySelectorAll('thead th');
+    for (let i = 2; i < headers.length; i++) { // Desde columna 2 en adelante (después de checkbox y usuario)
+        headers[i].style.display = 'none';
+    }
+
+    // Ocultar celdas de datos
+    const filas = tabla.querySelectorAll('tbody tr');
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        for (let i = 2; i < celdas.length; i++) { // Desde columna 2 en adelante
+            celdas[i].style.display = 'none';
+        }
+    });
+}
+
+/**
+ * Muestra las columnas de medios de pago en la tabla
+ */
+function mostrarColumnasMediosPago() {
+    const tabla = document.querySelector('.tabla-seleccionados');
+    if (!tabla) return;
+
+    // Mostrar headers
+    const headers = tabla.querySelectorAll('thead th');
+    for (let i = 2; i < headers.length; i++) {
+        headers[i].style.display = '';
+    }
+
+    // Mostrar celdas de datos
+    const filas = tabla.querySelectorAll('tbody tr');
+    filas.forEach(fila => {
+        const celdas = fila.querySelectorAll('td');
+        for (let i = 2; i < celdas.length; i++) {
+            celdas[i].style.display = '';
+        }
+    });
+}
+
+/**
+ * Renderiza los formularios de deuda para cada cliente seleccionado
+ */
+function renderizarFormulariosDeuda() {
+    const contenedor = document.getElementById('contenedor-formularios-deuda');
+    const usuariosSeleccionados = selectorUsuarios.obtenerSeleccionados();
+
+    if (usuariosSeleccionados.length === 0) {
+        contenedor.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #6b7280;">
+                <p style="font-size: 16px; margin-bottom: 8px;">No hay clientes seleccionados</p>
+                <p style="font-size: 14px;">Seleccione clientes desde la tabla superior</p>
+            </div>
+        `;
+        actualizarEstadoConsultaDeuda(0);
+        return;
+    }
+
+    // Obtener fecha actual para defaults
+    const hoy = new Date();
+    const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
+    const anioActual = hoy.getFullYear();
+    const diaActual = String(hoy.getDate()).padStart(2, '0');
+
+    // Formato para inputs nativos: YYYY-MM para type="month", YYYY-MM-DD para type="date"
+    const periodoDesdeDefault = '2022-01';
+    const periodoHastaDefault = `${anioActual}-${mesActual}`;
+    const fechaCalculoDefault = `${anioActual}-${mesActual}-${diaActual}`;
+
+    // Renderizar cards
+    contenedor.innerHTML = usuariosSeleccionados.map(usuario => {
+        const cuitAMostrar = usuario.cuit || usuario.cuil || 'N/A';
+        const datosGuardados = formulariosPorCliente[usuario.id] || {};
+
+        return `
+            <div class="card-formulario-deuda" data-usuario-id="${usuario.id}">
+                <div class="card-header-deuda">
+                    <div class="cliente-info-deuda">
+                        <div class="cliente-datos-deuda">
+                            <span class="cliente-nombre-deuda">${usuario.nombre}</span>
+                            <span class="cliente-cuit-deuda">${cuitAMostrar}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body-deuda">
+                    <div class="formulario-periodos-deuda">
+                        <div class="campo-formulario-deuda">
+                            <label for="desde-${usuario.id}">Período Desde</label>
+                            <input
+                                type="month"
+                                id="desde-${usuario.id}"
+                                data-usuario-id="${usuario.id}"
+                                data-campo="desde"
+                                value="${datosGuardados.desde || periodoDesdeDefault}"
+                                min="2022-01"
+                                max="${periodoHastaDefault}"
+                                class="input-periodo-deuda"
+                            />
+                            <span class="mensaje-error-campo">Seleccione un período válido</span>
+                        </div>
+
+                        <div class="campo-formulario-deuda">
+                            <label for="hasta-${usuario.id}">Período Hasta</label>
+                            <input
+                                type="month"
+                                id="hasta-${usuario.id}"
+                                data-usuario-id="${usuario.id}"
+                                data-campo="hasta"
+                                value="${datosGuardados.hasta || periodoHastaDefault}"
+                                min="2022-01"
+                                max="${periodoHastaDefault}"
+                                class="input-periodo-deuda"
+                            />
+                            <span class="mensaje-error-campo">Seleccione un período válido</span>
+                        </div>
+
+                        <div class="campo-formulario-deuda">
+                            <label for="fecha-${usuario.id}">Fecha de Cálculo</label>
+                            <input
+                                type="date"
+                                id="fecha-${usuario.id}"
+                                data-usuario-id="${usuario.id}"
+                                data-campo="fecha"
+                                value="${datosGuardados.fecha || fechaCalculoDefault}"
+                                class="input-fecha-deuda"
+                            />
+                            <span class="mensaje-error-campo">Seleccione una fecha válida (hoy o posterior)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    // Agregar event listeners para validación en tiempo real
+    contenedor.querySelectorAll('.input-periodo-deuda, .input-fecha-deuda').forEach(input => {
+        input.addEventListener('input', validarCampoDeuda);
+        input.addEventListener('blur', guardarDatosFormularioDeuda);
+
+        // Abrir el calendario al hacer clic en cualquier parte del input
+        input.addEventListener('click', (e) => {
+            try {
+                // showPicker() abre el selector de fecha/mes nativo del navegador
+                if (input.showPicker) {
+                    input.showPicker();
+                }
+            } catch (error) {
+                // Fallback: algunos navegadores no soportan showPicker aún
+                // El input ya tiene focus por el click, lo cual abre el picker en la mayoría de navegadores
+            }
+        });
+    });
+
+    actualizarEstadoConsultaDeuda(usuariosSeleccionados.length);
+}
+
+/**
+ * Valida un campo de período o fecha
+ */
+function validarCampoDeuda(e) {
+    const input = e.target;
+    const valor = input.value.trim();
+    const esPeriodo = input.classList.contains('input-periodo-deuda');
+
+    let esValido = false;
+
+    if (esPeriodo) {
+        // Para type="month": formato YYYY-MM
+        // El navegador ya valida el formato automáticamente
+        if (valor) {
+            const [anio, mes] = valor.split('-').map(Number);
+            const anioMin = 2022;
+            const hoy = new Date();
+            const mesActual = hoy.getMonth() + 1;
+            const anioActual = hoy.getFullYear();
+
+            // Validar rango de años
+            if (anio >= anioMin && anio <= anioActual) {
+                // Si es el año actual, validar que el mes no sea futuro
+                if (anio === anioActual && mes <= mesActual) {
+                    esValido = true;
+                } else if (anio < anioActual) {
+                    esValido = true;
+                }
+            }
+        }
+    } else {
+        // Para type="date": formato YYYY-MM-DD
+        // El navegador ya valida el formato automáticamente
+        if (valor) {
+            // Crear fecha desde el valor del input (YYYY-MM-DD)
+            const [anio, mes, dia] = valor.split('-').map(Number);
+            const fechaSeleccionada = new Date(anio, mes - 1, dia);
+            const hoy = new Date();
+
+            // Normalizar ambas fechas a medianoche para comparar solo día/mes/año
+            fechaSeleccionada.setHours(0, 0, 0, 0);
+            hoy.setHours(0, 0, 0, 0);
+
+            // Validar que la fecha no sea pasada (debe ser hoy o futura)
+            if (fechaSeleccionada >= hoy) {
+                esValido = true;
+            }
+        }
+    }
+
+    // Aplicar estilos
+    if (esValido || !valor) {
+        input.classList.remove('error');
+    } else {
+        input.classList.add('error');
+    }
+
+    return esValido;
+}
+
+/**
+ * Guarda los datos del formulario de un cliente
+ */
+function guardarDatosFormularioDeuda(e) {
+    const input = e.target;
+    const usuarioId = input.dataset.usuarioId;
+    const campo = input.dataset.campo;
+    const valor = input.value.trim();
+
+    if (!formulariosPorCliente[usuarioId]) {
+        formulariosPorCliente[usuarioId] = {};
+    }
+
+    formulariosPorCliente[usuarioId][campo] = valor;
+}
+
+/**
+ * Actualiza el estado del botón de consulta de deuda
+ */
+function actualizarEstadoConsultaDeuda(totalUsuarios) {
+    const contadorBtn = document.getElementById('contador-usuarios-deuda');
+    const btnEjecutar = document.getElementById('btn-ejecutar-consulta-deuda');
+
+    if (contadorBtn) {
+        contadorBtn.textContent = totalUsuarios;
+    }
+
+    if (btnEjecutar) {
+        btnEjecutar.disabled = totalUsuarios === 0;
+    }
+}
+
+/**
+ * Ejecuta la consulta de deuda para los clientes seleccionados
+ */
+async function ejecutarConsultaDeuda() {
+    const usuariosSeleccionados = selectorUsuarios.obtenerSeleccionados();
+
+    if (usuariosSeleccionados.length === 0) {
+        mostrarMensaje('error', 'No hay usuarios seleccionados');
+        return;
+    }
+
+    // Validar todos los formularios
+    let todosValidos = true;
+    const inputs = document.querySelectorAll('.input-periodo-deuda, .input-fecha-deuda');
+
+    inputs.forEach(input => {
+        const evento = { target: input };
+        if (!validarCampoDeuda(evento)) {
+            todosValidos = false;
+        }
+    });
+
+    if (!todosValidos) {
+        mostrarMensaje('error', 'Por favor corrija los errores en los formularios antes de continuar');
+        return;
+    }
+
+    // Preparar payload (leyendo valores directamente del DOM)
+    const payload = usuariosSeleccionados.map(u => {
+        const cuitAUsar = u.cuit || u.cuil;
+
+        // Leer valores directamente de los inputs en lugar del objeto guardado
+        const inputDesde = document.getElementById(`desde-${u.id}`);
+        const inputHasta = document.getElementById(`hasta-${u.id}`);
+        const inputFecha = document.getElementById(`fecha-${u.id}`);
+
+        // Convertir formatos de inputs nativos al formato esperado por el backend
+        // type="month" devuelve "YYYY-MM", backend espera "MM/AAAA"
+        // type="date" devuelve "YYYY-MM-DD", backend espera "DD/MM/AAAA"
+        const convertirPeriodo = (valorMonth) => {
+            if (!valorMonth) return '';
+            const [anio, mes] = valorMonth.split('-');
+            return `${mes}/${anio}`;
+        };
+
+        const convertirFecha = (valorDate) => {
+            if (!valorDate) return '';
+            const [anio, mes, dia] = valorDate.split('-');
+            return `${dia}/${mes}/${anio}`;
+        };
+
+        return {
+            usuario: {
+                id: u.id,
+                nombre: u.nombre,
+                cuit: cuitAUsar,
+                clave: u.claveAFIP
+            },
+            periodoDesde: convertirPeriodo(inputDesde ? inputDesde.value.trim() : ''),
+            periodoHasta: convertirPeriodo(inputHasta ? inputHasta.value.trim() : ''),
+            fechaCalculo: convertirFecha(inputFecha ? inputFecha.value.trim() : '')
+        };
+    });
+
+    console.log('📤 Enviando solicitud de consulta de deuda:', payload);
+
+    const confirmacion = confirm(
+        `¿Consultar deuda para ${usuariosSeleccionados.length} cliente(s)?`
+    );
+
+    if (!confirmacion) return;
+
+    try {
+        mostrarProgreso(true);
+
+        const api = window.electronAPI || window.api;
+        const resultado = await api.consultaDeuda.consultar(payload);
+
+        mostrarProgreso(false);
+
+        console.log('📥 Resultado consulta deuda:', resultado);
+
+        if (resultado.success) {
+            mostrarResultadosConsultaDeuda(resultado.resultados);
+            mostrarMensaje('success', `✅ ${resultado.resultados.length} consulta(s) completada(s)`);
+        } else {
+            mostrarMensaje('error', `Error: ${resultado.message || 'Error desconocido'}`);
+        }
+
+    } catch (error) {
+        console.error('❌ Error consultando deuda:', error);
+        mostrarProgreso(false);
+        mostrarMensaje('error', `Error: ${error.message}`);
+    }
+}
+
+/**
+ * Muestra los resultados de la consulta de deuda
+ */
+function mostrarResultadosConsultaDeuda(resultados) {
+    const seccionResultados = document.getElementById('seccion-resultados-deuda');
+    const listaArchivos = document.getElementById('lista-archivos-deuda');
+
+    // Renderizar archivos
+    listaArchivos.innerHTML = resultados.map(r => {
+        if (r.status === 'success') {
+            return `
+                <div class="archivo-item">
+                    <div class="archivo-info">
+                        <span class="archivo-icono">📊</span>
+                        <div class="archivo-detalles">
+                            <div class="archivo-usuario">${r.usuario.nombre}</div>
+                            <div class="archivo-nombre">${r.archivoExcel}</div>
+                        </div>
+                    </div>
+                    <div class="archivo-acciones">
+                        <button class="btn-abrir-archivo" onclick="abrirArchivoDeuda('${r.rutaCompleta}')" title="Abrir archivo Excel">
+                            📄 Abrir
+                        </button>
+                        <button class="btn-abrir-carpeta" onclick="abrirCarpetaDeuda('${r.rutaCompleta}')" title="Abrir carpeta que contiene el archivo">
+                            📁 Ver Carpeta
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            return `
+                <div class="archivo-item" style="border-left-color: #ef4444;">
+                    <div class="archivo-info">
+                        <span class="archivo-icono">❌</span>
+                        <div class="archivo-detalles">
+                            <div class="archivo-usuario">${r.usuario.nombre}</div>
+                            <div class="archivo-nombre" style="color: #ef4444;">${r.error}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }).join('');
+
+    // Mostrar sección
+    seccionResultados.style.display = 'block';
+
+    // Scroll a resultados
+    setTimeout(() => {
+        seccionResultados.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    }, 300);
+}
+
+/**
+ * Abre un archivo de deuda descargado
+ */
+async function abrirArchivoDeuda(rutaArchivo) {
+    try {
+        const api = window.electronAPI || window.api;
+        await api.abrirArchivo(rutaArchivo);
+    } catch (error) {
+        console.error('❌ Error abriendo archivo:', error);
+        mostrarMensaje('error', `Error al abrir archivo: ${error.message}`);
+    }
+}
+
+/**
+ * Abre la carpeta que contiene el archivo de deuda
+ */
+async function abrirCarpetaDeuda(rutaArchivo) {
+    try {
+        const api = window.electronAPI || window.api;
+        await api.abrirDirectorio(rutaArchivo);
+    } catch (error) {
+        console.error('❌ Error abriendo carpeta:', error);
+        mostrarMensaje('error', `Error al abrir carpeta: ${error.message}`);
+    }
+}
+
+/**
+ * Inicia una nueva consulta de deuda
+ */
+function iniciarNuevaConsultaDeuda() {
+    // Limpiar resultados
+    const seccionResultados = document.getElementById('seccion-resultados-deuda');
+    seccionResultados.style.display = 'none';
+
+    // Limpiar formularios guardados
+    Object.keys(formulariosPorCliente).forEach(key => {
+        delete formulariosPorCliente[key];
+    });
+
+    // Re-renderizar formularios
+    renderizarFormulariosDeuda();
+
+    // Scroll al inicio
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    console.log('🔄 Iniciando nueva consulta de deuda');
+}
+
+// Exponer funciones globales
+window.abrirArchivoDeuda = abrirArchivoDeuda;
+window.abrirCarpetaDeuda = abrirCarpetaDeuda;
 
 // Estilos para animaciones
 const style = document.createElement('style');

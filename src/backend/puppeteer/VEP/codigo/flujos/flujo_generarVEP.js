@@ -55,6 +55,18 @@ async function ejecutarFlujoVEP(page, usuario, medioPago, periodosSeleccionados 
         const resultado4 = await paso_4_seleccionarYCapturarObligaciones.ejecutar(paginaActual, periodosSeleccionados);
         if (!resultado4.success) throw new Error(`Paso 4 falló: ${resultado4.message}`);
 
+        // ===== SI NO HAY DEUDA, DETENER EL FLUJO Y RETORNAR RESULTADO EXITOSO =====
+        // No es un error, simplemente el cliente está al día con sus obligaciones
+        if (resultado4.sinDeuda) {
+            console.log("✅ [Flujo VEP] Cliente sin deuda pendiente. Finalizando flujo...");
+            return {
+                success: true,
+                sinDeuda: true,
+                message: 'El cliente no tiene deuda pendiente',
+                usuario: usuario
+            };
+        }
+
         // Si requiere selección, retornar inmediatamente con los datos capturados
         if (resultado4.requiereSeleccion) {
             console.log("🔵 [Flujo VEP] Requiere selección del usuario. Retornando datos...");

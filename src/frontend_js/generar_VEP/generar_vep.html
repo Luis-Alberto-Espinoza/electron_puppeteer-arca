@@ -19,15 +19,34 @@
                 🏠 Home › VEP
             </div>
             <h1 class="titulo-principal">Volante Electrónico de Pago (VEP)</h1>
-            <p class="descripcion-principal">
+
+            <!-- Tabs de navegación entre módulos -->
+            <div class="tabs-navegacion">
+                <button id="tab-generar-vep" class="tab-btn tab-activo">
+                    📄 Generar VEP
+                </button>
+                <button id="tab-consultar-deuda" class="tab-btn">
+                    📊 Consultar Deuda
+                </button>
+            </div>
+
+            <!-- Descripción para Generar VEP -->
+            <p id="descripcion-generar-vep" class="descripcion-principal">
                 Seleccione los clientes y asigne el medio de pago para cada uno
+            </p>
+
+            <!-- Descripción para Consultar Deuda -->
+            <p id="descripcion-consultar-deuda" class="descripcion-principal" style="display: none;">
+                Consulte el estado de deuda de sus clientes en AFIP y descargue el reporte en Excel
             </p>
         </header>
 
         <!-- Componente selector de usuarios (genérico) -->
         <div id="selector-usuarios-vep"></div>
 
-        <!-- Advertencias -->
+        <!-- ========== MÓDULO: GENERAR VEP ========== -->
+        <div id="modulo-generar-vep">
+            <!-- Advertencias -->
         <div id="advertencia-medios" class="advertencia-medios" style="display: none;">
             ⚠️ <span id="texto-advertencia"></span>
         </div>
@@ -111,6 +130,45 @@
                 </button>
             </div>
         </div>
+        </div>
+        <!-- FIN MÓDULO: GENERAR VEP -->
+
+        <!-- ========== MÓDULO: CONSULTAR DEUDA ========== -->
+        <div id="modulo-consultar-deuda" style="display: none;">
+            <!-- Contenedor de formularios por cliente -->
+            <div id="contenedor-formularios-deuda" class="contenedor-formularios-deuda">
+                <!-- Los formularios se renderizan dinámicamente aquí -->
+            </div>
+
+            <!-- Botón ejecutar consulta -->
+            <button id="btn-ejecutar-consulta-deuda" class="btn-ejecutar-consulta-deuda" disabled>
+                Consultar Deuda para <span id="contador-usuarios-deuda">0</span> cliente(s)
+            </button>
+
+            <!-- Botón volver -->
+            <button id="btn-volver-deuda" class="btn-volver">
+                ← Volver al inicio
+            </button>
+
+            <!-- Sección de resultados de consulta de deuda -->
+            <div id="seccion-resultados-deuda" class="seccion-resultados-deuda" style="display: none;">
+                <div class="resultados-header-deuda">
+                    <h2>📊 Resultados de Consulta de Deuda</h2>
+                    <p class="resultados-descripcion">Archivos Excel descargados con el detalle de deuda</p>
+                </div>
+
+                <div id="lista-archivos-deuda" class="lista-archivos-deuda">
+                    <!-- Los archivos se renderizarán dinámicamente aquí -->
+                </div>
+
+                <div class="resultados-acciones-deuda">
+                    <button id="btn-nueva-consulta-deuda" class="btn-nuevo-proceso">
+                        ← Nueva Consulta de Deuda
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- FIN MÓDULO: CONSULTAR DEUDA -->
 
         <!-- Modal de progreso -->
         <div id="modal-progreso" class="modal-progreso" style="display: none;">

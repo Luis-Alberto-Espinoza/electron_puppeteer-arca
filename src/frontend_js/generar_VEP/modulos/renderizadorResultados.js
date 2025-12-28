@@ -46,10 +46,15 @@ export function renderizarGrupoProcesadosAuto(clientes) {
     grupo.style.display = 'block';
 
     const html = clientes.map(cliente => {
-        const { usuario, medioPago, vepData } = cliente;
+        const { usuario, medioPago, vepData, sinDeuda, message } = cliente;
+
+        // Determinar mensaje e ícono según el estado
+        const icono = sinDeuda ? 'ℹ️' : '✓';
+        const mensaje = sinDeuda ? (message || 'Cliente sin deuda pendiente') : 'VEP generado exitosamente';
+        const claseTarjeta = sinDeuda ? 'tarjeta-sin-deuda' : 'tarjeta-procesado';
 
         return `
-            <div class="tarjeta-cliente tarjeta-procesado">
+            <div class="tarjeta-cliente ${claseTarjeta}">
                 <div class="tarjeta-header">
                     <div class="cliente-info">
                         <span class="cliente-nombre">${usuario.nombre}</span>
@@ -61,8 +66,8 @@ export function renderizarGrupoProcesadosAuto(clientes) {
                 </div>
                 <div class="tarjeta-body">
                     <div class="resultado-mensaje">
-                        <span class="icono-exito">✓</span>
-                        <span>VEP generado exitosamente</span>
+                        <span class="icono-exito">${icono}</span>
+                        <span>${mensaje}</span>
                     </div>
                 </div>
             </div>

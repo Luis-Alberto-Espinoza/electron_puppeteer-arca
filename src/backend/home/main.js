@@ -9,6 +9,7 @@ const fs = require('fs'); // <--- Agrega esto al inicio del archivo
 
 const { manejarEventoATM } = require('../atm_Servicios/atm_Manager.js');
 const vepManager = require('../puppeteer/VEP/vepManager.js');
+const consultaDeudaManager = require('../puppeteer/consultaDeuda/consultaDeudaManager.js');
 
 ipcMain.handle('atm:ejecutar-flujo', async (event, evento) => {
     // console.log('Evento recibido en main para manejarEventoATM:', evento);
@@ -486,10 +487,13 @@ function setupIpcListeners() {
 
     ipcMain.handle('shell:open-directory', async (event, path) => {
         try {
-            await shell.openPath(path);
+            // showItemInFolder funciona tanto para archivos como para carpetas
+            // - Archivo: abre la carpeta contenedora y selecciona el archivo
+            // - Carpeta: abre la carpeta (comportamiento según el SO)
+            shell.showItemInFolder(path);
             return { success: true };
         } catch (error) {
-            console.error(`Failed to open path: ${path}`, error);
+            console.error(`Failed to show item in folder: ${path}`, error);
             return { success: false, error: error.message };
         }
     });
@@ -595,6 +599,16 @@ ipcMain.handle('vep:generar', async (event, datos) => {
                             usuario: usuario,
                             medioPago: medioPago,
                             periodos: resultado.periodos
+                        });
+                    } else if (resultado.sinDeuda) {
+                        // ===== CLIENTE SIN DEUDA =====
+                        // No agregar a procesadosAuto porque no se generó ningún VEP
+                        console.log(`  ℹ️ ${usuario.nombre} sin deuda pendiente`);
+                        procesadosAuto.push({
+                            usuario: usuario,
+                            medioPago: medioPago,
+                            sinDeuda: true,
+                            message: resultado.message || 'Cliente sin deuda pendiente'
                         });
                     } else if (resultado.success && resultado.autoprocesado) {
                         // Cliente con 1 período (procesado automáticamente)
@@ -739,6 +753,105 @@ ipcMain.handle('vep:generar', async (event, datos) => {
         return {
             success: false,
             message: `Error al generar VEPs: ${error.message}`,
+            error: error.toString()
+        };
+    }
+});
+
+// ========================================
+// HANDLER: CONSULTA DE DEUDA
+// ========================================
+ipcMain.handle('consultaDeuda:consultar', async (event, consultasData) => {
+    console.log('🔵 BACKEND: Recibida solicitud para consultar deuda');
+    console.log('Datos recibidos:', JSON.stringify(consultasData, null, 2));
+
+    if (!consultasData || !Array.isArray(consultasData) || consultasData.length === 0) {
+        return {
+            success: false,
+            message: 'No se recibieron consultas para procesar'
+        };
+    }
+
+    try {
+        const url = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
+        const resultados = [];
+
+        for (let i = 0; i < consultasData.length; i++) {
+            const consulta = consultasData[i];
+            const { usuario, periodoDesde, periodoHasta, fechaCalculo } = consulta;
+
+            console.log(`\n🔵 [${i + 1}/${consultasData.length}] Consultando ${usuario.nombre} (${usuario.cuit})`);
+
+            try {
+                // Obtener credenciales del usuario desde el storage
+                const dataBD = userStorage.loadData();
+                const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
+
+                if (!usuarioCompleto) {
+                    throw new Error(`No se pudieron obtener las credenciales del usuario`);
+                }
+
+                const credenciales = {
+                    usuario: usuarioCompleto.cuit || usuario.cuit,
+                    contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
+                };
+
+                // Llamar al Consulta Deuda Manager
+                const downloadsPath = app.getPath('downloads');
+                const consultaData = {
+                    usuario: {
+                        id: usuario.id,
+                        nombre: usuario.nombre,
+                        cuit: usuario.cuit
+                    },
+                    periodoDesde,
+                    periodoHasta,
+                    fechaCalculo
+                };
+
+                const resultado = await consultaDeudaManager.iniciarConsulta(url, credenciales, consultaData, downloadsPath);
+
+                if (resultado.success) {
+                    console.log(`  ✅ ${usuario.nombre} completado - Archivo: ${resultado.archivoExcel}`);
+                    resultados.push({
+                        status: 'success',
+                        usuario: usuario,
+                        archivoExcel: resultado.archivoExcel,
+                        rutaCompleta: resultado.rutaCompleta,
+                        totalFilas: resultado.totalFilas
+                    });
+                } else {
+                    console.error(`  ❌ ${usuario.nombre} falló: ${resultado.message || resultado.error}`);
+                    resultados.push({
+                        status: 'error',
+                        usuario: usuario,
+                        error: resultado.message || resultado.error || 'Error desconocido'
+                    });
+                }
+
+            } catch (error) {
+                console.error(`  ❌ Error procesando ${usuario.nombre}:`, error);
+                resultados.push({
+                    status: 'error',
+                    usuario: usuario,
+                    error: error.message
+                });
+            }
+        }
+
+        console.log(`\n✅ BACKEND: Consulta de deuda finalizada`);
+        console.log(`   Total procesados: ${resultados.filter(r => r.status === 'success').length}/${consultasData.length}`);
+
+        return {
+            success: true,
+            resultados: resultados
+        };
+
+    } catch (error) {
+        console.error('❌ BACKEND: Error al consultar deuda:', error);
+        return {
+            success: false,
+            message: `Error al consultar deuda: ${error.message}`,
             error: error.toString()
         };
     }

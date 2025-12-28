@@ -493,8 +493,17 @@ async function cargarModuloGenerarVEP() {
             // Cargar HTML del módulo
             const response = await fetch(htmlPath);
             if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
-            const html = await response.text();
-            generarVEPDiv.innerHTML = html;
+            let html = await response.text();
+
+            // Crear un contenedor temporal para parsear el HTML
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+
+            // Eliminar todos los <link> de CSS del HTML (se cargan dinámicamente)
+            tempDiv.querySelectorAll('link[rel="stylesheet"]').forEach(link => link.remove());
+
+            // Insertar el HTML limpio
+            generarVEPDiv.innerHTML = tempDiv.innerHTML;
             console.log('✅ HTML cargado correctamente');
 
             // Cargar CSS del componente genérico
