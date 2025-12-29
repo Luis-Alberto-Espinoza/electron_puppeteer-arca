@@ -1,10 +1,11 @@
 const { parentPort, workerData } = require('worker_threads');
 const { flujoPlanDePago } = require('../puppeteer/ATM/flujosDeTareas/flujo_planDepagoIngresosBruto.js');
 const { flujoConstanciaFiscal } = require('../puppeteer/ATM/flujosDeTareas/flujo_constanciaFiscal_imprimir.js');
+const { flujoDescargaRetenciones } = require('../puppeteer/ATM/flujosDeTareas/flujo_descargaRetenciones.js');
 
 // Función para procesar un único usuario
 async function procesarUsuario(usuario, tipoAccion, downloadsPath) {
-    const { cuit, claveATM, nombre = '', apellido = '' } = usuario;
+    const { cuit, claveATM, nombre = '', apellido = '', periodo = '' } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
     const enviarProgreso = (status, mensaje, datosAdicionales = {}) => {
@@ -22,6 +23,8 @@ async function procesarUsuario(usuario, tipoAccion, downloadsPath) {
             resultadoFlujo = await flujoConstanciaFiscal(credenciales, nombreParaArchivos, downloadsPath, enviarProgreso);
         } else if (tipoAccion === 'planDePago') {
             resultadoFlujo = await flujoPlanDePago(credenciales, nombreParaArchivos, downloadsPath, enviarProgreso);
+        } else if (tipoAccion === 'descargaRetenciones') {
+            resultadoFlujo = await flujoDescargaRetenciones(credenciales, nombreParaArchivos, downloadsPath, enviarProgreso, periodo);
         } else {
             throw new Error('Tipo de acción no soportado.');
         }

@@ -42,13 +42,13 @@ async function navegarAConstanciaFiscal(page) {
       }
 
       // Clic en el 4to elemento del menú (índice 3)
-      menuItems[3].click();
+      menuItems[2].click();
 
       // El script original asume que el submenú aparece inmediatamente.
       const submenus = document.getElementsByClassName("z-menupopup-content");
       if (submenus.length > 0 && submenus[0].childNodes.length > 0) {
         // Hacemos clic en el primer item del submenú
-        submenus[0].childNodes[0].click();
+        submenus[2].childNodes[0].click();
         console.log("Clic en el submenú de Constancia Fiscal realizado.");
       } else {
         throw new Error("El submenú de constancia fiscal no apareció como se esperaba.");

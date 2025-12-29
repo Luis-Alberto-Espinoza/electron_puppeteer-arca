@@ -6,19 +6,18 @@
         <p>Seleccione los usuarios y la acción que desea ejecutar.</p>
     </div>
 
-    <div class="lote-controles">
-        <button id="btnSeleccionarTodos" class="btn btn-seleccionar">Seleccionar Todos</button>
-        <button id="btnDeseleccionarTodos" class="btn btn-deseleccionar">Deseleccionar Todos</button>
-    </div>
+    <!-- Componente Selector de Usuarios (genérico reutilizable) -->
+    <div id="selector-usuarios-atm"></div>
 
-    <div id="listaUsuariosLote" class="lote-lista-usuarios">
-        <!-- Los usuarios se cargarán aquí dinámicamente -->
+    <div class="lote-controles">
+        <button id="btnLimpiarSeleccion" class="btn btn-limpiar-seleccion">✕ Limpiar Seleccionados</button>
     </div>
 
     <div class="lote-acciones">
-        <button id="btnConstanciasLote" class="btn btn-accion-azul">Obtener Constancias (Lote)</button>
-        <button id="btnPlanesPagoLote" class="btn btn-accion-amarillo">Obtener Planes de Pago (Lote)</button>
-        <button id="btnTasaCeroLote" class="btn btn-accion-verde">Obtener Tasa Cero (Lote)</button>
+        <button id="btnConstanciasLote" class="btn btn-accion-azul" disabled>Obtener Constancias (Lote)</button>
+        <button id="btnPlanesPagoLote" class="btn btn-accion-amarillo" disabled>Obtener Planes de Pago (Lote)</button>
+        <button id="btnTasaCeroLote" class="btn btn-accion-verde" disabled>Obtener Tasa Cero (Lote)</button>
+        <button id="btnRetencionesLote" class="btn btn-accion-naranja" disabled>Descargar Retenciones (Lote)</button>
     </div>
 
     <div id="lote-resultados-container">

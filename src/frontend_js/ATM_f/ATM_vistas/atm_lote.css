@@ -147,3 +147,80 @@
     padding: 5px 8px;
     border-radius: 4px;
 }
+
+/* ========================================
+   ESTILOS PARA COMPONENTE SELECTOR DE USUARIOS
+   (Integración con tema oscuro ATM)
+   ======================================== */
+
+/* Botón Limpiar Seleccionados */
+.lote-controles {
+    margin-top: 20px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+}
+
+.btn-limpiar-seleccion {
+    background-color: #ef4444 !important;
+    color: white !important;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-limpiar-seleccion:hover {
+    background-color: #dc2626 !important;
+}
+
+/* Badges de estado en tabla de seleccionados */
+.estado-cell {
+    text-align: center;
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.badge-validado {
+    background-color: #d1fae5;
+    color: #059669;
+}
+
+.badge-invalido {
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.badge-sin-validar {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+/* Asegurar alineación a la izquierda en tabla de seleccionados */
+.tabla-seleccionados td {
+    text-align: left;
+}
+
+.tabla-seleccionados th {
+    text-align: left;
+}
+
+/* Solo la columna de estado y quitar centrada */
+.tabla-seleccionados td.estado-cell,
+.tabla-seleccionados th:last-child {
+    text-align: center;
+}
+
+.tabla-seleccionados td:first-child {
+    text-align: center;
+}

@@ -65,8 +65,35 @@ function waitForFile(downloadPath, originalFilename, newFilename, timeout = 6000
     });
 }
 
+/**
+ * Genera un nombre de archivo estandarizado para retenciones/percepciones ATM.
+ * Formato: CUIT_SubServiceName_YYYY-MM_YYYY-MM-DD.extension
+ * Ejemplo: 20123456789_Retenciones_SIRTAC_IB_2025-01_2025-01-28.xlsx
+ *
+ * @param {string} cuit - CUIT del contribuyente.
+ * @param {string} subServiceName - Nombre del subservicio (ej: "Retenciones SIRTAC I.B.").
+ * @param {string} periodo - Periodo en formato YYYY-MM (ej: "2025-01").
+ * @param {string} extension - Extensión del archivo sin punto (ej: "xlsx", "txt").
+ * @returns {string} El nombre de archivo generado.
+ */
+function getFilenameRetenciones(cuit, subServiceName, periodo, extension) {
+    // Sanitizar nombre del subservicio (reemplazar espacios con guiones bajos)
+    const sanitizedSubServiceName = subServiceName.replace(/\s+/g, '_').replace(/\./g, '');
+
+    // Obtener fecha actual en formato YYYY-MM-DD
+    const date = new Date();
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const fechaDescarga = `${year}-${month}-${day}`;
+
+    // Formato: CUIT_SubServiceName_periodo_fechaDescarga.extension
+    return `${cuit}_${sanitizedSubServiceName}_${periodo}_${fechaDescarga}.${extension}`;
+}
+
 module.exports = {
     getDownloadPath,
     getFilename,
+    getFilenameRetenciones,
     waitForFile,
 };

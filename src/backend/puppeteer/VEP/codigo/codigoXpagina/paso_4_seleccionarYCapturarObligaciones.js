@@ -126,7 +126,15 @@ async function ejecutar(page, periodosSeleccionados = null) {
             });
 
             if (!tablaEnDivPROV) {
-                throw new Error('No se encontró tabla visible ni en divAM ni en divPROV');
+                // ===== NO ES UN ERROR: El cliente no tiene deuda =====
+                // Si no se encuentran tablas de obligaciones, significa que el cliente
+                // está al día con sus obligaciones y no tiene deuda pendiente
+                console.log("  ✅ No se encontraron tablas de deuda - Cliente sin deuda pendiente");
+                return {
+                    success: true,
+                    sinDeuda: true,
+                    message: 'El cliente no tiene deuda pendiente'
+                };
             }
 
             console.log("  ✅ Tabla de MONOTRIBUTO encontrada en divPROV");
@@ -142,7 +150,14 @@ async function ejecutar(page, periodosSeleccionados = null) {
 
             if (!datosCapturados ||
                 (!datosCapturados.obligaciones?.length && !datosCapturados.intereses?.length)) {
-                throw new Error('No se encontraron obligaciones en la tabla');
+                // ===== NO ES UN ERROR: El cliente no tiene deuda =====
+                // La tabla existe pero no contiene obligaciones ni intereses pendientes
+                console.log("  ✅ Tabla sin obligaciones - Cliente sin deuda pendiente");
+                return {
+                    success: true,
+                    sinDeuda: true,
+                    message: 'El cliente no tiene deuda pendiente'
+                };
             }
 
             const totalObligaciones = datosCapturados.obligaciones?.length || 0;
@@ -326,8 +341,13 @@ async function capturarDatosDeTabla(page, tipoTabla) {
             }
         }
 
+        // ===== SI NO HAY TABLAS, DEVOLVER ARRAYS VACÍOS (Cliente sin deuda) =====
+        // No es un error, simplemente no hay deuda pendiente
         if (!tablaObligaciones && !tablaIntereses) {
-            throw new Error(`No se encontró ninguna tabla de ${tipo}`);
+            return {
+                obligaciones: [],
+                intereses: []
+            };
         }
 
         // 3. Convertir a arrays separados

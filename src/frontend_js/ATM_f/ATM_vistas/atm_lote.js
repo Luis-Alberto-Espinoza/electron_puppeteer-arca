@@ -1,15 +1,17 @@
+// Estado: almacena el periodo seleccionado para cada usuario (solo retenciones)
+const periodosSeleccionados = {};
+
 // Se adjuntará al objeto window para ser llamado desde controlador.js
 window.inicializarModuloLoteATM = () => {
     console.log("Inicializando módulo de procesamiento por lote ATM...");
 
     // --- OBTENER ELEMENTOS DEL DOM ---
     const btnVolver = document.getElementById('btnVolverAtm');
-    const listaUsuariosDiv = document.getElementById('listaUsuariosLote');
-    const btnSeleccionarTodos = document.getElementById('btnSeleccionarTodos');
-    const btnDeseleccionarTodos = document.getElementById('btnDeseleccionarTodos');
+    const btnLimpiarSeleccion = document.getElementById('btnLimpiarSeleccion');
     const btnConstanciasLote = document.getElementById('btnConstanciasLote');
     const btnPlanesPagoLote = document.getElementById('btnPlanesPagoLote');
     const btnTasaCeroLote = document.getElementById('btnTasaCeroLote');
+    const btnRetencionesLote = document.getElementById('btnRetencionesLote');
 
     const resultadosContainer = document.getElementById('lote-resultados-container');
     const procesandoContainer = document.getElementById('lote-procesando-ahora');
@@ -20,54 +22,185 @@ window.inicializarModuloLoteATM = () => {
     procesandoContainer.style.display = 'none';
     finalizadosContainer.style.display = 'none';
 
-    // --- FUNCIÓN PARA CARGAR USUARIOS ---
-    const cargarYMostrarUsuarios = async () => {
-        if (!listaUsuariosDiv) return;
-        listaUsuariosDiv.innerHTML = '<p>Cargando usuarios...</p>';
-        try {
-            const result = await window.electronAPI.user.getAll();
-            if (result.success && result.users.length > 0) {
-                // Filtrar usuarios para que solo muestre aquellos con clave de ATM
-                const usuariosATM = result.users.filter(user => user.claveATM && user.claveATM.trim() !== '');
+    // --- FUNCIÓN HELPER: GENERAR OPCIONES DE PERIODO ---
+    function generarOpcionesPeriodo() {
+        const opciones = [];
+        const hoy = new Date();
+        const mesActual = hoy.getMonth(); // 0-11
+        const anioActual = hoy.getFullYear();
 
-                if (usuariosATM.length > 0) {
-                    listaUsuariosDiv.innerHTML = '';
-                    usuariosATM.forEach(user => {
-                        const nombreCompleto = `${user.nombre || ''} ${user.apellido || ''}`.trim();
-                        const userElement = document.createElement('div');
-                        userElement.className = 'usuario-item';
-                        userElement.innerHTML = `
-                            <input type="checkbox" id="user-${user.id}" data-userid="${user.id}">
-                            <label for="user-${user.id}">${nombreCompleto} (Cuit: ${user.cuit})</label>
-                        `;
-                        userElement.querySelector('input')._userData = user;
-                        listaUsuariosDiv.appendChild(userElement);
-                    });
-                } else {
-                    listaUsuariosDiv.innerHTML = '<p class="text-danger">No se encontraron usuarios con clave de ATM configurada.</p>';
-                }
-            } else {
-                listaUsuariosDiv.innerHTML = '<p class="text-danger">No se encontraron usuarios.</p>';
+        // Generar los últimos 24 meses (2 años hacia atrás)
+        for (let i = 0; i < 24; i++) {
+            let mes = mesActual - i;
+            let anio = anioActual;
+
+            // Ajustar año si el mes es negativo
+            while (mes < 0) {
+                mes += 12;
+                anio -= 1;
             }
-        } catch (error) {
-            console.error('Error al cargar usuarios:', error);
-            listaUsuariosDiv.innerHTML = `<p class="text-danger">Error al cargar usuarios: ${error.message}</p>`;
+
+            const mesStr = (mes + 1).toString().padStart(2, '0'); // Mes 1-12
+            const valorPeriodo = `${anio}-${mesStr}`;
+            const nombrePeriodo = `${mesStr}/${anio}`;
+
+            opciones.push({ valor: valorPeriodo, nombre: nombrePeriodo });
         }
-    };
+
+        return opciones;
+    }
+
+    // --- INSTANCIA DEL SELECTOR DE USUARIOS ---
+    let selectorUsuarios = null;
+
+    // Verificar que SelectorUsuarios esté disponible
+    if (typeof SelectorUsuarios === 'undefined') {
+        console.error('❌ SelectorUsuarios no está definido. Reintentando...');
+        setTimeout(window.inicializarModuloLoteATM, 100);
+        return;
+    }
+
+    // Crear instancia del selector de usuarios
+    selectorUsuarios = new SelectorUsuarios('selector-usuarios-atm', {
+        // ====== VALIDACIÓN Y FILTRADO DE CREDENCIALES ATM ======
+        campoCredencial: 'claveATM',
+        campoEstado: 'estado_atm',
+        campoError: 'errorAtm',
+        permitirInvalidos: false,
+        permitirSinValidar: false,
+        mensajeSinValidar: 'Debe validar las credenciales ATM primero en la sección Gestión de Cliente',
+
+        // ====== CALLBACK DE SELECCIÓN ======
+        onCambioSeleccion: (usuariosSeleccionados) => {
+            actualizarBotonesAccion(usuariosSeleccionados);
+        },
+
+        // ====== COLUMNAS EXTRAS: ESTADO + PERIODO ======
+        renderizarColumnasExtras: renderizarColumnasExtras,
+        headersColumnasExtras: ['Estado', 'Periodo (Retenciones)']
+    });
+
+    console.log('✅ SelectorUsuarios inicializado para ATM');
+
+    // --- FUNCIÓN PARA RENDERIZAR COLUMNAS EXTRAS ---
+    function renderizarColumnasExtras(usuario) {
+        let columnasHTML = '';
+
+        // COLUMNA 1: ESTADO
+        let badge = '';
+        let cssClass = '';
+
+        if (usuario.estado_atm === 'validado') {
+            badge = '✅ Validado';
+            cssClass = 'badge-validado';
+        } else if (usuario.estado_atm === 'invalido') {
+            badge = '❌ Inválido';
+            cssClass = 'badge-invalido';
+        } else {
+            badge = '⚠️ Sin validar';
+            cssClass = 'badge-sin-validar';
+        }
+
+        columnasHTML += `<td class="estado-cell"><span class="badge ${cssClass}">${badge}</span></td>`;
+
+        // COLUMNA 2: PERIODO (solo para retenciones)
+        const opcionesPeriodo = generarOpcionesPeriodo();
+        const periodoSeleccionado = periodosSeleccionados[usuario.id] || '';
+
+        const optionsHTML = opcionesPeriodo.map(opcion => {
+            const selected = opcion.valor === periodoSeleccionado ? 'selected' : '';
+            return `<option value="${opcion.valor}" ${selected}>${opcion.nombre}</option>`;
+        }).join('');
+
+        columnasHTML += `
+            <td class="periodo-cell">
+                <select
+                    class="periodo-selector"
+                    data-usuario-id="${usuario.id}"
+                    style="width: 100%; padding: 4px; font-size: 11px;">
+                    <option value="">Seleccionar...</option>
+                    ${optionsHTML}
+                </select>
+            </td>
+        `;
+
+        return columnasHTML;
+    }
+
+    // --- EVENT LISTENER PARA CAMBIOS EN SELECTOR DE PERIODO ---
+    document.addEventListener('change', (event) => {
+        if (event.target.classList.contains('periodo-selector')) {
+            const usuarioId = event.target.dataset.usuarioId;
+            const periodoSeleccionado = event.target.value;
+
+            if (periodoSeleccionado) {
+                periodosSeleccionados[usuarioId] = periodoSeleccionado;
+                console.log(`📅 Periodo seleccionado para usuario ${usuarioId}: ${periodoSeleccionado}`);
+            } else {
+                delete periodosSeleccionados[usuarioId];
+                console.log(`❌ Periodo eliminado para usuario ${usuarioId}`);
+            }
+        }
+    });
+
+    // --- FUNCIÓN PARA ACTUALIZAR BOTONES DE ACCIÓN ---
+    function actualizarBotonesAccion(usuariosSeleccionados) {
+        const haySeleccion = usuariosSeleccionados.length > 0;
+
+        if (btnConstanciasLote) btnConstanciasLote.disabled = !haySeleccion;
+        if (btnPlanesPagoLote) btnPlanesPagoLote.disabled = !haySeleccion;
+        if (btnTasaCeroLote) btnTasaCeroLote.disabled = !haySeleccion;
+        if (btnRetencionesLote) btnRetencionesLote.disabled = !haySeleccion;
+
+        console.log(`🔵 ${usuariosSeleccionados.length} usuario(s) seleccionado(s)`);
+    }
 
     // --- CONFIGURAR EVENT LISTENERS ---
-    if (btnVolver) btnVolver.addEventListener('click', () => { if (window.cargarModuloATM) window.cargarModuloATM(); });
-    if (btnSeleccionarTodos) btnSeleccionarTodos.addEventListener('click', () => listaUsuariosDiv.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = true));
-    if (btnDeseleccionarTodos) btnDeseleccionarTodos.addEventListener('click', () => listaUsuariosDiv.querySelectorAll('input[type="checkbox"]').forEach(chk => chk.checked = false));
+    if (btnVolver) {
+        btnVolver.addEventListener('click', () => {
+            if (window.cargarModuloATM) window.cargarModuloATM();
+        });
+    }
+
+    if (btnLimpiarSeleccion) {
+        btnLimpiarSeleccion.addEventListener('click', () => {
+            if (selectorUsuarios) {
+                selectorUsuarios.limpiarSeleccion();
+                console.log('✅ Selección limpiada');
+            }
+        });
+    }
 
     // --- LÓGICA DE ACCIONES ---
     const iniciarProcesoLote = async (tipoAccion) => {
-        const checkboxesSeleccionados = listaUsuariosDiv.querySelectorAll('input[type="checkbox"]:checked');
-        if (checkboxesSeleccionados.length === 0) {
+        if (!selectorUsuarios) {
+            alert('Error: Selector de usuarios no inicializado');
+            return;
+        }
+
+        const usuariosParaProcesar = selectorUsuarios.obtenerSeleccionados();
+
+        if (usuariosParaProcesar.length === 0) {
             alert('Por favor, seleccione al menos un usuario.');
             return;
         }
-        const usuariosParaProcesar = Array.from(checkboxesSeleccionados).map(chk => chk._userData);
+
+        // VALIDACIÓN ESPECIAL PARA RETENCIONES: verificar que todos tengan periodo
+        if (tipoAccion === 'descargaRetenciones') {
+            const usuariosSinPeriodo = usuariosParaProcesar.filter(u => !periodosSeleccionados[u.id]);
+
+            if (usuariosSinPeriodo.length > 0) {
+                const nombresSinPeriodo = usuariosSinPeriodo.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
+                alert(`❌ Error: Los siguientes usuarios no tienen periodo seleccionado:\n\n - ${nombresSinPeriodo}\n\nPor favor, seleccione un periodo para todos los usuarios antes de continuar.`);
+                return;
+            }
+
+            // Agregar el periodo a cada usuario
+            usuariosParaProcesar.forEach(u => {
+                u.periodo = periodosSeleccionados[u.id];
+            });
+        }
+
         const nombresUsuarios = usuariosParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
 
         const confirmacion = confirm(`Se iniciará el proceso '${tipoAccion}' para los siguientes ${usuariosParaProcesar.length} usuarios:\n\n - ${nombresUsuarios}\n\n¿Desea continuar?`);
@@ -95,13 +228,18 @@ window.inicializarModuloLoteATM = () => {
 
     // --- LÓGICA DE TASA CERO ---
     const iniciarProcesoLoteTasaCero = async () => {
-        const checkboxesSeleccionados = listaUsuariosDiv.querySelectorAll('input[type="checkbox"]:checked');
-        if (checkboxesSeleccionados.length === 0) {
+        if (!selectorUsuarios) {
+            alert('Error: Selector de usuarios no inicializado');
+            return;
+        }
+
+        const clientesParaProcesar = selectorUsuarios.obtenerSeleccionados();
+
+        if (clientesParaProcesar.length === 0) {
             alert('Por favor, seleccione al menos un usuario.');
             return;
         }
 
-        const clientesParaProcesar = Array.from(checkboxesSeleccionados).map(chk => chk._userData);
         const nombresClientes = clientesParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
 
         const confirmacion = confirm(`Se iniciará el proceso de Tasa Cero para los siguientes ${clientesParaProcesar.length} cliente(s):\n\n - ${nombresClientes}\n\n¿Desea continuar?`);
@@ -134,6 +272,7 @@ window.inicializarModuloLoteATM = () => {
     if (btnConstanciasLote) btnConstanciasLote.addEventListener('click', () => iniciarProcesoLote('constanciaFiscal'));
     if (btnPlanesPagoLote) btnPlanesPagoLote.addEventListener('click', () => iniciarProcesoLote('planDePago'));
     if (btnTasaCeroLote) btnTasaCeroLote.addEventListener('click', () => iniciarProcesoLoteTasaCero());
+    if (btnRetencionesLote) btnRetencionesLote.addEventListener('click', () => iniciarProcesoLote('descargaRetenciones'));
 
     // Map to keep track of userDivs
     const userDivMap = new Map();
@@ -221,7 +360,7 @@ window.inicializarModuloLoteATM = () => {
                     // 2. Construir el contenedor principal usando clases de CSS
                     const resumenContainer = document.createElement('div');
                     resumenContainer.className = 'resumen-deudas-container';
-                    
+
                     const resumenTitle = document.createElement('h6');
                     resumenTitle.textContent = 'Resumen de Deudas';
                     resumenContainer.appendChild(resumenTitle);
@@ -261,7 +400,7 @@ window.inicializarModuloLoteATM = () => {
                     openDirBtn.className = 'btn btn-sm lote-btn-abrir-carpeta';
                     openDirBtn.onclick = () => window.electronAPI.abrirDirectorio(downloadDir);
                     dirWrapper.appendChild(openDirBtn);
-                    
+
                     userDiv.appendChild(dirWrapper);
 
                     const fileList = document.createElement('ul');
@@ -305,5 +444,5 @@ window.inicializarModuloLoteATM = () => {
         manejarActualizacionProgreso(datos);
     });
 
-    cargarYMostrarUsuarios();
+    console.log('✅ Módulo de lote ATM inicializado completamente');
 };
