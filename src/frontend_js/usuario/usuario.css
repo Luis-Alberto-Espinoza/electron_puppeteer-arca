@@ -1286,3 +1286,5 @@ html {
     background: rgba(246, 224, 94, 0.25);
 }
 /* ========== FIN BOTÓN MOSTRAR/OCULTAR CONTRASEÑA ==========*/
+
+/* Los estilos del modal de confirmación ahora están en /utils/confirmModal.css */

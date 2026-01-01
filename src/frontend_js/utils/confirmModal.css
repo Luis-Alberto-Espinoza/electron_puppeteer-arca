@@ -1,0 +1,130 @@
+/* ========== MODAL DE CONFIRMACIÓN REUTILIZABLE (BOOTSTRAP CUSTOM) ========== */
+
+.modal-content.bg-dark-custom {
+    background-color: #2d3748 !important;
+    border: 2px solid #f6e05e;
+    border-radius: 15px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.modal-header.border-bottom-custom {
+    border-bottom: 2px solid #4a5568;
+    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+    border-radius: 13px 13px 0 0;
+}
+
+.modal-footer.border-top-custom {
+    border-top: 2px solid #4a5568;
+    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+    border-radius: 0 0 13px 13px;
+}
+
+.modal-title {
+    color: #f6e05e;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.modal-title #confirmModalIcon {
+    font-size: 28px;
+    animation: modalIconPulse 2s ease-in-out infinite;
+}
+
+@keyframes modalIconPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.modal-body {
+    background-color: #2d3748;
+    color: #e2e8f0;
+    font-size: 16px;
+    padding: 25px;
+    line-height: 1.6;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+}
+
+.modal-footer .btn {
+    min-width: 100px;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.modal-footer .btn-secondary {
+    background-color: #4a5568;
+    border: 1px solid #718096;
+    color: #e2e8f0;
+}
+
+.modal-footer .btn-secondary:hover {
+    background-color: #718096;
+    border-color: #a0aec0;
+    transform: translateY(-2px);
+}
+
+#confirmModalConfirmBtn {
+    background-color: #f6e05e;
+    color: #1a202c;
+    border: none;
+}
+
+#confirmModalConfirmBtn:hover {
+    background-color: #faf089;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(246, 224, 94, 0.4);
+}
+
+#confirmModalConfirmBtn.btn-danger {
+    background-color: #e53e3e;
+    color: #ffffff;
+}
+
+#confirmModalConfirmBtn.btn-danger:hover {
+    background-color: #c53030;
+    box-shadow: 0 4px 12px rgba(229, 62, 62, 0.4);
+}
+
+#confirmModalConfirmBtn.btn-success {
+    background-color: #48bb78;
+    color: #ffffff;
+}
+
+#confirmModalConfirmBtn.btn-success:hover {
+    background-color: #38a169;
+    box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.btn-close-white:hover {
+    opacity: 1;
+}
+
+/* Animación de entrada del modal */
+.modal.fade .modal-dialog {
+    transition: transform 0.3s ease-out;
+    transform: scale(0.8);
+}
+
+.modal.show .modal-dialog {
+    transform: scale(1);
+}
+
+/* Backdrop personalizado */
+.modal-backdrop.show {
+    opacity: 0.7;
+}
+
+/* ========== FIN MODAL DE CONFIRMACIÓN REUTILIZABLE ========== */

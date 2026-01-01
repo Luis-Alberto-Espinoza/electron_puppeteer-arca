@@ -14,6 +14,10 @@ window.verificacionRealizada = {
 // Variable global para almacenar todos los usuarios
 window.allUsers = [];
 
+// NOTA: La función showConfirmModal() está definida en /utils/confirmModal.js
+// y se carga automáticamente de forma global. Usala directamente con:
+// const confirmed = await showConfirmModal({ message: '...' });
+
 // Función para mostrar alertas
 function showAlert(message, type = 'success') {
     const alert = document.getElementById('alert');
@@ -608,9 +612,9 @@ function inicializarVerificarCredenciales() {
 
         try {
             const response = await window.electronAPI.user.verifyOnCreate(credenciales);
-            window.empresasDisponible = response.puntosDeVentaArray || [];
+            window.empresasDisponible = response.empresasDisponible || [];
             window.cuitAsociados = response.cuitAsociados || [];
-            mostrarPuntosDeVenta(response.puntosDeVentaArray);
+            mostrarPuntosDeVenta(response.empresasDisponible);
 
             if (response.success) {
                 // Marcar qué servicios fueron verificados exitosamente usando la info detallada
@@ -1077,9 +1081,20 @@ window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoCon
 
 // Eliminar cliente
 window.deleteUser = async function(id, nombre) {
-    if (!confirm(`¿Estás seguro que deseas eliminar al cliente "${nombre}"?`)) {
+    // Mostrar modal de confirmación personalizado (NO usa confirm() nativo que causa problemas de foco)
+    const confirmed = await showConfirmModal({
+        title: 'Eliminar Cliente',
+        message: `¿Estás seguro que deseas eliminar al cliente "${nombre}"?`,
+        icon: '🗑️',
+        confirmText: 'Sí, eliminar',
+        cancelText: 'No, cancelar',
+        confirmBtnClass: 'danger'
+    });
+
+    if (!confirmed) {
         return;
     }
+
     try {
         setLoading('loadLoading', true);
         const result = await window.electronAPI.user.delete(id);
