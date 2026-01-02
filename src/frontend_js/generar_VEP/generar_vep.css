@@ -183,29 +183,6 @@ body {
 }
 
 /* ========================================
-   BOTÓN VOLVER
-   ======================================== */
-.btn-volver {
-    margin-top: 20px;
-    padding: 12px 24px;
-    background: transparent;
-    color: #6b7280;
-    border: 2px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-    width: 100%;
-}
-
-.btn-volver:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
-    color: #374151;
-}
-
-/* ========================================
    IMÁGENES DE MEDIOS DE PAGO
    ======================================== */
 .img-medio-pago {

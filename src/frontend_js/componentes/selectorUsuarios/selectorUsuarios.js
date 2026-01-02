@@ -265,6 +265,25 @@ class SelectorUsuarios {
         this.agregarEventos();
     }
 
+    /**
+     * Formatea el nombre completo del usuario (nombre + apellido) con capitalización
+     * @param {Object} usuario - Objeto usuario con propiedades nombre y apellido
+     * @returns {string} Nombre completo capitalizado
+     */
+    formatearNombreCompleto(usuario) {
+        const capitalizarTexto = (texto) => {
+            if (!texto) return '';
+            return texto.split(' ')
+                .map(palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1).toLowerCase())
+                .join(' ');
+        };
+
+        const nombre = capitalizarTexto(usuario.nombre || '');
+        const apellido = capitalizarTexto(usuario.apellido || '');
+
+        return apellido ? `${nombre} ${apellido}` : nombre;
+    }
+
     renderizarListaDisponibles() {
         console.log(`🔵 Renderizando lista disponibles: ${this.usuariosFiltrados.length} usuarios`);
 
@@ -308,7 +327,7 @@ class SelectorUsuarios {
                         ${icono}
                     </span>
                     <div class="usuario-info">
-                        <div class="usuario-nombre">${usuario.nombre || 'Sin nombre'}</div>
+                        <div class="usuario-nombre">${this.formatearNombreCompleto(usuario) || 'Sin nombre'}</div>
                         <div class="usuario-cuit">${usuario.cuit || usuario.cuil || 'N/A'}</div>
                         ${estadoValidacion.mensaje ? `
                             <div class="usuario-mensaje-estado">
@@ -378,7 +397,7 @@ class SelectorUsuarios {
                             ❌
                         </button>
                     </td>
-                    <td>${usuario.nombre || 'Sin nombre'}</td>
+                    <td>${this.formatearNombreCompleto(usuario) || 'Sin nombre'}</td>
                     ${this.opciones.mostrarColumnaCUIT ? `<td>${usuario.cuit || usuario.cuil || 'N/A'}</td>` : ''}
                     ${this.renderizarColumnasExtrasFila(usuario, index)}
                 </tr>

@@ -133,13 +133,13 @@ function renderizarColumnasMediosPago(usuario) {
                         ${checked}
                         style="margin-right: 4px;"
                     />
-                    ${cuit}${esElPrincipal ? ' (Principal)' : ''}
+                    ${cuit}
                 </label>
             `;
         }).join('');
 
         columnasHTML += `
-            <td class="cuit-selector-cell" style="padding: 4px 8px; vertical-align: top;">
+            <td class="cuit-selector-cell" style="text-align: center; padding: 4px 8px; vertical-align: top;">
                 ${opciones}
             </td>
         `;
@@ -246,12 +246,6 @@ function configurarEventListeners() {
         btnGenerar.addEventListener('click', generarVEP);
     }
 
-    // Botón volver
-    const btnVolver = document.getElementById('btn-volver');
-    if (btnVolver) {
-        btnVolver.addEventListener('click', volverAlInicio);
-    }
-
     // Botón confirmar selección (de períodos)
     const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
     if (btnConfirmar) {
@@ -268,12 +262,6 @@ function configurarEventListeners() {
     const btnNuevoProceso = document.getElementById('btn-nuevo-proceso-vep');
     if (btnNuevoProceso) {
         btnNuevoProceso.addEventListener('click', iniciarNuevoProceso);
-    }
-
-    // Botón volver desde consulta de deuda
-    const btnVolverDeuda = document.getElementById('btn-volver-deuda');
-    if (btnVolverDeuda) {
-        btnVolverDeuda.addEventListener('click', volverAlInicio);
     }
 
     // Botón ejecutar consulta de deuda
@@ -309,7 +297,7 @@ async function generarVEP() {
     });
 
     if (usuariosSinCuit.length > 0) {
-        const nombresUsuarios = usuariosSinCuit.map(u => u.nombre).join(', ');
+        const nombresUsuarios = usuariosSinCuit.map(u => formatearNombreCompleto(u)).join(', ');
         mostrarMensaje('error',
             `⚠️ Debe seleccionar un CUIT para continuar.\n\n` +
             `Usuario(s) sin CUIT seleccionado: ${nombresUsuarios}\n\n` +
@@ -321,7 +309,7 @@ async function generarVEP() {
     // VALIDACIÓN 2: Verificar que todos tengan medio de pago
     const faltantesMedio = usuariosSeleccionados.filter(u => !mediosPagoSeleccionados[u.id]);
     if (faltantesMedio.length > 0) {
-        const nombresUsuarios = faltantesMedio.map(u => u.nombre).join(', ');
+        const nombresUsuarios = faltantesMedio.map(u => formatearNombreCompleto(u)).join(', ');
         mostrarMensaje('error',
             `⚠️ Debe seleccionar un medio de pago para continuar.\n\n` +
             `Cliente(s) sin medio de pago: ${nombresUsuarios}\n\n` +
@@ -624,6 +612,25 @@ function cancelarTodo() {
 // UTILIDADES
 // ==============================================
 
+/**
+ * Formatea el nombre completo del usuario (nombre + apellido) con capitalización
+ * @param {Object} usuario - Objeto usuario con propiedades nombre y apellido
+ * @returns {string} Nombre completo capitalizado
+ */
+function formatearNombreCompleto(usuario) {
+    const capitalizarTexto = (texto) => {
+        if (!texto) return '';
+        return texto.split(' ')
+            .map(palabra => palabra.charAt(0).toUpperCase() + palabra.slice(1).toLowerCase())
+            .join(' ');
+    };
+
+    const nombre = capitalizarTexto(usuario.nombre || '');
+    const apellido = capitalizarTexto(usuario.apellido || '');
+
+    return apellido ? `${nombre} ${apellido}` : nombre;
+}
+
 function actualizarEstadoGeneracion(usuariosSeleccionados) {
     const totalUsuarios = usuariosSeleccionados.length;
 
@@ -759,14 +766,6 @@ function mostrarMensaje(tipo, mensaje) {
         notificacion.style.animation = 'slideOut 0.3s ease';
         setTimeout(() => notificacion.remove(), 300);
     }, 5000);
-}
-
-function volverAlInicio() {
-    limpiarSelecciones();
-    limpiarTodosLosGrupos();
-    limpiarArchivos();
-    EstadoVEP.reset();
-    window.location.href = '../home_AFIP/home_afip.html';
 }
 
 function iniciarNuevoProceso() {
@@ -919,13 +918,14 @@ function renderizarFormulariosDeuda() {
     contenedor.innerHTML = usuariosSeleccionados.map(usuario => {
         const cuitAMostrar = usuario.cuit || usuario.cuil || 'N/A';
         const datosGuardados = formulariosPorCliente[usuario.id] || {};
+        const nombreCompleto = formatearNombreCompleto(usuario);
 
         return `
             <div class="card-formulario-deuda" data-usuario-id="${usuario.id}">
                 <div class="card-header-deuda">
                     <div class="cliente-info-deuda">
                         <div class="cliente-datos-deuda">
-                            <span class="cliente-nombre-deuda">${usuario.nombre}</span>
+                            <span class="cliente-nombre-deuda">${nombreCompleto}</span>
                             <span class="cliente-cuit-deuda">${cuitAMostrar}</span>
                         </div>
                     </div>
@@ -1199,13 +1199,15 @@ function mostrarResultadosConsultaDeuda(resultados) {
 
     // Renderizar archivos
     listaArchivos.innerHTML = resultados.map(r => {
+        const nombreCompleto = formatearNombreCompleto(r.usuario);
+
         if (r.status === 'success') {
             return `
                 <div class="archivo-item">
                     <div class="archivo-info">
                         <span class="archivo-icono">📊</span>
                         <div class="archivo-detalles">
-                            <div class="archivo-usuario">${r.usuario.nombre}</div>
+                            <div class="archivo-usuario">${nombreCompleto}</div>
                             <div class="archivo-nombre">${r.archivoExcel}</div>
                         </div>
                     </div>
@@ -1225,7 +1227,7 @@ function mostrarResultadosConsultaDeuda(resultados) {
                     <div class="archivo-info">
                         <span class="archivo-icono">❌</span>
                         <div class="archivo-detalles">
-                            <div class="archivo-usuario">${r.usuario.nombre}</div>
+                            <div class="archivo-usuario">${nombreCompleto}</div>
                             <div class="archivo-nombre" style="color: #ef4444;">${r.error}</div>
                         </div>
                     </div>
