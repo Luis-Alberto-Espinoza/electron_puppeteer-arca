@@ -13,7 +13,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="index.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- Componente reutilizable: Modal de confirmación -->
+    <link rel="stylesheet" href="../utils/confirmModal.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 </head>
 
 <body>
@@ -51,6 +54,10 @@
                 <button id="facturasBtn" class="btn-principal">Realizar Facturas</button>
                 <div id="facturasDiv" class="contenido-oculto"></div>
             </div>
+            <div class="seccion" id="facturasTipificadasSeccion">
+                <button id="btnFacturasTipificadas" class="btn-principal">Facturas Tipificadas</button>
+                <div id="facturasTipificadasDiv" class="contenido-oculto"></div>
+            </div>
             <div class="seccion" id="lectorMpSeccion">
                 <button id="btnLectorMP" class="btn-principal">Lector MercadoPago</button>
                 <div id="leerMercadoPagoDiv" class="contenido-oculto"></div>
@@ -72,6 +79,18 @@
             <!-- Aquí se cargará el módulo visual de extraer tablas de PDF -->
         </div>
     </div>
+
+    <!-- Bootstrap JS Bundle (incluye Popper.js) - Necesario para modales -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+    <!-- Componente reutilizable: Modal de confirmación -->
+    <script src="../utils/confirmModal.js"></script>
+    <script>
+        // Inicializar el modal de confirmación cuando el DOM esté listo
+        document.addEventListener('DOMContentLoaded', () => {
+            window.initConfirmModal();
+        });
+    </script>
 
     <script type="module" src="../controlador.js"></script>
     <script src="script.js"></script>
