@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         //ingresoMasivo.checked = true;
         setTimeout(() => {
-          ingresoMasivo.click(); // Simula un clic para activar el evento asociado
+        //  ingresoMasivo.click(); // Simula un clic para activar el evento asociado
         }, 1000);
         const textareaFechas = document.getElementById('textareaFechas');
         const textareaMontos = document.getElementById('textareaMontos');
@@ -134,8 +134,8 @@ document.addEventListener('DOMContentLoaded', function () {
         // Selecciona el mes de julio
         selectMes.selectedIndex = parseInt(mes, 10) - 1;
 
-        // Selecciona el año 2026
-        selectAnio.value = String(anio + 1); // ejemplo: año siguiente
+        // Selecciona el año actual
+        selectAnio.value = String(anio);
 
         /*Preselección de fechas*/
         // Selecciona periodo días hábiles

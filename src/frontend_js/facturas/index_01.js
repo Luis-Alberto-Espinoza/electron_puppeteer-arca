@@ -74,6 +74,11 @@ export function inicializarFacturas() {
             option.textContent = anioActual + i;
             selectAnio.appendChild(option);
         }
+
+        // Preseleccionar mes y año actuales
+        const mesActual = new Date().getMonth() + 1;
+        selectMes.value = mesActual;
+        selectAnio.value = anioActual;
     }
 
     // Función para actualizar la vista inicial del calendario

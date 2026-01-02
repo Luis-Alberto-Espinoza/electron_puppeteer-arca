@@ -62,29 +62,6 @@ export async function inicializarInterfazFacturas() {
         //realizarAccionFacturacion();
     });
 
-    // === Generar Selects de Meses y Años ===
-    if (selectMes && selectAnio) {
-        const meses = [
-            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-        ];
-
-        meses.forEach((mes, index) => {
-            const option = document.createElement('option');
-            option.value = index + 1;
-            option.textContent = mes;
-            selectMes.appendChild(option);
-        });
-
-        const anioActual = new Date().getFullYear();
-        for (let i = 0; i < 5; i++) {
-            const option = document.createElement('option');
-            option.value = anioActual + i;
-            option.textContent = anioActual + i;
-            selectAnio.appendChild(option);
-        }
-    }
-
     // Inicializar flatpickr para fechaComprobante
     if (fechaComprobante) {
         flatpickrFechaComprobante = flatpickr(fechaComprobante, {
@@ -258,6 +235,7 @@ export async function inicializarInterfazFacturas() {
 function configurarUsuarioEnFacturas() {
     const selectUsuariosFacturas = document.getElementById('selectUsuarios');
     const usuarioSeleccionado = window.usuarioSeleccionado;
+
     if (selectUsuariosFacturas && usuarioSeleccionado) {
         const nombreCapitalizado = usuarioSeleccionado.nombre
             ? usuarioSeleccionado.nombre.charAt(0).toUpperCase() + usuarioSeleccionado.nombre.slice(1).toLowerCase()
@@ -273,12 +251,13 @@ function configurarUsuarioEnFacturas() {
 function configurarEmpresasDisponibles() {
     const selectEmpresaDisponible = document.getElementById('selectEmpresaDisponible');
     const usuarioSeleccionado = window.usuarioSeleccionado;
+
     if (!selectEmpresaDisponible || !usuarioSeleccionado) return;
 
     // Limpiar opciones previas
     selectEmpresaDisponible.innerHTML = '';
 
-    const empresas = usuarioSeleccionado.empresasDisponibles || [];
+    const empresas = usuarioSeleccionado.empresasDisponible || [];
     if (empresas.length === 0) {
         // Si no hay empresas, mostrar opción vacía
         const option = document.createElement('option');
@@ -377,3 +356,7 @@ function mostrarResultadoFactura(resultado) {
 
     div.innerHTML = html;
 }
+
+// Exportar funciones para que puedan ser llamadas desde controlador.js al cambiar de usuario
+window.configurarUsuarioEnFacturas = configurarUsuarioEnFacturas;
+window.configurarEmpresasDisponibles = configurarEmpresasDisponibles;
