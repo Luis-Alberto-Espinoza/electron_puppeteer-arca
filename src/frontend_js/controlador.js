@@ -5,7 +5,7 @@ import { inicializarInterfazFacturas } from './facturas/interfazFacturas.js';
  */
 function ocultarSubmodulos() {
     // Oculta submódulos de AFIP
-    ['facturasDiv', 'leerMercadoPagoDiv', 'libroIvaDiv'].forEach(id => {
+    ['facturasDiv', 'facturasTipificadasDiv', 'leerMercadoPagoDiv', 'libroIvaDiv'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('contenido-oculto');
     });
@@ -132,9 +132,12 @@ async function mostrarSelectorUsuario() {
     // Mostrar el div
     mostrarSoloModulo('selectorUsuarioDiv');
 
-    // Si ya está inyectado, no volver a inyectar
+    // Si ya está inyectado, solo mostrar y recargar usuarios
     if (selectorUsuariosAfip) {
-        console.log('✅ Selector ya existe, reutilizando...');
+        // Recargar la lista de usuarios para que esté actualizada
+        if (selectorUsuariosAfip.cargarUsuarios) {
+            await selectorUsuariosAfip.cargarUsuarios();
+        }
         return;
     }
 
@@ -201,11 +204,12 @@ async function mostrarSelectorUsuario() {
             mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
 
             onCambioSeleccion: (usuariosSeleccionados) => {
-                // Solo permitir 1 usuario
+                // Solo permitir 1 usuario - tomar el ÚLTIMO (el recién clickeado)
                 if (usuariosSeleccionados.length > 0) {
-                    const usuario = usuariosSeleccionados[0];
+                    // Tomar el último usuario (el que acabamos de seleccionar)
+                    const usuario = usuariosSeleccionados[usuariosSeleccionados.length - 1];
 
-                    // Limitar a 1 solo
+                    // Limitar a 1 solo - mantener solo el último
                     if (usuariosSeleccionados.length > 1) {
                         selectorUsuariosAfip.usuariosSeleccionados = [usuario];
                         selectorUsuariosAfip.actualizarVista();
@@ -690,6 +694,9 @@ function seleccionarUsuario(usuarioCompleto) {
     if (typeof onUsuarioSeleccionado === 'function') {
         onUsuarioSeleccionado();
     }
+
+    // Actualizar la información del usuario mostrada
+    actualizarUIConNuevoUsuario();
 }
 
 /**
@@ -708,10 +715,38 @@ function mostrarModulosAfip() {
 }
 
 /**
+ * Actualiza la UI de todos los módulos con el nuevo usuario seleccionado
+ */
+function actualizarUIConNuevoUsuario() {
+    // Actualizar badge de usuario activo
+    mostrarUsuarioSeleccionado();
+
+    // Actualizar módulo de facturas si está cargado
+    if (typeof window.configurarUsuarioEnFacturas === 'function') {
+        window.configurarUsuarioEnFacturas();
+    }
+
+    if (typeof window.configurarEmpresasDisponibles === 'function') {
+        window.configurarEmpresasDisponibles();
+    }
+
+    // Actualizar módulo de facturas tipificadas si está cargado
+    if (typeof window.mostrarInfoUsuario === 'function') {
+        window.mostrarInfoUsuario();
+    }
+
+    // Actualizar módulo de MercadoPago si está cargado
+    if (window.configurarUsuarioMercadoPago && typeof window.configurarUsuarioMercadoPago === 'function') {
+        window.configurarUsuarioMercadoPago(window.usuarioSeleccionado);
+    }
+}
+
+/**
  * Muestra la información del usuario seleccionado con opción para cambiarlo
  */
 function mostrarUsuarioSeleccionado() {
     const infoUsuarioDiv = document.getElementById('infoUsuarioSeleccionado');
+
     if (infoUsuarioDiv && usuarioSeleccionado) {
         const nombreCapitalizado = capitalizarNombre(usuarioSeleccionado.nombre);
 
@@ -741,6 +776,7 @@ function mostrarUsuarioSeleccionado() {
  */
 function inicializarModulosAfip() {
     inicializarInterfazFacturas(); // Módulo de facturas
+    inicializarFacturasTipificadasModulo(); // Módulo de facturas tipificadas
     inicializarMercadoPago();      // Módulo de MercadoPago
     inicializarLibroIVA();         // Módulo de Libro IVA
 }
@@ -862,6 +898,108 @@ function inicializarLibroIVA() {
             } catch (error) {
                 console.error('Error cargando módulo Libro IVA:', error);
                 libroIvaDiv.innerHTML = '<p>Error cargando el componente Libro IVA</p>';
+            }
+        });
+    }
+}
+
+/**
+ * Inicializa el módulo de Facturas Tipificadas con carga dinámica
+ */
+function inicializarFacturasTipificadasModulo() {
+    const btnFacturasTipificadas = document.getElementById('btnFacturasTipificadas');
+    const facturasTipificadasDiv = document.getElementById('facturasTipificadasDiv');
+
+    if (btnFacturasTipificadas && facturasTipificadasDiv) {
+        btnFacturasTipificadas.addEventListener('click', async () => {
+            try {
+                // Toggle: si ya está visible, ocultarlo y limpiar
+                if (!facturasTipificadasDiv.classList.contains('contenido-oculto')) {
+                    facturasTipificadasDiv.classList.add('contenido-oculto');
+                    facturasTipificadasDiv.innerHTML = '';
+                    return;
+                }
+
+                // Ocultar otros submódulos
+                ocultarSubmodulos();
+
+                // Cargar HTML del módulo
+                const htmlPath = '../facturaTipificada/facturaTipificada.html';
+                const response = await fetch(htmlPath);
+                if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+                const html = await response.text();
+                facturasTipificadasDiv.innerHTML = html;
+                facturasTipificadasDiv.classList.remove('contenido-oculto');
+
+                // Cargar CSS del módulo si no está presente
+                const cssPath = '../facturaTipificada/facturaTipificada.css';
+                if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+                    const cssLink = document.createElement('link');
+                    cssLink.rel = 'stylesheet';
+                    cssLink.href = cssPath;
+                    document.head.appendChild(cssLink);
+                    console.log('✅ CSS de Facturas Tipificadas cargado');
+                }
+
+                // Cargar CSS del componente SelectorUsuarios si no está presente
+                const selectorCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+                if (!document.head.querySelector(`link[href="${selectorCssPath}"]`)) {
+                    const selectorCssLink = document.createElement('link');
+                    selectorCssLink.rel = 'stylesheet';
+                    selectorCssLink.href = selectorCssPath;
+                    document.head.appendChild(selectorCssLink);
+                    console.log('✅ CSS de SelectorUsuarios cargado');
+                }
+
+                // Cargar JS del componente SelectorUsuarios primero
+                const selectorJsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+                const cargarSelectorScript = () => {
+                    return new Promise((resolve, reject) => {
+                        // Verificar si ya está cargado
+                        if (typeof SelectorUsuarios !== 'undefined') {
+                            resolve();
+                            return;
+                        }
+
+                        const oldSelectorScript = document.head.querySelector(`script[src="${selectorJsPath}"]`);
+                        if (oldSelectorScript) oldSelectorScript.remove();
+
+                        const selectorScript = document.createElement('script');
+                        selectorScript.src = selectorJsPath;
+                        selectorScript.defer = true;
+                        selectorScript.onload = () => {
+                            console.log('✅ SelectorUsuarios.js cargado');
+                            resolve();
+                        };
+                        selectorScript.onerror = () => reject(new Error('Error al cargar SelectorUsuarios.js'));
+                        document.head.appendChild(selectorScript);
+                    });
+                };
+
+                await cargarSelectorScript();
+
+                // Cargar JavaScript del módulo
+                const jsPath = '../facturaTipificada/facturaTipificada.js';
+                const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+                if (oldScript) oldScript.remove();
+
+                const script = document.createElement('script');
+                script.src = jsPath;
+                script.defer = true;
+                script.onload = () => {
+                    console.log('✅ facturaTipificada.js cargado');
+                    // Inicializar el módulo
+                    if (window.inicializarFacturasTipificadas) {
+                        window.inicializarFacturasTipificadas();
+                    } else {
+                        console.error('❌ window.inicializarFacturasTipificadas no está definida');
+                    }
+                };
+                document.head.appendChild(script);
+
+            } catch (error) {
+                console.error('❌ Error cargando módulo Facturas Tipificadas:', error);
+                facturasTipificadasDiv.innerHTML = '<div style="color:red;">Error cargando el módulo de Facturas Tipificadas.</div>';
             }
         });
     }
