@@ -416,7 +416,7 @@ function inicializarUsuarioEmpresaActividadMP() {
     const selectEmpresaMP = document.getElementById('selectEmpresaDisponibleMP');
     if (selectEmpresaMP && usuario) {
         selectEmpresaMP.innerHTML = '';
-        const empresas = usuario.empresasDisponibles || [];
+        const empresas = usuario.empresasDisponible || [];
         if (empresas.length === 0) {
             const option = document.createElement('option');
             option.value = '';
