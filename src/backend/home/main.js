@@ -391,7 +391,8 @@ function setupIpcListeners() {
 
             let finalResult = {
                 success: false, // Será true si CUALQUIER credencial es válida
-                puntosDeVentaArray: [],
+                empresasDisponible: [],
+                cuitAsociados: [],
                 error: null
             };
 
@@ -401,7 +402,8 @@ function setupIpcListeners() {
                 const afipResult = await verificarYObtenerDatosAFIP(page, credenciales);
                 if (afipResult.success) {
                     finalResult.success = true;
-                    finalResult.puntosDeVentaArray = afipResult.data.puntosDeVentaArray || [];
+                    finalResult.empresasDisponible = afipResult.data.puntosDeVentaArray || [];
+                    finalResult.cuitAsociados = afipResult.data.cuitAsociados || [];
                     console.log('[Verificación Manual] AFIP: Éxito.');
                 } else {
                     finalResult.error = afipResult.error || 'Credenciales AFIP inválidas.';
@@ -854,6 +856,297 @@ ipcMain.handle('consultaDeuda:consultar', async (event, consultasData) => {
             message: `Error al consultar deuda: ${error.message}`,
             error: error.toString()
         };
+    }
+});
+
+// ========================================
+// HANDLER: FACTURAS TIPIFICADAS
+// ========================================
+ipcMain.handle('facturaTipificada:generar', async (event, datos) => {
+    console.log('🔵 BACKEND: Recibida solicitud para generar factura tipificada');
+    console.log('Datos recibidos:', JSON.stringify(datos, null, 2));
+
+    const { usuarioSeleccionado, ...datosFactura } = datos;
+
+    if (!usuarioSeleccionado) {
+        return {
+            success: false,
+            message: 'No se recibió información del usuario seleccionado'
+        };
+    }
+
+    try {
+        const { iniciarProcesoFacturaCliente } = require('../puppeteer/facturas/facturaClienteManager');
+
+        // Preparar credenciales
+        const credenciales = {
+            usuario: usuarioSeleccionado.cuit || usuarioSeleccionado.cuil,
+            contrasena: usuarioSeleccionado.claveAFIP, // NOTA: El login espera "contrasena" no "password"
+            nombreEmpresa: usuarioSeleccionado.empresasDisponible?.[0] || ''
+        };
+
+        // Validar credenciales
+        if (!credenciales.usuario || !credenciales.contrasena) {
+            return {
+                success: false,
+                message: 'Faltan credenciales del usuario (CUIT/CUIL o clave AFIP)'
+            };
+        }
+
+        console.log(`🔵 Generando factura para: ${usuarioSeleccionado.nombre} (${credenciales.usuario})`);
+
+        // Llamar al servicio de facturación
+        const resultado = await iniciarProcesoFacturaCliente(
+            'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
+            credenciales,
+            datosFactura,
+            false, // test mode = false
+            usuarioSeleccionado,
+            usuarioSeleccionado.empresasDisponible?.[0] || datosFactura.puntoVenta || '0001'
+        );
+
+        console.log('✅ Resultado de facturación:', resultado);
+
+        return resultado;
+
+    } catch (error) {
+        console.error('❌ BACKEND: Error al generar factura tipificada:', error);
+        return {
+            success: false,
+            message: `Error al generar factura: ${error.message}`,
+            error: error.toString()
+        };
+    }
+});
+
+// ========================================
+// HANDLER: LOTE DE FACTURAS TIPIFICADAS
+// ========================================
+ipcMain.handle('facturaTipificada:generarLote', async (event, datos) => {
+    console.log('🔵 BACKEND: Recibida solicitud para generar LOTE de facturas tipificadas');
+    console.log(`📊 Total de facturas a procesar: ${datos.facturas?.length || 0}`);
+
+    const { datosComunes, facturas } = datos;
+
+    if (!datosComunes.usuarioSeleccionado) {
+        return {
+            success: false,
+            message: 'No se recibió información del usuario seleccionado'
+        };
+    }
+
+    if (!facturas || facturas.length === 0) {
+        return {
+            success: false,
+            message: 'No hay facturas para generar'
+        };
+    }
+
+    const resultados = [];
+    const { iniciarProcesoFacturaCliente } = require('../puppeteer/facturas/facturaClienteManager');
+
+    // Preparar credenciales (comunes para todas)
+    const credenciales = {
+        usuario: datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil,
+        contrasena: datosComunes.usuarioSeleccionado.claveAFIP, // NOTA: El login espera "contrasena" no "password"
+        nombreEmpresa: datosComunes.usuarioSeleccionado.empresasDisponible?.[0] || ''
+    };
+
+    // Validar credenciales
+    if (!credenciales.usuario || !credenciales.contrasena) {
+        return {
+            success: false,
+            message: 'Faltan credenciales del usuario (CUIT/CUIL o clave AFIP)'
+        };
+    }
+
+    console.log(`🔵 Generando ${facturas.length} facturas para: ${datosComunes.usuarioSeleccionado.nombre}`);
+
+    // Procesar cada factura
+    for (let i = 0; i < facturas.length; i++) {
+        const factura = facturas[i];
+        const numeroFactura = factura.numeroFactura;
+        const primeraLinea = factura.lineasDetalle[0];
+        const descripcion = primeraLinea?.descripcion || 'Sin descripción';
+
+        try {
+            // Notificar que está en progreso
+            event.sender.send('facturaTipificada:progreso', {
+                actual: i + 1,
+                total: facturas.length,
+                numeroFactura: numeroFactura,
+                descripcion: descripcion,
+                status: 'en_progreso',
+                mensaje: 'Generando...'
+            });
+
+            console.log(`📄 [${i + 1}/${facturas.length}] Generando factura #${numeroFactura}: ${descripcion}`);
+
+            // Combinar datos comunes con datos específicos de esta factura
+            const datosFactura = {
+                ...datosComunes,
+                lineasDetalle: factura.lineasDetalle,
+                usuarioSeleccionado: datosComunes.usuarioSeleccionado
+            };
+
+            // Generar la factura
+            const resultado = await iniciarProcesoFacturaCliente(
+                'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
+                credenciales,
+                datosFactura,
+                false, // test mode = false
+                datosComunes.usuarioSeleccionado,
+                datosComunes.usuarioSeleccionado.empresasDisponible?.[0] || datosComunes.puntoVenta || '0001'
+            );
+
+            // Notificar éxito
+            event.sender.send('facturaTipificada:progreso', {
+                actual: i + 1,
+                total: facturas.length,
+                numeroFactura: numeroFactura,
+                descripcion: descripcion,
+                status: 'completada',
+                mensaje: resultado.message || 'Completada',
+                pdfPath: resultado.pdfPath
+            });
+
+            console.log(`✅ [${i + 1}/${facturas.length}] Factura #${numeroFactura} generada exitosamente`);
+
+            resultados.push({
+                success: true,
+                numeroFactura: numeroFactura,
+                message: resultado.message,
+                pdfPath: resultado.pdfPath
+            });
+
+            // Pausa de 2 segundos entre facturas (excepto la última)
+            if (i < facturas.length - 1) {
+                console.log('⏱️  Pausa de 2 segundos antes de la siguiente factura...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
+        } catch (error) {
+            console.error(`❌ [${i + 1}/${facturas.length}] Error en factura #${numeroFactura}:`, error);
+
+            // Notificar error
+            event.sender.send('facturaTipificada:progreso', {
+                actual: i + 1,
+                total: facturas.length,
+                numeroFactura: numeroFactura,
+                descripcion: descripcion,
+                status: 'error',
+                mensaje: error.message
+            });
+
+            resultados.push({
+                success: false,
+                numeroFactura: numeroFactura,
+                message: error.message,
+                error: error.toString()
+            });
+
+            // Continuar con la siguiente factura aunque esta haya fallado
+        }
+    }
+
+    // Resumen final
+    const exitosas = resultados.filter(r => r.success).length;
+    const fallidas = resultados.filter(r => !r.success).length;
+
+    console.log(`\n📊 RESUMEN DEL LOTE:`);
+    console.log(`   Total: ${resultados.length}`);
+    console.log(`   ✅ Exitosas: ${exitosas}`);
+    console.log(`   ❌ Fallidas: ${fallidas}\n`);
+
+    return {
+        success: true,
+        message: `Lote procesado: ${exitosas} exitosas, ${fallidas} fallidas`,
+        resultados: resultados,
+        resumen: {
+            total: resultados.length,
+            exitosas: exitosas,
+            fallidas: fallidas
+        }
+    };
+});
+
+// ========================================
+// HANDLER: FACTURAS DE CLIENTE (CON PROGRESO EN TIEMPO REAL)
+// ========================================
+ipcMain.handle('facturaCliente:generar', async (event, datos) => {
+    console.log('🔵 BACKEND: Recibida solicitud para generar facturas de cliente');
+    console.log('Datos recibidos:', JSON.stringify(datos, null, 2));
+
+    const { usuarioSeleccionado, facturas, modoTest, ...datosComunes } = datos;
+
+    if (!usuarioSeleccionado) {
+        return {
+            success: false,
+            message: 'No se recibió información del usuario seleccionado'
+        };
+    }
+
+    // Preparar credenciales
+    const credenciales = {
+        usuario: usuarioSeleccionado.cuit || usuarioSeleccionado.cuil,
+        contrasena: usuarioSeleccionado.claveAFIP,
+        nombreEmpresa: usuarioSeleccionado.empresasDisponible?.[0] || ''
+    };
+
+    // Validar credenciales
+    if (!credenciales.usuario || !credenciales.contrasena) {
+        return {
+            success: false,
+            message: 'Faltan credenciales del usuario (CUIT/CUIL o clave AFIP)'
+        };
+    }
+
+    try {
+        const { iniciarProcesoFacturaCliente } = require('../puppeteer/facturas/facturaClienteManager');
+
+        // Función callback para enviar progreso
+        const enviarProgreso = (datosProgreso) => {
+            if (event.sender && !event.sender.isDestroyed()) {
+                event.sender.send('facturaCliente:progreso', datosProgreso);
+            }
+        };
+
+        // Preparar datos para el flujo (pueden ser array o objeto único)
+        const datosParaFlujo = facturas || datos;
+
+        // Ejecutar el flujo de facturación
+        const resultado = await iniciarProcesoFacturaCliente(
+            'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
+            credenciales,
+            datosParaFlujo,
+            modoTest || false,
+            usuarioSeleccionado,
+            usuarioSeleccionado.empresasDisponible?.[0] || datosComunes.puntoVenta || '0001',
+            enviarProgreso // ← Pasamos la función de callback
+        );
+
+        // Enviar resultado final
+        if (event.sender && !event.sender.isDestroyed()) {
+            event.sender.send('facturaCliente:resultado', resultado);
+        }
+
+        return resultado;
+
+    } catch (error) {
+        console.error('❌ Error en facturaCliente:generar:', error);
+
+        const errorResult = {
+            success: false,
+            message: error.message,
+            error: error.toString()
+        };
+
+        // Enviar resultado de error
+        if (event.sender && !event.sender.isDestroyed()) {
+            event.sender.send('facturaCliente:resultado', errorResult);
+        }
+
+        return errorResult;
     }
 });
 

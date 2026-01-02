@@ -84,4 +84,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
         consultar: (datos) => ipcRenderer.invoke('consultaDeuda:consultar', datos),
         onConsultaDeudaUpdate: (callback) => ipcRenderer.on('consultaDeuda:update', (_event, datos) => callback(datos))
     },
+
+    // APIs para Facturas Tipificadas
+    facturaTipificada: {
+        generar: (datos) => ipcRenderer.invoke('facturaTipificada:generar', datos),
+        generarLote: (datos) => ipcRenderer.invoke('facturaTipificada:generarLote', datos),
+        onFacturaTipificadaUpdate: (callback) => ipcRenderer.on('facturaTipificada:update', (_event, datos) => callback(datos)),
+        onProgreso: (callback) => ipcRenderer.on('facturaTipificada:progreso', (_event, datos) => callback(datos))
+    },
+
+    // APIs para Facturas de Cliente (con progreso en tiempo real)
+    facturaCliente: {
+        generar: (datos) => ipcRenderer.invoke('facturaCliente:generar', datos),
+        onProgreso: (callback) => ipcRenderer.on('facturaCliente:progreso', (_event, datos) => callback(datos)),
+        onResultado: (callback) => ipcRenderer.on('facturaCliente:resultado', (_event, datos) => callback(datos))
+    },
 });

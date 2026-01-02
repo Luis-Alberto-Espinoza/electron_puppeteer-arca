@@ -4,10 +4,42 @@ const path = require('path');
 const fs = require('fs/promises');
 const { fork } = require('child_process');
 
-async function paso_4_ConfirmarFactura(newPage, modoTest) {
+async function paso_4_ConfirmarFactura(newPage, modoTest, usuarioSeleccionado = null, downloadsPath = null) {
     try {
         // Esperar a que los elementos estén disponibles
         await newPage.waitForSelector('#contenido', { timeout: 120000 });
+
+        // Variables para descarga de PDF (si se especifican los parámetros)
+        let pdfPath = null;
+        let downloadDir = null;
+
+        // Si se proporcionan usuarioSeleccionado y downloadsPath, configurar descarga de PDF
+        if (!modoTest && usuarioSeleccionado && downloadsPath) {
+            const userName = usuarioSeleccionado.nombreUsuario || 'default';
+
+            // Estructura: /Descargas/gestor_afip_atm/[USUARIO]/archivos_afip/facturas/
+            downloadDir = path.join(
+                downloadsPath,
+                'gestor_afip_atm',
+                userName.replace(/[^a-zA-Z0-9]/g, '_'),
+                'archivos_afip',
+                'facturas'
+            );
+
+            // Crear el directorio si no existe
+            await fs.mkdir(downloadDir, { recursive: true });
+
+            console.log(`📁 PDF se descargará en: ${downloadDir}`);
+
+            // Configurar el cliente CDP para interceptar el PDF
+            const client = await newPage.target().createCDPSession();
+
+            // Habilitar la descarga de archivos
+            await client.send('Page.setDownloadBehavior', {
+                behavior: 'allow',
+                downloadPath: downloadDir
+            });
+        }
 
         if (modoTest) {
             // Obtener el tamaño máximo de la pantalla
@@ -125,11 +157,60 @@ async function paso_4_ConfirmarFactura(newPage, modoTest) {
             }
         }, modoTest);
 
-        // Esperar la navegación después de hacer clic en el botón
+        // Esperar la navegación después de hacer clic en el botón (confirmación)
         await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
 
-        console.log("paso_4_ConfirmarFactura");
-        return { success: true, message: "Confirmacion de la operación completados" };
+        // Si se configuró descarga de PDF, hacer clic en "Imprimir..." y esperar descarga
+        if (downloadDir) {
+            console.log("🖨️  Descargando PDF...");
+
+            // Listar archivos PDF actuales
+            const archivosAntes = await fs.readdir(downloadDir).then(files =>
+                files.filter(f => f.endsWith('.pdf'))
+            ).catch(() => []);
+
+            console.log(`📄 PDFs existentes: ${archivosAntes.length}`);
+
+            // Hacer clic en botón "Imprimir..."
+            await newPage.waitForSelector('input[value="Imprimir..."]', { timeout: 30000 });
+            await newPage.click('input[value="Imprimir..."]');
+            console.log('✓ Clic en "Imprimir..." ejecutado');
+
+            // Esperar descarga del PDF (timeout: 30 segundos)
+            console.log('⏳ Esperando descarga del PDF...');
+            const startTime = Date.now();
+            const timeout = 30000;
+            let pdfEncontrado = false;
+
+            while (Date.now() - startTime < timeout && !pdfEncontrado) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                const archivosDespues = await fs.readdir(downloadDir).then(files =>
+                    files.filter(f => f.endsWith('.pdf'))
+                ).catch(() => []);
+
+                const nuevosArchivos = archivosDespues.filter(f => !archivosAntes.includes(f));
+
+                if (nuevosArchivos.length > 0) {
+                    const nombrePDF = nuevosArchivos[0];
+                    pdfPath = path.join(downloadDir, nombrePDF);
+                    console.log(`✅ PDF descargado: ${nombrePDF}`);
+                    pdfEncontrado = true;
+                    break;
+                }
+            }
+
+            if (!pdfEncontrado) {
+                console.warn('⚠️  No se detectó la descarga del PDF en 30 segundos');
+            }
+        }
+
+        console.log("paso_4_ConfirmarFactura completado");
+        return {
+            success: true,
+            message: "Confirmación de la operación completada",
+            pdfPath: pdfPath || null
+        };
     } catch (error) {
         console.error("Error al ejecutar el paso 4:", error);
         throw error;

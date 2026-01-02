@@ -213,10 +213,10 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     await gestionarValidacion(browser, usuario, servicesToVerify);
 
                     // ✅ Obtener puntos de venta y CUITs del usuario validado
-                    const puntosDeVentaArray = usuario.puntosDeVenta || [];
+                    const empresasDisponible = usuario.puntosDeVenta || [];
                     const cuitAsociados = usuario.cuitAsociados || [];
 
-                    console.log('[Verificación Manual] Puntos de venta obtenidos:', puntosDeVentaArray);
+                    console.log('[Verificación Manual] Empresas disponibles obtenidas:', empresasDisponible);
                     if (cuitAsociados.length > 0) {
                         console.log('[Verificación Manual] CUITs asociados obtenidos:', cuitAsociados);
                     }
@@ -224,7 +224,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     // Traducir resultados
                     const finalResult = {
                         success: false,
-                        puntosDeVentaArray,
+                        empresasDisponible,
                         cuitAsociados,
                         error: null,
                         verificaciones: {
@@ -271,7 +271,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     resolve({
                         success: false,
                         error: error.message,
-                        puntosDeVentaArray: [],
+                        empresasDisponible: [],
                         cuitAsociados: [],
                         verificaciones: {
                             afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
@@ -309,7 +309,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             return {
                 success: false,
                 error: error.message,
-                puntosDeVentaArray: [],
+                empresasDisponible: [],
                 cuitAsociados: [],
                 verificaciones: {
                     afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
@@ -402,6 +402,15 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
                 // Llama a la función de validación modular
                 await gestionarValidacion(browser, usuario, servicesToVerify);
+
+                // Mapear puntos de venta y CUITs asociados a los campos correctos del esquema de usuario
+                if (usuario.puntosDeVenta && usuario.puntosDeVenta.length > 0) {
+                    usuario.empresasDisponible = usuario.puntosDeVenta;
+                    console.log(`  -> Puntos de venta mapeados a empresasDisponible: ${usuario.empresasDisponible.length}`);
+                }
+                if (usuario.cuitAsociados && usuario.cuitAsociados.length > 0) {
+                    console.log(`  -> CUITs asociados guardados: ${usuario.cuitAsociados.length}`);
+                }
 
                 // Traducir resultados a los nuevos estados
                 let userSuccess = false;

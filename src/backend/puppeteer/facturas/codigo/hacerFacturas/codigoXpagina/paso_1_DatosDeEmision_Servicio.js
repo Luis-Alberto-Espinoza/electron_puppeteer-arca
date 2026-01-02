@@ -71,7 +71,16 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
         await Promise.all([
             newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 }), // Espera la navegación
             newPage.evaluate(() => {
-                let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");
+                // Intentar múltiples selectores para encontrar el botón "Continuar"
+                let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)") ||
+                                  document.querySelector('input[type="button"][value*="Continuar"]') ||
+                                  document.querySelector('input[type="button"][onclick*="confirmarDatos"]') ||
+                                  document.querySelectorAll('#contenido > form > input[type="button"]')[0];
+
+                if (!btnContinuar) {
+                    throw new Error('No se encontró el botón Continuar');
+                }
+
                 btnContinuar.click(); // Haz clic en el botón
             })
         ]);
