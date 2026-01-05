@@ -22,11 +22,24 @@ const os = require('os');
 // ============================================================================
 
 /**
- * Obtiene el nombre del mes actual en español abreviado
+ * Extrae el mes en español abreviado de un periodo en formato MM/YYYY
+ * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
  * @returns {string} Nombre del mes (ene, feb, mar, etc.)
  */
-function obtenerMesActual() {
+function obtenerMesDePeriodo(periodo) {
     const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+    // Extraer el mes del periodo "12/2025" → "12"
+    const partes = periodo.split('/');
+    if (partes.length === 2) {
+        const mesNumero = parseInt(partes[0], 10); // "12" → 12
+        if (mesNumero >= 1 && mesNumero <= 12) {
+            return meses[mesNumero - 1]; // 12 → índice 11 → "dic"
+        }
+    }
+
+    // Fallback: mes actual si el formato es inválido
+    console.warn(`[obtenerMesDePeriodo] Formato de periodo inválido: ${periodo}, usando mes actual`);
     const fecha = new Date();
     return meses[fecha.getMonth()];
 }
@@ -48,11 +61,12 @@ function sanitizarNombre(nombre) {
  * @param {string} nombreEmpresa - Nombre de la empresa
  * @param {string} cuit - CUIT de la empresa
  * @param {string} estado - ACEPTADA o RECHAZADA
+ * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
  * @returns {string} Nombre del archivo sin extensión
  */
-function generarNombreArchivo(nombreEmpresa, cuit, estado) {
+function generarNombreArchivo(nombreEmpresa, cuit, estado, periodo) {
     const empresaSanitizada = sanitizarNombre(nombreEmpresa);
-    const mes = obtenerMesActual();
+    const mes = obtenerMesDePeriodo(periodo);
     const estadoTexto = estado === 'ACEPTADA' ? 'tasaCero_Aceptado' : 'tasaCero_Rechazado';
 
     return `${empresaSanitizada}_${cuit}_${mes}_${estadoTexto}`;
@@ -169,9 +183,10 @@ const SELECTORES = {
  * @param {string} carpetaDescarga - Carpeta donde guardar el PDF
  * @param {string} nombreEmpresa - Nombre de la empresa
  * @param {string} cuit - CUIT de la empresa
+ * @param {string} periodo - Periodo en formato YYYY-MM (ej: "2025-12")
  * @returns {Promise<{exito: boolean, rutaArchivo?: string, estado?: string, mensaje?: string}>}
  */
-async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga, nombreEmpresa, cuit) {
+async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga, nombreEmpresa, cuit, periodo) {
     try {
         const tiempoInicio = Date.now();
         console.log(`⏱️ [${new Date().toISOString()}] [Flujo Tasa Cero] Iniciando proceso...`);
@@ -192,6 +207,108 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
 
         // A partir de ahora, usamos frameListado
         const paginaConBotones = frameListado;
+
+        // ====================================================================
+        // PASO 0.5: Seleccionar el periodo en el formulario
+        // ====================================================================
+        console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] [Paso 0.5] Seleccionando periodo ${periodo} en el formulario...`);
+
+        try {
+            // Buscar el select de periodo
+            await paginaConBotones.waitForSelector('select', { visible: true, timeout: 5000 });
+
+            // Buscar y seleccionar el periodo por texto visible
+            const resultadoSeleccion = await paginaConBotones.evaluate((periodoDeseado) => {
+                const selects = document.querySelectorAll('select');
+
+                // Buscar el select que contiene options con periodos (formato MM/YYYY)
+                for (const select of selects) {
+                    const options = Array.from(select.options);
+
+                    // Verificar si este select tiene opciones con formato de periodo
+                    const tienePeriodos = options.some(opt => {
+                        const texto = opt.textContent || opt.innerText || '';
+                        return texto.match(/\d{2}\/\d{4}/) || texto.match(/Periodo\s+\d{2}\/\d{4}/);
+                    });
+
+                    if (tienePeriodos) {
+                        console.log('[DEBUG] Select de periodos encontrado');
+
+                        // Buscar el option que contiene el periodo deseado en su texto
+                        let optionEncontrado = null;
+                        for (let i = 0; i < options.length; i++) {
+                            const option = options[i];
+                            const texto = option.textContent || option.innerText || '';
+
+                            // Buscar si el texto contiene el periodo (ej: "12/2025")
+                            if (texto.includes(periodoDeseado)) {
+                                optionEncontrado = option;
+                                console.log('[DEBUG] Option encontrado:', texto);
+                                break;
+                            }
+                        }
+
+                        if (optionEncontrado) {
+                            // Seleccionar por índice (más confiable que por value)
+                            select.selectedIndex = optionEncontrado.index;
+
+                            // Disparar evento change
+                            const event = new Event('change', { bubbles: true });
+                            select.dispatchEvent(event);
+
+                            // Verificar que realmente se seleccionó
+                            const textoSeleccionado = select.options[select.selectedIndex].textContent || select.options[select.selectedIndex].innerText || '';
+
+                            return {
+                                exito: textoSeleccionado.includes(periodoDeseado),
+                                textoSeleccionado: textoSeleccionado,
+                                periodoEncontrado: true
+                            };
+                        } else {
+                            // El select existe pero no tiene ese periodo
+                            console.warn('[DEBUG] El periodo no está en las opciones disponibles');
+                            return {
+                                exito: false,
+                                textoSeleccionado: null,
+                                periodoEncontrado: false
+                            };
+                        }
+                    }
+                }
+
+                console.warn('[DEBUG] No se encontró select de periodos');
+                return {
+                    exito: false,
+                    textoSeleccionado: null,
+                    periodoEncontrado: false,
+                    sinSelect: true
+                };
+            }, periodo);
+
+            // Evaluar el resultado
+            if (resultadoSeleccion.sinSelect) {
+                console.warn(`⚠️ [Paso 0.5] No se encontró select de periodos en el formulario`);
+                console.warn('⚠️ Se procederá con el periodo predeterminado del formulario');
+            } else if (!resultadoSeleccion.periodoEncontrado) {
+                // El periodo no está disponible - ERROR CRÍTICO
+                throw new Error(`El periodo ${periodo} no está disponible aún`);
+            } else if (!resultadoSeleccion.exito) {
+                // Se encontró pero no se pudo seleccionar - ERROR CRÍTICO
+                throw new Error(`No se pudo seleccionar el periodo ${periodo}`);
+            } else {
+                // TODO OK
+                console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] ✅ [Paso 0.5] Periodo ${periodo} seleccionado correctamente`);
+                console.log(`✅ Texto del option seleccionado: "${resultadoSeleccion.textoSeleccionado}"`);
+            }
+        } catch (error) {
+            // Si el error es sobre periodo no disponible, propagarlo
+            if (error.message.includes('no está disponible')) {
+                throw error;
+            }
+            // Otros errores técnicos
+            console.warn(`⚠️ [Paso 0.5] Error técnico al seleccionar periodo: ${error.message}`);
+            console.warn('⚠️ Se procederá con el periodo predeterminado del formulario');
+        }
 
         // ====================================================================
         // PASO 1: Hacer clic en el botón "Procesar"
@@ -387,17 +504,35 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
         await botonEnviar.click();
 
         // ====================================================================
-        // PASO 5: Esperar 4 segundos (procesamiento del sistema)
+        // PASO 5: Esperar a que el sistema procese
         // ====================================================================
-        console.log('⏳ [Paso 5] Esperando 4 segundos para que el sistema procese...');
-        await new Promise(resolve => setTimeout(resolve, SELECTORES.tiempoEsperaProcesamiento));
+        console.log('⏳ [Paso 5] Esperando respuesta del sistema...');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // ====================================================================
+        // PASO 5.5: Volver a obtener el frame actualizado después de enviar
+        // ====================================================================
+        const framesResultado = paginaTasaCero.frames();
+        let frameResultado = null;
+
+        for (const frame of framesResultado) {
+            if (frame.name() === 'listado') {
+                frameResultado = frame;
+                break;
+            }
+        }
+
+        if (!frameResultado) {
+            throw new Error('No se pudo obtener el frame actualizado con el resultado');
+        }
+
+        // Esperar un momento adicional para que el contenido se cargue completamente
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // ====================================================================
         // PASO 6: Detectar si fue ACEPTADA o RECHAZADA
         // ====================================================================
-        console.log('[Paso 6] Detectando si la solicitud fue ACEPTADA o RECHAZADA...');
-
-        const resultado = await detectarEstadoSolicitud(frameContenido, paginaTasaCero, navegador, carpetaDescarga, nombreEmpresa, cuit);
+        const resultado = await detectarEstadoSolicitud(frameResultado, paginaTasaCero, navegador, carpetaDescarga, nombreEmpresa, cuit, periodo);
 
         return resultado;
 
@@ -418,42 +553,35 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
  * @param {string} carpetaDescarga - Carpeta donde guardar
  * @param {string} nombreEmpresa - Nombre de la empresa
  * @param {string} cuit - CUIT de la empresa
+ * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
  * @returns {Promise<{exito: boolean, rutaArchivo?: string, estado?: string, mensaje?: string}>}
  */
-async function detectarEstadoSolicitud(frameContenido, paginaPrincipal, navegador, carpetaDescarga, nombreEmpresa, cuit) {
+async function detectarEstadoSolicitud(frameContenido, paginaPrincipal, navegador, carpetaDescarga, nombreEmpresa, cuit, periodo) {
     try {
         // Verificar todas las páginas abiertas
         const todasLasPaginas = await navegador.pages();
-        console.log(`[Detección] Total de páginas abiertas: ${todasLasPaginas.length}`);
-
-        // DEBUG: Ver todos los botones disponibles para detectar el estado
-        const debugBotones = await frameContenido.evaluate(() => {
-            const inputs = document.querySelectorAll('input[type="button"], input[type="submit"]');
-            return Array.from(inputs).map(btn => ({
-                type: btn.type,
-                value: btn.value,
-                id: btn.id,
-                name: btn.name
-            }));
-        });
-        console.log('🔍 [DEBUG Detección] Botones encontrados en la página de resultado:', JSON.stringify(debugBotones, null, 2));
 
         // Buscar botón de "Imprimir Solicitud Rechazada" en el frame de contenido
         const botonRechazada = await frameContenido.evaluateHandle(() => {
             const inputs = document.querySelectorAll('input[type="button"]');
+
             for (const input of inputs) {
-                console.log('[DEBUG] Evaluando botón:', input.value);
+                // Buscar por valor exacto
                 if (input.value === 'Imprimir Solicitud Rechazada') {
-                    console.log('[DEBUG] ¡Botón de RECHAZO encontrado!');
+                    return input;
+                }
+
+                // Buscar por onclick que contenga "imprimirRechazo"
+                const onclick = input.getAttribute('onclick');
+                if (onclick && onclick.includes('imprimirRechazo')) {
                     return input;
                 }
             }
-            console.log('[DEBUG] No se encontró botón de rechazo');
+
             return null;
         });
 
         const tieneBotonRechazada = await botonRechazada.evaluate(el => el ? true : false);
-        console.log(`🔍 [DEBUG Detección] ¿Tiene botón de rechazo?: ${tieneBotonRechazada}`);
 
         if (tieneBotonRechazada) {
             // ================================================================
@@ -478,8 +606,8 @@ async function detectarEstadoSolicitud(frameContenido, paginaPrincipal, navegado
             console.log('[Rechazada] Haciendo clic en "Imprimir Solicitud Rechazada"...');
             await botonRechazada.click();
 
-            // Generar nombre del archivo con formato: EmpresaPoderosa_30275468365_nov_tasaCeroRechazada
-            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'RECHAZADA');
+            // Generar nombre del archivo con formato: EmpresaPoderosa_30275468365_dic_tasaCero_Rechazado
+            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'RECHAZADA', periodo);
             const rutaArchivo = await esperarYRenombrarDescarga(carpetaDescarga, nombreArchivoFinal, archivosAntesDelClick, 30000);
 
             console.log(`✅ [Rechazada] PDF descargado y renombrado: ${path.basename(rutaArchivo)}`);
@@ -497,189 +625,136 @@ async function detectarEstadoSolicitud(frameContenido, paginaPrincipal, navegado
             // ================================================================
             console.log('✅ [Detección] Solicitud ACEPTADA detectada');
 
-            // Buscar la nueva ventana con el PDF
-            console.log('[Aceptada] Buscando ventana con PDF...');
-            const paginaPDF = todasLasPaginas[todasLasPaginas.length - 1];
-
-            // Configurar descarga en la nueva ventana del PDF
-            try {
-                const clientPDF = await paginaPDF.target().createCDPSession();
-                await clientPDF.send('Page.setDownloadBehavior', {
-                    behavior: 'allow',
-                    downloadPath: carpetaDescarga
-                });
-                console.log('[Aceptada] Descarga configurada en:', carpetaDescarga);
-            } catch (error) {
-                console.error('[Aceptada] Error al configurar descarga:', error.message);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
             // ====================================================================
-            // DEBUG: Inspeccionar la página del PDF
+            // PASO 1: Extraer el spo_id del HTML/script del frame
             // ====================================================================
-            console.log('🔍 [Aceptada DEBUG] Inspeccionando página del PDF...');
-
-            const urlPaginaPDF = paginaPDF.url();
-            console.log(`🔍 [Aceptada DEBUG] URL de la página: ${urlPaginaPDF}`);
-
-            const debugInfo = await paginaPDF.evaluate(() => {
-                return {
-                    url: window.location.href,
-                    title: document.title,
-                    bodyText: document.body ? document.body.innerText.substring(0, 200) : 'NO BODY',
-                    crIconButtons: Array.from(document.querySelectorAll('cr-icon-button')).map(btn => ({
-                        id: btn.id,
-                        title: btn.title,
-                        ariaLabel: btn.getAttribute('aria-label'),
-                        innerHTML: btn.innerHTML.substring(0, 100)
-                    })),
-                    allButtons: Array.from(document.querySelectorAll('button')).map(btn => ({
-                        id: btn.id,
-                        title: btn.title,
-                        textContent: btn.textContent.trim().substring(0, 50),
-                        className: btn.className
-                    })),
-                    allInputs: Array.from(document.querySelectorAll('input')).map(inp => ({
-                        type: inp.type,
-                        id: inp.id,
-                        value: inp.value
-                    })),
-                    embedObjects: Array.from(document.querySelectorAll('embed, object, iframe')).map(el => ({
-                        tag: el.tagName,
-                        type: el.type,
-                        src: el.src
-                    })),
-                    bodyHTML: document.body ? document.body.innerHTML.substring(0, 500) : 'NO BODY'
-                };
-            });
-
-            console.log('🔍 [Aceptada DEBUG] Información de la página:');
-            console.log(JSON.stringify(debugInfo, null, 2));
-            console.log('🔍 [Aceptada DEBUG] ========================================');
-
-            // Buscar el botón de descarga directamente en la página del PDF
-            console.log('[Aceptada] Buscando botón de descarga...');
-
-            let botonDescargar = null;
-
-            // Intentar buscar el botón directamente en paginaPDF
-            botonDescargar = await paginaPDF.evaluateHandle(() => {
-                // Primero intentar con cr-icon-button específico
-                const crIconButton = document.querySelector('cr-icon-button#download');
-                if (crIconButton) {
-                    return crIconButton;
-                }
-
-                // Buscar cualquier cr-icon-button con title "Descargar"
-                const crButtons = document.querySelectorAll('cr-icon-button');
-                for (const btn of crButtons) {
-                    if (btn.title && btn.title.includes('Descargar')) {
-                        return btn;
-                    }
-                    // También buscar por aria-label
-                    const ariaLabel = btn.getAttribute('aria-label');
-                    if (ariaLabel && ariaLabel.includes('Descargar')) {
-                        return btn;
+            const spo_id = await frameContenido.evaluate(() => {
+                // Buscar en todos los scripts
+                const scripts = document.querySelectorAll('script');
+                for (const script of scripts) {
+                    const match = script.textContent.match(/spo_id\s*=\s*['"]?(\d+)['"]?/);
+                    if (match) {
+                        return match[1];
                     }
                 }
-
-                // Buscar botones normales con title "Descargar"
-                const botones = document.querySelectorAll('button, a');
-                for (const boton of botones) {
-                    if (boton.title && boton.title.includes('Descargar')) {
-                        return boton;
-                    }
-                }
-
                 return null;
             });
 
-            const tipoElemento = await botonDescargar.evaluate(el => el ? el.tagName : null);
-            if (!tipoElemento) {
-                botonDescargar = null; // No se encontró
-                console.warn('[Aceptada] ⚠️ No se encontró el botón de descarga en la página');
-            } else {
-                console.log(`[Aceptada] ✅ Botón encontrado: ${tipoElemento}`);
+            if (!spo_id) {
+                console.error('[Aceptada] No se pudo extraer el spo_id del HTML');
+                return {
+                    exito: false,
+                    estado: 'ACEPTADA',
+                    mensaje: 'Solicitud aceptada pero no se pudo obtener el ID del PDF.'
+                };
             }
 
-            if (botonDescargar) {
-                // Capturar archivos ANTES del clic (la descarga puede ser instantánea)
-                const archivosAntesDelClickAceptada = await fs.readdir(carpetaDescarga)
-                    .then(files => files.filter(f => f.endsWith('.pdf') && !f.endsWith('.crdownload')))
-                    .catch(() => []);
+            console.log(`[Aceptada] spo_id extraído: ${spo_id}`);
 
-                console.log('[Aceptada] Haciendo clic en botón de descarga...');
-                await botonDescargar.click();
-
-                // Generar nombre del archivo con formato: EmpresaPoderosa_30275468365_nov_tasaCeroAceptada
-                const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA');
-
+            // ====================================================================
+            // PASO 2: Hacer AJAX request para obtener el tipo de PDF
+            // ====================================================================
+            const responseAjax = await frameContenido.evaluate(async (spo_id) => {
                 try {
-                    const rutaArchivo = await esperarYRenombrarDescarga(carpetaDescarga, nombreArchivoFinal, archivosAntesDelClickAceptada, 30000);
-
-                    console.log(`✅ [Aceptada] PDF descargado y renombrado: ${path.basename(rutaArchivo)}`);
-
-                    return {
-                        exito: true,
-                        estado: 'ACEPTADA',
-                        rutaArchivo: rutaArchivo,
-                        mensaje: 'Solicitud aceptada. PDF descargado.'
-                    };
+                    const url = `../act_economica/imprimir_solicitud_ajx.jsp?spo_id=${spo_id}`;
+                    const response = await fetch(url, {
+                        method: 'POST'
+                    });
+                    return await response.text();
                 } catch (error) {
-                    // Si falla, intentar buscar en la carpeta de descargas predeterminada
-                    console.error('[Aceptada] ❌ No se encontró el archivo en carpetaDescarga:', error.message);
-                    console.log('[Aceptada] 🔍 Buscando en carpeta de descargas predeterminada del sistema...');
-
-                    const carpetaDescargasPredeterminada = path.join(os.homedir(), 'Downloads');
-                    console.log(`[Aceptada] Carpeta predeterminada: ${carpetaDescargasPredeterminada}`);
-
-                    try {
-                        const rutaArchivoPredeterminada = await esperarYRenombrarDescarga(carpetaDescargasPredeterminada, nombreArchivoFinal, 10000); // Sin archivos anteriores
-
-                        // Mover el archivo a la carpeta correcta
-                        const rutaDestino = path.join(carpetaDescarga, `${nombreArchivoFinal}.pdf`);
-                        await fs.rename(rutaArchivoPredeterminada, rutaDestino);
-
-                        console.log(`✅ [Aceptada] PDF encontrado en carpeta predeterminada y movido a: ${path.basename(rutaDestino)}`);
-
-                        return {
-                            exito: true,
-                            estado: 'ACEPTADA',
-                            rutaArchivo: rutaDestino,
-                            mensaje: 'Solicitud aceptada. PDF descargado desde carpeta predeterminada.'
-                        };
-                    } catch (errorPredeterminada) {
-                        console.error('[Aceptada] ❌ Tampoco se encontró en carpeta predeterminada:', errorPredeterminada.message);
-                        throw error; // Re-lanzar el error original
-                    }
+                    return null;
                 }
+            }, spo_id);
+
+            if (!responseAjax) {
+                console.error('[Aceptada] No se pudo obtener respuesta del servidor');
+                return {
+                    exito: false,
+                    estado: 'ACEPTADA',
+                    mensaje: 'Solicitud aceptada pero no se pudo obtener el tipo de PDF.'
+                };
+            }
+
+            // ====================================================================
+            // PASO 3: Detectar el tipo de PDF
+            // ====================================================================
+            let tipo = null;
+            let urlPath = null;
+
+            if (responseAjax.indexOf('E-') > 0 && responseAjax.indexOf('NIE-') === -1) {
+                tipo = 'E-';
+                urlPath = 'pdf';
+            } else if (responseAjax.indexOf('EC-') > 0) {
+                tipo = 'EC-';
+                urlPath = 'pdf';
+            } else if (responseAjax.indexOf('D-') > 0) {
+                tipo = 'D-';
+                urlPath = 'pdfDiferencial';
+            } else if (responseAjax.indexOf('DC-') > 0) {
+                tipo = 'DC-';
+                urlPath = 'pdfDiferencial';
+            } else if (responseAjax.indexOf('OP-') > 0) {
+                tipo = 'OP-';
+                urlPath = 'pdfObraPublica';
             } else {
-                console.warn('⚠️ [Aceptada] No se encontró botón de descarga. El PDF puede estar visible en la página.');
+                console.error('[Aceptada] No se pudo determinar el tipo de PDF');
+                return {
+                    exito: false,
+                    estado: 'ACEPTADA',
+                    mensaje: 'Solicitud aceptada pero no se pudo determinar el tipo de PDF.'
+                };
+            }
 
-                // Intentar descargar de todos modos (puede haberse descargado automáticamente)
-                console.log('[Aceptada] Intentando detectar descarga automática...');
+            console.log(`[Aceptada] Tipo detectado: ${tipo}`);
 
-                try {
-                    const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA');
-                    const rutaArchivo = await esperarYRenombrarDescarga(carpetaDescarga, nombreArchivoFinal, 15000); // Sin archivos anteriores (descarga automática)
+            // ====================================================================
+            // PASO 4: Construir URL del PDF
+            // ====================================================================
+            const urlPDF = await frameContenido.evaluate((urlPath, spo_id, tipo) => {
+                return `../${urlPath}?id=${spo_id}&tipo=${tipo}`;
+            }, urlPath, spo_id, tipo);
 
-                    console.log(`✅ [Aceptada] PDF descargado automáticamente y renombrado: ${path.basename(rutaArchivo)}`);
+            // ====================================================================
+            // PASO 5: Descargar PDF usando fetch()
+            // ====================================================================
+            try {
+                const pdfBuffer = await frameContenido.evaluate(async (url) => {
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    const blob = await response.blob();
+                    const arrayBuffer = await blob.arrayBuffer();
+                    return Array.from(new Uint8Array(arrayBuffer));
+                }, urlPDF);
 
-                    return {
-                        exito: true,
-                        estado: 'ACEPTADA',
-                        rutaArchivo: rutaArchivo,
-                        mensaje: 'Solicitud aceptada. PDF descargado automáticamente.'
-                    };
-                } catch (error) {
-                    console.error('[Aceptada] No se detectó descarga automática:', error.message);
-                    return {
-                        exito: false,
-                        estado: 'ACEPTADA',
-                        mensaje: 'Solicitud aceptada pero no se pudo descargar el PDF.'
-                    };
-                }
+                console.log(`[Aceptada] PDF descargado (${Math.round(pdfBuffer.length / 1024)} KB)`);
+
+                // ====================================================================
+                // PASO 6: Guardar el PDF en el directorio temporal
+                // ====================================================================
+                const buffer = Buffer.from(pdfBuffer);
+                const nombreTemporal = `tasacero_${spo_id}_${tipo.replace('-', '')}_${Date.now()}.pdf`;
+                const rutaTemporal = path.join(carpetaDescarga, nombreTemporal);
+
+                await fs.writeFile(rutaTemporal, buffer);
+
+                console.log(`✅ [Aceptada] PDF guardado: ${nombreTemporal}`);
+
+                return {
+                    exito: true,
+                    estado: 'ACEPTADA',
+                    rutaArchivo: rutaTemporal,
+                    mensaje: 'Solicitud aceptada. PDF descargado exitosamente.'
+                };
+
+            } catch (error) {
+                console.error('[Aceptada] Error al descargar PDF:', error.message);
+                return {
+                    exito: false,
+                    estado: 'ACEPTADA',
+                    mensaje: `Solicitud aceptada pero no se pudo descargar el PDF: ${error.message}`
+                };
             }
         }
 
@@ -699,9 +774,10 @@ async function detectarEstadoSolicitud(frameContenido, paginaPrincipal, navegado
  * @param {string} carpetaDescarga - Carpeta donde guardar el PDF
  * @param {string} nombreEmpresa - Nombre de la empresa
  * @param {string} cuit - CUIT de la empresa
+ * @param {string} periodo - Periodo en formato YYYY-MM (ej: "2025-12") para buscar en la tabla
  * @returns {Promise<{exito: boolean, rutaArchivo?: string, estado?: string, mensaje?: string}>}
  */
-async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescarga, nombreEmpresa, cuit) {
+async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescarga, nombreEmpresa, cuit, periodo) {
     try {
         console.log('🔄 [Reimpresión] Iniciando flujo de reimpresión...');
 
@@ -867,7 +943,7 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
             const buffer = Buffer.from(pdfBuffer);
 
             // Generar nombre del archivo
-            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA');
+            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA', periodo);
             const rutaArchivo = path.join(carpetaDescarga, `${nombreArchivoFinal}.pdf`);
 
             // Escribir el PDF a disco
@@ -968,7 +1044,7 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
             await botonDescargar.click();
 
             // Generar nombre del archivo
-            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA');
+            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA', periodo);
 
             try {
                 const rutaArchivo = await esperarYRenombrarDescarga(carpetaDescarga, nombreArchivoFinal, archivosAntes, 30000);
@@ -1004,7 +1080,7 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             // Generar nombre del archivo
-            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA');
+            const nombreArchivoFinal = generarNombreArchivo(nombreEmpresa, cuit, 'ACEPTADA', periodo);
 
             try {
                 const rutaArchivo = await esperarYRenombrarDescarga(carpetaDescarga, nombreArchivoFinal, archivosAntes, 30000);

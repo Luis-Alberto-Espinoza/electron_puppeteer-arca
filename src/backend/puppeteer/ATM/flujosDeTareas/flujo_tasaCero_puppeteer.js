@@ -123,11 +123,24 @@ function encontrarEstadoSolicitud(datosPdf) {
 }
 
 /**
- * Obtiene el nombre del mes actual en español abreviado (para nombre de archivo)
+ * Extrae el mes en español abreviado de un periodo en formato MM/YYYY
+ * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
  * @returns {string} Nombre del mes (ene, feb, mar, etc.)
  */
-function obtenerMesActual() {
+function obtenerMesDePeriodo(periodo) {
     const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+    // Extraer el mes del periodo "12/2025" → "12"
+    const partes = periodo.split('/');
+    if (partes.length === 2) {
+        const mesNumero = parseInt(partes[0], 10); // "12" → 12
+        if (mesNumero >= 1 && mesNumero <= 12) {
+            return meses[mesNumero - 1]; // 12 → índice 11 → "dic"
+        }
+    }
+
+    // Fallback: mes actual si el formato es inválido
+    console.warn(`[obtenerMesDePeriodo] Formato de periodo inválido: ${periodo}, usando mes actual`);
     const fecha = new Date();
     return meses[fecha.getMonth()];
 }
@@ -149,11 +162,12 @@ function sanitizarNombre(nombre) {
  * @param {string} nombreEmpresa - Nombre de la empresa
  * @param {string} cuit - CUIT de la empresa
  * @param {string} estado - ACEPTADA o RECHAZADA
+ * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
  * @returns {string} Nombre del archivo sin extensión
  */
-function generarNombreArchivo(nombreEmpresa, cuit, estado) {
+function generarNombreArchivo(nombreEmpresa, cuit, estado, periodo) {
     const empresaSanitizada = sanitizarNombre(nombreEmpresa);
-    const mes = obtenerMesActual();
+    const mes = obtenerMesDePeriodo(periodo);
     const estadoTexto = estado === 'ACEPTADA' ? 'tasaCero_Aceptado' : 'tasaCero_Rechazado';
 
     return `${empresaSanitizada}_${cuit}_${mes}_${estadoTexto}`;
@@ -161,7 +175,6 @@ function generarNombreArchivo(nombreEmpresa, cuit, estado) {
 
 /**
  * Ejecuta el flujo completo de descarga de comprobante Tasa Cero para un cliente
- * El periodo se selecciona automáticamente (último disponible en el formulario)
  *
  * @param {Object} opciones - Opciones de configuración
  * @param {Object} opciones.credenciales - Credenciales del cliente {cuit, clave}
@@ -169,6 +182,7 @@ function generarNombreArchivo(nombreEmpresa, cuit, estado) {
  * @param {string} opciones.clienteId - ID del cliente (para nombre de archivo)
  * @param {string} opciones.downloadsPath - Ruta base de descargas (app.getPath('downloads'))
  * @param {string} opciones.nombreUsuario - Nombre del usuario (para construir ruta)
+ * @param {string} opciones.periodo - Periodo a procesar en formato YYYY-MM (ej: "2025-12")
  * @param {Function} opciones.enviarProgreso - Callback para reportar progreso
  * @param {Object} opciones.constants - Constantes de configuración (opcional)
  *
@@ -181,6 +195,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         clienteId,
         downloadsPath,
         nombreUsuario,
+        periodo,
         enviarProgreso
     } = opciones;
 
@@ -193,7 +208,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // ========================================================================
         // PASO 0: Construir ruta de destino final
         // ========================================================================
-        const carpetaDestino = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm');
+        const carpetaDestino = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm/tasa_cero');
         console.log(`[Flujo Tasa Cero] Carpeta de destino: ${carpetaDestino}`);
 
         // ========================================================================
@@ -286,14 +301,15 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // ========================================================================
         // PASO 6: Ejecutar flujo completo de Tasa Cero
         // ========================================================================
-        enviarProgreso('info', 'Procesando solicitud de Tasa Cero...');
+        enviarProgreso('info', `Procesando solicitud de Tasa Cero para periodo ${periodo}...`);
 
         const resultado = await ejecutarFlujoTasaCero(
             paginaTasaCero,
             navegador,
             tempDir, // Descarga al directorio temporal
             nombreCliente,
-            credenciales.cuit
+            credenciales.cuit,
+            periodo // Pasar el periodo seleccionado
         );
 
         // ========================================================================
@@ -311,7 +327,8 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
                 navegador,
                 tempDir, // Descarga al directorio temporal
                 nombreCliente,
-                credenciales.cuit
+                credenciales.cuit,
+                periodo // Pasar el periodo para buscar en la tabla
             );
 
             // Verificar resultado de reimpresión
@@ -349,6 +366,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
                 success: true,
                 estado: 'ACEPTADA',
                 rutaArchivo: rutaDestinoReimpreso,
+                carpetaDestino: carpetaDestino, // Para botón "Abrir Carpeta" en frontend
                 mensaje: 'Solicitud ya estaba aprobada. PDF reimpreso exitosamente.',
                 reimpresion: true
             };
@@ -392,7 +410,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // ========================================================================
         // PASO 9: Generar nombre correcto y mover al destino final
         // ========================================================================
-        const nombreArchivoFinal = generarNombreArchivo(nombreCliente, credenciales.cuit, estadoReal);
+        const nombreArchivoFinal = generarNombreArchivo(nombreCliente, credenciales.cuit, estadoReal, periodo);
         const rutaDestino = path.join(carpetaDestino, `${nombreArchivoFinal}.pdf`);
 
         enviarProgreso('info', 'Moviendo archivo a carpeta de destino...');
@@ -408,6 +426,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
             success: true,
             estado: estadoReal,
             rutaArchivo: rutaDestino,
+            carpetaDestino: carpetaDestino, // Para botón "Abrir Carpeta" en frontend
             mensaje: `Solicitud de Tasa Cero procesada: ${estadoReal}`
         };
 

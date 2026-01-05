@@ -40,7 +40,7 @@ const CONSTANTS = {
 // Procesa un cliente individual siguiendo todo el flujo de Tasa Cero
 // ============================================================================
 async function procesarCliente(cliente, downloadsPath) {
-    const { cuit, claveATM, nombre = '', apellido = '', id } = cliente;
+    const { cuit, claveATM, nombre = '', apellido = '', id, periodo } = cliente;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
     const nombreParaArchivos = `${nombre}_${apellido}`.replace(/\s+/g, '_'); // Nombre para usar en archivos
 
@@ -55,7 +55,7 @@ async function procesarCliente(cliente, downloadsPath) {
         });
     };
 
-    enviarProgreso('iniciando', 'Iniciando proceso de Tasa Cero...');
+    enviarProgreso('iniciando', `Iniciando proceso de Tasa Cero para periodo ${periodo}...`);
 
     try {
         // Delegar al flujo de Puppeteer
@@ -68,6 +68,7 @@ async function procesarCliente(cliente, downloadsPath) {
             clienteId: id || cuit,
             downloadsPath: downloadsPath,
             nombreUsuario: nombreParaArchivos,
+            periodo: periodo, // Pasar el periodo seleccionado
             enviarProgreso, // Callback para reportar progreso
             constants: CONSTANTS
         });
@@ -76,6 +77,7 @@ async function procesarCliente(cliente, downloadsPath) {
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             enviarProgreso('exito_final', 'Comprobante Tasa Cero descargado exitosamente.', {
                 archivoPdf: resultadoFlujo.rutaArchivo,
+                downloadDir: resultadoFlujo.carpetaDestino, // Para botón "Abrir Carpeta"
                 periodo: resultadoFlujo.periodo,
                 caso: resultadoFlujo.caso // 'GENERACION' o 'REIMPRESION'
             });

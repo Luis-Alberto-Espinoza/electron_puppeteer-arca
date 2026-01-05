@@ -41,10 +41,10 @@ window.inicializarModuloLoteATM = () => {
             }
 
             const mesStr = (mes + 1).toString().padStart(2, '0'); // Mes 1-12
-            const valorPeriodo = `${anio}-${mesStr}`;
-            const nombrePeriodo = `${mesStr}/${anio}`;
+            // Formato igual que en ATM: "12/2025"
+            const periodoFormato = `${mesStr}/${anio}`;
 
-            opciones.push({ valor: valorPeriodo, nombre: nombrePeriodo });
+            opciones.push({ valor: periodoFormato, nombre: periodoFormato });
         }
 
         return opciones;
@@ -105,7 +105,14 @@ window.inicializarModuloLoteATM = () => {
 
         // COLUMNA 2: PERIODO (solo para retenciones)
         const opcionesPeriodo = generarOpcionesPeriodo();
-        const periodoSeleccionado = periodosSeleccionados[usuario.id] || '';
+        const mesActual = opcionesPeriodo[0]?.valor || ''; // Primer elemento = mes actual
+
+        // Si no hay periodo seleccionado, usar el mes actual por defecto
+        if (!periodosSeleccionados[usuario.id]) {
+            periodosSeleccionados[usuario.id] = mesActual;
+        }
+
+        const periodoSeleccionado = periodosSeleccionados[usuario.id];
 
         const optionsHTML = opcionesPeriodo.map(opcion => {
             const selected = opcion.valor === periodoSeleccionado ? 'selected' : '';
@@ -118,7 +125,6 @@ window.inicializarModuloLoteATM = () => {
                     class="periodo-selector"
                     data-usuario-id="${usuario.id}"
                     style="width: 100%; padding: 4px; font-size: 11px;">
-                    <option value="">Seleccionar...</option>
                     ${optionsHTML}
                 </select>
             </td>
@@ -240,6 +246,20 @@ window.inicializarModuloLoteATM = () => {
             return;
         }
 
+        // VALIDACIÓN: verificar que todos tengan periodo seleccionado
+        const usuariosSinPeriodo = clientesParaProcesar.filter(u => !periodosSeleccionados[u.id]);
+
+        if (usuariosSinPeriodo.length > 0) {
+            const nombresSinPeriodo = usuariosSinPeriodo.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
+            alert(`❌ Error: Los siguientes usuarios no tienen periodo seleccionado:\n\n - ${nombresSinPeriodo}\n\nPor favor, seleccione un periodo para todos los usuarios antes de continuar.`);
+            return;
+        }
+
+        // Agregar el periodo a cada cliente
+        clientesParaProcesar.forEach(u => {
+            u.periodo = periodosSeleccionados[u.id];
+        });
+
         const nombresClientes = clientesParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
 
         const confirmacion = confirm(`Se iniciará el proceso de Tasa Cero para los siguientes ${clientesParaProcesar.length} cliente(s):\n\n - ${nombresClientes}\n\n¿Desea continuar?`);
@@ -259,8 +279,7 @@ window.inicializarModuloLoteATM = () => {
         }, 100);
 
         try {
-            // Llamar a la API de Tasa Cero
-            // NOTA: El periodo se selecciona automáticamente (último disponible)
+            // Llamar a la API de Tasa Cero con el periodo incluido
             await window.electronAPI.atm.iniciarLoteTasaCero({
                 clientes: clientesParaProcesar
             });
