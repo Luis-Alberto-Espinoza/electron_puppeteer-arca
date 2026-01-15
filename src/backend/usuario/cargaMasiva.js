@@ -134,7 +134,18 @@ async function procesarArchivoUsuarios(fileBuffer) {
 
         // 6. Guardar datos actualizados
         storage.saveData({ users: usuariosExistentes });
-        return { success: true, ...stats };
+
+        // 7. Preparar lista de usuarios procesados para verificación posterior
+        const usuariosProcesados = usuariosAProcesar.map(u => ({
+            id: u.id,
+            nombre: u.nombre,
+            apellido: u.apellido || '',
+            cuit: u.cuit,
+            tieneAFIP: !!u.claveAFIP,
+            tieneATM: !!u.claveATM
+        }));
+
+        return { success: true, ...stats, usuariosProcesados };
         // return { success: true, ...stats, usuariosParaActualizar, usuariosConFallos };
 
     } catch (error) {

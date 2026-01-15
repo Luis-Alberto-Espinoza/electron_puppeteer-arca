@@ -14,6 +14,9 @@ window.verificacionRealizada = {
 // Variable global para almacenar todos los usuarios
 window.allUsers = [];
 
+// Variable global para usuarios procesados en carga masiva (para verificación posterior)
+window.usuariosCargaMasiva = [];
+
 // NOTA: La función showConfirmModal() está definida en /utils/confirmModal.js
 // y se carga automáticamente de forma global. Usala directamente con:
 // const confirmed = await showConfirmModal({ message: '...' });
@@ -1488,12 +1491,183 @@ function togglePasswordVisibility(input, button) {
     }
 }
 
+// ========== VERIFICACIÓN DE USUARIOS CARGADOS MASIVAMENTE ==========
+
+/**
+ * Verifica las credenciales de los usuarios que fueron cargados desde el Excel
+ */
+async function verificarUsuariosCargados() {
+    const usuarios = window.usuariosCargaMasiva || [];
+
+    if (usuarios.length === 0) {
+        showAlert('No hay usuarios para verificar.', 'warning');
+        return;
+    }
+
+    // Filtrar solo usuarios con credenciales
+    const usuariosVerificables = usuarios.filter(u => u.tieneAFIP || u.tieneATM);
+
+    if (usuariosVerificables.length === 0) {
+        showAlert('Ninguno de los usuarios cargados tiene credenciales para verificar.', 'warning');
+        return;
+    }
+
+    // Construir los jobs de verificación
+    const verificationJobs = [];
+    usuariosVerificables.forEach(u => {
+        if (u.tieneAFIP) {
+            verificationJobs.push({ userId: u.id, service: 'afip' });
+        }
+        if (u.tieneATM) {
+            verificationJobs.push({ userId: u.id, service: 'atm' });
+        }
+    });
+
+    // Confirmar antes de proceder
+    const confirmed = await showConfirmModal({
+        title: 'Verificar Credenciales',
+        message: `¿Iniciar la verificación de ${verificationJobs.length} servicio(s) para ${usuariosVerificables.length} usuario(s)?`,
+        icon: '🔐',
+        confirmText: 'Sí, verificar',
+        cancelText: 'Cancelar',
+        confirmBtnClass: 'primary'
+    });
+
+    if (!confirmed) return;
+
+    // Obtener referencia al botón y deshabilitarlo
+    const btnVerificar = document.getElementById('btnVerificarCargados');
+    if (btnVerificar) {
+        btnVerificar.disabled = true;
+        btnVerificar.innerHTML = '<span class="spinner"></span> Verificando...';
+    }
+
+    // Mostrar panel de progreso
+    const totalUsers = usuariosVerificables.length;
+    showProgressPanel(totalUsers);
+
+    // Variables para tracking
+    const verificationDetails = [];
+
+    // Listener para eventos de progreso
+    const progressHandler = (progressData) => {
+        console.log('Progreso verificación carga masiva:', progressData);
+
+        updateProgress(
+            progressData.processed,
+            progressData.total,
+            progressData.stats.validados,
+            progressData.stats.con_fallos
+        );
+
+        if (progressData.status === 'processing') {
+            markRowAsVerifying(progressData.userId, progressData.services);
+        } else if (progressData.status === 'success' || progressData.status === 'failed' || progressData.status === 'error') {
+            const isSuccess = progressData.status === 'success';
+            const services = progressData.services || [];
+
+            services.forEach(service => {
+                let errorMessage = null;
+                if (!isSuccess && progressData.results) {
+                    const serviceResult = progressData.results[service];
+                    if (serviceResult && serviceResult.error) {
+                        errorMessage = serviceResult.error;
+                    }
+                }
+                if (!isSuccess && !errorMessage) {
+                    errorMessage = progressData.error || 'Error desconocido';
+                }
+
+                verificationDetails.push({
+                    userId: progressData.userId,
+                    userName: progressData.userName || 'Usuario',
+                    service: service,
+                    success: isSuccess,
+                    error: errorMessage
+                });
+            });
+
+            if (isSuccess) {
+                markRowAsSuccess(progressData.userId);
+            } else {
+                markRowAsFailed(progressData.userId);
+            }
+        }
+    };
+
+    // Suscribirse a eventos de progreso
+    window.electronAPI.user.onVerificationProgress(progressHandler);
+
+    try {
+        const result = await window.electronAPI.user.verifyBatch({ verificationJobs });
+
+        if (result.success) {
+            const validados = result.stats.validados || 0;
+            const fallos = result.stats.con_fallos || 0;
+
+            updateProgress(totalUsers, totalUsers, validados, fallos);
+            showAlert(`Verificación completada. Validados: ${validados}, Fallos: ${fallos}.`);
+            hideProgressPanel(validados, fallos);
+
+            showResultsPanel({
+                successCount: validados,
+                failedCount: fallos,
+                details: verificationDetails
+            });
+        } else {
+            hideProgressPanel(0, 0, 3000);
+            showAlert(result.error || 'Error en la verificación.', 'error');
+
+            if (verificationDetails.length > 0) {
+                showResultsPanel({
+                    successCount: 0,
+                    failedCount: verificationDetails.length,
+                    details: verificationDetails
+                });
+            }
+        }
+    } catch (error) {
+        hideProgressPanel(0, 0, 3000);
+        showAlert(`Error de comunicación: ${error.message}`, 'error');
+
+        if (verificationDetails.length > 0) {
+            const successCount = verificationDetails.filter(d => d.success).length;
+            const failedCount = verificationDetails.filter(d => !d.success).length;
+            showResultsPanel({
+                successCount,
+                failedCount,
+                details: verificationDetails
+            });
+        }
+    } finally {
+        // Limpiar usuarios de carga masiva
+        window.usuariosCargaMasiva = [];
+
+        // Ocultar el botón (ya no es relevante)
+        if (btnVerificar) {
+            btnVerificar.style.display = 'none';
+        }
+
+        // Recargar lista de usuarios
+        await loadUsers();
+    }
+}
+
+// ========== FIN VERIFICACIÓN DE USUARIOS CARGADOS MASIVAMENTE ==========
+
 window.inicializarUsuarioFrontend = inicializarUsuarioFrontend;
 
 // --- Lógica para Carga Masiva ---
 function inicializarCargaMasiva() {
     // Usamos delegación de eventos en el documento
     document.addEventListener('click', async (event) => {
+        // Manejar click en botón "Verificar usuarios cargados"
+        if (event.target.closest('#btnVerificarCargados')) {
+            event.preventDefault();
+            await verificarUsuariosCargados();
+            return;
+        }
+
         // Si el elemento clickeado no es nuestro botón (o algo dentro de él), no hacemos nada
         if (!event.target.closest('#btnCargarExcel')) {
             return;
@@ -1531,6 +1705,15 @@ function inicializarCargaMasiva() {
                     const result = await window.electronAPI.cargarUsuariosMasivo(fileBuffer);
 
                     if (result.success) {
+                        // Guardar usuarios procesados para verificación posterior
+                        window.usuariosCargaMasiva = result.usuariosProcesados || [];
+
+                        // Contar cuántos usuarios tienen credenciales verificables
+                        const usuariosVerificables = window.usuariosCargaMasiva.filter(u => u.tieneAFIP || u.tieneATM);
+                        const totalServicios = window.usuariosCargaMasiva.reduce((acc, u) => {
+                            return acc + (u.tieneAFIP ? 1 : 0) + (u.tieneATM ? 1 : 0);
+                        }, 0);
+
                         let message = `<div class="result-summary">✅ Proceso completado: Leídos: ${result.usuariosLeidos}, Creados: ${result.usuariosCreados}, Actualizados: ${result.usuariosActualizados}.</div>`;
 
                         // Sección para usuarios que requieren actualización de clave
@@ -1549,6 +1732,20 @@ function inicializarCargaMasiva() {
                                 message += `<li><b>${u.nombre}</b> (CUIT: ${u.cuit}) - Fallo en: <b>${u.fallos}</b></li>`;
                             });
                             message += `</ul>`;
+                        }
+
+                        // Botón para verificar usuarios cargados (solo si hay servicios verificables)
+                        if (usuariosVerificables.length > 0) {
+                            message += `
+                                <div class="verificar-cargados-container" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+                                    <p style="margin-bottom: 10px; color: #555;">
+                                        Se encontraron <strong>${usuariosVerificables.length}</strong> usuario(s) con <strong>${totalServicios}</strong> servicio(s) para verificar.
+                                    </p>
+                                    <button id="btnVerificarCargados" class="btn btn-primary" style="width: 100%;">
+                                        🔐 Verificar credenciales de usuarios cargados
+                                    </button>
+                                </div>
+                            `;
                         }
 
                         uploadStatus.innerHTML = message;
