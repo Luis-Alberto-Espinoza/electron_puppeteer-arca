@@ -17,7 +17,9 @@ async function procesarUsuario(usuario, tipoAccion, downloadsPath) {
     try {
         let resultadoFlujo;
         const credenciales = { cuit, clave: claveATM }; // Construir objeto de credenciales
-        const nombreParaArchivos = `${nombre}_${apellido}`.replace(/\s+/g, '_'); // Nombre para usar en archivos
+        // Construir nombre para archivos (evitar "null" o "undefined")
+        const partesNombre = [nombre, apellido].filter(parte => parte && parte.trim());
+        const nombreParaArchivos = (partesNombre.length > 0 ? partesNombre.join('_') : cuit).replace(/\s+/g, '_');
 
         if (tipoAccion === 'constanciaFiscal') {
             resultadoFlujo = await flujoConstanciaFiscal(credenciales, nombreParaArchivos, downloadsPath, enviarProgreso);

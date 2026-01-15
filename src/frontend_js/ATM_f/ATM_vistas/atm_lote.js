@@ -105,11 +105,11 @@ window.inicializarModuloLoteATM = () => {
 
         // COLUMNA 2: PERIODO (solo para retenciones)
         const opcionesPeriodo = generarOpcionesPeriodo();
-        const mesActual = opcionesPeriodo[0]?.valor || ''; // Primer elemento = mes actual
+        const mesAnterior = opcionesPeriodo[1]?.valor || opcionesPeriodo[0]?.valor || ''; // Segundo elemento = mes anterior
 
-        // Si no hay periodo seleccionado, usar el mes actual por defecto
+        // Si no hay periodo seleccionado, usar el mes anterior por defecto
         if (!periodosSeleccionados[usuario.id]) {
-            periodosSeleccionados[usuario.id] = mesActual;
+            periodosSeleccionados[usuario.id] = mesAnterior;
         }
 
         const periodoSeleccionado = periodosSeleccionados[usuario.id];
@@ -201,9 +201,11 @@ window.inicializarModuloLoteATM = () => {
                 return;
             }
 
-            // Agregar el periodo a cada usuario
+            // Agregar el periodo a cada usuario (convertir de MM/YYYY a YYYY-MM)
             usuariosParaProcesar.forEach(u => {
-                u.periodo = periodosSeleccionados[u.id];
+                const periodoOriginal = periodosSeleccionados[u.id]; // "MM/YYYY"
+                const [mes, anio] = periodoOriginal.split('/');
+                u.periodo = `${anio}-${mes}`; // "YYYY-MM"
             });
         }
 
@@ -255,9 +257,11 @@ window.inicializarModuloLoteATM = () => {
             return;
         }
 
-        // Agregar el periodo a cada cliente
+        // Agregar el periodo a cada cliente (convertir de MM/YYYY a YYYY-MM)
         clientesParaProcesar.forEach(u => {
-            u.periodo = periodosSeleccionados[u.id];
+            const periodoOriginal = periodosSeleccionados[u.id]; // "MM/YYYY"
+            const [mes, anio] = periodoOriginal.split('/');
+            u.periodo = `${anio}-${mes}`; // "YYYY-MM"
         });
 
         const nombresClientes = clientesParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');

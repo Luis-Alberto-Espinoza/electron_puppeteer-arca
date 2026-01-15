@@ -42,7 +42,9 @@ const CONSTANTS = {
 async function procesarCliente(cliente, downloadsPath) {
     const { cuit, claveATM, nombre = '', apellido = '', id, periodo } = cliente;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
-    const nombreParaArchivos = `${nombre}_${apellido}`.replace(/\s+/g, '_'); // Nombre para usar en archivos
+    // Construir nombre para archivos (evitar "null" o "undefined")
+    const partesNombre = [nombre, apellido].filter(parte => parte && parte.trim());
+    const nombreParaArchivos = (partesNombre.length > 0 ? partesNombre.join('_') : cuit).replace(/\s+/g, '_');
 
     // Función para enviar progreso al hilo principal
     const enviarProgreso = (estado, mensaje, datosAdicionales = {}) => {

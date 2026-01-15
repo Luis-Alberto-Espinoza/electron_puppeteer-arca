@@ -38,7 +38,7 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: true }); // Modo headless (oculto)
+        browser = await launchBrowser({ headless: false }); // Modo visible para debugging
         const page = await browser.newPage();
 
         // PASO 1: Navegar a la URL de login de ATM

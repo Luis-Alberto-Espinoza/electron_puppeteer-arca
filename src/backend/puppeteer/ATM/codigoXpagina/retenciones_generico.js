@@ -187,35 +187,91 @@ async function descargarRetencionGenerico(config) {
             };
         }
 
-        // Verificar cantidad de registros
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Verificar cantidad de registros - esperar activamente a que aparezca Y tenga valor
+        console.log(`[${nombre}]    Esperando que cargue la cantidad...`);
 
-        const cantidad = await frame.evaluate(() => {
+        // Esperar hasta 15 segundos a que aparezca el elemento "Cantidad:" CON un número válido
+        let cantidadCargada = false;
+        const maxEsperaCantidad = 15000;
+        const inicioCantidad = Date.now();
+
+        while (!cantidadCargada && (Date.now() - inicioCantidad < maxEsperaCantidad)) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            cantidadCargada = await frame.evaluate(() => {
+                const spans = Array.from(document.querySelectorAll('span.z-label'));
+                const cantidadLabel = spans.find(span => span.textContent.trim() === 'Cantidad:');
+
+                if (!cantidadLabel) return false;
+
+                const hlayout = cantidadLabel.closest('.z-hlayout');
+                if (!hlayout) return false;
+
+                const allSpans = hlayout.querySelectorAll('span.z-label');
+                if (allSpans.length < 2) return false;
+
+                // Verificar que el segundo span tenga un número (no vacío)
+                const numeroTexto = allSpans[1].textContent.trim();
+                return numeroTexto !== '' && !isNaN(parseInt(numeroTexto));
+            });
+        }
+
+        if (!cantidadCargada) {
+            console.warn(`[${nombre}]    ⚠️ Cantidad no cargó después de ${maxEsperaCantidad/1000}s`);
+        }
+
+        const cantidadInfo = await frame.evaluate(() => {
+            const resultado = { cantidad: 0, debug: '' };
+
             // Buscar el span que dice "Cantidad:"
             const spans = Array.from(document.querySelectorAll('span.z-label'));
             const cantidadLabel = spans.find(span => span.textContent.trim() === 'Cantidad:');
 
             if (cantidadLabel) {
+                resultado.debug += 'Label "Cantidad:" encontrado. ';
+
                 // Subir al contenedor .z-hlayout
                 const hlayout = cantidadLabel.closest('.z-hlayout');
 
                 if (hlayout) {
+                    resultado.debug += 'hlayout encontrado. ';
                     // Buscar todos los spans dentro del hlayout
                     const allSpans = hlayout.querySelectorAll('span.z-label');
+                    resultado.debug += `${allSpans.length} spans encontrados. `;
 
                     // El segundo span contiene el número
                     if (allSpans.length >= 2) {
                         const numeroTexto = allSpans[1].textContent.trim();
+                        resultado.debug += `Texto: "${numeroTexto}". `;
                         const numero = parseInt(numeroTexto);
-                        console.log(`[Cantidad detectada] ${numeroTexto} → ${numero}`);
-                        return isNaN(numero) ? 0 : numero;
+                        resultado.cantidad = isNaN(numero) ? 0 : numero;
+                    }
+                } else {
+                    resultado.debug += 'hlayout NO encontrado. ';
+                    // Intento alternativo: buscar el siguiente elemento hermano
+                    const nextSibling = cantidadLabel.nextElementSibling;
+                    if (nextSibling) {
+                        resultado.debug += `Hermano: "${nextSibling.textContent}". `;
+                        const numero = parseInt(nextSibling.textContent.trim());
+                        resultado.cantidad = isNaN(numero) ? 0 : numero;
                     }
                 }
+            } else {
+                resultado.debug = 'Label "Cantidad:" NO encontrado. ';
+                // Buscar cualquier texto que contenga "Cantidad"
+                const todosTextos = spans.map(s => s.textContent.trim()).filter(t => t.includes('antidad'));
+                resultado.debug += `Textos similares: ${todosTextos.join(', ') || 'ninguno'}`;
             }
 
-            console.warn('[Cantidad] No se encontró el elemento "Cantidad:"');
-            return 0;
+            return resultado;
         });
+
+        const cantidad = cantidadInfo.cantidad;
+
+        // Log de debug siempre para entender qué pasa
+        if (cantidad === 0) {
+            console.log(`[${nombre}]    🔍 Debug cantidad: ${cantidadInfo.debug}`);
+        }
 
         if (cantidad === 0) {
             console.log(`[${nombre}]    ⊘ Sin registros (cantidad = 0)`);
@@ -264,7 +320,14 @@ async function descargarRetencionGenerico(config) {
         // Descargar archivos
         console.log(`[${nombre}]    📥 Descargando archivos...`);
 
+        // Helper: obtener archivos nuevos en el directorio
+        const obtenerArchivosNuevos = async () => {
+            const archivosActuales = await fs.readdir(downloadDir);
+            return archivosActuales.filter(archivo => !archivosAntesDeDescarga.includes(archivo));
+        };
+
         // Click en Excel
+        console.log(`[${nombre}]       Clickeando botón Excel...`);
         const excelClicked = await frame.evaluate(() => {
             const btnExcel = Array.from(document.querySelectorAll('.z-button'))
                 .find(btn =>
@@ -282,10 +345,61 @@ async function descargarRetencionGenerico(config) {
             throw new Error('No se pudo hacer click en botón Excel');
         }
 
-        // Esperar 3 segundos entre clicks para dar tiempo al navegador
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // CRÍTICO: Esperar a que el Excel empiece a descargarse antes de clickear DIU
+        // Timeout DINÁMICO basado en cantidad de registros
+        let timeoutEsperaExcel;
+        if (cantidad < 50) {
+            timeoutEsperaExcel = 5000;  // 5 segundos para pocos registros
+        } else if (cantidad < 200) {
+            timeoutEsperaExcel = 15000; // 15 segundos
+        } else if (cantidad < 500) {
+            timeoutEsperaExcel = 30000; // 30 segundos
+        } else {
+            timeoutEsperaExcel = 60000; // 60 segundos para muchos registros
+        }
+
+        console.log(`[${nombre}]       Esperando Excel (máx ${timeoutEsperaExcel/1000}s para ${cantidad} registros)...`);
+        const inicioEsperaExcel = Date.now();
+        let excelDetectado = false;
+        let ultimoLog = 0;
+
+        while (!excelDetectado && (Date.now() - inicioEsperaExcel < timeoutEsperaExcel)) {
+            await new Promise(resolve => setTimeout(resolve, 500)); // Verificar cada 500ms (más rápido)
+
+            const archivosNuevos = await obtenerArchivosNuevos();
+
+            // Buscar específicamente archivo Excel (completo o en progreso)
+            // Nota: ATM genera .xls (Excel antiguo), no .xlsx
+            const archivoExcel = archivosNuevos.find(archivo =>
+                archivo.endsWith('.xlsx') || archivo.endsWith('.xlsx.crdownload') ||
+                archivo.endsWith('.xls') || archivo.endsWith('.xls.crdownload')
+            );
+
+            if (archivoExcel) {
+                excelDetectado = true;
+                console.log(`[${nombre}]       ✓ Excel detectado: ${archivoExcel}`);
+                break; // Salir inmediatamente
+            }
+
+            // Log cada 5 segundos solo si hay archivos (para debug)
+            const tiempoTranscurrido = Date.now() - inicioEsperaExcel;
+            if (tiempoTranscurrido - ultimoLog >= 5000) {
+                const tiposArchivos = archivosNuevos.map(a => a.split('.').pop()).join(', ');
+                console.log(`[${nombre}]          [${Math.round(tiempoTranscurrido/1000)}s] ${archivosNuevos.length} archivo(s): ${tiposArchivos || 'ninguno'}`);
+                ultimoLog = tiempoTranscurrido;
+            }
+        }
+
+        if (!excelDetectado) {
+            const tiempoEsperado = Math.round((Date.now() - inicioEsperaExcel) / 1000);
+            console.warn(`[${nombre}]       ⚠️ Excel no detectado después de ${tiempoEsperado}s, continuando...`);
+        }
+
+        // Pequeña pausa antes de clickear DIU
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Click en DIU
+        console.log(`[${nombre}]       Clickeando botón DIU...`);
         const diuClicked = await frame.evaluate(() => {
             const btnDIU = Array.from(document.querySelectorAll('.z-button'))
                 .find(btn =>
@@ -303,34 +417,62 @@ async function descargarRetencionGenerico(config) {
             throw new Error('No se pudo hacer click en botón DIU');
         }
 
-        // CRÍTICO: Esperar activamente a que aparezcan AMBOS archivos (Excel Y TXT)
-        console.log(`[${nombre}]       Esperando descarga de ambos archivos...`);
+        // CRÍTICO: Esperar activamente a que AMBOS archivos estén completos
+        console.log(`[${nombre}]       Esperando que ambos archivos terminen de descargarse...`);
 
         const tiempoInicio = Date.now();
-        const timeoutMaximo = 20000; // 20 segundos máximo
+        // Timeout dinámico: base 60s + 1s por cada 50 registros (para archivos grandes)
+        const timeoutBase = 60000;
+        const timeoutExtra = Math.ceil(cantidad / 50) * 1000;
+        const timeoutMaximo = Math.min(timeoutBase + timeoutExtra, 180000); // Máximo 3 minutos
+        console.log(`[${nombre}]       Timeout configurado: ${timeoutMaximo/1000}s (${cantidad} registros)`);
+
         let archivosNuevos = [];
+        let archivosCompletos = [];
         let ultimoReporte = 0;
 
-        while (archivosNuevos.length < 2 && (Date.now() - tiempoInicio < timeoutMaximo)) {
+        while (archivosCompletos.length < 2 && (Date.now() - tiempoInicio < timeoutMaximo)) {
             await new Promise(resolve => setTimeout(resolve, 500)); // Verificar cada 500ms
 
-            const archivosActuales = await fs.readdir(downloadDir);
-            archivosNuevos = archivosActuales.filter(
-                archivo => !archivosAntesDeDescarga.includes(archivo)
+            archivosNuevos = await obtenerArchivosNuevos();
+
+            // Filtrar solo los archivos completos (sin .crdownload)
+            archivosCompletos = archivosNuevos.filter(
+                archivo => !archivo.endsWith('.crdownload')
             );
+
+            const enProgreso = archivosNuevos.filter(a => a.endsWith('.crdownload'));
 
             // Reportar cada 5 segundos
             const tiempoTranscurrido = Date.now() - tiempoInicio;
             if (tiempoTranscurrido - ultimoReporte >= 5000) {
-                console.log(`[${nombre}]          [${Math.round(tiempoTranscurrido/1000)}s] ${archivosNuevos.length} archivo(s) detectado(s): ${archivosNuevos.join(', ') || 'ninguno'}`);
+                console.log(`[${nombre}]          [${Math.round(tiempoTranscurrido/1000)}s] ${archivosCompletos.length} completo(s), ${enProgreso.length} en progreso`);
+                if (enProgreso.length > 0) {
+                    console.log(`[${nombre}]             En progreso: ${enProgreso.join(', ')}`);
+                }
                 ultimoReporte = tiempoTranscurrido;
+            }
+
+            // Si hay archivos en progreso, seguir esperando aunque pase el timeout base
+            // (solo cortar si pasa el timeout máximo absoluto)
+            if (enProgreso.length > 0 && archivosCompletos.length < 2) {
+                // Extender espera si hay descargas activas
+                continue;
             }
         }
 
+        // Usar archivosCompletos para el resto del proceso
+        archivosNuevos = archivosCompletos;
+
         if (archivosNuevos.length < 2) {
-            console.warn(`[${nombre}]       ⚠️ Solo ${archivosNuevos.length} archivo(s) después de ${timeoutMaximo/1000}s`);
-            console.warn(`[${nombre}]          Archivos detectados: ${archivosNuevos.join(', ') || 'ninguno'}`);
-            console.warn(`[${nombre}]          Todos los archivos en dir: ${(await fs.readdir(downloadDir)).join(', ')}`);
+            const enProgreso = (await fs.readdir(downloadDir)).filter(a => a.endsWith('.crdownload'));
+            console.warn(`[${nombre}]       ⚠️ Solo ${archivosNuevos.length} archivo(s) completo(s) después de ${Math.round((Date.now() - tiempoInicio)/1000)}s`);
+            console.warn(`[${nombre}]          Archivos completos: ${archivosNuevos.join(', ') || 'ninguno'}`);
+            if (enProgreso.length > 0) {
+                console.warn(`[${nombre}]          Archivos incompletos (.crdownload): ${enProgreso.join(', ')}`);
+            }
+        } else {
+            console.log(`[${nombre}]       ✓ Ambos archivos descargados correctamente`);
         }
 
         // Renombrar archivos NUEVOS
@@ -347,13 +489,31 @@ async function descargarRetencionGenerico(config) {
 
         console.log(`[${nombre}]    ✓ ${archivosRenombrados.length} archivo(s) descargado(s)`);
 
+        // ═══════════════════════════════════════════════════════════════════
+        // RESUMEN FINAL - Verificación de integridad de descarga
+        // ═══════════════════════════════════════════════════════════════════
+        const archivosDescargados = archivosRenombrados;
+        const cantidadArchivos = archivosDescargados.length;
+
+        if (cantidad >= 1 && cantidadArchivos === 2) {
+            // ÉXITO TOTAL: Tenía registros y descargó ambos archivos
+            console.log(`[${nombre}] ════════════════════════════════════════════════════════════`);
+            console.log(`[${nombre}] ✅✅✅ ÉXITO COMPLETO: ${cantidad} registro(s) → ${cantidadArchivos} archivo(s) ✅✅✅`);
+            console.log(`[${nombre}] ════════════════════════════════════════════════════════════`);
+        } else if (cantidad >= 1 && cantidadArchivos < 2) {
+            // PROBLEMA: Tenía registros pero NO descargó los 2 archivos esperados
+            console.log(`[${nombre}] ╔══════════════════════════════════════════════════════════════╗`);
+            console.log(`[${nombre}] ║ ⚠️⚠️⚠️  ATENCIÓN: DESCARGA INCOMPLETA  ⚠️⚠️⚠️                    ║`);
+            console.log(`[${nombre}] ║ Registros: ${cantidad.toString().padEnd(4)} | Archivos descargados: ${cantidadArchivos} (esperado: 2) ║`);
+            console.log(`[${nombre}] ║ CUIT: ${cuit.padEnd(15)}                                    ║`);
+            console.log(`[${nombre}] ╚══════════════════════════════════════════════════════════════╝`);
+        }
+
         // CRÍTICO: Recargar página para estabilizar el DOM después de las descargas
         console.log(`[${nombre}]    🔄 Recargando página...`);
         await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
         await new Promise(resolve => setTimeout(resolve, 2000)); // 2s para estabilización
         console.log(`[${nombre}]    ✓ Página estabilizada`);
-
-        const archivosDescargados = archivosRenombrados;
 
         return {
             success: true,

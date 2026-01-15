@@ -2,90 +2,129 @@
  * Navega a la sección de Retenciones/Percepciones dentro de la Oficina Virtual,
  * interactuando con el menú dentro de un iframe.
  * @param {import('puppeteer').Page} page - La instancia de la página de Puppeteer.
- * @param {number} submenuIndex - Índice del tipo:
- *   0 = Retenciones/Percepciones I.B. hasta 03/2022
- *   1 = Retenciones SIRTAC I.B.
- *   2 = Retenciones Comerciales SIRCAR I.B.
- *   3 = Percepciones Comerciales SIRCAR I.B.
- *   4 = Retenciones SIRCREB I.B.
- *   5 = Retenciones SIRCUPA I.B.
+ * @param {number} submenuIndex - Índice del tipo de retención en el submenú:
+ *   Estructura del menú:
+ *   Índice 0: "Inscripciones" (NO procesar)
+ *   Índice 1: "Reimprimir Certificado/Constancia" (NO procesar)
+ *   Índice 2: "Retenciones/Percepciones I.B. hasta 03/2022" (NO procesar)
+ *   Índice 3: "Retenciones SIRTAC I.B." ← EMPEZAR AQUÍ
+ *   Índice 4: "Retenciones Comerciales SIRCAR I.B."
+ *   Índice 5: "Percepciones Comerciales SIRCAR I.B."
+ *   Índice 6: "Retenciones SIRCREB I.B."
+ *   Índice 7: "Retenciones SIRCUPA I.B."
  */
-async function navegarARetenciones(page, submenuIndex = 1) {
-  try {
-    // Esperar que el iframe principal esté cargado
-    const frameHandle = await page.waitForSelector('iframe[src="nucleo/inicio.zul"]');
-    const frame = await frameHandle.contentFrame();
+async function navegarARetenciones(page, submenuIndex = 3) {
+    const MAX_INTENTOS = 3;
 
-    if (!frame) {
-      throw new Error('No se pudo encontrar el contentFrame del iframe.');
-    }
+    for (let intento = 1; intento <= MAX_INTENTOS; intento++) {
+        try {
+            // Esperar que el iframe principal esté cargado
+            const frameHandle = await page.waitForSelector('iframe[src="nucleo/inicio.zul"]', { timeout: 10000 });
+            const frame = await frameHandle.contentFrame();
 
-    console.log('Navegando al menú de Retenciones...');
+            if (!frame) {
+                throw new Error('No se pudo encontrar el contentFrame del iframe.');
+            }
 
-    // Ejecutamos la lógica de clics en el menú dentro del iframe
-    await frame.evaluate((submenuIndexParam) => {
-      console.log('Ejecutando clics en el menú dentro del iframe...');
+            console.log('Navegando al menú de Retenciones...');
 
-      // Capturar la url actual
-      const currentUrl = window.location.href;
-      console.log('URL actual del iframe:', currentUrl);
+            // Paso 1: Esperar a que el menú esté disponible
+            await frame.waitForSelector('a[role="menuitem"]', { timeout: 10000 });
 
-      // Verificar que existen elementos del menú
-      if (!document.querySelector('a[role="menuitem"]')) {
-        setTimeout(() => {
-          page.goto(currentUrl);
-          console.log('Redirigiendo a la URL actual del iframe...');
-        }, 1000);
-      }
+            // Paso 2: Hacer click en el menú principal (índice 2 = "Ingresos Brutos" o similar)
+            const menuIndex = 2; // Índice del menú principal que contiene retenciones
 
-      // Esperar antes de interactuar con los elementos
-      const wait = (ms) => new Promise(res => setTimeout(res, ms));
-      wait(1500);
+            const clickMenuResult = await frame.evaluate((menuIdx) => {
+                const menuItems = document.querySelectorAll('a[role="menuitem"]');
+                if (menuItems.length <= menuIdx) {
+                    return { success: false, error: `Solo hay ${menuItems.length} elementos en el menú, se esperaba al menos ${menuIdx + 1}` };
+                }
+                menuItems[menuIdx].click();
+                return { success: true, totalMenuItems: menuItems.length };
+            }, menuIndex);
 
-      const menuItems = document.querySelectorAll('a[role="menuitem"]');
+            if (!clickMenuResult.success) {
+                throw new Error(clickMenuResult.error);
+            }
 
-      if (menuItems.length === 0) {
-        throw new Error("No se encontraron elementos en el menú.");
-      }
+            // Paso 3: Esperar a que aparezca el submenú
+            await frame.waitForSelector('.z-menupopup-content', { timeout: 5000 });
 
-      // TODO: Ajustar el índice del menItem según corresponda
-      // Por ahora usamos el índice 2 como ejemplo (igual que constancia fiscal)
-      // Deberás verificar cuál es el índice correcto para Retenciones
-      const menuIndex = 2; // AJUSTAR SEGÚN NECESIDAD
+            // Dar tiempo al submenú para que se llene con los elementos
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-      if (menuItems.length <= menuIndex) {
-        throw new Error(`No se encontró el elemento del menú en el índice ${menuIndex}.`);
-      }
+            // Paso 4: Verificar y hacer click en el submenú
+            const clickSubmenuResult = await frame.evaluate((submenuIdx) => {
+                const submenus = document.getElementsByClassName('z-menupopup-content');
 
-      // Clic en el elemento del menú correspondiente
-      menuItems[menuIndex].click();
-      console.log(`Clic en menuItem[${menuIndex}] realizado.`);
+                if (submenus.length === 0) {
+                    return { success: false, error: 'No se encontró ningún submenú' };
+                }
 
-      // Esperar a que aparezca el submenú
-      const submenus = document.getElementsByClassName("z-menupopup-content");
+                const submenu = submenus[0];
+                const items = submenu.querySelectorAll('.z-menuitem');
 
-      if (submenus.length > 0 && submenus[0].childNodes.length > 0) {
-        if (submenus[0].childNodes.length <= submenuIndexParam) {
-          throw new Error(`No se encontró el submenu en el índice ${submenuIndexParam}.`);
+                if (items.length === 0) {
+                    // Intentar con childNodes como fallback
+                    const childNodes = Array.from(submenu.childNodes).filter(n => n.nodeType === 1);
+                    if (childNodes.length <= submenuIdx) {
+                        return {
+                            success: false,
+                            error: `Submenú tiene ${childNodes.length} elementos (childNodes), se necesita índice ${submenuIdx}`,
+                            elementos: childNodes.map(n => n.textContent?.trim().substring(0, 30))
+                        };
+                    }
+                    childNodes[submenuIdx].click();
+                    return { success: true, metodo: 'childNodes', totalItems: childNodes.length };
+                }
+
+                if (items.length <= submenuIdx) {
+                    return {
+                        success: false,
+                        error: `Submenú tiene ${items.length} elementos, se necesita índice ${submenuIdx}`,
+                        elementos: Array.from(items).map(i => i.textContent?.trim().substring(0, 30))
+                    };
+                }
+
+                items[submenuIdx].click();
+                return { success: true, metodo: 'z-menuitem', totalItems: items.length };
+            }, submenuIndex);
+
+            if (!clickSubmenuResult.success) {
+                console.error('Error en submenú:', clickSubmenuResult);
+                throw new Error(clickSubmenuResult.error);
+            }
+
+            // Paso 5: Esperar a que la navegación se complete
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            console.log('Navegación a Retenciones completada.');
+            return; // Éxito, salir de la función
+
+        } catch (error) {
+            console.error(`Error al navegar a retenciones (intento ${intento}/${MAX_INTENTOS}):`, error.message);
+
+            if (intento < MAX_INTENTOS) {
+                console.log(`Reintentando en 2 segundos...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Intentar refrescar el frame antes de reintentar
+                try {
+                    await page.evaluate(() => {
+                        const iframe = document.querySelector('iframe[src="nucleo/inicio.zul"]');
+                        if (iframe) {
+                            iframe.src = iframe.src; // Forzar recarga del iframe
+                        }
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                } catch (e) {
+                    // Ignorar errores de recarga
+                }
+            } else {
+                throw new Error('Fallo el proceso de navegación a retenciones después de múltiples intentos.');
+            }
         }
-
-        // Hacemos clic en el item del submenú
-        submenus[0].childNodes[submenuIndexParam].click();
-        console.log(`Clic en el submenú de Retenciones (índice ${submenuIndexParam}) realizado.`);
-      } else {
-        throw new Error("El submenú de retenciones no apareció como se esperaba.");
-      }
-    }, submenuIndex);
-
-    // Esperar a que la navegación se complete
-    await new Promise(res => setTimeout(res, 2000));
-
-    console.log('Navegación a Retenciones completada.');
-
-  } catch (error) {
-    console.error('Error al navegar a retenciones:', error);
-    throw new Error('Fallo el proceso de navegación a retenciones.');
-  }
+    }
 }
 
 module.exports = { navegarARetenciones };
