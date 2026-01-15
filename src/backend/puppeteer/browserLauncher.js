@@ -36,7 +36,12 @@ async function launchBrowser({ headless = true, args = [] } = {}) { // <-- permi
 
       '--disable-prompt-on-repost', // Desactivar prompt de repost
       '--disable-hang-monitor', // Desactivar monitor de cuelgue
-      '--disable-features=DownloadBubble,DownloadBubbleV2' // Desactivar diálogo de descarga moderno
+      '--disable-features=DownloadBubble,DownloadBubbleV2,PasswordCheck,PasswordLeakDetection', // Desactivar diálogo de descarga moderno y verificación de contraseñas comprometidas
+
+      // ===== DESHABILITAR PASSWORD MANAGER DE CHROME =====
+      '--disable-save-password-bubble', // No mostrar popup de guardar contraseña
+      '--disable-password-generation', // No sugerir contraseñas generadas
+      '--password-store=basic' // Usar almacén básico sin integración con el sistema
     ],
     defaultViewport: null,
     ignoreDefaultArgs: ['--enable-automation'],
