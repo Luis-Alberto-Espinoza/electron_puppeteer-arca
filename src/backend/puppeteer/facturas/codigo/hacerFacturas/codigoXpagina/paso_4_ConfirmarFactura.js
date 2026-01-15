@@ -137,7 +137,7 @@ async function paso_4_ConfirmarFactura(newPage, modoTest, usuarioSeleccionado = 
                     window.scrollTo(0, document.body.scrollHeight);
                     let btnMenuPrinvipalVolver = document.querySelectorAll('input');
                     if (!modoTest) {
-                         ajaxFunction();
+                        // ajaxFunction();
                     } else {
                         //quitar zoom hata ver la paghina completa
                         document.body.style.zoom = "0.8";

@@ -68,17 +68,25 @@ export function inicializarFacturas() {
         });
 
         const anioActual = new Date().getFullYear();
-        for (let i = 0; i < 5; i++) {
+        for (let i = -1; i < 4; i++) {  // Comienza en -1 para incluir año anterior
             const option = document.createElement('option');
-            option.value = anioActual + i;
-            option.textContent = anioActual + i;
+            const anio = anioActual + i;
+            option.value = anio;
+            option.textContent = anio;
+            
+            // Seleccionar el año anterior (i = -1)
+            if (i === -1) {
+                option.selected = true;
+            }
+            
             selectAnio.appendChild(option);
         }
 
-        // Preseleccionar mes y año actuales
+        // Preseleccionar mes actual
         const mesActual = new Date().getMonth() + 1;
         selectMes.value = mesActual;
-        selectAnio.value = anioActual;
+        // El año anterior ya está preseleccionado arriba
+        selectAnio.value = anioActual - 1;
     }
 
     // Función para actualizar la vista inicial del calendario

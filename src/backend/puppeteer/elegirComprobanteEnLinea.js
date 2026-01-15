@@ -23,7 +23,7 @@ async function elegirComprobanteEnLinea(page) {
         console.log('  → Buscando Comprobantes en línea mediante buscador...');
 
         // Usar el componente reutilizable del buscador
-        const newPage = await buscarEnAfip(page, 'comprobantes en linea', {
+        const newPage = await buscarEnAfip(page, 'compr', {
             timeoutNuevaPestana: 5000,
             esperarNuevaPestana: true
         });
