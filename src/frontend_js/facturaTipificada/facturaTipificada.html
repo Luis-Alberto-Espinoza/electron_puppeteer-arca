@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturas Tipificadas</title>
+</head>
+<body>
+    <div class="factura-tipificada-container">
+        <div class="header">
+            <h2>Generar Factura Tipificada</h2>
+            <p class="descripcion">Complete los datos para generar una factura con información específica del cliente</p>
+        </div>
+
+        <!-- INFO DEL USUARIO SELECCIONADO -->
+        <div id="infoUsuarioFacturaTipificada" class="info-usuario-container">
+            <!-- Se mostrará el usuario seleccionado -->
+        </div>
+
+        <!-- FORMULARIO -->
+        <div id="formularioFacturaTipificada" class="formulario-container">
+
+            <form id="formFacturaTipificada">
+
+                <!-- SECCIÓN 1: DATOS BÁSICOS -->
+                <div class="seccion-form">
+                    <h3>1. Datos Básicos</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tipoActividad">Tipo de Actividad *</label>
+                            <select id="tipoActividad" name="tipoActividad" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="Servicio" selected>Servicio</option>
+                                <option value="Producto">Producto</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="empresaPuntoVenta">Empresa / Punto de Venta *</label>
+                            <select id="empresaPuntoVenta" name="empresaPuntoVenta" required>
+                                <option value="">Seleccionar...</option>
+                                <!-- Las opciones se llenarán dinámicamente desde el JS -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tipoContribuyenteInfo">Tipo de Contribuyente</label>
+                            <input type="text" id="tipoContribuyenteInfo" name="tipoContribuyenteInfo" readonly disabled>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fechaComprobanteTipificada">Fecha de Comprobante *</label>
+                            <input type="text" id="fechaComprobanteTipificada" name="fechaComprobante"
+                                   placeholder="DD/MM/YYYY" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 2: FECHAS DE SERVICIO (solo si es Servicio) -->
+                <div class="seccion-form" id="seccionFechasServicio" style="display: none;">
+                    <h3>2. Fechas de Servicio</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fechaDesde">Desde</label>
+                            <input type="text" id="fechaDesde" name="fechaDesde"
+                                   placeholder="DD/MM/YYYY">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="fechaHasta">Hasta</label>
+                            <input type="text" id="fechaHasta" name="fechaHasta"
+                                   placeholder="DD/MM/YYYY">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="fechaVtoPago">Vencimiento de Pago</label>
+                            <input type="text" id="fechaVtoPago" name="fechaVtoPago"
+                                   placeholder="DD/MM/YYYY">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 3: DATOS DEL RECEPTOR -->
+                <div class="seccion-form">
+                    <h3>3. Datos del Cliente/Receptor</h3>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="tipoDocumento">Tipo de Documento *</label>
+                            <select id="tipoDocumento" name="tipoDocumento" required>
+                                <option value="80">CUIT</option>
+                                <option value="96">DNI</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="numeroDocumento">Número de Documento *</label>
+                            <input type="text" id="numeroDocumento" name="numeroDocumento"
+                                   placeholder="Sin guiones (ej: 20123456789)" value="30500007539" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="condicionIVA">Condición frente al IVA *</label>
+                            <select id="condicionIVA" name="condicionIVA" required>
+                                <option value="">Seleccionar...</option>
+                                <option value="1" selected>IVA Responsable Inscripto</option>
+                                <option value="4">IVA Sujeto Exento</option>
+                                <option value="5">Consumidor Final</option>
+                                <option value="6">Responsable Monotributo</option>
+                                <option value="7">Sujeto No Categorizado</option>
+                                <option value="8">Proveedor del Exterior</option>
+                                <option value="9">Cliente del Exterior</option>
+                                <option value="10">IVA Liberado - Ley Nº 19.640</option>
+                                <option value="13">Monotributista Social</option>
+                                <option value="15">IVA No Alcanzado</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="nombreCliente">Nombre del Cliente (Opcional)</label>
+                            <input type="text" id="nombreCliente" name="nombreCliente"
+                                   placeholder="Para nombrar la carpeta del PDF">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Condiciones de Venta</label>
+                        <div class="checkboxes-grid">
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Contado">
+                                <span>Contado</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Tarjeta de Débito">
+                                <span>Tarjeta de Débito</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Tarjeta de Crédito">
+                                <span>Tarjeta de Crédito</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Cuenta Corriente" checked>
+                                <span>Cuenta Corriente</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Cheque">
+                                <span>Cheque</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Transferencia Bancaria">
+                                <span>Transferencia Bancaria</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Otra">
+                                <span>Otra</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" name="condicionVenta" value="Otros medios de pago electrónico">
+                                <span>Otros medios electrónicos</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN 4: FACTURAS A GENERAR -->
+                <div class="seccion-form">
+                    <h3>4. Facturas a Generar</h3>
+                    <p class="info-text">Puede agregar múltiples facturas. Los datos básicos se compartirán entre todas.</p>
+
+                    <div id="facturasContainer">
+                        <!-- Las facturas se agregarán dinámicamente aquí -->
+                    </div>
+
+                    <button type="button" id="btnAgregarFactura" class="btn-secundario">
+                        ➕ Agregar Otra Factura
+                    </button>
+                </div>
+
+                <!-- SECCIÓN 5: OPCIONES ADICIONALES -->
+                <div class="seccion-form">
+                    <h3>5. Opciones Adicionales</h3>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="usarCarpetaPersonalizada" name="usarCarpetaPersonalizada">
+                            Usar carpeta personalizada para el PDF
+                        </label>
+                    </div>
+
+                    <div class="form-group" id="grupoCarpetaPDF" style="display: none;">
+                        <label for="carpetaPDF">Ruta de Carpeta</label>
+                        <input type="text" id="carpetaPDF" name="carpetaPDF"
+                               placeholder="/ruta/a/carpeta">
+                    </div>
+                </div>
+
+                <!-- BOTONES DE ACCIÓN -->
+                <div class="acciones-form">
+                    <button type="button" id="btnCancelar" class="btn-cancelar">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btnGenerar" class="btn-generar">
+                        🧾 Generar <span id="contadorFacturas">1</span> Factura(s)
+                    </button>
+                </div>
+            </form>
+
+            <!-- ÁREA DE PROGRESO -->
+            <div id="areaProgreso" class="area-progreso contenido-oculto">
+                <h3>Generando Facturas...</h3>
+                <div class="progreso-general">
+                    <div class="progreso-texto">
+                        <span id="progresoActual">0</span> de <span id="progresoTotal">0</span>
+                    </div>
+                    <div class="barra-progreso">
+                        <div id="barraProgresoFill" class="barra-progreso-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div id="listaProgresoFacturas" class="lista-progreso">
+                    <!-- Se mostrará el estado de cada factura aquí -->
+                </div>
+            </div>
+
+            <!-- ÁREA DE RESULTADOS -->
+            <div id="areaResultados" class="area-resultados contenido-oculto">
+                <h3>Resultado</h3>
+                <div id="mensajeResultado"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
