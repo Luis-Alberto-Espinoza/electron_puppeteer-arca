@@ -86,3 +86,11 @@ src/frontend_js/home/script.js
 script.js
 nueva_pestana.png
 src/utils/
+
+# Documentación y archivos markdown
+*.md
+
+# Carpetas de documentación y testing
+docs/
+gestor_afip_atm/
+src/backend/extraerTablasPdf/modo_test/
