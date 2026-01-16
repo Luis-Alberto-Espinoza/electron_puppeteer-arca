@@ -1,4 +1,3 @@
-const fecha = require('../utils.js');
 const path = require('path');
 const { fork } = require('child_process');
 const fs = require('fs').promises;

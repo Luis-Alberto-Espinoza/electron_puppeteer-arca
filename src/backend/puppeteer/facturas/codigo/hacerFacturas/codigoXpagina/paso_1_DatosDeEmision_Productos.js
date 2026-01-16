@@ -1,4 +1,3 @@
-const fecha = require('../utils.js');
 const path = require('path');
 const fs = require('fs').promises; // Usa promesas para manejar directorios
 const { fork } = require('child_process');

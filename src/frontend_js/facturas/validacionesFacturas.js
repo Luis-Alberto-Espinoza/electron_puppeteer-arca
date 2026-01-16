@@ -1,12 +1,13 @@
-import { validarFecha, esNumeroValido } from '../utils.js';
-
 export function validarDatosMasivos(datos) {
     const errores = [];
     datos.forEach(({ fecha, monto }, i) => {
-        if (!validarFecha(fecha)) {
+        // Validar formato de fecha DD/MM/YYYY
+        const regexFecha = /^\d{2}\/\d{2}\/\d{4}$/;
+        if (!regexFecha.test(fecha)) {
             errores.push(`La fecha en la línea ${i + 1} no tiene el formato válido (DD/MM/YYYY).`);
         }
-        if (!esNumeroValido(monto)) {
+        // Validar que monto sea número válido
+        if (isNaN(parseFloat(monto)) || !isFinite(monto)) {
             errores.push(`El monto en la línea ${i + 1} no es un número válido.`);
         }
     });

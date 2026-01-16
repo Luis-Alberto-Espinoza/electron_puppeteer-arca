@@ -11,7 +11,6 @@
  * Según acuerdos: SIEMPRE volver al menú principal, nunca cerrar navegador aquí.
  */
 
-const { fechaHoy } = require('../utils.js');
 const os = require('os');
 const path = require('path');
 const fs = require('fs').promises;

@@ -11,8 +11,6 @@
  * Detecta automáticamente según datos.lineasDetalle
  */
 
-const { fechaHoy } = require('../utils.js');
-
 // Función auxiliar para esperar (COPIADA EXACTA)
 function esperar(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
