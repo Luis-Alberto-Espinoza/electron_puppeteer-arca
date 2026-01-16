@@ -9,7 +9,7 @@ const { paso_3_DatosDeOperacion_Factura_C } = require('../codigoXpagina/paso_3_D
 const { paso_4_ConfirmarFactura } = require('../codigoXpagina/paso_4_ConfirmarFactura');
 const { paso_X_ConsultaComprobantes } = require('../codigoXpagina/consultaDeComprobante_formulario');
 const { buscarEnAfip } = require('../../../../buscadorAfip');
-const { elegirEmpresaDisponible } = require('../../../../elegirEmpresaDisponible');
+const { seleccionarEmpresa } = require('../../../../empresasDisponibles');
 const { extraerDatosDeConsultaComprobantes } = require('../../consultarFacturas/comprobarFacturado');
 
 let respuesta;
@@ -94,7 +94,7 @@ const ejecutar_Facturas = async (page, datos, modoTest, credenciales, usuarioSel
 
         const pagePuntoDeVenta = await ejecutarPasoConVerificacion(
             'Elegir Punto de Venta',
-            elegirEmpresaDisponible,
+            seleccionarEmpresa,
             newPage,
             credenciales.nombreEmpresa // <-- aquí pasas el nombre de la empresa
         );

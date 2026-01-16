@@ -38,7 +38,7 @@ const { paso_4_ConfirmarFactura_Unificado } = require('../codigoXpagina/paso_4_C
 // Funciones comunes
 const { paso_X_ConsultaComprobantes } = require('../codigoXpagina/consultaDeComprobante_formulario');
 const { buscarEnAfip } = require('../../../../buscadorAfip');
-const { elegirEmpresaDisponible } = require('../../../../elegirEmpresaDisponible');
+const { seleccionarEmpresa } = require('../../../../empresasDisponibles');
 const { extraerDatosDeConsultaComprobantes } = require('../../consultarFacturas/comprobarFacturado');
 
 let respuesta;
@@ -157,7 +157,7 @@ const ejecutar_FacturacionUnificado = async (
 
         const pagePuntoDeVenta = await ejecutarPasoConVerificacion(
             'Elegir Punto de Venta',
-            elegirEmpresaDisponible,
+            seleccionarEmpresa,
             newPage,
             credenciales.nombreEmpresa
         );

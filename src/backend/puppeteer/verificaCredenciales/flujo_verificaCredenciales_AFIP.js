@@ -1,4 +1,4 @@
-const { listarEmpresasDisponibles } = require('../listarEmpresasDisponibles');
+const { listarEmpresas } = require('../empresasDisponibles');
 const { hacerLogin } = require('../facturas/codigo/login/login_arca');
 const { buscarEnAfip } = require('../buscadorAfip');
 const { obtenerCuitsAsociados } = require('../obtenerCuitsAsociados');
@@ -67,7 +67,7 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
 
         // Llamada a la nueva función que solo lista las empresas
         console.log('    [AFIP] -> Listando empresas disponibles...');
-        const puntosDeVentaArray = await listarEmpresasDisponibles(newPage);
+        const puntosDeVentaArray = await listarEmpresas(newPage);
 
         console.log(`    [AFIP] -> Empresas encontradas: ${puntosDeVentaArray.length}`);
 
