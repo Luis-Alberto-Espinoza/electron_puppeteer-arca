@@ -21,7 +21,7 @@ const { paso_3_DatosDeOperacion_Factura_B } = require('../codigoXpagina/paso_3_D
 const { paso_3_DatosDeOperacion_Cliente } = require('../codigoXpagina/paso_3_DatosDeOperacion_Cliente');
 const { paso_4_ConfirmarFactura_Cliente } = require('../codigoXpagina/paso_4_ConfirmarFactura_Cliente');
 
-const { elegirComprobanteEnLinea } = require('../../../../elegirComprobanteEnLinea');
+const { buscarEnAfip } = require('../../../../buscadorAfip');
 const { elegirEmpresaDisponible } = require('../../../../elegirEmpresaDisponible');
 
 let respuesta;
@@ -94,8 +94,8 @@ const ejecutar_FacturaCliente = async (page, datos, modoTest, credenciales, usua
 
         // ===== INICIALIZACIÓN =====
         const newPage = await ejecutarPasoConVerificacion(
-            'Elegir Comprobante en Línea',
-            elegirComprobanteEnLinea,
+            'Buscar Comprobante en Línea',
+            async (p) => await buscarEnAfip(p, 'compr', { esperarNuevaPestana: true }),
             page
         );
 

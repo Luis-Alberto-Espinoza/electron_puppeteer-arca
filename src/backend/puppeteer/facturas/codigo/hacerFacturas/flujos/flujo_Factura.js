@@ -8,7 +8,7 @@ const { paso_3_DatosDeOperacion_Factura_B } = require('../codigoXpagina/paso_3_D
 const { paso_3_DatosDeOperacion_Factura_C } = require('../codigoXpagina/paso_3_DatosDeOperacion_Factura_C');
 const { paso_4_ConfirmarFactura } = require('../codigoXpagina/paso_4_ConfirmarFactura');
 const { paso_X_ConsultaComprobantes } = require('../codigoXpagina/consultaDeComprobante_formulario');
-const { elegirComprobanteEnLinea } = require('../../../../elegirComprobanteEnLinea');
+const { buscarEnAfip } = require('../../../../buscadorAfip');
 const { elegirEmpresaDisponible } = require('../../../../elegirEmpresaDisponible');
 const { extraerDatosDeConsultaComprobantes } = require('../../consultarFacturas/comprobarFacturado');
 
@@ -87,8 +87,8 @@ const ejecutar_Facturas = async (page, datos, modoTest, credenciales, usuarioSel
 
         // Inicialización única
         const newPage = await ejecutarPasoConVerificacion(
-            'Elegir Comprobante en Línea',
-            elegirComprobanteEnLinea,
+            'Buscar Comprobante en Línea',
+            async (p) => await buscarEnAfip(p, 'compr', { esperarNuevaPestana: true }),
             page
         );
 

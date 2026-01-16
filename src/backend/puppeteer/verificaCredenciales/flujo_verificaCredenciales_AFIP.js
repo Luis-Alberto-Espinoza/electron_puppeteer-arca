@@ -1,4 +1,3 @@
-const { elegirComprobanteEnLinea } = require('../elegirComprobanteEnLinea');
 const { listarEmpresasDisponibles } = require('../listarEmpresasDisponibles');
 const { hacerLogin } = require('../facturas/codigo/login/login_arca');
 const { buscarEnAfip } = require('../buscadorAfip');
@@ -63,8 +62,8 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
         }
 
         // 4. Navegar y extraer datos (lógica original)
-        console.log('    [AFIP] -> Eligiendo comprobante en línea...');
-        const newPage = await elegirComprobanteEnLinea(loggedPage);
+        console.log('    [AFIP] -> Buscando comprobante en línea...');
+        const newPage = await buscarEnAfip(loggedPage, 'compr', { esperarNuevaPestana: true });
 
         // Llamada a la nueva función que solo lista las empresas
         console.log('    [AFIP] -> Listando empresas disponibles...');
