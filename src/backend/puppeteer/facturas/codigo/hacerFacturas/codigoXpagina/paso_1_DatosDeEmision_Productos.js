@@ -30,8 +30,7 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, modoTest
 
       // Verifica que el archivo existe antes de intentar abrirlo
       if (await fs.access(screenshotPath).then(() => true).catch(() => false)) {
-        //const visorProcess = fork(path.join(__dirname, 'visorImagen.js'));
-        const visorProcess = fork(path.join(__dirname, './../visorImagen.js'));
+        const visorProcess = fork(path.join(__dirname, '../../../../archivos_comunes/visorImagen.js'));
 
         visorProcess.on('error', (err) => {
           console.error('Error en el proceso visor:', err);

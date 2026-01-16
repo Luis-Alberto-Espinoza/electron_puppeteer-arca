@@ -265,7 +265,7 @@ const ejecutar_FacturacionUnificado = async (
 
                 // Mostrar con visor
                 const { fork } = require('child_process');
-                const visorProcess = fork(path.join(__dirname, './../visorImagen.js'));
+                const visorProcess = fork(path.join(__dirname, '../../../../archivos_comunes/visorImagen.js'));
                 visorProcess.send({ screenshotPath });
 
                 if (enviarProgreso) {
