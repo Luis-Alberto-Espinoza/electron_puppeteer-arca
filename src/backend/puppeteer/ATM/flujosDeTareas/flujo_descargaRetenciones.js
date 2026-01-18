@@ -2,7 +2,7 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarARetenciones } = require('../codigoXpagina/oficina_retenciones.js');
 const { descargarRetencionGenerico } = require('../codigoXpagina/retenciones_generico.js');
-const { launchBrowser } = require('../../browserLauncher.js');
+const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js');
 
 /**
  * Flujo completo para descargar retenciones desde ATM

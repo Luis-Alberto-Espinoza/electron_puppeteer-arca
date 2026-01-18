@@ -10,7 +10,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
-const { launchBrowser } = require('../../browserLauncher.js');
+const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js');
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { navegarATasaCero } = require('../codigoXpagina/aplicativos-tasaCero.js');
 const {

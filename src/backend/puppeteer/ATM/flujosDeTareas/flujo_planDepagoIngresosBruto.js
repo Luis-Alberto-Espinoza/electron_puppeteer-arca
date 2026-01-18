@@ -7,7 +7,7 @@ const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.j
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
 const { prepararTablaIngresosBrutos, descargarFilaVigentePorIndice, contarFilasVigentes } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
 const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
-const { launchBrowser } = require('../../browserLauncher.js'); // Importar el lanzador autónomo
+const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 
 // --- Helper para encontrar la fecha de vencimiento en los datos del PDF ---
 function encontrarFechaVencimiento(datosPdf) {

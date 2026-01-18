@@ -143,7 +143,7 @@ const setupMercadoPagoHandlers = require('../extraerDemercadoPago/mercadoPagoHan
 const { procesarArchivoUsuarios } = require('../usuario/cargaMasiva.js');
 
 // Lanzador de navegador y verificador de ATM para la validación manual
-const { launchBrowserAndPage } = require('../puppeteer/browserLauncher');
+const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher');
 const verificarCredencialesATM = require('../puppeteer/ATM/flujosDeTareas/flujo_verificaCredenciales_atm');
 
 

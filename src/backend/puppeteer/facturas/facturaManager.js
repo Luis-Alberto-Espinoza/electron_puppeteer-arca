@@ -1,42 +1,30 @@
+const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
 const loginManager = require('./codigo/login/login_arca.js');
 const flujo_Factura = require('./codigo/hacerFacturas/flujos/flujo_Factura.js');
+
+const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
+
 async function iniciarProcesoFacturas(url, credenciales, datosProcesados, test = false, usuarioSeleccionado, empresa) {
-    let browser; // La definimos aquí para que sea accesible en el bloque `finally`
-    console.log("Iniciando proceso de manager de facturación...", usuarioSeleccionado);
+    console.log("[Factura Manager] Iniciando proceso de facturacion...");
 
-    try {
-        if (test) {
-            console.log("Modo test activado. No se realizarán cambios reales.");
-        }
+    if (test) {
+        console.log("[Factura Manager] Modo test activado.");
+    }
 
-        // 1. Llamamos a la nueva función de login
-        const loginResult = await loginManager.hacerLogin(url, credenciales);
+    return await puppeteerManager.ejecutar(async (browser, page) => {
+        // 1. Login (ahora recibe page como primer parametro)
+        const loginResult = await loginManager.hacerLogin(page, url || URL_LOGIN_AFIP, credenciales);
 
-        // 2. Verificamos si el login fue exitoso
         if (!loginResult.success) {
-            console.error("[Factura Manager] El login falló:", loginResult.message);
+            console.error("[Factura Manager] El login fallo:", loginResult.message);
             return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
         }
 
-        // 3. Desestructuramos page y browser del resultado exitoso
-        const { page, browser: b } = loginResult;
-        browser = b; // Asignamos el browser a la variable externa
-
-        // 4. Ejecutamos el flujo principal de la factura
+        // 2. Ejecutar flujo de facturacion
         const resultado = await flujo_Factura.ejecutar_Facturas(page, datosProcesados, test, credenciales, usuarioSeleccionado, empresa);
         return resultado;
 
-    } catch (error) {
-        console.error("Error en iniciarProcesoFacturas:", error);
-        // Devolvemos un objeto de error estructurado para consistencia
-        return { success: false, error: 'PROCESS_ERROR', message: error.message };
-    } finally {
-        // 5. Nos aseguramos de que el navegador se cierre SIEMPRE
-        if (browser) {
-            console.log("[Factura Manager] Cerrando el navegador.");
-            await browser.close();
-        }
-    }
+    }, { headless: false });
 }
 
 module.exports = {

@@ -2,7 +2,7 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarAConstanciaFiscal } = require('../codigoXpagina/oficina_constanciaFiscal.js');
 const { gestionarConstanciaFiscal } = require('../codigoXpagina/constanciaFiscal.js');
-const { launchBrowser } = require('../../browserLauncher.js'); // Importar el lanzador autónomo
+const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
 
 async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso) {
