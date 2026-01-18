@@ -1,8 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
-const { comunicacionConLibroIVA } = require('../index.js');
 // comunicacionConFactura y facturaManager movidos a afip/factura/handlers.js
+// comunicacionConLibroIVA movido a afip/libroIVA/handlers.js
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
 const procesarPdfConFallback = require('../extraerTablasPdf/extraerTablas_B_Manager.js'); // Importa la función orquestadora
 const fs = require('fs'); // <--- Agrega esto al inicio del archivo
@@ -292,39 +292,7 @@ module.exports = { getPuppeteerWindow };
 
 function setupIpcListeners() {
     // Handlers de factura movidos a: afip/factura/handlers.js
-
-    ipcMain.on('procesar-libro-iva', async (event, data) => {
-        try {
-            const resultado = await comunicacionConLibroIVA(data);
-            event.reply('libro-iva-procesado', { success: true, message: 'Libro IVA procesado correctamente', data: resultado });
-        } catch (error) {
-            console.error("Error al procesar el libro IVA:", error);
-            event.reply('libro-iva-procesado', { success: false, error: error.message });
-        }
-    });
-
-
-    ipcMain.on('actualizar-segun-informe', async (event, data) => {
-        try {
-            const resultado = await comunicacionConLibroIVA(data);
-
-            event.reply('libro-iva-actualizado', { success: true, message: 'Libro IVA actualizado correctamente', data: resultado });
-        } catch (error) {
-            console.error("Error al procesar el libro IVA:", error);
-            event.reply('libro-iva-actualizado', { success: false, error: error.message });
-        }
-    });
-
-    ipcMain.on('numero-eliminar', async (event, data) => {
-
-        try {
-            const resultado = await comunicacionConLibroIVA(data);
-            event.reply('resultado-numero-eliminar', { success: true, resultado });
-        } catch (error) {
-            console.error('Error al procesar el número:', error);
-            event.reply('resultado-numero-eliminar', { success: false, error: error.message });
-        }
-    });
+    // Handlers de libroIVA movidos a: afip/libroIVA/handlers.js
 
     ipcMain.on('procesar-pdf', async (event, filePath) => {
         try {
@@ -486,6 +454,7 @@ app.whenReady().then(async () => {
         setupFacturaHandlers(ipcMain, userStorage, mainWindow);
         setupVepHandlers(ipcMain, userStorage, mainWindow, app);
         setupConsultaDeudaHandlers(ipcMain, userStorage, app);
+        setupLibroIvaHandlers(ipcMain);
 
         // Handler para la carga masiva de usuarios desde Excel
         ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {
