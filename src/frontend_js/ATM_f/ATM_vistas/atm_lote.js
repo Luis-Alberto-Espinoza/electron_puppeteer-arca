@@ -177,8 +177,20 @@ window.inicializarModuloLoteATM = () => {
         });
     }
 
-    // --- LÓGICA DE ACCIONES ---
-    const iniciarProcesoLote = async (tipoAccion) => {
+    // --- FUNCIÓN AUXILIAR PARA PREPARAR UI ---
+    const prepararUIParaProceso = () => {
+        procesandoContainer.innerHTML = '<h3>Procesando Usuario Actual:</h3>';
+        finalizadosDiv.innerHTML = '';
+        procesandoContainer.style.display = 'block';
+        finalizadosContainer.style.display = 'none';
+
+        setTimeout(() => {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        }, 100);
+    };
+
+    // --- LÓGICA DE CONSTANCIA FISCAL ---
+    const iniciarConstanciaFiscal = async () => {
         if (!selectorUsuarios) {
             alert('Error: Selector de usuarios no inicializado');
             return;
@@ -191,51 +203,91 @@ window.inicializarModuloLoteATM = () => {
             return;
         }
 
-        // VALIDACIÓN ESPECIAL PARA RETENCIONES: verificar que todos tengan periodo
-        if (tipoAccion === 'descargaRetenciones') {
-            const usuariosSinPeriodo = usuariosParaProcesar.filter(u => !periodosSeleccionados[u.id]);
+        const nombresUsuarios = usuariosParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
+        const confirmacion = confirm(`Se iniciará el proceso de Constancia Fiscal para los siguientes ${usuariosParaProcesar.length} usuarios:\n\n - ${nombresUsuarios}\n\n¿Desea continuar?`);
+        if (!confirmacion) return;
 
-            if (usuariosSinPeriodo.length > 0) {
-                const nombresSinPeriodo = usuariosSinPeriodo.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
-                alert(`❌ Error: Los siguientes usuarios no tienen periodo seleccionado:\n\n - ${nombresSinPeriodo}\n\nPor favor, seleccione un periodo para todos los usuarios antes de continuar.`);
-                return;
-            }
+        prepararUIParaProceso();
 
-            // Agregar el periodo a cada usuario (convertir de MM/YYYY a YYYY-MM)
-            usuariosParaProcesar.forEach(u => {
-                const periodoOriginal = periodosSeleccionados[u.id]; // "MM/YYYY"
-                const [mes, anio] = periodoOriginal.split('/');
-                u.periodo = `${anio}-${mes}`; // "YYYY-MM"
-            });
+        try {
+            await window.electronAPI.atm.constanciaFiscal.generarLote({ usuarios: usuariosParaProcesar });
+        } catch (error) {
+            procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
+        }
+    };
+
+    // --- LÓGICA DE PLAN DE PAGO ---
+    const iniciarPlanDePago = async () => {
+        if (!selectorUsuarios) {
+            alert('Error: Selector de usuarios no inicializado');
+            return;
+        }
+
+        const usuariosParaProcesar = selectorUsuarios.obtenerSeleccionados();
+
+        if (usuariosParaProcesar.length === 0) {
+            alert('Por favor, seleccione al menos un usuario.');
+            return;
         }
 
         const nombresUsuarios = usuariosParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
-
-        const confirmacion = confirm(`Se iniciará el proceso '${tipoAccion}' para los siguientes ${usuariosParaProcesar.length} usuarios:\n\n - ${nombresUsuarios}\n\n¿Desea continuar?`);
+        const confirmacion = confirm(`Se iniciará el proceso de Plan de Pago para los siguientes ${usuariosParaProcesar.length} usuarios:\n\n - ${nombresUsuarios}\n\n¿Desea continuar?`);
         if (!confirmacion) return;
 
-        procesandoContainer.innerHTML = '<h3>Procesando Usuario Actual:</h3>'; // Resetear y poner título
-        finalizadosDiv.innerHTML = '';
-        procesandoContainer.style.display = 'block';
-        finalizadosContainer.style.display = 'none';
-
-        // Auto-scroll a los resultados
-        setTimeout(() => {
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: 'smooth'
-            });
-        }, 100);
+        prepararUIParaProceso();
 
         try {
-            await window.electronAPI.atm.iniciarLote({ tipoAccion, usuarios: usuariosParaProcesar });
+            await window.electronAPI.atm.planDePago.generarLote({ usuarios: usuariosParaProcesar });
         } catch (error) {
-            procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación al iniciar el lote: ${error.message}</div>`;
+            procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
+        }
+    };
+
+    // --- LÓGICA DE RETENCIONES ---
+    const iniciarRetenciones = async () => {
+        if (!selectorUsuarios) {
+            alert('Error: Selector de usuarios no inicializado');
+            return;
+        }
+
+        const usuariosParaProcesar = selectorUsuarios.obtenerSeleccionados();
+
+        if (usuariosParaProcesar.length === 0) {
+            alert('Por favor, seleccione al menos un usuario.');
+            return;
+        }
+
+        // VALIDACIÓN: verificar que todos tengan periodo
+        const usuariosSinPeriodo = usuariosParaProcesar.filter(u => !periodosSeleccionados[u.id]);
+
+        if (usuariosSinPeriodo.length > 0) {
+            const nombresSinPeriodo = usuariosSinPeriodo.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
+            alert(`❌ Error: Los siguientes usuarios no tienen periodo seleccionado:\n\n - ${nombresSinPeriodo}\n\nPor favor, seleccione un periodo para todos los usuarios antes de continuar.`);
+            return;
+        }
+
+        // Agregar el periodo a cada usuario (convertir de MM/YYYY a YYYY-MM)
+        usuariosParaProcesar.forEach(u => {
+            const periodoOriginal = periodosSeleccionados[u.id]; // "MM/YYYY"
+            const [mes, anio] = periodoOriginal.split('/');
+            u.periodo = `${anio}-${mes}`; // "YYYY-MM"
+        });
+
+        const nombresUsuarios = usuariosParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
+        const confirmacion = confirm(`Se iniciará la descarga de Retenciones para los siguientes ${usuariosParaProcesar.length} usuarios:\n\n - ${nombresUsuarios}\n\n¿Desea continuar?`);
+        if (!confirmacion) return;
+
+        prepararUIParaProceso();
+
+        try {
+            await window.electronAPI.atm.retenciones.generarLote({ usuarios: usuariosParaProcesar });
+        } catch (error) {
+            procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         }
     };
 
     // --- LÓGICA DE TASA CERO ---
-    const iniciarProcesoLoteTasaCero = async () => {
+    const iniciarTasaCero = async () => {
         if (!selectorUsuarios) {
             alert('Error: Selector de usuarios no inicializado');
             return;
@@ -265,37 +317,23 @@ window.inicializarModuloLoteATM = () => {
         });
 
         const nombresClientes = clientesParaProcesar.map(u => `${u.nombre || ''} ${u.apellido || ''}`.trim()).join('\n - ');
-
         const confirmacion = confirm(`Se iniciará el proceso de Tasa Cero para los siguientes ${clientesParaProcesar.length} cliente(s):\n\n - ${nombresClientes}\n\n¿Desea continuar?`);
         if (!confirmacion) return;
 
-        procesandoContainer.innerHTML = '<h3>Procesando Cliente Actual:</h3>'; // Resetear y poner título
-        finalizadosDiv.innerHTML = '';
-        procesandoContainer.style.display = 'block';
-        finalizadosContainer.style.display = 'none';
-
-        // Auto-scroll a los resultados
-        setTimeout(() => {
-            window.scrollTo({
-                top: document.body.scrollHeight,
-                behavior: 'smooth'
-            });
-        }, 100);
+        prepararUIParaProceso();
 
         try {
-            // Llamar a la API de Tasa Cero con el periodo incluido
-            await window.electronAPI.atm.iniciarLoteTasaCero({
-                clientes: clientesParaProcesar
-            });
+            await window.electronAPI.atm.tasaCero.generarLote({ clientes: clientesParaProcesar });
         } catch (error) {
-            procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación al iniciar Tasa Cero: ${error.message}</div>`;
+            procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         }
     };
 
-    if (btnConstanciasLote) btnConstanciasLote.addEventListener('click', () => iniciarProcesoLote('constanciaFiscal'));
-    if (btnPlanesPagoLote) btnPlanesPagoLote.addEventListener('click', () => iniciarProcesoLote('planDePago'));
-    if (btnTasaCeroLote) btnTasaCeroLote.addEventListener('click', () => iniciarProcesoLoteTasaCero());
-    if (btnRetencionesLote) btnRetencionesLote.addEventListener('click', () => iniciarProcesoLote('descargaRetenciones'));
+    // --- EVENT LISTENERS DE BOTONES ---
+    if (btnConstanciasLote) btnConstanciasLote.addEventListener('click', iniciarConstanciaFiscal);
+    if (btnPlanesPagoLote) btnPlanesPagoLote.addEventListener('click', iniciarPlanDePago);
+    if (btnTasaCeroLote) btnTasaCeroLote.addEventListener('click', iniciarTasaCero);
+    if (btnRetencionesLote) btnRetencionesLote.addEventListener('click', iniciarRetenciones);
 
     // Map to keep track of userDivs
     const userDivMap = new Map();
@@ -456,14 +494,20 @@ window.inicializarModuloLoteATM = () => {
         }
     };
 
-    // --- LISTENERS DE PROGRESO ---
-    // Listener para ATM general (Plan de Pago y Constancias)
-    window.electronAPI.atm.onLoteUpdate((datos) => {
+    // --- LISTENERS DE PROGRESO (uno por servicio) ---
+    window.electronAPI.atm.constanciaFiscal.onUpdate((datos) => {
         manejarActualizacionProgreso(datos);
     });
 
-    // Listener para Tasa Cero
-    window.electronAPI.atm.onTasaCeroUpdate((datos) => {
+    window.electronAPI.atm.planDePago.onUpdate((datos) => {
+        manejarActualizacionProgreso(datos);
+    });
+
+    window.electronAPI.atm.retenciones.onUpdate((datos) => {
+        manejarActualizacionProgreso(datos);
+    });
+
+    window.electronAPI.atm.tasaCero.onUpdate((datos) => {
         manejarActualizacionProgreso(datos);
     });
 

@@ -1,5 +1,5 @@
 const verificarYObtenerDatosAFIP = require('./verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
-const verificarCredencialesATM = require('./ATM/flujosDeTareas/flujo_verificaCredenciales_atm');
+const verificarCredencialesATM = require('./atm/flujosDeTareas/flujo_verificaCredenciales_atm');
 
 /**
  * Orquesta la validación de credenciales y la extracción de datos para un usuario.

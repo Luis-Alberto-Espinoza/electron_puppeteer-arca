@@ -62,15 +62,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     abrirArchivo: (ruta) => ipcRenderer.invoke('abrir-archivo', ruta),
     abrirDirectorio: (ruta) => ipcRenderer.invoke('shell:open-directory', ruta),
 
-    // APIs para ATM
+    // APIs para ATM (por servicio)
     atm: {
-        ejecutarFlujo: (datos) => ipcRenderer.invoke('atm:ejecutar-flujo', datos), // Para un solo usuario
-        iniciarLote: (datos) => ipcRenderer.invoke('atm:iniciar-lote', datos),   // Para lotes
-        onLoteUpdate: (callback) => ipcRenderer.on('atm:lote-update', (_event, datos) => callback(datos)),
-
-        // API para Tasa Cero
-        iniciarLoteTasaCero: (datos) => ipcRenderer.invoke('atm:iniciar-lote-tasa-cero', datos), // Para lotes de Tasa Cero
-        onTasaCeroUpdate: (callback) => ipcRenderer.on('atm:tasa-cero-update', (_event, datos) => callback(datos))
+        constanciaFiscal: {
+            generarLote: (datos) => ipcRenderer.invoke('atm:constanciaFiscal:generarLote', datos),
+            onUpdate: (callback) => ipcRenderer.on('atm:constanciaFiscal:update', (_event, datos) => callback(datos))
+        },
+        planDePago: {
+            generarLote: (datos) => ipcRenderer.invoke('atm:planDePago:generarLote', datos),
+            onUpdate: (callback) => ipcRenderer.on('atm:planDePago:update', (_event, datos) => callback(datos))
+        },
+        retenciones: {
+            generarLote: (datos) => ipcRenderer.invoke('atm:retenciones:generarLote', datos),
+            onUpdate: (callback) => ipcRenderer.on('atm:retenciones:update', (_event, datos) => callback(datos))
+        },
+        tasaCero: {
+            generarLote: (datos) => ipcRenderer.invoke('atm:tasaCero:generarLote', datos),
+            onUpdate: (callback) => ipcRenderer.on('atm:tasaCero:update', (_event, datos) => callback(datos))
+        }
     },
 
     // APIs para VEP (Volante Electrónico de Pago)

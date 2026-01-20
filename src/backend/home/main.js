@@ -24,15 +24,18 @@ const setupVepHandlers = require('../afip/vep/handlers.js');
 const setupConsultaDeudaHandlers = require('../afip/consultaDeuda/handlers.js');
 const setupLibroIvaHandlers = require('../afip/libroIVA/handlers.js');
 
-// Importar handlers de ATM
-const setupAtmHandlers = require('../atm/handlers.js');
+// Importar handlers de ATM por servicio
+const setupConstanciaFiscalHandlers = require('../atm/constanciaFiscal/handlers.js');
+const setupPlanDePagoHandlers = require('../atm/planDePago/handlers.js');
+const setupRetencionesHandlers = require('../atm/retenciones/handlers.js');
+const setupTasaCeroHandlers = require('../atm/tasaCero/handlers.js');
 
 // Importar la nueva función de carga masiva
 const { procesarArchivoUsuarios } = require('../usuario/cargaMasiva.js');
 
 // Lanzador de navegador y verificador de ATM para la validación manual
 const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher');
-const verificarCredencialesATM = require('../puppeteer/ATM/flujosDeTareas/flujo_verificaCredenciales_atm');
+const verificarCredencialesATM = require('../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm');
 
 
 // importar sistema de credenciales
@@ -337,7 +340,12 @@ app.whenReady().then(async () => {
         setupVepHandlers(ipcMain, userStorage, mainWindow, app);
         setupConsultaDeudaHandlers(ipcMain, userStorage, app);
         setupLibroIvaHandlers(ipcMain);
-        setupAtmHandlers(ipcMain, mainWindow, app);
+
+        // Handlers de ATM por servicio
+        setupConstanciaFiscalHandlers(ipcMain, mainWindow, app);
+        setupPlanDePagoHandlers(ipcMain, mainWindow, app);
+        setupRetencionesHandlers(ipcMain, mainWindow, app);
+        setupTasaCeroHandlers(ipcMain, mainWindow, app);
 
         // Handler para la carga masiva de usuarios desde Excel
         ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {
