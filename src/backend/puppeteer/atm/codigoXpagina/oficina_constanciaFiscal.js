@@ -15,49 +15,66 @@ async function navegarAConstanciaFiscal(page) {
 
     console.log('Navegando al menú de Constancia de Inscripción...');
 
-    // Ejecutamos la lógica de clics en el menú dentro del iframe
-    await frame.evaluate(() => {
-      console.log('Ejecutando clics en el menú dentro del iframe...');
-      //capturar la url actual
-      const currentUrl = window.location.href;
-      console.log('URL actual del iframe:', currentUrl);
+    // Esperar a que los elementos del menú estén disponibles
+    await frame.waitForSelector('a[role="menuitem"]', { timeout: 10000 });
 
-      //
-
-      if (!document.querySelector('a[role="menuitem"]')) {
-        setTimeout(() => {
-          page.goto(currentUrl);
-          console.log('Redirigiendo a la URL actual del iframe...');
-        }, 1000);
-      }
-
-      // antes de interactuar con los elementos
-      const wait = (ms) => new Promise(res => setTimeout(res, ms));
-      wait(1500);
-
+    // Paso 1: Hacer click en el elemento del menú principal
+    const menuClickResult = await frame.evaluate(() => {
       const menuItems = document.querySelectorAll('a[role="menuitem"]');
+      console.log(`Encontrados ${menuItems.length} elementos de menú`);
 
-      if (menuItems.length < 4) {
-        throw new Error("No se encontraron suficientes elementos en el menú.");
+      if (menuItems.length < 3) {
+        return { success: false, error: `Solo se encontraron ${menuItems.length} elementos en el menú.` };
       }
 
-      // Clic en el 4to elemento del menú (índice 3)
+      // Clic en el 3er elemento del menú (índice 2)
       menuItems[2].click();
-
-      // El script original asume que el submenú aparece inmediatamente.
-      const submenus = document.getElementsByClassName("z-menupopup-content");
-      if (submenus.length > 0 && submenus[0].childNodes.length > 0) {
-        // Hacemos clic en el primer item del submenú
-        submenus[2].childNodes[0].click();
-        console.log("Clic en el submenú de Constancia Fiscal realizado.");
-      } else {
-        throw new Error("El submenú de constancia fiscal no apareció como se esperaba.");
-      }
+      return { success: true };
     });
 
-    // Después de los clics, es buena idea esperar a que algo cambie en la página.
-    // Aquí podríamos esperar a un selector específico que aparezca en la nueva vista.
-    // Por ahora, una pequeña pausa para asegurar que la acción se complete.
+    if (!menuClickResult.success) {
+      throw new Error(menuClickResult.error);
+    }
+
+    // Paso 2: Esperar a que aparezca el submenú
+    console.log('Esperando que aparezca el submenú...');
+    await frame.waitForSelector('.z-menupopup-content', { visible: true, timeout: 5000 });
+
+    // Pequeña pausa para que el submenú termine de renderizarse
+    await new Promise(res => setTimeout(res, 500));
+
+    // Paso 3: Hacer click en el submenú
+    const submenuClickResult = await frame.evaluate(() => {
+      const submenus = document.getElementsByClassName("z-menupopup-content");
+      console.log(`Encontrados ${submenus.length} submenús`);
+
+      // Buscar el submenú que esté visible y tenga hijos
+      for (let i = 0; i < submenus.length; i++) {
+        const submenu = submenus[i];
+        if (submenu && submenu.childNodes && submenu.childNodes.length > 0) {
+          // Verificar si está visible
+          const style = window.getComputedStyle(submenu);
+          if (style.display !== 'none' && style.visibility !== 'hidden') {
+            console.log(`Haciendo click en submenú índice ${i} con ${submenu.childNodes.length} hijos`);
+            submenu.childNodes[0].click();
+            return { success: true, index: i };
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: `No se encontró submenú visible. Total submenús: ${submenus.length}`
+      };
+    });
+
+    if (!submenuClickResult.success) {
+      throw new Error(submenuClickResult.error);
+    }
+
+    console.log(`Clic en submenú realizado (índice ${submenuClickResult.index})`);
+
+    // Esperar a que la navegación se complete
     await new Promise(res => setTimeout(res, 2000));
 
     console.log('Navegación a Constancia de Inscripción completada.');
