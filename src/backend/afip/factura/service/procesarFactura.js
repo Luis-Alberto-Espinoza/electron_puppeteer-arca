@@ -1,5 +1,5 @@
 const { procesarDatos } = require('./estructuradorDeDatos');
-const { getDiasHabiles, getDiasXmes, limpiarMontos, convertirStringAArrayDeFechasString, generarMontosAleatorios, combinarFechasMontosConMap } = require('../utils');
+const { getDiasHabiles, getDiasXmes, limpiarMontos, convertirStringAArrayDeFechasString, generarMontosAleatorios, combinarFechasMontosConMap } = require('../../../utils');
 
 function procesarDatosFactura(data) {
     // Inicializamos con las propiedades base que siempre necesitamos

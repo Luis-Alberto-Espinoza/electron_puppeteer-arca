@@ -1,7 +1,7 @@
 // afip/factura/handlers.js
 // Handlers IPC para el dominio de facturacion AFIP
 
-const { comunicacionConFactura } = require('../../index.js');
+const { procesarDatosFactura: comunicacionConFactura } = require('./service/procesarFactura.js');
 const facturaManager = require('../../puppeteer/facturas/facturaManager.js');
 const { iniciarProcesoFacturaCliente } = require('../../puppeteer/facturas/facturaClienteManager');
 

@@ -14,7 +14,7 @@ const { app } = require('electron');
 const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
 const loginManager = require('./codigo/login/login_arca.js');
 const flujo_FacturaTipificada = require('./codigo/hacerFacturas/flujos/flujo_Factura_tipificada.js');
-const { procesarDatosFacturaCliente } = require('../../facturas/procesarFacturaCliente.js');
+const { procesarDatosFacturaCliente } = require('../../afip/factura/service/procesarFacturaCliente.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 

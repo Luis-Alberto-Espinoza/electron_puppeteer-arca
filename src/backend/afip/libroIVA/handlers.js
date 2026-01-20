@@ -1,7 +1,7 @@
 // afip/libroIVA/handlers.js
 // Handlers IPC para el dominio de Libro IVA
 
-const { comunicacionConLibroIVA } = require('../../index.js');
+const { libroIVAManager: comunicacionConLibroIVA } = require('../../libroIVA/archivos/index.js');
 
 /**
  * Configura los handlers IPC para el dominio de Libro IVA
