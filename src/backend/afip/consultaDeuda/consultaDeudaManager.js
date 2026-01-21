@@ -1,5 +1,5 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
-const loginManager = require('../../puppeteer/afip/facturas/codigo/login/login_arca.js');
+const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const flujo_consultaDeuda = require('../../puppeteer/afip/consultaDeuda/flujos/flujo_consultaDeuda.js');
 const os = require('os');
 const path = require('path');

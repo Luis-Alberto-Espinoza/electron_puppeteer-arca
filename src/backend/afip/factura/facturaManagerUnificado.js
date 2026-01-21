@@ -15,7 +15,7 @@
 
 const { app } = require('electron');
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
-const loginManager = require('../../puppeteer/afip/facturas/codigo/login/login_arca.js');
+const loginManager =  require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const { procesarDatosFactura } = require('./service/procesarFactura.js');
 const { procesarDatosFacturaCliente } = require('./service/procesarFacturaCliente.js');
 const { ejecutar_FacturacionUnificado } = require('../../puppeteer/afip/facturas/codigo/hacerFacturas/flujos/flujo_FacturacionUnificado.js');

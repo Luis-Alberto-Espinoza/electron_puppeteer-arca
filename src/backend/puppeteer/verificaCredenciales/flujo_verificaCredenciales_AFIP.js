@@ -1,6 +1,6 @@
 const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
 const { listarEmpresas } = require('../afip/archivosComunes/empresasDisponibles');
-const { hacerLogin } = require('../afip/facturas/codigo/login/login_arca');
+const { hacerLogin } = require('../afip/archivosComunes/login/login_arca');
 const { buscarEnAfip } = require('../afip/archivosComunes/buscadorAfip');
 const { obtenerCuitsAsociados } = require('../afip/archivosComunes/obtenerCuitsAsociados');
 

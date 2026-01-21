@@ -12,7 +12,7 @@
 
 const { app } = require('electron');
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
-const loginManager = require('../../puppeteer/afip/facturas/codigo/login/login_arca.js');
+const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const flujo_FacturaTipificada = require('../../puppeteer/afip/facturas/codigo/hacerFacturas/flujos/flujo_Factura_tipificada.js');
 const { procesarDatosFacturaCliente } = require('./service/procesarFacturaCliente.js');
 
