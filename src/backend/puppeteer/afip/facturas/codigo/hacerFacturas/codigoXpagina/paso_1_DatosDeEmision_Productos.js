@@ -30,7 +30,9 @@ async function paso_1_DatosDeEmision_Productos(newPage, datos, factura, modoTest
 
       // Verifica que el archivo existe antes de intentar abrirlo
       if (await fs.access(screenshotPath).then(() => true).catch(() => false)) {
-        const visorProcess = fork(path.join(__dirname, '../../../../archivos_comunes/visorImagen.js'));
+        const visorProcess = fork(path.join(__dirname, '../../../../../archivos_comunes/visorImagen.js'));
+//        src/backend/puppeteer/archivos_comunes/visorImagen.js
+//        src/backend/puppeteer/afip/facturas/codigo/hacerFacturas/codigoXpagina/paso_1_DatosDeEmision_Productos.js
 
         visorProcess.on('error', (err) => {
           console.error('Error en el proceso visor:', err);

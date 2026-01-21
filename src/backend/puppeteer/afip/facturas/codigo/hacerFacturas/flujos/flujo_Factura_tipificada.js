@@ -192,7 +192,7 @@ const ejecutar_FacturaCliente = async (page, datos, modoTest, credenciales, usua
 
             // Mostrar con visor
             const { fork } = require('child_process');
-            const visorProcess = fork(path.join(__dirname, '../../../../archivos_comunes/visorImagen.js'));
+            const visorProcess = fork(path.join(__dirname, '../../../../../archivos_comunes/visorImagen.js'));
             visorProcess.send({ screenshotPath });
 
             if (enviarProgreso) {

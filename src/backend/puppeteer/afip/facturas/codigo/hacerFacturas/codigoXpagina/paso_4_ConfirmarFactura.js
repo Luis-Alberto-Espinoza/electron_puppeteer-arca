@@ -106,7 +106,7 @@ async function paso_4_ConfirmarFactura(newPage, modoTest, usuarioSeleccionado = 
 
             // Verifica que el archivo existe antes de intentar abrirlo
             if (await fs.access(screenshotPath).then(() => true).catch(() => false)) {
-                const visorProcess = fork(path.join(__dirname, '../../../../archivos_comunes/visorImagen.js'));
+                const visorProcess = fork(path.join(__dirname, '../../../../../archivos_comunes/visorImagen.js'));
                 visorProcess.on('error', (err) => {
                     console.error('Error en el proceso visor:', err);
                 });
@@ -136,7 +136,7 @@ async function paso_4_ConfirmarFactura(newPage, modoTest, usuarioSeleccionado = 
                     window.scrollTo(0, document.body.scrollHeight);
                     let btnMenuPrinvipalVolver = document.querySelectorAll('input');
                     if (!modoTest) {
-                        // ajaxFunction();
+                        ajaxFunction();
                     } else {
                         //quitar zoom hata ver la paghina completa
                         document.body.style.zoom = "0.8";
