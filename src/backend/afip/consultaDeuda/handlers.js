@@ -1,7 +1,7 @@
 // afip/consultaDeuda/handlers.js
 // Handlers IPC para el dominio de Consulta de Deuda AFIP
 
-const consultaDeudaManager = require('../../puppeteer/consultaDeuda/consultaDeudaManager.js');
+const consultaDeudaManager = require('./consultaDeudaManager.js');
 
 /**
  * Configura los handlers IPC para el dominio de Consulta de Deuda

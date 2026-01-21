@@ -1,6 +1,6 @@
-const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
-const loginManager = require('../facturas/codigo/login/login_arca.js');
-const flujo_generarVEP = require('./codigo/flujos/flujo_generarVEP.js');
+const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
+const loginManager = require('../../puppeteer/afip/facturas/codigo/login/login_arca.js');
+const flujo_generarVEP = require('../../puppeteer/afip/VEP/flujos/flujo_generarVEP.js');
 const os = require('os');
 const path = require('path');
 const fs = require('fs');
@@ -30,7 +30,6 @@ async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSelecci
         const posiblesRutas = [
             path.join(homeDir, 'Downloads'),
             path.join(homeDir, 'Descargas'),
-            path.join(homeDir, 'Téléchargements')
         ];
         for (const ruta of posiblesRutas) {
             if (fs.existsSync(ruta)) {

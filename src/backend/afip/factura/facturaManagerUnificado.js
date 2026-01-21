@@ -14,11 +14,11 @@
  */
 
 const { app } = require('electron');
-const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
-const loginManager = require('./codigo/login/login_arca.js');
-const { procesarDatosFactura } = require('../../afip/factura/service/procesarFactura.js');
-const { procesarDatosFacturaCliente } = require('../../afip/factura/service/procesarFacturaCliente.js');
-const { ejecutar_FacturacionUnificado } = require('./codigo/hacerFacturas/flujos/flujo_FacturacionUnificado.js');
+const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
+const loginManager = require('../../puppeteer/afip/facturas/codigo/login/login_arca.js');
+const { procesarDatosFactura } = require('./service/procesarFactura.js');
+const { procesarDatosFacturaCliente } = require('./service/procesarFacturaCliente.js');
+const { ejecutar_FacturacionUnificado } = require('../../puppeteer/afip/facturas/codigo/hacerFacturas/flujos/flujo_FacturacionUnificado.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 

@@ -1,4 +1,4 @@
-const { buscarEnAfip } = require('../../../buscadorAfip');
+const { buscarEnAfip } = require('../../archivosComunes/buscadorAfip');
 
 /**
  * PASO 1: Acceder a "Cuenta Corriente de Contribuyentes"

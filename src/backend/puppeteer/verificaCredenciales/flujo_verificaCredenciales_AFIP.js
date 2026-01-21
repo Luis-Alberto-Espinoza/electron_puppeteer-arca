@@ -1,8 +1,8 @@
 const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
-const { listarEmpresas } = require('../empresasDisponibles');
-const { hacerLogin } = require('../facturas/codigo/login/login_arca');
-const { buscarEnAfip } = require('../buscadorAfip');
-const { obtenerCuitsAsociados } = require('../obtenerCuitsAsociados');
+const { listarEmpresas } = require('../afip/archivosComunes/empresasDisponibles');
+const { hacerLogin } = require('../afip/facturas/codigo/login/login_arca');
+const { buscarEnAfip } = require('../afip/archivosComunes/buscadorAfip');
+const { obtenerCuitsAsociados } = require('../afip/archivosComunes/obtenerCuitsAsociados');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 

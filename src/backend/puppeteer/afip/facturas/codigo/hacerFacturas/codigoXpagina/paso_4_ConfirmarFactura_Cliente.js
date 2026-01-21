@@ -11,8 +11,7 @@
 
 const path = require('path');
 const fs = require('fs').promises;
-const { getDownloadPath, getFilename } = require('../../../../../utils/fileManager');
-
+const { getDownloadPath, getFilename } = require('../../../../../../utils/fileManager');
 async function paso_4_ConfirmarFactura_Cliente(newPage, modoTest, usuarioSeleccionado, downloadsPath) {
     try {
         console.log("Ejecutando paso_4_ConfirmarFactura_Cliente...");

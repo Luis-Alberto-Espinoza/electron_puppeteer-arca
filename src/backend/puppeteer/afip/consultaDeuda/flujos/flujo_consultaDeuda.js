@@ -1,9 +1,9 @@
 const XLSX = require('xlsx');
 const path = require('path');
-const { getDownloadPath, getFilename } = require('../../../utils/fileManager.js');
+const { getDownloadPath, getFilename } = require('../../../../utils/fileManager.js');
 const fs = require('fs');
-const { buscarEnAfip } = require('../../buscadorAfip');
-const paso_1b_seleccionarCuit = require('../../VEP/codigo/codigoXpagina/paso_1b_seleccionarCuit.js');
+const { buscarEnAfip } = require('../../archivosComunes/buscadorAfip.js');
+const paso_1b_seleccionarCuit = require('../../VEP/codigoXpagina/paso_1b_seleccionarCuit.js');
 
 /**
  * Ejecuta el flujo completo de consulta de deuda en AFIP

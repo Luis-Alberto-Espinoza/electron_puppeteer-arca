@@ -21,8 +21,8 @@ const { paso_3_DatosDeOperacion_Factura_B } = require('../codigoXpagina/paso_3_D
 const { paso_3_DatosDeOperacion_Cliente } = require('../codigoXpagina/paso_3_DatosDeOperacion_Cliente');
 const { paso_4_ConfirmarFactura_Cliente } = require('../codigoXpagina/paso_4_ConfirmarFactura_Cliente');
 
-const { buscarEnAfip } = require('../../../../buscadorAfip');
-const { seleccionarEmpresa } = require('../../../../empresasDisponibles');
+const { buscarEnAfip } = require('../../../../archivosComunes/buscadorAfip.js');
+const { seleccionarEmpresa } = require('../../../../archivosComunes/empresasDisponibles');
 
 let respuesta;
 

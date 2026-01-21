@@ -11,11 +11,11 @@ const fs = require('fs');
 // manejarEventoATM movido a atm/handlers.js
 
 // Importar el sistema de usuarios
-const { JsonStorage } = require('../usuario/usuario.js');
+const { JsonStorage } = require('../cliente/cliente.js');
 let userStorage;
 
 // Importar los handlers de usuario modularizados
-const setupUserHandlers = require('../usuario/usuarioHandlers.js');
+const setupUserHandlers = require('../cliente/clienteHandlers.js');
 const setupMercadoPagoHandlers = require('../extraerDemercadoPago/mercadoPagoHandlers.js');
 
 // Importar handlers de AFIP por dominio
@@ -31,7 +31,7 @@ const setupRetencionesHandlers = require('../atm/retenciones/handlers.js');
 const setupTasaCeroHandlers = require('../atm/tasaCero/handlers.js');
 
 // Importar la nueva función de carga masiva
-const { procesarArchivoUsuarios } = require('../usuario/cargaMasiva.js');
+const { procesarArchivoUsuarios } = require('../cliente/cargaMasiva.js');
 
 // Lanzador de navegador y verificador de ATM para la validación manual
 const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher');

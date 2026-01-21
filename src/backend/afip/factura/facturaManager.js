@@ -1,6 +1,6 @@
-const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
-const loginManager = require('./codigo/login/login_arca.js');
-const flujo_Factura = require('./codigo/hacerFacturas/flujos/flujo_Factura.js');
+const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
+const loginManager = require('../../puppeteer/afip/facturas/codigo/login/login_arca.js');
+const flujo_Factura = require('../../puppeteer/afip/facturas/codigo/hacerFacturas/flujos/flujo_Factura.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 

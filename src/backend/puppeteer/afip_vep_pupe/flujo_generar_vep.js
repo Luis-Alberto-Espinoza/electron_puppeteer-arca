@@ -1,1 +1,0 @@
-const { publishArtifactsWithOptions } = require("electron-builder")

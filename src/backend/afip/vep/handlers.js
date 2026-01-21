@@ -1,7 +1,7 @@
 // afip/vep/handlers.js
 // Handlers IPC para el dominio de VEP (Volante Electronico de Pago)
 
-const vepManager = require('../../puppeteer/VEP/vepManager.js');
+const vepManager = require('./vepManager.js');
 
 /**
  * Configura los handlers IPC para el dominio de VEP

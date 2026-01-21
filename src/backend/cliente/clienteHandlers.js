@@ -160,11 +160,11 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
 
 
-    const { gestionarValidacion } = require('../puppeteer/verificacionManager.js');
+    const { gestionarValidacion } = require('./verificacionManager.js');
     const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
-    const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP');
-    const verificarCredencialesATM = require('../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm');
+    const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
+    const verificarCredencialesATM = require('../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm.js');
 
     ipcMain.handle('user:verify-on-create', async (event, credenciales) => {
         console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);

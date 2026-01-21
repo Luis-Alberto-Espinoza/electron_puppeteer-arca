@@ -1,25 +1,25 @@
 /**
- * Manager de Facturas para Cliente Especifico
+ * Manager de Facturas para Cliente Específico
  *
- * Punto de entrada para el servicio de facturacion con datos detallados del cliente.
+ * Punto de entrada para el servicio de facturación con datos detallados del cliente.
  * Este manager:
  * 1. Procesa los datos recibidos del frontend
  * 2. Realiza el login en AFIP
- * 3. Ejecuta el flujo de facturacion con los pasos especificos para cliente
+ * 3. Ejecuta el flujo de facturación con los pasos específicos para cliente
  * 4. Genera el PDF en la carpeta del cliente
  * 5. Retorna el resultado al frontend
  */
 
 const { app } = require('electron');
-const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
-const loginManager = require('./codigo/login/login_arca.js');
-const flujo_FacturaTipificada = require('./codigo/hacerFacturas/flujos/flujo_Factura_tipificada.js');
-const { procesarDatosFacturaCliente } = require('../../afip/factura/service/procesarFacturaCliente.js');
+const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
+const loginManager = require('../../puppeteer/afip/facturas/codigo/login/login_arca.js');
+const flujo_FacturaTipificada = require('../../puppeteer/afip/facturas/codigo/hacerFacturas/flujos/flujo_Factura_tipificada.js');
+const { procesarDatosFacturaCliente } = require('./service/procesarFacturaCliente.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
- * Inicia el proceso de facturacion para un cliente especifico
+ * Inicia el proceso de facturación para un cliente específico
  *
  * @param {string} url - URL de AFIP
  * @param {object} credenciales - Credenciales de acceso (usuario, password, nombreEmpresa)
@@ -27,8 +27,8 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
  * @param {boolean} test - Modo test (default: false)
  * @param {object} usuarioSeleccionado - Usuario seleccionado
  * @param {string} empresa - Empresa elegida
- * @param {function} enviarProgreso - Funcion callback para enviar progreso (opcional)
- * @returns {Promise<object>} Resultado de la operacion
+ * @param {function} enviarProgreso - Función callback para enviar progreso (opcional)
+ * @returns {Promise<object>} Resultado de la operación
  */
 async function iniciarProcesoFacturaCliente(
     url,
@@ -92,7 +92,7 @@ async function iniciarProcesoFacturaCliente(
             app.getPath('downloads')
         );
 
-        console.log("✓ Flujo de facturacion completado");
+        console.log("✓ Flujo de facturación completado");
 
         // ===== PASO 4: Retornar resultado =====
         console.log("\n[4/4] Proceso finalizado exitosamente");

@@ -2,8 +2,8 @@
 // Handlers IPC para el dominio de facturacion AFIP
 
 const { procesarDatosFactura: comunicacionConFactura } = require('./service/procesarFactura.js');
-const facturaManager = require('../../puppeteer/facturas/facturaManager.js');
-const { iniciarProcesoFacturaCliente } = require('../../puppeteer/facturas/facturaClienteManager');
+const facturaManager = require('./facturaManager.js');
+const { iniciarProcesoFacturaCliente } = require('./facturaClienteManager');
 
 // Variables de estado (antes globales en main.js)
 // Usadas por el flujo antiguo de facturacion
