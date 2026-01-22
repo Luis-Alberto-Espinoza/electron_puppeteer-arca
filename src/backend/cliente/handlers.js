@@ -160,7 +160,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
 
 
-    const { gestionarValidacion } = require('./verificacionManager.js');
+    const { gestionarValidacion } = require('./service/verificacion.js');
     const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
     const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js');

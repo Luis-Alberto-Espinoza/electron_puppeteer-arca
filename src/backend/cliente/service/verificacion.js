@@ -1,5 +1,5 @@
-const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
-const verificarCredencialesATM = require('../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm.js');
+const verificarYObtenerDatosAFIP = require('../../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
+const verificarCredencialesATM = require('../../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm.js');
 
 /**
  * Orquesta la validación de credenciales y la extracción de datos para un usuario.

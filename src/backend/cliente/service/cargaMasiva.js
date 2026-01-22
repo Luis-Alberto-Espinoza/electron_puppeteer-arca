@@ -1,6 +1,6 @@
 
 const xlsx = require('xlsx');
-const { JsonStorage } = require('./cliente.js');
+const { JsonStorage } = require('./storage.js');
 // const { launchBrowserAndPage } = require('../puppeteer/browserLauncher');
 // const { gestionarValidacion } = require('../puppeteer/verificacionManager.js');
 
