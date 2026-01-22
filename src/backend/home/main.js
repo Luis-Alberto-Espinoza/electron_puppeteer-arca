@@ -16,7 +16,7 @@ let userStorage;
 
 // Importar los handlers de usuario modularizados
 const setupUserHandlers = require('../cliente/clienteHandlers.js');
-const setupMercadoPagoHandlers = require('../extraerDemercadoPago/mercadoPagoHandlers.js');
+const setupMercadoPagoHandlers = require('../afip/extraerDemercadoPago/mercadoPagoHandlers.js');
 
 // Importar handlers de AFIP por dominio
 const setupFacturaHandlers = require('../afip/factura/handlers.js');
