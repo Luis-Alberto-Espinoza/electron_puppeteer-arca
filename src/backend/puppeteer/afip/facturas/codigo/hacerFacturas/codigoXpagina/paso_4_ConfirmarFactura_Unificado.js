@@ -17,6 +17,7 @@ const fs = require('fs').promises;
 const { fork } = require('child_process');
 
 async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSeleccionado = null, downloadsPath = null) {
+    console.log("Ejecutando paso_4_ConfirmarFactura_Unificado...");
     try {
         // Esperar a que los elementos estén disponibles (COPIADO EXACTO)
         await newPage.waitForSelector('#contenido', { timeout: 120000 });
@@ -65,7 +66,7 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
             await newPage.screenshot({ path: screenshotPath, fullPage: true });
             console.log('Captura guardada en:', screenshotPath);
 
-            return { success: true, message: "Modo test: captura realizada" };
+            //return { success: true, message: "Modo test: captura realizada" };
         }
 
         // ==========================================
@@ -77,8 +78,8 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
             window.scrollTo(0, document.body.scrollHeight);
         });
 
-        // Pequeña espera para que se cargue todo el contenido
-        await newPage.waitForTimeout(1000);
+    // Esperar un breve momento para que la página se estabilice después de la descarga
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo
 
         // PASO 2 y 3: Ejecutar AJAX y confirmar factura
         await newPage.evaluate((modoTest) => {
@@ -89,7 +90,7 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
                     if (!modoTest) {
                         // Ejecutar función AJAX para confirmar (NOMBRE EXACTO del original)
                         if (typeof ajaxFunction === 'function') {
-                           // ajaxFunction();
+                            // ajaxFunction();
                         } else {
                             console.warn('ajaxFunction no está definida');
                         }
@@ -100,11 +101,11 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
                         if (!modoTest) {
                             let btnConfirmar = document.querySelectorAll('input')[3];
                             if (btnConfirmar) {
-                                //btnConfirmar.click();
+                                // btnConfirmar.click();
                                 console.log('Botón confirmar clickeado');
                             }
                         }
-                    }, 2500);
+                    }, 500);
                 } else {
                     console.log("No estamos en genComResumenDatos:", window.location.href);
                 }
@@ -122,47 +123,66 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
         if (downloadDir) {
             console.log("🖨️  Buscando botón de imprimir...");
 
-            // Listar archivos PDF actuales en la carpeta (para detectar el nuevo)
-            const archivosAntes = await fs.readdir(downloadDir).then(files =>
-                files.filter(f => f.endsWith('.pdf'))
-            ).catch(() => []);
-
-            console.log(`📄 PDFs existentes antes de imprimir: ${archivosAntes.length}`);
-
-            // Esperar y hacer clic en el botón "Imprimir..."
-            await newPage.waitForSelector('input[value="Imprimir..."]', { timeout: 30000 });
-
-            await newPage.click('input[value="Imprimir..."]');
-            console.log('✓ Clic en botón "Imprimir..." ejecutado');
-
-            // Esperar a que aparezca el nuevo PDF (timeout: 30 segundos)
-            console.log('⏳ Esperando descarga del PDF...');
-            const startTime = Date.now();
-            const timeout = 30000;
-            let pdfEncontrado = false;
-
-            while (Date.now() - startTime < timeout && !pdfEncontrado) {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                const archivosDespues = await fs.readdir(downloadDir).then(files =>
+            try {
+                // Listar archivos PDF actuales en la carpeta (para detectar el nuevo)
+                const archivosAntes = await fs.readdir(downloadDir).then(files =>
                     files.filter(f => f.endsWith('.pdf'))
                 ).catch(() => []);
 
-                const nuevosArchivos = archivosDespues.filter(f => !archivosAntes.includes(f));
+                console.log(`📄 PDFs existentes antes de imprimir: ${archivosAntes.length}`);
 
-                if (nuevosArchivos.length > 0) {
-                    // Encontramos el PDF nuevo
-                    const nombrePDF = nuevosArchivos[0];
-                    pdfPath = path.join(downloadDir, nombrePDF);
-                    console.log(`✅ PDF descargado: ${nombrePDF}`);
-                    pdfEncontrado = true;
-                    break;
+                // Esperar y verificar que existe el botón "Imprimir..."
+                await newPage.waitForSelector('input[value="Imprimir..."]', { timeout: 30000 });
+                console.log('✓ Botón "Imprimir..." encontrado');
+
+                // Hacer clic en el botón (esto causará navegación a imprimirComprobante.do)
+                const navigationPromise = newPage.waitForNavigation({
+                    waitUntil: 'networkidle2',
+                    timeout: 15000
+                }).catch(err => {
+                    console.log('⚠️  No hubo navegación o timeout:', err.message);
+                    return null;
+                });
+
+                await newPage.click('input[value="Imprimir..."]');
+                console.log('✓ Clic en botón "Imprimir..." ejecutado');
+
+                // Esperar navegación (puede que la página navegue o que se descargue directamente)
+                await navigationPromise;
+
+                // Esperar a que aparezca el nuevo PDF (timeout: 7 segundos)
+                console.log('⏳ Esperando descarga del PDF...');
+                const startTime = Date.now();
+                const timeout = 7000;
+                let pdfEncontrado = false;
+
+                while (Date.now() - startTime < timeout && !pdfEncontrado) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    const archivosDespues = await fs.readdir(downloadDir).then(files =>
+                        files.filter(f => f.endsWith('.pdf'))
+                    ).catch(() => []);
+
+                    const nuevosArchivos = archivosDespues.filter(f => !archivosAntes.includes(f));
+
+                    if (nuevosArchivos.length > 0) {
+                        // Encontramos el PDF nuevo
+                        const nombrePDF = nuevosArchivos[0];
+                        pdfPath = path.join(downloadDir, nombrePDF);
+                        console.log(`✅ PDF descargado: ${nombrePDF}`);
+                        pdfEncontrado = true;
+                        break;
+                    }
                 }
-            }
 
-            if (!pdfEncontrado) {
-                console.warn('⚠️  No se detectó la descarga del PDF en 30 segundos');
-                // No lanzar error, continuar con el flujo
+                if (!pdfEncontrado) {
+                    console.warn('⚠️  No se detectó la descarga del PDF en 7 segundos');
+                    console.log('ℹ️  Puede que el PDF se haya abierto en el navegador en lugar de descargarse');
+                    // No lanzar error, continuar con el flujo
+                }
+            } catch (error) {
+                console.error('❌ Error al intentar imprimir:', error.message);
+                console.log('ℹ️  Continuando sin PDF descargado');
             }
         }
 

@@ -76,12 +76,24 @@ async function paso_3_DatosDeOperacion_Unificado(newPage, datos, iterador) {
                             console.error(`No se encontró #detalle_descripcion${numeroLinea}`);
                         }
 
-                        // Unidad de medida
+                        // Unidad de medida (buscar por texto para mayor robustez)
                         const unidadMedida = document.querySelector(`#detalle_medida${numeroLinea}`);
                         if (unidadMedida) {
-                            // Si se especificó un valor, usarlo; si no, usar la última opción
                             if (linea.unidadMedida !== undefined) {
-                                unidadMedida.value = linea.unidadMedida;
+                                // Buscar la opción por texto
+                                const opciones = unidadMedida.querySelectorAll('option');
+                                let encontrada = false;
+                                for (const opcion of opciones) {
+                                    if (opcion.textContent.trim().toLowerCase() === linea.unidadMedida.toLowerCase()) {
+                                        opcion.selected = true;
+                                        encontrada = true;
+                                        break;
+                                    }
+                                }
+                                if (!encontrada) {
+                                    console.warn(`No se encontró la unidad de medida: ${linea.unidadMedida}, usando última opción`);
+                                    unidadMedida.lastChild.selected = true;
+                                }
                             } else {
                                 // Seleccionar la última opción (comportamiento por defecto)
                                 unidadMedida.lastChild.selected = true;
@@ -132,15 +144,13 @@ async function paso_3_DatosDeOperacion_Unificado(newPage, datos, iterador) {
 
             // Validar campos después de llenar todas las líneas
             await newPage.evaluate(() => {
-                setTimeout(() => {
-                    if (typeof validarCampos === 'function') {
-                        validarCampos();
-                    }
-                }, 1000);
+                if (typeof validarCampos === 'function') {
+                    validarCampos();
+                }
             });
 
-            // Esperar un momento para que se complete la validación
-            await esperar(1500);
+            // Ya no es necesario esperar aquí, la validación es síncrona dentro del evaluate
+            // await esperar(1500);
 
             console.log("paso_3_DatosDeOperacion_Unificado (modo cliente) completado correctamente.");
             return { success: true, message: "Datos de operación (cliente) completados" };
@@ -168,9 +178,7 @@ async function paso_3_DatosDeOperacion_Unificado(newPage, datos, iterador) {
                             precioUnitario.dispatchEvent(new Event('keyup'));
                         }, 1000);
 
-                        setTimeout(function () {
-                            validarCampos();
-                          }, 1500);
+                        validarCampos();
                     } else {
                         console.log("Condiciones no cumplidas: window.location.href:", window.location.href, "datosDeOperacion:", datos.datosDeOperacion);
                     }

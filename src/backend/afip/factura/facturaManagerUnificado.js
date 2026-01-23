@@ -61,7 +61,13 @@ async function iniciarProceso(
     let datosProcesados;
 
     try {
-        if (tipo === 'simple') {
+        // Detectar si los datos ya vienen procesados (flujo antiguo)
+        const yaEstaProcesado = datosRaw.montoResultados?.facturasGeneradas || datosRaw.lineasDetalle;
+
+        if (yaEstaProcesado) {
+            console.log("Datos ya procesados, usando directamente...");
+            datosProcesados = datosRaw;
+        } else if (tipo === 'simple') {
             console.log("Usando procesador para modo simple (masivo/manual/mercadopago)...");
             datosProcesados = procesarDatosFactura(datosRaw);
         } else if (tipo === 'detallado') {
@@ -91,18 +97,30 @@ async function iniciarProceso(
         };
     }
 
-    // Mapear credenciales al formato que espera loginManager (usuario/contrasena)
+    // Normalizar credenciales: acepta ambos formatos
+    // Formato 1 (handlers nuevos): { usuario, contrasena, nombreEmpresa }
+    // Formato 2 (legacy): { cuit, claveAFIP, nombreEmpresa }
     const credencialesLogin = {
-        usuario: credenciales.cuit,
-        contrasena: credenciales.claveAFIP
+        usuario: credenciales.usuario || credenciales.cuit,
+        contrasena: credenciales.contrasena || credenciales.claveAFIP
     };
+
+    // Validar que tenemos credenciales
+    if (!credencialesLogin.usuario || !credencialesLogin.contrasena) {
+        console.error("✗ Credenciales incompletas");
+        return {
+            success: false,
+            error: 'INVALID_CREDENTIALS',
+            message: 'Credenciales incompletas: falta usuario/cuit o contrasena/claveAFIP'
+        };
+    }
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
         // ==========================================
         // PASO 2: HACER LOGIN EN AFIP
         // ==========================================
         console.log("\n=== [2/4] Realizando login en AFIP ===");
-        console.log("  - CUIT:", credenciales.cuit);
+        console.log("  - CUIT:", credencialesLogin.usuario);
         console.log("  - Empresa:", credenciales.nombreEmpresa);
 
         const loginResult = await loginManager.hacerLogin(page, url || URL_LOGIN_AFIP, credencialesLogin);

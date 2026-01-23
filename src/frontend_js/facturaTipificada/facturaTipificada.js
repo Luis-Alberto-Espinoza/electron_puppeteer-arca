@@ -84,9 +84,9 @@ function mostrarInfoUsuario() {
     const nombreCompleto = usuario.nombre || 'Usuario sin nombre';
     const cuitCuil = usuario.cuit || usuario.cuil || 'Sin CUIT/CUIL';
 
-console.log("\n\nel contenido del usuario\t"+ JSON.stringify(usuario, null, 2) +"\n\n");
+    console.log("\n\nel contenido del usuario\t" + JSON.stringify(usuario, null, 2) + "\n\n");
 
-// Obtener punto de venta (debe ser numérico como '0001', '0002', etc.)
+    // Obtener punto de venta (debe ser numérico como '0001', '0002', etc.)
     let puntoVenta = '0001'; // Valor por defecto
     if (usuario.puntosDeVenta && usuario.puntosDeVenta.length > 0) {
         puntoVenta = usuario.puntosDeVenta[0];
@@ -405,52 +405,52 @@ function agregarLineaAFactura(numeroFactura) {
                 <div class="form-group">
                     <label for="unidadMedida_f${numeroFactura}_l${numeroLinea}">Unidad de Medida *</label>
                     <select id="unidadMedida_f${numeroFactura}_l${numeroLinea}" name="unidadMedida_f${numeroFactura}_l${numeroLinea}" required>
-                        <option value="">Seleccionar...</option>
-                        <option value="1">kilogramos</option>
-                        <option value="2">metros</option>
-                        <option value="3">metros cuadrados</option>
-                        <option value="4">metros cúbicos</option>
-                        <option value="5">litros</option>
-                        <option value="6">1000 kWh</option>
-                        <option value="7" selected>unidades</option>
-                        <option value="8">pares</option>
-                        <option value="9">docenas</option>
-                        <option value="10">quilates</option>
-                        <option value="11">millares</option>
-                        <option value="12">gramos</option>
-                        <option value="13">milímetros</option>
-                        <option value="14">mm cúbicos</option>
-                        <option value="15">kilómetros</option>
-                        <option value="16">hectolitros</option>
-                        <option value="17">centímetros</option>
-                        <option value="18">jgo. pqt. mazo naipes</option>
-                        <option value="19">cm cúbicos</option>
-                        <option value="20">toneladas</option>
-                        <option value="21">dam cúbicos</option>
-                        <option value="22">hm cúbicos</option>
-                        <option value="23">km cúbicos</option>
-                        <option value="24">microgramos</option>
-                        <option value="25">nanogramos</option>
-                        <option value="26">picogramos</option>
-                        <option value="27">miligramos</option>
-                        <option value="28">mililitros</option>
-                        <option value="29">curie</option>
-                        <option value="30">milicurie</option>
-                        <option value="31">microcurie</option>
-                        <option value="32">uiacthor</option>
-                        <option value="33">muiacthor</option>
-                        <option value="34">kg base</option>
-                        <option value="35">gruesa</option>
-                        <option value="36">kg bruto</option>
-                        <option value="37">uiactant</option>
-                        <option value="38">muiactant</option>
-                        <option value="39">uiactig</option>
-                        <option value="40">muiactig</option>
-                        <option value="41">kg activo</option>
-                        <option value="42">gramo activo</option>
-                        <option value="43">gramo base</option>
-                        <option value="44">packs</option>
-                        <option value="99">otras unidades</option>
+                        <option value="7" style="color:#888;">seleccionar...</option>
+                        <option value="1"> kilogramos</option>
+                        <option value="2"> metros</option>
+                        <option value="3"> metros cuadrados</option>
+                        <option value="4"> metros cúbicos</option>
+                        <option value="5"> litros</option>
+                        <option value="6"> 1000 kWh</option>
+                        <option value="7" selected> unidades</option>
+                        <option value="8"> pares</option>
+                        <option value="9"> docenas</option>
+                        <option value="10"> quilates</option>
+                        <option value="11"> millares</option>
+                        <option value="14"> gramos</option>
+                        <option value="15"> milimetros</option>
+                        <option value="16"> mm cúbicos</option>
+                        <option value="17"> kilómetros</option>
+                        <option value="18"> hectolitros</option>
+                        <option value="20"> centímetros</option>
+                        <option value="25"> jgo. pqt. mazo naipes</option>
+                        <option value="27"> cm cúbicos</option>
+                        <option value="29"> toneladas</option>
+                        <option value="30"> dam cúbicos</option>
+                        <option value="31"> hm cúbicos</option>
+                        <option value="32"> km cúbicos</option>
+                        <option value="33"> microgramos</option>
+                        <option value="34"> nanogramos</option>
+                        <option value="35"> picogramos</option>
+                        <option value="41"> miligramos</option>
+                        <option value="47"> mililitros</option>
+                        <option value="48"> curie</option>
+                        <option value="49"> milicurie</option>
+                        <option value="50"> microcurie</option>
+                        <option value="51"> uiacthor</option>
+                        <option value="52"> muiacthor</option>
+                        <option value="53"> kg base</option>
+                        <option value="54"> gruesa</option>
+                        <option value="61"> kg bruto</option>
+                        <option value="62"> uiactant</option>
+                        <option value="63"> muiactant</option>
+                        <option value="64"> uiactig</option>
+                        <option value="65"> muiactig</option>
+                        <option value="66"> kg activo</option>
+                        <option value="67"> gramo activo</option>
+                        <option value="68"> gramo base</option>
+                        <option value="96"> packs</option>
+                        <option value="98"> otras unidades</option>
                     </select>
                 </div>
 
@@ -614,8 +614,13 @@ async function manejarEnvioFormulario(e) {
         console.log('📥 Resultado recibido:', resultado);
 
         // Mostrar resumen final
-        if (resultado.success && resultado.resultados) {
-            mostrarResumenFinal(resultado.resultados);
+        if (resultado.success) {
+            if (resultado.modoTest) {
+                // Modo prueba - mostrar mensaje especial
+                mostrarResultadoModoPrueba(resultado);
+            } else if (resultado.resultados) {
+                mostrarResumenFinal(resultado.resultados);
+            }
         } else {
             mostrarError(resultado.message || 'Error al generar las facturas');
         }
@@ -684,6 +689,9 @@ function recopilarDatosFormulario() {
             ? formData.get('carpetaPDF')
             : null,
 
+        // Modo prueba (solo procesa 1ra factura sin confirmar)
+        modoTest: document.getElementById('modoPrueba')?.checked || false,
+
         // Datos del usuario seleccionado
         usuarioSeleccionado: usuario
     };
@@ -723,9 +731,10 @@ function obtenerTodasLasFacturas() {
         lineasDiv.forEach((lineaDiv) => {
             const numeroLinea = lineaDiv.getAttribute('data-linea');
 
+            const selectUnidad = document.getElementById(`unidadMedida_f${numeroFactura}_l${numeroLinea}`);
             const linea = {
                 descripcion: document.getElementById(`descripcion_f${numeroFactura}_l${numeroLinea}`)?.value || '',
-                unidadMedida: parseInt(document.getElementById(`unidadMedida_f${numeroFactura}_l${numeroLinea}`)?.value || 7),
+                unidadMedida: selectUnidad?.selectedOptions[0]?.text.trim() || 'unidades',
                 cantidad: parseFloat(document.getElementById(`cantidad_f${numeroFactura}_l${numeroLinea}`)?.value || 1),
                 precioUnitario: parseFloat(document.getElementById(`precioUnitario_f${numeroFactura}_l${numeroLinea}`)?.value || 0)
             };
@@ -944,6 +953,56 @@ function mostrarResumenFinal(resultados) {
     mensajeResultado.innerHTML = html;
     areaResultados.classList.remove('contenido-oculto');
     areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Muestra el resultado del modo prueba
+ */
+function mostrarResultadoModoPrueba(resultado) {
+    const areaProgreso = document.getElementById('areaProgreso');
+    const areaResultados = document.getElementById('areaResultados');
+    const mensajeResultado = document.getElementById('mensajeResultado');
+
+    if (areaProgreso) {
+        areaProgreso.classList.add('contenido-oculto');
+    }
+
+    const html = `
+        <div class="resultado-modo-prueba">
+            <h4>🧪 Modo Prueba Completado</h4>
+            <div class="mensaje-info">
+                <p><strong>La factura NO fue confirmada.</strong></p>
+                <p>Se ha generado una captura de pantalla para que puedas verificar los datos antes de generar la factura real.</p>
+                <p>Revisa que:</p>
+                <ul>
+                    <li>La unidad de medida sea correcta</li>
+                    <li>Los importes sean correctos</li>
+                    <li>Los datos del receptor estén bien</li>
+                    <li>Las fechas sean las esperadas</li>
+                </ul>
+            </div>
+            <div class="acciones-modo-prueba">
+                <p><strong>Si todo está correcto:</strong></p>
+                <ol>
+                    <li>Desmarca la opción "Modo Prueba"</li>
+                    <li>Haz clic en "Generar Factura(s)" nuevamente</li>
+                </ol>
+            </div>
+            ${resultado.screenshotPath ? `
+                <p class="ruta-captura"><small>Captura guardada en: ${resultado.screenshotPath}</small></p>
+            ` : ''}
+        </div>
+    `;
+
+    mensajeResultado.innerHTML = html;
+    areaResultados.classList.remove('contenido-oculto');
+    areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Desmarcar el checkbox de modo prueba para la siguiente ejecución
+    const checkboxModoPrueba = document.getElementById('modoPrueba');
+    if (checkboxModoPrueba) {
+        checkboxModoPrueba.checked = false;
+    }
 }
 
 // Exponer funciones globalmente

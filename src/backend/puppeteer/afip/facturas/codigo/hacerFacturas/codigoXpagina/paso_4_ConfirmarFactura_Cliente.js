@@ -87,7 +87,7 @@ async function paso_4_ConfirmarFactura_Cliente(newPage, modoTest, usuarioSelecci
                     if (!modoTest) {
                         // Ejecutar función AJAX para confirmar
                         if (typeof ajaxFunction === 'function') {
-                            ajaxFunction();
+                            // ajaxFunction();
                             resultado.ajaxEjecutado = true;
                             console.log('✅ ajaxFunction() ejecutada');
                         } else {
@@ -102,7 +102,7 @@ async function paso_4_ConfirmarFactura_Cliente(newPage, modoTest, usuarioSelecci
                         if (!modoTest) {
                             let btnConfirmar = document.querySelectorAll('input')[3];
                             if (btnConfirmar) {
-                               // btnConfirmar.click();
+                               btnConfirmar.click();
                                 console.log('Botón confirmar clickeado');
                             }
                         }

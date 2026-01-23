@@ -92,31 +92,52 @@ async function paso_2_DatosDelReceptor_Cliente(newPage, datos) {
           }
 
           // Marcar formas de pago según datos.receptor.condicionesVenta
+          // Buscar por texto visible del label (más robusto que por ID)
           if (datos.receptor.condicionesVenta && datos.receptor.condicionesVenta.length > 0) {
-            const formasDePagoMap = {
-              "Contado": "formadepago1",
-              "Tarjeta de Débito": "formadepago2",
-              "Tarjeta de Crédito": "formadepago3",
-              "Cuenta Corriente": "formadepago4",
-              "Cheque": "formadepago5",
-              "Transferencia Bancaria": "formadepago6",
-              "Otra": "formadepago7",
-              "Otros medios de pago electrónico": "formadepago8"
-            };
-
             datos.receptor.condicionesVenta.forEach(formaPago => {
-              const checkboxId = formasDePagoMap[formaPago];
-              if (checkboxId) {
-                const checkbox = document.getElementById(checkboxId);
-                if (checkbox) {
-                  checkbox.checked = true;
-                  checkbox.dispatchEvent(new Event('change'));
-                  console.log(`Forma de pago marcada: ${formaPago} (${checkboxId})`);
-                } else {
-                  console.warn(`No se encontró el checkbox con id: ${checkboxId}`);
+              let checkboxEncontrado = false;
+
+              // Estrategia 1: Buscar label que contenga el texto y obtener el checkbox asociado
+              const labels = document.querySelectorAll('label');
+              for (const label of labels) {
+                if (label.textContent.trim().toLowerCase().includes(formaPago.toLowerCase())) {
+                  // El checkbox puede estar dentro del label o referenciado por 'for'
+                  let checkbox = label.querySelector('input[type="checkbox"]');
+                  if (!checkbox && label.htmlFor) {
+                    checkbox = document.getElementById(label.htmlFor);
+                  }
+                  if (checkbox) {
+                    checkbox.checked = true;
+                    checkbox.dispatchEvent(new Event('change'));
+                    console.log(`Forma de pago marcada por texto: ${formaPago}`);
+                    checkboxEncontrado = true;
+                    break;
+                  }
                 }
-              } else {
-                console.warn(`Forma de pago no reconocida: ${formaPago}`);
+              }
+
+              // Estrategia 2 (fallback): Buscar checkbox cuyo siguiente hermano o padre contenga el texto
+              if (!checkboxEncontrado) {
+                const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                for (const checkbox of checkboxes) {
+                  const parent = checkbox.parentElement;
+                  const nextSibling = checkbox.nextSibling;
+                  const textoParent = parent ? parent.textContent.trim().toLowerCase() : '';
+                  const textoSibling = nextSibling ? nextSibling.textContent?.trim().toLowerCase() : '';
+
+                  if (textoParent.includes(formaPago.toLowerCase()) ||
+                      textoSibling?.includes(formaPago.toLowerCase())) {
+                    checkbox.checked = true;
+                    checkbox.dispatchEvent(new Event('change'));
+                    console.log(`Forma de pago marcada por contexto: ${formaPago}`);
+                    checkboxEncontrado = true;
+                    break;
+                  }
+                }
+              }
+
+              if (!checkboxEncontrado) {
+                console.warn(`No se encontró checkbox para forma de pago: ${formaPago}`);
               }
             });
           }

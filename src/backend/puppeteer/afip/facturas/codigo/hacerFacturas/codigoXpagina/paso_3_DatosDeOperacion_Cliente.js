@@ -66,12 +66,24 @@ async function paso_3_DatosDeOperacion_Cliente(newPage, datos) {
                         console.error(`No se encontró #detalle_descripcion${numeroLinea}`);
                     }
 
-                    // Unidad de medida
+                    // Unidad de medida (buscar por texto para mayor robustez)
                     const unidadMedida = document.querySelector(`#detalle_medida${numeroLinea}`);
                     if (unidadMedida) {
-                        // Si se especificó un valor, usarlo; si no, usar la última opción
                         if (linea.unidadMedida !== undefined) {
-                            unidadMedida.value = linea.unidadMedida;
+                            // Buscar la opción por texto
+                            const opciones = unidadMedida.querySelectorAll('option');
+                            let encontrada = false;
+                            for (const opcion of opciones) {
+                                if (opcion.textContent.trim().toLowerCase() === linea.unidadMedida.toLowerCase()) {
+                                    opcion.selected = true;
+                                    encontrada = true;
+                                    break;
+                                }
+                            }
+                            if (!encontrada) {
+                                console.warn(`No se encontró la unidad de medida: ${linea.unidadMedida}, usando última opción`);
+                                unidadMedida.lastChild.selected = true;
+                            }
                         } else {
                             // Seleccionar la última opción (comportamiento por defecto)
                             unidadMedida.lastChild.selected = true;

@@ -2,8 +2,11 @@
 // Handlers IPC para el dominio de facturacion AFIP
 
 const { procesarDatosFactura: comunicacionConFactura } = require('./service/procesarFactura.js');
-const facturaManager = require('./facturaManager.js');
-const { iniciarProcesoFacturaCliente } = require('./facturaClienteManager');
+const facturaManagerUnificado = require('./facturaManagerUnificado.js');
+
+// Managers antiguos (comentados - ahora usamos el unificado)
+// const facturaManager = require('./facturaManager.js');
+// const { iniciarProcesoFacturaCliente } = require('./facturaClienteManager');
 
 // Variables de estado (antes globales en main.js)
 // Usadas por el flujo antiguo de facturacion
@@ -52,8 +55,16 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             if (!data.credenciales.nombreEmpresa && ultimaEmpresaElegida) {
                 data.credenciales.nombreEmpresa = ultimaEmpresaElegida;
             }
-            // Usamos la variable 'resultadoCodigo' que fue poblada por el evento 'formulario-enviado'
-            const resultado = await facturaManager.iniciarProceso(data.url, data.credenciales, resultadoCodigo, data.test, usuarioSeleccionado, empresaElegida);
+            // Usamos el manager unificado con resultadoCodigo ya procesado
+            // Nota: resultadoCodigo ya viene procesado, el unificado lo detectará como 'simple'
+            const resultado = await facturaManagerUnificado.iniciarProceso(
+                data.url,
+                data.credenciales,
+                resultadoCodigo,  // datos ya procesados
+                data.test,
+                usuarioSeleccionado,
+                empresaElegida
+            );
             event.reply('login-automatizado', resultado);
 
             // Enviar resultado de facturacion al frontend por canal dedicado
@@ -102,8 +113,11 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
 
             console.log(`Generando factura para: ${usuarioSeleccionado.nombre} (${credenciales.usuario})`);
 
-            // Llamar al servicio de facturacion
-            const resultado = await iniciarProcesoFacturaCliente(
+            // Agregar modulo para que el unificado detecte el tipo
+            datosFactura.modulo = 'facturaCliente';
+
+            // Llamar al manager unificado
+            const resultado = await facturaManagerUnificado.iniciarProceso(
                 'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
                 credenciales,
                 datosFactura,
@@ -195,18 +209,44 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                 const datosFactura = {
                     ...datosComunes,
                     lineasDetalle: factura.lineasDetalle,
-                    usuarioSeleccionado: datosComunes.usuarioSeleccionado
+                    usuarioSeleccionado: datosComunes.usuarioSeleccionado,
+                    modulo: 'facturaCliente'  // Para que el unificado detecte el tipo
                 };
 
-                // Generar la factura
-                const resultado = await iniciarProcesoFacturaCliente(
+                // Determinar modo test (solo para la primera factura)
+                const esPrimeraFactura = i === 0;
+                const usarModoTest = esPrimeraFactura && (datosComunes.modoTest || false);
+
+                if (usarModoTest) {
+                    console.log('🧪 MODO PRUEBA: Solo se procesará la primera factura sin confirmar');
+                }
+
+                // Generar la factura usando el manager unificado
+                const resultado = await facturaManagerUnificado.iniciarProceso(
                     'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
                     credenciales,
                     datosFactura,
-                    false, // test mode = false
+                    usarModoTest, // test mode según checkbox y si es primera factura
                     datosComunes.usuarioSeleccionado,
                     datosComunes.usuarioSeleccionado.empresasDisponible?.[0] || datosComunes.puntoVenta || '0001'
                 );
+
+                // Si es modo test, salir del loop después de la primera factura
+                if (usarModoTest) {
+                    console.log('🧪 MODO PRUEBA completado - Revisa la captura');
+                    return {
+                        success: true,
+                        modoTest: true,
+                        message: 'Modo PRUEBA completado - Revisa la captura para verificar los datos',
+                        screenshotPath: resultado.screenshotPath,
+                        resultados: [{
+                            success: true,
+                            modoTest: true,
+                            numeroFactura: numeroFactura,
+                            message: 'Modo prueba - factura NO confirmada'
+                        }]
+                    };
+                }
 
                 // Notificar exito
                 event.sender.send('facturaTipificada:progreso', {
@@ -325,8 +365,15 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             // Preparar datos para el flujo (pueden ser array o objeto unico)
             const datosParaFlujo = facturas || datos;
 
-            // Ejecutar el flujo de facturacion
-            const resultado = await iniciarProcesoFacturaCliente(
+            // Agregar modulo para que el unificado detecte el tipo
+            if (Array.isArray(datosParaFlujo)) {
+                datosParaFlujo.forEach(f => f.modulo = 'facturaCliente');
+            } else {
+                datosParaFlujo.modulo = 'facturaCliente';
+            }
+
+            // Ejecutar el flujo de facturacion usando el manager unificado
+            const resultado = await facturaManagerUnificado.iniciarProceso(
                 'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
                 credenciales,
                 datosParaFlujo,

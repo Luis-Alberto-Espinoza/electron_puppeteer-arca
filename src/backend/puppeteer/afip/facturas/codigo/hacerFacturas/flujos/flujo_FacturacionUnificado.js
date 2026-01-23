@@ -37,8 +37,8 @@ const { paso_4_ConfirmarFactura_Unificado } = require('../codigoXpagina/paso_4_C
 
 // Funciones comunes
 const { paso_X_ConsultaComprobantes } = require('../codigoXpagina/consultaDeComprobante_formulario');
-const { buscarEnAfip } = require('../../../archivosComunes/buscadorAfip.js');
-const { seleccionarEmpresa } = require('../../../../empresasDisponibles');
+const { buscarEnAfip } = require('../../../../archivosComunes/buscadorAfip.js');
+const { seleccionarEmpresa } = require('../../../../archivosComunes/empresasDisponibles.js');
 const { extraerDatosDeConsultaComprobantes } = require('../../consultarFacturas/comprobarFacturado');
 
 let respuesta;

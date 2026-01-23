@@ -204,12 +204,21 @@
 
                 <!-- BOTONES DE ACCIÓN -->
                 <div class="acciones-form">
-                    <button type="button" id="btnCancelar" class="btn-cancelar">
-                        Cancelar
-                    </button>
-                    <button type="submit" id="btnGenerar" class="btn-generar">
-                        🧾 Generar <span id="contadorFacturas">1</span> Factura(s)
-                    </button>
+                    <div class="modo-prueba-container">
+                        <label class="checkbox-label modo-prueba-label">
+                            <input type="checkbox" id="modoPrueba" name="modoPrueba">
+                            <span>🧪 Modo Prueba</span>
+                            <small>(Solo procesa la 1ra factura sin confirmar, muestra captura para verificar)</small>
+                        </label>
+                    </div>
+                    <div class="botones-container">
+                        <button type="button" id="btnCancelar" class="btn-cancelar">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="btnGenerar" class="btn-generar">
+                            🧾 Generar <span id="contadorFacturas">1</span> Factura(s)
+                        </button>
+                    </div>
                 </div>
             </form>
 

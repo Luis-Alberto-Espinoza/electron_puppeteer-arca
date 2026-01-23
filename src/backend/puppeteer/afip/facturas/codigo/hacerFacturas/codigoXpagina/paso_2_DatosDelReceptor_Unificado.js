@@ -14,7 +14,7 @@
 async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
   try {
     console.log("Ejecutando paso_2_DatosDelReceptor_Unificado...");
-
+console.log("%%%%%%%%%%%%====>>>>  mira aca ", datos)
     // Esperar a que el elemento esté presente en la página (COPIADO EXACTO)
     await newPage.waitForSelector('#idtipodocreceptor', { timeout: 120000 });
 
@@ -76,33 +76,54 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
               inputNumDoc.dispatchEvent(new Event('change'));
             }
 
-            // Marcar condiciones de venta (checkboxes)
+            // Marcar formas de pago según datos.receptor.condicionesVenta
+            // Buscar por texto visible del label (más robusto que por ID)
+            console.log("Condiciones de venta recibidas:", datos.receptor.condicionesVenta);
             if (datos.receptor.condicionesVenta && datos.receptor.condicionesVenta.length > 0) {
-              const condicionesMap = {
-                "Contado": "contado",
-                "Tarjeta de Débito": "tarjeta_debito",
-                "Tarjeta de Crédito": "tarjeta_credito",
-                "Cuenta Corriente": "cuenta_corriente",
-                "Cheque": "cheque",
-                "Transferencia Bancaria": "transferencia",
-                "Otra": "otra",
-                "Otros medios de pago electrónico": "otros_electronicos"
-              };
+              datos.receptor.condicionesVenta.forEach(formaPago => {
+                let checkboxEncontrado = false;
 
-              datos.receptor.condicionesVenta.forEach(condicion => {
-                const checkboxId = condicionesMap[condicion];
-                if (checkboxId) {
-                  // Intentar encontrar el checkbox por diferentes selectores
-                  let checkbox = document.getElementById(checkboxId) ||
-                                document.querySelector(`input[name="${checkboxId}"]`) ||
-                                document.querySelector(`input[value="${condicion}"]`);
-
-                  if (checkbox) {
-                    checkbox.checked = true;
-                    checkbox.dispatchEvent(new Event('change'));
-                  } else {
-                    console.warn(`No se encontró checkbox para: ${condicion}`);
+                // Estrategia 1: Buscar label que contenga el texto y obtener el checkbox asociado
+                const labels = document.querySelectorAll('label');
+                for (const label of labels) {
+                  if (label.textContent.trim().toLowerCase().includes(formaPago.toLowerCase())) {
+                    // El checkbox puede estar dentro del label o referenciado por 'for'
+                    let checkbox = label.querySelector('input[type="checkbox"]');
+                    if (!checkbox && label.htmlFor) {
+                      checkbox = document.getElementById(label.htmlFor);
+                    }
+                    if (checkbox) {
+                      checkbox.checked = true;
+                      checkbox.dispatchEvent(new Event('change'));
+                      console.log(`Forma de pago marcada por texto: ${formaPago}`);
+                      checkboxEncontrado = true;
+                      break;
+                    }
                   }
+                }
+
+                // Estrategia 2 (fallback): Buscar checkbox cuyo siguiente hermano o padre contenga el texto
+                if (!checkboxEncontrado) {
+                  const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+                  for (const checkbox of checkboxes) {
+                    const parent = checkbox.parentElement;
+                    const nextSibling = checkbox.nextSibling;
+                    const textoParent = parent ? parent.textContent.trim().toLowerCase() : '';
+                    const textoSibling = nextSibling ? nextSibling.textContent?.trim().toLowerCase() : '';
+
+                    if (textoParent.includes(formaPago.toLowerCase()) ||
+                        textoSibling?.includes(formaPago.toLowerCase())) {
+                      checkbox.checked = true;
+                      checkbox.dispatchEvent(new Event('change'));
+                      console.log(`Forma de pago marcada por contexto: ${formaPago}`);
+                      checkboxEncontrado = true;
+                      break;
+                    }
+                  }
+                }
+
+                if (!checkboxEncontrado) {
+                  console.warn(`No se encontró checkbox para forma de pago: ${formaPago}`);
                 }
               });
             }
@@ -113,9 +134,13 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
               formu[7].checked = true; // Checkbox específico
             }
 
-            // Marcar checkbox final (puede ser "domicilio fiscal", etc.)
-            if (formu[16]) {
-              formu[16].checked = true;
+            // Solo marcar checkbox por defecto si NO vienen condiciones de venta del frontend
+            // Esto evita sobreescribir las condiciones de venta seleccionadas por el usuario
+            if (!datos.receptor.condicionesVenta || datos.receptor.condicionesVenta.length === 0) {
+              if (formu[16]) {
+                formu[16].checked = true; // "otros medios de pago electrónico" por defecto
+                console.log('Forma de pago por defecto: formu[16] (otros medios electrónicos)');
+              }
             }
 
             // Validar campos después de un delay
@@ -150,11 +175,23 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
       }
     }, datos);
 
-    // Esperar que validarCampos() se ejecute antes de esperar navegación
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Esperar la navegación (COPIADO EXACTO)
-    await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
+    // Esperar a que aparezca la siguiente página (datos de operación)
+    // Usamos Promise.race para manejar dos escenarios:
+    // 1. La navegación aún no ocurrió -> waitForNavigation la captura
+    // 2. La navegación ya ocurrió -> waitForSelector detecta la nueva página
+    try {
+      await Promise.race([
+        newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
+        newPage.waitForSelector('#detalle_descripcion1', { timeout: 30000 }) // Elemento del paso 3
+      ]);
+    } catch (raceError) {
+      // Si ambos fallan, verificar si ya estamos en la página correcta
+      const currentUrl = newPage.url();
+      if (!currentUrl.includes('genComDatosOperacion')) {
+        throw raceError;
+      }
+      console.log("Ya estamos en la página de datos de operación");
+    }
 
     console.log("paso_2_DatosDelReceptor_Unificado ejecutado correctamente.");
     return { success: true, message: "Datos del receptor completados" };
