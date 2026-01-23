@@ -44,6 +44,9 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
             }
         }, datos, factura, modoTest);
 
+        // Espera a que se completen los timeouts del formulario
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         if (modoTest) {
             // Usa el directorio temporal del sistema
             const screenshotsDir = os.tmpdir();
@@ -72,9 +75,9 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
             newPage.evaluate(() => {
                 // Intentar múltiples selectores para encontrar el botón "Continuar"
                 let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)") ||
-                                  document.querySelector('input[type="button"][value*="Continuar"]') ||
-                                  document.querySelector('input[type="button"][onclick*="confirmarDatos"]') ||
-                                  document.querySelectorAll('#contenido > form > input[type="button"]')[0];
+                    document.querySelector('input[type="button"][value*="Continuar"]') ||
+                    document.querySelector('input[type="button"][onclick*="confirmarDatos"]') ||
+                    document.querySelectorAll('#contenido > form > input[type="button"]')[0];
 
                 if (!btnContinuar) {
                     throw new Error('No se encontró el botón Continuar');
