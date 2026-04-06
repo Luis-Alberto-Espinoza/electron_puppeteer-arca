@@ -29,6 +29,7 @@ const setupConstanciaFiscalHandlers = require('../atm/constanciaFiscal/handlers.
 const setupPlanDePagoHandlers = require('../atm/planDePago/handlers.js');
 const setupRetencionesHandlers = require('../atm/retenciones/handlers.js');
 const setupTasaCeroHandlers = require('../atm/tasaCero/handlers.js');
+const setupListasATMHandlers = require('../atm/listas/handlers.js');
 
 // Importar la nueva función de carga masiva
 const { procesarArchivoUsuarios } = require('../cliente/service/cargaMasiva.js');
@@ -346,6 +347,7 @@ app.whenReady().then(async () => {
         setupPlanDePagoHandlers(ipcMain, mainWindow, app);
         setupRetencionesHandlers(ipcMain, mainWindow, app);
         setupTasaCeroHandlers(ipcMain, mainWindow, app);
+        setupListasATMHandlers(ipcMain);
 
         // Handler para la carga masiva de usuarios desde Excel
         ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {

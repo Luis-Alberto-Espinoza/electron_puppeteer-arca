@@ -2,28 +2,77 @@
     <div class="lote-header">
         <h2>Procesamiento por Lote ATM</h2>
     </div>
-    <div class="lote-subheader">
-        <p>Seleccione los usuarios y la acción que desea ejecutar.</p>
+
+    <!-- PASO 1: Selector de subservicio -->
+    <div class="subservicios-nav">
+        <button class="btn btn-sub" data-sub="constancias">Constancias</button>
+        <button class="btn btn-sub" data-sub="planesPago">Planes de Pago</button>
+        <button class="btn btn-sub" data-sub="tasaCero">Tasa Cero</button>
+        <button class="btn btn-sub" data-sub="retenciones">Retenciones</button>
     </div>
 
-    <!-- Componente Selector de Usuarios (genérico reutilizable) -->
-    <div id="selector-usuarios-atm"></div>
+    <!-- PASO 2-4: Panel de configuración (oculto hasta elegir subservicio) -->
+    <div id="panel-configuracion" style="display:none">
 
-    <div class="lote-controles">
-        <button id="btnLimpiarSeleccion" class="btn btn-limpiar-seleccion">✕ Limpiar Seleccionados</button>
+        <!-- Periodo global (solo Tasa Cero y Retenciones) -->
+        <div id="panel-periodo" class="lote-seccion" style="display:none">
+            <div class="lote-seccion-titulo">Periodo</div>
+            <select id="selectPeriodoGlobal" class="lote-select-periodo"></select>
+        </div>
+
+        <!-- Gestión de listas guardadas -->
+        <div class="lote-seccion lote-gestion-listas">
+            <div class="lote-seccion-titulo">Lista de clientes</div>
+            <div class="listas-fila">
+                <select id="selectLista" class="lote-select-lista">
+                    <option value="">-- Sin lista guardada --</option>
+                </select>
+                <button id="btnNuevaLista"     class="btn btn-lista">+ Nueva</button>
+                <button id="btnRenombrarLista" class="btn btn-lista">Renombrar</button>
+                <button id="btnEliminarLista"  class="btn btn-lista btn-lista-eliminar">Eliminar</button>
+            </div>
+            <!-- Input inline para nombre de lista (nueva o renombrar) -->
+            <div id="panel-nombre-lista" style="display:none">
+                <div class="nombre-lista-fila">
+                    <input id="inputNombreLista" type="text" class="lote-input-nombre" placeholder="Nombre de la lista..." />
+                    <button id="btnConfirmarNombre" class="btn btn-lista btn-confirmar-nombre">Confirmar</button>
+                    <button id="btnCancelarNombre"  class="btn btn-lista">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Textarea de búsqueda por nombre -->
+        <div class="lote-seccion">
+            <div class="lote-seccion-titulo">Buscar clientes por nombre <span class="lote-hint">(uno por línea)</span></div>
+            <textarea
+                id="textareaNombres"
+                rows="6"
+                placeholder="Ej:&#10;Luis S.A.&#10;Fideicomiso 5&#10;Empresa XYZ"></textarea>
+            <div class="textarea-acciones">
+                <button id="btnBuscarSeleccionar" class="btn btn-buscar-seleccionar">Buscar y seleccionar</button>
+                <button id="btnGuardarLista"       class="btn btn-guardar-lista">Guardar lista</button>
+            </div>
+            <!-- Resultado del match -->
+            <div id="match-resultado" style="display:none"></div>
+        </div>
+
+        <!-- Tabla de clientes (SelectorUsuarios) -->
+        <div id="selector-usuarios-atm"></div>
+
+        <!-- Limpiar + Procesar -->
+        <div class="lote-controles">
+            <button id="btnLimpiarSeleccion" class="btn btn-limpiar-seleccion">✕ Limpiar seleccionados</button>
+        </div>
+        <div class="lote-procesar">
+            <button id="btnProcesar" class="btn btn-procesar" disabled>▶ Procesar</button>
+        </div>
+
     </div>
 
-    <div class="lote-acciones">
-        <button id="btnConstanciasLote" class="btn btn-accion-azul" disabled>Obtener Constancias (Lote)</button>
-        <button id="btnPlanesPagoLote" class="btn btn-accion-amarillo" disabled>Obtener Planes de Pago (Lote)</button>
-        <button id="btnTasaCeroLote" class="btn btn-accion-verde" disabled>Obtener Tasa Cero (Lote)</button>
-        <button id="btnRetencionesLote" class="btn btn-accion-naranja" disabled>Descargar Retenciones (Lote)</button>
-    </div>
-
+    <!-- Panel de resultados (igual que antes) -->
     <div id="lote-resultados-container">
         <div id="lote-procesando-ahora" class="lote-procesando">
             <h3>Procesando Usuario Actual:</h3>
-            <!-- El usuario en proceso aparecerá aquí -->
         </div>
         <div id="lote-finalizados-container" class="lote-finalizados">
             <h3>Finalizados</h3>

@@ -224,3 +224,271 @@
 .tabla-seleccionados td:first-child {
     text-align: center;
 }
+
+/* ========================================
+   NUEVO DISEÑO - SELECTOR DE SUBSERVICIO
+   ======================================== */
+
+.subservicios-nav {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+}
+
+.btn-sub {
+    flex: 1;
+    min-width: 130px;
+    padding: 12px 16px;
+    background-color: #2d3748;
+    color: #a0aec0;
+    border: 2px solid #4a5568;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-sub:hover {
+    border-color: #63b3ed;
+    color: #e2e8f0;
+}
+
+.btn-sub-activo {
+    background-color: #2b6cb0;
+    border-color: #63b3ed;
+    color: #fff;
+}
+
+/* ========================================
+   SECCIONES DEL PANEL DE CONFIGURACIÓN
+   ======================================== */
+
+.lote-seccion {
+    background-color: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.lote-seccion-titulo {
+    color: #f6e05e;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+}
+
+.lote-hint {
+    color: #718096;
+    font-weight: 400;
+    text-transform: none;
+    font-size: 12px;
+}
+
+/* Periodo */
+.lote-select-periodo {
+    background-color: #1a202c;
+    color: #e2e8f0;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    min-width: 160px;
+}
+
+/* Gestión de listas */
+.listas-fila {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.lote-select-lista {
+    flex: 1;
+    min-width: 180px;
+    background-color: #1a202c;
+    color: #e2e8f0;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+.btn-lista {
+    padding: 8px 14px;
+    background-color: #4a5568;
+    color: #e2e8f0;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-lista:hover {
+    background-color: #718096;
+}
+
+.btn-lista-eliminar {
+    background-color: #742a2a;
+    color: #fed7d7;
+}
+
+.btn-lista-eliminar:hover {
+    background-color: #9b2c2c;
+}
+
+.btn-confirmar-nombre {
+    background-color: #276749;
+    color: #c6f6d5;
+}
+
+.btn-confirmar-nombre:hover {
+    background-color: #2f855a;
+}
+
+/* Panel inline de nombre */
+#panel-nombre-lista {
+    margin-top: 10px;
+}
+
+.nombre-lista-fila {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.lote-input-nombre {
+    flex: 1;
+    background-color: #1a202c;
+    color: #e2e8f0;
+    border: 1px solid #63b3ed;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+.lote-input-nombre:focus {
+    outline: none;
+    border-color: #90cdf4;
+}
+
+.input-error {
+    border-color: #fc8181 !important;
+    animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25%       { transform: translateX(-4px); }
+    75%       { transform: translateX(4px); }
+}
+
+/* Textarea */
+#textareaNombres {
+    width: 100%;
+    background-color: #1a202c;
+    color: #e2e8f0;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-family: monospace;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+#textareaNombres:focus {
+    outline: none;
+    border-color: #63b3ed;
+}
+
+.textarea-acciones {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-buscar-seleccionar {
+    padding: 9px 18px;
+    background-color: #2b6cb0;
+    color: #bee3f8;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-buscar-seleccionar:hover {
+    background-color: #2c5282;
+}
+
+.btn-guardar-lista {
+    padding: 9px 18px;
+    background-color: #276749;
+    color: #c6f6d5;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-guardar-lista:hover {
+    background-color: #2f855a;
+}
+
+/* Resultados del match */
+#match-resultado {
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+.match-ok {
+    color: #68d391;
+    margin-bottom: 4px;
+}
+
+.match-warn {
+    color: #f6ad55;
+    margin-bottom: 2px;
+}
+
+/* Botón procesar */
+.lote-procesar {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.btn-procesar {
+    padding: 14px 40px;
+    background-color: #276749;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    width: 100%;
+    max-width: 400px;
+}
+
+.btn-procesar:hover:not(:disabled) {
+    background-color: #2f855a;
+    transform: translateY(-1px);
+}
+
+.btn-procesar:disabled {
+    background-color: #2d3748;
+    color: #718096;
+    cursor: not-allowed;
+}
