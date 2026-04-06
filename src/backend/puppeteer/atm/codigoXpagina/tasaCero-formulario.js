@@ -217,6 +217,13 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
             // Buscar el select de periodo
             await paginaConBotones.waitForSelector('select', { visible: true, timeout: 5000 });
 
+            // Convertir periodo de "YYYY-MM" a "MM/YYYY" para coincidir con el texto del option
+            // La página muestra: "2026 - Periodo 04/2026"
+            // El periodo llega como: "2026-04"
+            const [anio, mes] = periodo.split('-');
+            const periodoParaBuscar = `${mes}/${anio}`; // "2026-04" → "04/2026"
+            console.log(`[Paso 0.5] Buscando periodo en formato: "${periodoParaBuscar}"`);
+
             // Buscar y seleccionar el periodo por texto visible
             const resultadoSeleccion = await paginaConBotones.evaluate((periodoDeseado) => {
                 const selects = document.querySelectorAll('select');
@@ -283,7 +290,7 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
                     periodoEncontrado: false,
                     sinSelect: true
                 };
-            }, periodo);
+            }, periodoParaBuscar);
 
             // Evaluar el resultado
             if (resultadoSeleccion.sinSelect) {
@@ -291,13 +298,13 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
                 console.warn('⚠️ Se procederá con el periodo predeterminado del formulario');
             } else if (!resultadoSeleccion.periodoEncontrado) {
                 // El periodo no está disponible - ERROR CRÍTICO
-                throw new Error(`El periodo ${periodo} no está disponible aún`);
+                throw new Error(`El periodo ${periodoParaBuscar} no está disponible aún`);
             } else if (!resultadoSeleccion.exito) {
                 // Se encontró pero no se pudo seleccionar - ERROR CRÍTICO
-                throw new Error(`No se pudo seleccionar el periodo ${periodo}`);
+                throw new Error(`No se pudo seleccionar el periodo ${periodoParaBuscar}`);
             } else {
                 // TODO OK
-                console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] ✅ [Paso 0.5] Periodo ${periodo} seleccionado correctamente`);
+                console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] ✅ [Paso 0.5] Periodo ${periodoParaBuscar} seleccionado correctamente`);
                 console.log(`✅ Texto del option seleccionado: "${resultadoSeleccion.textoSeleccionado}"`);
             }
         } catch (error) {
@@ -504,10 +511,14 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
         await botonEnviar.click();
 
         // ====================================================================
-        // PASO 5: Esperar a que el sistema procese
+        // PASO 5: Esperar a que el frame "listado" cargue el resultado
         // ====================================================================
-        console.log('⏳ [Paso 5] Esperando respuesta del sistema...');
-        await new Promise(resolve => setTimeout(resolve, 5000));
+        // Usamos polling activo en lugar de tiempos fijos para no fallar
+        // cuando el servidor tarda más de lo esperado.
+        console.log('⏳ [Paso 5] Esperando que el frame cargue el resultado...');
+
+        // Breve pausa para que el frame tenga tiempo de iniciar la navegación
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         // ====================================================================
         // PASO 5.5: Volver a obtener el frame actualizado después de enviar
@@ -526,8 +537,28 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
             throw new Error('No se pudo obtener el frame actualizado con el resultado');
         }
 
-        // Esperar un momento adicional para que el contenido se cargue completamente
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Esperar activamente hasta que el resultado esté disponible en el frame.
+        // La condición se cumple cuando aparece el botón de solicitud rechazada
+        // O cuando el script con spo_id está presente (solicitud aceptada).
+        // Timeout máximo: 45 segundos.
+        console.log('⏳ [Paso 5.5] Esperando contenido del resultado en el frame...');
+        await frameResultado.waitForFunction(() => {
+            // Caso RECHAZADA: botón "Imprimir Solicitud Rechazada" presente
+            const inputs = document.querySelectorAll('input[type="button"]');
+            for (const input of inputs) {
+                if (input.value === 'Imprimir Solicitud Rechazada') return true;
+                const onclick = input.getAttribute('onclick');
+                if (onclick && onclick.includes('imprimirRechazo')) return true;
+            }
+            // Caso ACEPTADA: spo_id presente en algún script
+            const scripts = document.querySelectorAll('script');
+            for (const script of scripts) {
+                if (/spo_id\s*=\s*['"]?\d+['"]?/.test(script.textContent)) return true;
+            }
+            return false;
+        }, { timeout: 45000 });
+
+        console.log('✅ [Paso 5.5] Resultado disponible en el frame.');
 
         // ====================================================================
         // PASO 6: Detectar si fue ACEPTADA o RECHAZADA
