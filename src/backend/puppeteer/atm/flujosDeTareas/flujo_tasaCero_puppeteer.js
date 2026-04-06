@@ -18,109 +18,6 @@ const {
     ejecutarFlujoReimpresion
 } = require('../codigoXpagina/tasaCero-formulario.js');
 const { getDownloadPath } = require('../../../utils/fileManager.js');
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-
-// --- Función para leer PDF de Tasa Cero de forma genérica ---
-/**
- * Lee un PDF de Tasa Cero y extrae todos los items de texto agrupados por línea (coordenada Y)
- * @param {string} pdfPath - Ruta al archivo PDF
- * @returns {Promise<Object>} Objeto con allFilas (array de filas con items)
- */
-async function leerPdfTasaCero(pdfPath) {
-    console.log(`[leerPdfTasaCero] Leyendo PDF: ${pdfPath}`);
-
-    try {
-        // Cargar el PDF sin worker
-        const loadingTask = pdfjsLib.getDocument({ url: pdfPath, disableWorker: true });
-        const pdf = await loadingTask.promise;
-        console.log(`[leerPdfTasaCero] PDF cargado. Total de páginas: ${pdf.numPages}`);
-
-        const todasLasFilas = [];
-
-        // Procesar todas las páginas
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const content = await page.getTextContent();
-            const items = content.items;
-
-            console.log(`[leerPdfTasaCero] Página ${pageNum}: ${items.length} items de texto`);
-
-            // Agrupar items por línea (coordenada Y)
-            const toleranciaY = 5;
-            const filasMap = new Map();
-
-            items.forEach(item => {
-                const y = item.transform[5]; // Coordenada Y
-
-                // Buscar si ya existe una fila con coordenada Y similar
-                let yExistente = [...filasMap.keys()].find(key => Math.abs(y - key) <= toleranciaY);
-
-                if (yExistente) {
-                    filasMap.get(yExistente).push(item);
-                } else {
-                    filasMap.set(y, [item]);
-                }
-            });
-
-            // Ordenar filas por coordenada Y (de arriba hacia abajo)
-            const filasOrdenadas = [...filasMap.entries()]
-                .sort((a, b) => b[0] - a[0])
-                .map(([y, items]) => ({
-                    y,
-                    items: items.sort((a, b) => a.transform[4] - b.transform[4]) // Ordenar por X dentro de cada fila
-                }));
-
-            // Agregar las filas de esta página al array total
-            todasLasFilas.push(...filasOrdenadas);
-        }
-
-        console.log(`[leerPdfTasaCero] Total de filas extraídas: ${todasLasFilas.length}`);
-
-        return {
-            exito: true,
-            allFilas: todasLasFilas
-        };
-
-    } catch (error) {
-        console.error(`[leerPdfTasaCero] Error al leer PDF:`, error);
-        return {
-            exito: false,
-            error: error.message,
-            allFilas: []
-        };
-    }
-}
-
-// --- Helper para detectar el estado de la solicitud en el PDF ---
-/**
- * Busca en el PDF si la solicitud fue RECHAZADA o ACEPTADA
- * @param {Object} datosPdf - Datos extraídos del PDF por procesarPdfConFallback
- * @returns {string} 'RECHAZADA' si encuentra el string específico, 'ACEPTADA' si no
- */
-function encontrarEstadoSolicitud(datosPdf) {
-    // Verificar que tengamos los datos crudos del PDF
-    if (!datosPdf || !datosPdf.allFilas || !Array.isArray(datosPdf.allFilas)) {
-        console.warn('[encontrarEstadoSolicitud] Datos PDF inválidos, asumiendo ACEPTADA');
-        return 'ACEPTADA';
-    }
-
-    const stringRechazada = "SOLICITUD DE TASA CERO RECHAZADA";
-
-    // Buscar dentro de los items crudos devueltos por el orquestador
-    for (const fila of datosPdf.allFilas) {
-        if (!fila.items || !Array.isArray(fila.items)) continue;
-
-        for (const item of fila.items) {
-            // Comparación exacta
-            if (item.str === stringRechazada) {
-                console.log('[encontrarEstadoSolicitud] String "SOLICITUD DE TASA CERO RECHAZADA" encontrado');
-                return 'RECHAZADA';
-            }
-        }
-    }
-
-    return 'ACEPTADA';
-}
 
 /**
  * Extrae el mes en español abreviado de un periodo en formato MM/YYYY
@@ -382,9 +279,14 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         }
 
         // ========================================================================
-        // PASO 8: Procesar el PDF descargado para detectar el estado real
+        // PASO 8: Obtener el archivo PDF descargado y el estado ya detectado
         // ========================================================================
-        enviarProgreso('info', 'Analizando PDF descargado...');
+        // El estado ya fue detectado correctamente en ejecutarFlujoTasaCero
+        // buscando el botón "Imprimir Solicitud Rechazada" en la página.
+        // No releer el PDF para detectar estado (pdfjs divide el texto en pequeños
+        // items, por lo que una comparación exacta del string completo nunca coincide).
+        const estadoReal = resultado.estado || 'ACEPTADA';
+        console.log(`[Flujo Tasa Cero] Estado detectado por flujo: ${estadoReal}`);
 
         const archivos = await fs.readdir(tempDir);
         const archivosPdf = archivos.filter(f => f.endsWith('.pdf'));
@@ -398,14 +300,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         }
 
         const tempFilePath = path.join(tempDir, archivosPdf[0]);
-        console.log(`[Flujo Tasa Cero] Procesando PDF: ${archivosPdf[0]}`);
-
-        // Procesar el PDF para extraer los datos usando lectura genérica
-        const datosPdf = await leerPdfTasaCero(tempFilePath);
-
-        // Detectar el estado real leyendo el contenido del PDF
-        const estadoReal = encontrarEstadoSolicitud(datosPdf);
-        console.log(`[Flujo Tasa Cero] Estado detectado: ${estadoReal}`);
+        console.log(`[Flujo Tasa Cero] PDF encontrado: ${archivosPdf[0]}`);
 
         // ========================================================================
         // PASO 9: Generar nombre correcto y mover al destino final
