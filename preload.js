@@ -88,6 +88,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
         }
     },
 
+    // APIs para Planes de Pago (CUITs asociados + ejecución)
+    planesDePago: {
+        cuits: {
+            get:      (cuit)  => ipcRenderer.invoke('planesDePago:cuits:get', cuit),
+            guardar:  (datos) => ipcRenderer.invoke('planesDePago:cuits:guardar', datos),
+            editar:   (datos) => ipcRenderer.invoke('planesDePago:cuits:editar', datos),
+            eliminar: (datos) => ipcRenderer.invoke('planesDePago:cuits:eliminar', datos)
+        },
+        generar:  (datos) => ipcRenderer.invoke('planesDePago:generar', datos),
+        onUpdate: (callback) => ipcRenderer.on('planesDePago:update', (_event, datos) => callback(datos))
+    },
+
     // APIs para VEP (Volante Electrónico de Pago)
     vep: {
         generar: (datos) => ipcRenderer.invoke('vep:generar', datos),

@@ -2,6 +2,12 @@ async function menuPrincipal(newPage, datos) {
     try {
         await newPage.goto(newPage.url(), { waitUntil: 'networkidle2' }); // Espera a que la página cargue
 
+        // Esperar a que el botón esté presente y visible antes de hacer clic
+        if (datos.botonId) {
+            const selector = `#${datos.botonId}`;
+            await newPage.waitForSelector(selector, { visible: true, timeout: 30000 });
+        }
+
         // Ejecuta el script original dentro de la página
         await newPage.evaluate((datos) => {
             if (window.location.href.includes('menu_ppal')) {
@@ -12,7 +18,7 @@ async function menuPrincipal(newPage, datos) {
                 if (boton) {
                     boton.click();
                 } else {
-                    console.error("No se encontró el botón con id:", datos.botonId);
+                    throw new Error(`No se encontró el botón con id: ${datos.botonId}`);
                 }
             }
         }, datos);

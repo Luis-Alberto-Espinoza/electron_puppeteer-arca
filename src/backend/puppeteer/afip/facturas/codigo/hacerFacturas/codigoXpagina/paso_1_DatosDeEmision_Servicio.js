@@ -29,9 +29,9 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
                     const hasta = document.querySelector("#fsh");
                     const vto = document.querySelector("#vencimientopago");
 
-                    desde.value = factura[0];
-                    hasta.value = factura[0];
-                    vto.value = datos.fechaComprobante;
+                    desde.value = datos.fechaDesde || factura[0];
+                    hasta.value = datos.fechaHasta || factura[0];
+                    vto.value = datos.fechaVtoPago || datos.fechaComprobante;
 
                     referencia.value = "";
                     let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)");

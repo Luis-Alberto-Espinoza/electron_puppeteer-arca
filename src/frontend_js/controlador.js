@@ -65,7 +65,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -111,6 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('volverHomeAfip', () => {
         mostrarSoloModulo('homeAfipDiv');
         cargarModuloHomeAfip();
+    });
+
+    document.addEventListener('cargarModuloPlanesDePago', () => {
+        cargarModuloPlanesDePago();
     });
 });
 
@@ -573,6 +577,66 @@ async function cargarModuloGenerarVEP() {
 function cargarModuloGenerarFactura() {
     onUsuarioSeleccionado = mostrarModulosAfip;
     mostrarSelectorUsuario();
+}
+
+/**
+ * Carga el módulo de Planes de Pago
+ * Primero muestra el selector de usuario (idéntico a Factura),
+ * luego al seleccionar carga la vista de Planes de Pago
+ */
+function cargarModuloPlanesDePago() {
+    onUsuarioSeleccionado = mostrarVistaPlanesDePago;
+    mostrarSelectorUsuario();
+}
+
+/**
+ * Muestra la vista de Planes de Pago después de seleccionar usuario
+ */
+async function mostrarVistaPlanesDePago() {
+    mostrarSoloModulo('planesDePagoDiv');
+    const planesDePagoDiv = document.getElementById('planesDePagoDiv');
+
+    if (!planesDePagoDiv) return;
+
+    planesDePagoDiv.innerHTML = '';
+
+    try {
+        const htmlPath = '../planesDePago/planes_de_pago.html';
+        const cssPath = '../planesDePago/planes_de_pago.css';
+        const jsPath = '../planesDePago/planes_de_pago.js';
+
+        // Cargar HTML
+        const response = await fetch(htmlPath);
+        if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+        const html = await response.text();
+        planesDePagoDiv.innerHTML = html;
+
+        // Cargar CSS si no está presente
+        if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+            const cssLink = document.createElement('link');
+            cssLink.rel = 'stylesheet';
+            cssLink.href = cssPath;
+            document.head.appendChild(cssLink);
+        }
+
+        // Cargar JS
+        const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+        if (oldScript) oldScript.remove();
+
+        const script = document.createElement('script');
+        script.src = jsPath;
+        script.defer = true;
+        script.onload = () => {
+            if (window.inicializarModuloPlanesDePago) {
+                window.inicializarModuloPlanesDePago(window.usuarioSeleccionado);
+            }
+        };
+        document.head.appendChild(script);
+
+    } catch (error) {
+        console.error('Error cargando módulo Planes de Pago:', error);
+        planesDePagoDiv.innerHTML = '<div style="color:red;">Error cargando el módulo de Planes de Pago.</div>';
+    }
 }
 
 

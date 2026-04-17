@@ -19,6 +19,14 @@ function inicializarHomeAfip() {
             cargarModuloGenerarFactura();
         });
     }
+
+    const btnPlanesDePago = document.getElementById('btnPlanesDePago');
+    if (btnPlanesDePago) {
+        btnPlanesDePago.addEventListener('click', () => {
+            console.log('Cargando módulo Planes de Pago...');
+            cargarModuloPlanesDePagoDesdeHome();
+        });
+    }
 }
 
 /**
@@ -38,6 +46,14 @@ async function cargarModuloGenerarFactura() {
     // Esta función será llamada desde el controlador principal
     // Emitimos un evento personalizado que el controlador puede capturar
     const evento = new CustomEvent('cargarModuloFactura');
+    document.dispatchEvent(evento);
+}
+
+/**
+ * Carga el módulo de Planes de Pago (selector de usuario → vista Planes de Pago)
+ */
+async function cargarModuloPlanesDePagoDesdeHome() {
+    const evento = new CustomEvent('cargarModuloPlanesDePago');
     document.dispatchEvent(evento);
 }
 

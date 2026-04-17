@@ -1,0 +1,88 @@
+<div class="planes-container">
+    <div class="planes-header">
+        <h2>Datos de Planes de Pago</h2>
+    </div>
+
+    <!-- Info del representante seleccionado -->
+    <div class="planes-seccion planes-info-representante">
+        <div class="planes-seccion-titulo">Representante</div>
+        <div class="planes-representante-fila">
+            <div id="infoRepresentante" class="planes-representante-datos">
+                <!-- Se llena dinámicamente -->
+            </div>
+            <button id="btnCambiarUsuarioPlanes" class="btn planes-btn-cambiar-usuario">
+                Cambiar usuario
+            </button>
+        </div>
+    </div>
+
+    <!-- Gestión de CUITs asociados -->
+    <div class="planes-seccion">
+        <div class="planes-seccion-titulo">CUITs Asociados</div>
+
+        <!-- Tabla de CUITs asociados -->
+        <div id="tablaCuitsContainer">
+            <table id="tablaCuits" class="planes-tabla-cuits">
+                <thead>
+                    <tr>
+                        <th class="col-check"></th>
+                        <th>CUIT</th>
+                        <th>Alias</th>
+                        <th>Origen</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyCuits">
+                    <!-- Se llena dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mensaje cuando no hay asociados -->
+        <div id="mensajeSinAsociados" class="planes-mensaje-info" style="display:none">
+            No hay CUITs asociados. Se utilizará el CUIT propio del representante para la consulta.
+        </div>
+
+        <!-- Agregar CUIT -->
+        <div class="planes-agregar-cuit">
+            <div class="planes-agregar-titulo">Agregar CUIT asociado</div>
+            <div class="planes-agregar-tabs">
+                <button id="tabDesdeClientes" class="planes-tab planes-tab-activo">Desde clientes</button>
+                <button id="tabManual" class="planes-tab">Manual</button>
+            </div>
+
+            <!-- Tab: Desde clientes existentes -->
+            <div id="panelDesdeClientes" class="planes-agregar-panel">
+                <select id="selectClienteExistente" class="planes-select-cliente">
+                    <option value="">-- Seleccionar cliente --</option>
+                </select>
+                <button id="btnAgregarDesdeCliente" class="btn planes-btn-agregar">Agregar</button>
+            </div>
+
+            <!-- Tab: Manual -->
+            <div id="panelManual" class="planes-agregar-panel" style="display:none">
+                <input id="inputCuitManual" type="text" class="planes-input" placeholder="CUIT (ej: 30712345678)" maxlength="11" />
+                <input id="inputAliasManual" type="text" class="planes-input" placeholder="Alias / Nombre descriptivo" />
+                <button id="btnAgregarManual" class="btn planes-btn-agregar">Agregar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel de edición inline (oculto por defecto) -->
+    <div id="panelEditar" class="planes-seccion planes-panel-editar" style="display:none">
+        <div class="planes-seccion-titulo">Editar CUIT asociado</div>
+        <div class="planes-editar-fila">
+            <input id="inputEditarCuit" type="text" class="planes-input" placeholder="CUIT" maxlength="11" />
+            <input id="inputEditarAlias" type="text" class="planes-input" placeholder="Alias" />
+            <button id="btnConfirmarEditar" class="btn planes-btn-agregar">Confirmar</button>
+            <button id="btnCancelarEditar" class="btn planes-btn-cancelar">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Botón de acción principal -->
+    <div class="planes-accion">
+        <button id="btnObtenerDatos" class="btn planes-btn-obtener" disabled>
+            Obtener Datos Plan de Pagos
+        </button>
+    </div>
+</div>

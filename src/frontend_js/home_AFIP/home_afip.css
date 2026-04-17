@@ -78,3 +78,13 @@
 .btn-servicio-afip:nth-child(2):hover {
     box-shadow: 0 8px 25px rgba(245, 87, 108, 0.5);
 }
+
+/* Variante de color para el tercer botón */
+.btn-servicio-afip:nth-child(3) {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    box-shadow: 0 4px 15px rgba(67, 233, 123, 0.4);
+}
+
+.btn-servicio-afip:nth-child(3):hover {
+    box-shadow: 0 8px 25px rgba(67, 233, 123, 0.5);
+}

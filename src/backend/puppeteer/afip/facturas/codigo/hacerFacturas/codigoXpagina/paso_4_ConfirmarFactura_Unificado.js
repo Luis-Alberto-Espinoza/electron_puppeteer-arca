@@ -78,8 +78,8 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
             window.scrollTo(0, document.body.scrollHeight);
         });
 
-    // Esperar un breve momento para que la página se estabilice después de la descarga
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo
+        // Esperar un breve momento para que la página se estabilice después de la descarga
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Espera 1 segundo
 
         // PASO 2 y 3: Ejecutar AJAX y confirmar factura
         await newPage.evaluate((modoTest) => {
@@ -90,7 +90,7 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
                     if (!modoTest) {
                         // Ejecutar función AJAX para confirmar (NOMBRE EXACTO del original)
                         if (typeof ajaxFunction === 'function') {
-                            // ajaxFunction();
+                             ajaxFunction();
                         } else {
                             console.warn('ajaxFunction no está definida');
                         }
@@ -101,7 +101,7 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
                         if (!modoTest) {
                             let btnConfirmar = document.querySelectorAll('input')[3];
                             if (btnConfirmar) {
-                                // btnConfirmar.click();
+                                btnConfirmar.click();
                                 console.log('Botón confirmar clickeado');
                             }
                         }
@@ -114,16 +114,20 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
             }
         }, modoTest);
 
-        // Esperar la navegación después de hacer clic en el botón
-        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
-
-        // ==========================================
-        // DESCARGAR PDF (COPIADO EXACTO de paso_4_ConfirmarFactura_Cliente.js líneas 100-146)
-        // ==========================================
+        // Después de confirmar: bifurcar según el flujo
         if (downloadDir) {
-            console.log("🖨️  Buscando botón de imprimir...");
+            // ==========================================
+            // FLUJO CLIENTE: esperar el botón "Imprimir..." en la página de resultado
+            // NO usar waitForNavigation con networkidle2 porque AFIP redirige automáticamente
+            // a menu_ppal.jsp y perdemos la página intermedia con el botón "Imprimir..."
+            // ==========================================
+            console.log("🖨️  Esperando página de resultado con botón Imprimir...");
 
             try {
+                await newPage.waitForSelector('input[value="Imprimir..."]', { timeout: 30000 });
+                console.log(`📍 URL página de resultado: ${await newPage.url()}`);
+                console.log('✓ Botón "Imprimir..." encontrado');
+
                 // Listar archivos PDF actuales en la carpeta (para detectar el nuevo)
                 const archivosAntes = await fs.readdir(downloadDir).then(files =>
                     files.filter(f => f.endsWith('.pdf'))
@@ -131,29 +135,42 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
 
                 console.log(`📄 PDFs existentes antes de imprimir: ${archivosAntes.length}`);
 
-                // Esperar y verificar que existe el botón "Imprimir..."
-                await newPage.waitForSelector('input[value="Imprimir..."]', { timeout: 30000 });
-                console.log('✓ Botón "Imprimir..." encontrado');
-
-                // Hacer clic en el botón (esto causará navegación a imprimirComprobante.do)
-                const navigationPromise = newPage.waitForNavigation({
-                    waitUntil: 'networkidle2',
-                    timeout: 15000
-                }).catch(err => {
-                    console.log('⚠️  No hubo navegación o timeout:', err.message);
-                    return null;
+                // Preparar listener para la NUEVA PESTAÑA antes de hacer clic
+                const browser = newPage.browser();
+                const newTabPromise = new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => reject(new Error('Timeout esperando nueva pestaña')), 15000);
+                    browser.once('targetcreated', async (target) => {
+                        clearTimeout(timer);
+                        if (target.type() === 'page') {
+                            const page = await target.page();
+                            resolve(page);
+                        }
+                    });
                 });
 
+                // Hacer clic en "Imprimir..." (abre nueva pestaña)
                 await newPage.click('input[value="Imprimir..."]');
                 console.log('✓ Clic en botón "Imprimir..." ejecutado');
 
-                // Esperar navegación (puede que la página navegue o que se descargue directamente)
-                await navigationPromise;
+                // Esperar a que se abra la nueva pestaña
+                const pdfTab = await newTabPromise;
+                console.log('✓ Nueva pestaña del PDF detectada');
 
-                // Esperar a que aparezca el nuevo PDF (timeout: 7 segundos)
+                // Configurar CDP en la NUEVA pestaña para controlar la descarga
+                const pdfClient = await pdfTab.target().createCDPSession();
+                await pdfClient.send('Page.setDownloadBehavior', {
+                    behavior: 'allow',
+                    downloadPath: downloadDir
+                });
+                console.log('✓ CDP configurado en nueva pestaña');
+
+                // Esperar a que la pestaña cargue/descargue
+                await pdfTab.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => null);
+
+                // Esperar a que aparezca el nuevo PDF
                 console.log('⏳ Esperando descarga del PDF...');
                 const startTime = Date.now();
-                const timeout = 7000;
+                const timeout = 15000;
                 let pdfEncontrado = false;
 
                 while (Date.now() - startTime < timeout && !pdfEncontrado) {
@@ -166,7 +183,6 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
                     const nuevosArchivos = archivosDespues.filter(f => !archivosAntes.includes(f));
 
                     if (nuevosArchivos.length > 0) {
-                        // Encontramos el PDF nuevo
                         const nombrePDF = nuevosArchivos[0];
                         pdfPath = path.join(downloadDir, nombrePDF);
                         console.log(`✅ PDF descargado: ${nombrePDF}`);
@@ -176,27 +192,44 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
                 }
 
                 if (!pdfEncontrado) {
-                    console.warn('⚠️  No se detectó la descarga del PDF en 7 segundos');
-                    console.log('ℹ️  Puede que el PDF se haya abierto en el navegador en lugar de descargarse');
-                    // No lanzar error, continuar con el flujo
+                    console.warn('⚠️  No se detectó la descarga del PDF en 15 segundos');
                 }
+
+                // Cerrar la pestaña del PDF
+                try {
+                    await pdfTab.close();
+                    console.log('✓ Pestaña del PDF cerrada');
+                } catch (e) { }
+
             } catch (error) {
                 console.error('❌ Error al intentar imprimir:', error.message);
                 console.log('ℹ️  Continuando sin PDF descargado');
             }
+        } else {
+            // ==========================================
+            // FLUJO NORMAL: esperar navegación completa (no necesita PDF)
+            // ==========================================
+            await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 });
+            console.log(`📍 URL después de confirmar: ${await newPage.url()}`);
         }
 
         // ==========================================
-        // VOLVER AL MENÚ PRINCIPAL (COPIADO EXACTO de paso_4_ConfirmarFactura_Cliente.js líneas 157-180)
-        // SIEMPRE volvemos al menú según acuerdos
+        // VOLVER AL MENÚ PRINCIPAL
         // ==========================================
         console.log("Haciendo clic en 'Volver al menú principal'...");
+
+        // Configurar la espera de navegación ANTES de hacer clic
+        const navigationToMenuPromise = newPage.waitForNavigation({
+            waitUntil: 'networkidle2',
+            timeout: 5000
+        }).catch(() => null);
+
+        // Hacer clic en el botón volver
         await newPage.evaluate(() => {
             try {
-                // Buscar el botón "Volver" o similar
                 let btnVolver = document.querySelector('input[value="Volver"]') ||
-                               document.querySelector('input[value*="Men"]') ||
-                               document.querySelector('a[href*="menuPrincipal"]');
+                    document.querySelector('input[value*="Men"]') ||
+                    document.querySelector('a[href*="menuPrincipal"]');
 
                 if (btnVolver) {
                     btnVolver.click();
@@ -209,9 +242,12 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
             }
         });
 
-        // Esperar a que cargue el menú principal
-        await newPage.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }).catch(() => {
-            console.log('No hubo navegación, ya estamos en el menú principal');
+        // Esperar: navegación O que ya estemos en el menú principal
+        await Promise.race([
+            navigationToMenuPromise,
+            newPage.waitForSelector('#btn_gen_cmp', { visible: true, timeout: 5000 })
+        ]).catch(() => {
+            console.log('Ya estamos en el menú principal o timeout alcanzado');
         });
 
         console.log("paso_4_ConfirmarFactura_Unificado completado exitosamente.");

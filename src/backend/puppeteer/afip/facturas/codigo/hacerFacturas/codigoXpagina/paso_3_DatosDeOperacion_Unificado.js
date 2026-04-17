@@ -164,7 +164,7 @@ async function paso_3_DatosDeOperacion_Unificado(newPage, datos, iterador) {
             // Ejecutar el código dentro de la página
             await newPage.evaluate((datos, iterador) => {
                 try {
-                    if (window.location.href.includes('genComDatosOperacion') && datos.tipoContribuyente === 'C') {
+                    if (window.location.href.includes('genComDatosOperacion') && (datos.tipoContribuyente === 'B' || datos.tipoContribuyente === 'C')) {
                         const productosServicio = document.getElementById("detalle_descripcion1");
                         const detalleDescripcion = document.querySelector('#detalle_medida1');
                         const precioUnitario = document.getElementById('detalle_precio1');
@@ -174,11 +174,22 @@ async function paso_3_DatosDeOperacion_Unificado(newPage, datos, iterador) {
                         detalleDescripcion.lastChild.selected = true;
                         precioUnitario.value = datos.montoResultados.facturasGeneradas[iterador][1];
 
+                        // Si es tipo B, seleccionar alícuota IVA 21%
+                        if (datos.tipoContribuyente === 'B') {
+                            const alicuotaIva = document.querySelector("#detalle_tipo_iva1");
+                            if (alicuotaIva) {
+                                alicuotaIva.value = 5; // 5 = 21%
+                                alicuotaIva.dispatchEvent(new Event('change'));
+                            }
+                        }
+
                         setTimeout(function () {
                             precioUnitario.dispatchEvent(new Event('keyup'));
                         }, 1000);
 
-                        validarCampos();
+                        if (typeof validarCampos === 'function') {
+                            validarCampos();
+                        }
                     } else {
                         console.log("Condiciones no cumplidas: window.location.href:", window.location.href, "datosDeOperacion:", datos.datosDeOperacion);
                     }
