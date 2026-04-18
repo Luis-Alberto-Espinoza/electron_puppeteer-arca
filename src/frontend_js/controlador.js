@@ -580,19 +580,10 @@ function cargarModuloGenerarFactura() {
 }
 
 /**
- * Carga el módulo de Planes de Pago
- * Primero muestra el selector de usuario (idéntico a Factura),
- * luego al seleccionar carga la vista de Planes de Pago
+ * Carga el módulo de Planes de Pago (directo, sin selector previo)
+ * El selector multi-usuario está embebido en la vista
  */
-function cargarModuloPlanesDePago() {
-    onUsuarioSeleccionado = mostrarVistaPlanesDePago;
-    mostrarSelectorUsuario();
-}
-
-/**
- * Muestra la vista de Planes de Pago después de seleccionar usuario
- */
-async function mostrarVistaPlanesDePago() {
+async function cargarModuloPlanesDePago() {
     mostrarSoloModulo('planesDePagoDiv');
     const planesDePagoDiv = document.getElementById('planesDePagoDiv');
 
@@ -601,17 +592,30 @@ async function mostrarVistaPlanesDePago() {
     planesDePagoDiv.innerHTML = '';
 
     try {
+        // Rutas del componente genérico SelectorUsuarios
+        const selectorUsuariosCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+        const selectorUsuariosJsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+
+        // Rutas de los archivos del módulo
         const htmlPath = '../planesDePago/planes_de_pago.html';
         const cssPath = '../planesDePago/planes_de_pago.css';
         const jsPath = '../planesDePago/planes_de_pago.js';
 
-        // Cargar HTML
+        // 1. Cargar CSS del componente SelectorUsuarios
+        if (!document.head.querySelector(`link[href="${selectorUsuariosCssPath}"]`)) {
+            const selectorCssLink = document.createElement('link');
+            selectorCssLink.rel = 'stylesheet';
+            selectorCssLink.href = selectorUsuariosCssPath;
+            document.head.appendChild(selectorCssLink);
+        }
+
+        // 2. Cargar HTML del módulo
         const response = await fetch(htmlPath);
         if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
         const html = await response.text();
         planesDePagoDiv.innerHTML = html;
 
-        // Cargar CSS si no está presente
+        // 3. Cargar CSS del módulo
         if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
             const cssLink = document.createElement('link');
             cssLink.rel = 'stylesheet';
@@ -619,7 +623,29 @@ async function mostrarVistaPlanesDePago() {
             document.head.appendChild(cssLink);
         }
 
-        // Cargar JS
+        // 4. Cargar JS del componente SelectorUsuarios primero
+        const cargarSelectorUsuariosScript = () => {
+            return new Promise((resolve, reject) => {
+                if (typeof SelectorUsuarios !== 'undefined') {
+                    resolve();
+                    return;
+                }
+
+                const oldSelectorScript = document.head.querySelector(`script[src="${selectorUsuariosJsPath}"]`);
+                if (oldSelectorScript) oldSelectorScript.remove();
+
+                const selectorScript = document.createElement('script');
+                selectorScript.src = selectorUsuariosJsPath;
+                selectorScript.defer = true;
+                selectorScript.onload = () => resolve();
+                selectorScript.onerror = () => reject(new Error('Error al cargar SelectorUsuarios.js'));
+                document.head.appendChild(selectorScript);
+            });
+        };
+
+        await cargarSelectorUsuariosScript();
+
+        // 5. Cargar JS del módulo
         const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
         if (oldScript) oldScript.remove();
 
@@ -628,7 +654,7 @@ async function mostrarVistaPlanesDePago() {
         script.defer = true;
         script.onload = () => {
             if (window.inicializarModuloPlanesDePago) {
-                window.inicializarModuloPlanesDePago(window.usuarioSeleccionado);
+                window.inicializarModuloPlanesDePago();
             }
         };
         document.head.appendChild(script);

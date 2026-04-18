@@ -91,8 +91,27 @@ function getFilenameRetenciones(cuit, subServiceName, periodo, extension) {
     return `${cuit}_${sanitizedSubServiceName}_${periodo}_${fechaDescarga}.${extension}`;
 }
 
+/**
+ * Devuelve la ruta de consolidados AFIP (compartida entre representantes),
+ * creándola si no existe. Estructura:
+ *   basePath/gestor_afip_atm/consolidados_afip/<subServicio>/
+ *
+ * @param {string} basePath - Ruta base de descargas (app.getPath('downloads')).
+ * @param {string} subServicio - Subservicio, ej: 'planes_de_pago'.
+ * @returns {string} Ruta absoluta al directorio.
+ */
+function getConsolidadoAfipPath(basePath, subServicio) {
+    const sub = String(subServicio || 'general').replace(/[^a-zA-Z0-9_]/g, '_');
+    const dir = path.join(basePath, 'gestor_afip_atm', 'consolidados_afip', sub);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+    return dir;
+}
+
 module.exports = {
     getDownloadPath,
+    getConsolidadoAfipPath,
     getFilename,
     getFilenameRetenciones,
     waitForFile,

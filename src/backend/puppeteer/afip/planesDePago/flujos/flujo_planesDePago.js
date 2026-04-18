@@ -7,6 +7,9 @@ const paso_3_clickDetallePlan = require('../codigoXpagina/paso_3_clickDetallePla
 const paso_4_clickVerPagos = require('../codigoXpagina/paso_4_clickVerPagos.js');
 const paso_5_extraerTablaPagos = require('../codigoXpagina/paso_5_extraerTablaPagos.js');
 const paso_6_descargarPDF = require('../codigoXpagina/paso_6_descargarPDF.js');
+const paso_7_generarExcelPlan = require('../codigoXpagina/paso_7_generarExcelPlan.js');
+const datosResumenBuilder = require('../../../../afip/planesDePago/datosResumenBuilder.js');
+const resumenClienteExcel = require('../../../../afip/planesDePago/resumenClienteExcel.js');
 
 const URL_SEGUIMIENTO = 'https://serviciossegsoc.afip.gob.ar/tramites_con_clave_fiscal/MisFacilidadesNet/app/contribuyente/seguimiento_presentacion.aspx';
 
@@ -79,12 +82,40 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
 
                 // Paso 6: Generar PDF con los datos extraídos
                 const resultadoPDF = await paso_6_descargarPDF.ejecutar(
-                    resultadoExtraccion,  // datos de la tabla (pagos + encabezados)
+                    resultadoExtraccion,  // datos de la tabla (cuotasAgrupadas + totales)
                     plan,                 // info del plan (numero, cuotas, tipo, etc.)
                     usuario,              // representante
                     cuitConsulta.cuit,    // CUIT consultado
                     downloadsPath         // ruta descargas
                 );
+
+                // Paso 7: Generar Excel del plan al lado del PDF (misma info que el PDF)
+                let resultadoXlsx = { success: false };
+                if (resultadoPDF.success) {
+                    resultadoXlsx = await paso_7_generarExcelPlan.ejecutar(
+                        resultadoExtraccion,
+                        plan,
+                        usuario,
+                        cuitConsulta.cuit,
+                        {
+                            downloadDir: resultadoPDF.downloadDir,
+                            pdfNombre: resultadoPDF.pdfNombre
+                        }
+                    );
+                }
+
+                // datosResumen: métricas derivadas (usadas por resumen cliente + consolidado)
+                let datosResumen = null;
+                try {
+                    datosResumen = datosResumenBuilder.construir(
+                        resultadoExtraccion,
+                        plan,
+                        usuario,
+                        cuitConsulta.cuit
+                    );
+                } catch (e) {
+                    console.error('  ⚠️ No se pudo construir datosResumen:', e.message);
+                }
 
                 resultadosPlanes.push({
                     plan: {
@@ -101,6 +132,11 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
                         nombre: resultadoPDF.pdfNombre,
                         downloadDir: resultadoPDF.downloadDir
                     } : null,
+                    xlsx: resultadoXlsx.success ? {
+                        path: resultadoXlsx.xlsxPath,
+                        nombre: resultadoXlsx.xlsxNombre
+                    } : null,
+                    datosResumen,
                     success: true
                 });
 
@@ -129,6 +165,33 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
         }
 
         // =====================================================
+        // Resumen por cliente (Excel con todos los planes del cliente)
+        // =====================================================
+        let resumenCliente = null;
+        const datosResumenPlanes = resultadosPlanes
+            .filter(r => r.success && r.datosResumen)
+            .map(r => r.datosResumen);
+
+        if (datosResumenPlanes.length > 0) {
+            try {
+                const resultadoResumen = resumenClienteExcel.generar(
+                    datosResumenPlanes,
+                    usuario,
+                    cuitConsulta.cuit,
+                    downloadsPath
+                );
+                if (resultadoResumen && resultadoResumen.success) {
+                    resumenCliente = {
+                        path: resultadoResumen.xlsxPath,
+                        nombre: resultadoResumen.xlsxNombre
+                    };
+                }
+            } catch (e) {
+                console.error('[PlanesDePago Flujo] Error generando resumen cliente:', e.message);
+            }
+        }
+
+        // =====================================================
         // Resultado final
         // =====================================================
         const exitosos = resultadosPlanes.filter(r => r.success).length;
@@ -142,6 +205,7 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
             message: `Procesados ${exitosos}/${planes.length} planes vigentes para ${cuitConsulta.alias}`,
             cuitConsulta,
             planes: resultadosPlanes,
+            resumenCliente,
             resumen: {
                 total: planes.length,
                 exitosos,

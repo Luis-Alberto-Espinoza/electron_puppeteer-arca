@@ -3,86 +3,66 @@
         <h2>Datos de Planes de Pago</h2>
     </div>
 
-    <!-- Info del representante seleccionado -->
-    <div class="planes-seccion planes-info-representante">
-        <div class="planes-seccion-titulo">Representante</div>
-        <div class="planes-representante-fila">
-            <div id="infoRepresentante" class="planes-representante-datos">
-                <!-- Se llena dinámicamente -->
+    <!-- Gestión de listas guardadas (ARRIBA) -->
+    <div class="planes-seccion planes-gestion-listas">
+        <div class="planes-seccion-titulo">Lista de representantes</div>
+        <div class="listas-fila">
+            <select id="selectListaPlanes" class="planes-select-lista">
+                <option value="">-- Sin lista guardada --</option>
+            </select>
+            <button id="btnNuevaListaPlanes" class="btn planes-btn-lista">+ Nueva</button>
+            <button id="btnRenombrarListaPlanes" class="btn planes-btn-lista">Renombrar</button>
+            <button id="btnEliminarListaPlanes" class="btn planes-btn-lista planes-btn-lista-eliminar">Eliminar</button>
+        </div>
+        <div id="panelNombreListaPlanes" style="display:none">
+            <div class="nombre-lista-fila">
+                <input id="inputNombreListaPlanes" type="text" class="planes-input planes-input-nombre" placeholder="Nombre de la lista..." />
+                <button id="btnConfirmarNombrePlanes" class="btn planes-btn-lista planes-btn-confirmar-nombre">Confirmar</button>
+                <button id="btnCancelarNombrePlanes" class="btn planes-btn-lista">Cancelar</button>
             </div>
-            <button id="btnCambiarUsuarioPlanes" class="btn planes-btn-cambiar-usuario">
-                Cambiar usuario
-            </button>
         </div>
     </div>
 
-    <!-- Gestión de CUITs asociados -->
+    <!-- Textarea de búsqueda por nombre -->
     <div class="planes-seccion">
-        <div class="planes-seccion-titulo">CUITs Asociados</div>
-
-        <!-- Tabla de CUITs asociados -->
-        <div id="tablaCuitsContainer">
-            <table id="tablaCuits" class="planes-tabla-cuits">
-                <thead>
-                    <tr>
-                        <th class="col-check"></th>
-                        <th>CUIT</th>
-                        <th>Alias</th>
-                        <th>Origen</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="tbodyCuits">
-                    <!-- Se llena dinámicamente -->
-                </tbody>
-            </table>
+        <div class="planes-seccion-titulo">Buscar representantes por nombre <span class="planes-hint">(uno por línea)</span></div>
+        <textarea
+            id="textareaNombresPlanes"
+            rows="6"
+            placeholder="Ej:&#10;Luis S.A.&#10;Fideicomiso 5&#10;Empresa XYZ"></textarea>
+        <div class="textarea-acciones">
+            <button id="btnBuscarSeleccionarPlanes" class="btn planes-btn-buscar-seleccionar">Buscar y seleccionar</button>
+            <button id="btnGuardarListaPlanes" class="btn planes-btn-guardar-lista">Guardar lista</button>
         </div>
+        <div id="matchResultadoPlanes" style="display:none"></div>
+    </div>
 
-        <!-- Mensaje cuando no hay asociados -->
-        <div id="mensajeSinAsociados" class="planes-mensaje-info" style="display:none">
-            No hay CUITs asociados. Se utilizará el CUIT propio del representante para la consulta.
-        </div>
+    <!-- Tabla de representantes (SelectorUsuarios) -->
+    <div id="selector-representantes-planes"></div>
 
-        <!-- Agregar CUIT -->
-        <div class="planes-agregar-cuit">
-            <div class="planes-agregar-titulo">Agregar CUIT asociado</div>
-            <div class="planes-agregar-tabs">
-                <button id="tabDesdeClientes" class="planes-tab planes-tab-activo">Desde clientes</button>
-                <button id="tabManual" class="planes-tab">Manual</button>
-            </div>
+    <!-- Limpiar seleccionados -->
+    <div class="planes-controles">
+        <button id="btnLimpiarSeleccionPlanes" class="btn planes-btn-limpiar-seleccion">✕ Limpiar seleccionados</button>
+    </div>
 
-            <!-- Tab: Desde clientes existentes -->
-            <div id="panelDesdeClientes" class="planes-agregar-panel">
-                <select id="selectClienteExistente" class="planes-select-cliente">
-                    <option value="">-- Seleccionar cliente --</option>
-                </select>
-                <button id="btnAgregarDesdeCliente" class="btn planes-btn-agregar">Agregar</button>
-            </div>
-
-            <!-- Tab: Manual -->
-            <div id="panelManual" class="planes-agregar-panel" style="display:none">
-                <input id="inputCuitManual" type="text" class="planes-input" placeholder="CUIT (ej: 30712345678)" maxlength="11" />
-                <input id="inputAliasManual" type="text" class="planes-input" placeholder="Alias / Nombre descriptivo" />
-                <button id="btnAgregarManual" class="btn planes-btn-agregar">Agregar</button>
-            </div>
+    <!-- Panel de CUITs por representante (colapsables) -->
+    <div id="panelCuitsRepresentantes" class="planes-seccion" style="display:none">
+        <div class="planes-seccion-titulo">CUITs a procesar por representante</div>
+        <div id="contenedorBloquesRepresentantes">
+            <!-- Bloques colapsables dinámicos -->
         </div>
     </div>
 
-    <!-- Panel de edición inline (oculto por defecto) -->
-    <div id="panelEditar" class="planes-seccion planes-panel-editar" style="display:none">
-        <div class="planes-seccion-titulo">Editar CUIT asociado</div>
-        <div class="planes-editar-fila">
-            <input id="inputEditarCuit" type="text" class="planes-input" placeholder="CUIT" maxlength="11" />
-            <input id="inputEditarAlias" type="text" class="planes-input" placeholder="Alias" />
-            <button id="btnConfirmarEditar" class="btn planes-btn-agregar">Confirmar</button>
-            <button id="btnCancelarEditar" class="btn planes-btn-cancelar">Cancelar</button>
-        </div>
-    </div>
-
-    <!-- Botón de acción principal -->
-    <div class="planes-accion">
+    <!-- Botón procesar -->
+    <div class="planes-procesar">
         <button id="btnObtenerDatos" class="btn planes-btn-obtener" disabled>
-            Obtener Datos Plan de Pagos
+            ▶ Obtener Datos Plan de Pagos
         </button>
+    </div>
+
+    <!-- Panel de resultados -->
+    <div id="resultadosPlanesDePago" class="planes-seccion" style="display:none">
+        <div class="planes-seccion-titulo">Resultados</div>
+        <div id="resultadosContenido"></div>
     </div>
 </div>

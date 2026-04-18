@@ -33,6 +33,7 @@ const setupListasATMHandlers = require('../atm/listas/handlers.js');
 
 // Importar handlers de Planes de Pago AFIP
 const setupPlanesDePagoHandlers = require('../afip/planesDePago/handlers.js');
+const setupListasPlanesPagoHandlers = require('../afip/planesDePago/handlers_listas.js');
 
 // Importar la nueva función de carga masiva
 const { procesarArchivoUsuarios } = require('../cliente/service/cargaMasiva.js');
@@ -354,6 +355,7 @@ app.whenReady().then(async () => {
 
         // Handlers de Planes de Pago AFIP
         setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app);
+        setupListasPlanesPagoHandlers(ipcMain);
 
         // Handler para la carga masiva de usuarios desde Excel
         ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {

@@ -88,7 +88,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         }
     },
 
-    // APIs para Planes de Pago (CUITs asociados + ejecución)
+    // APIs para Planes de Pago (CUITs asociados + ejecución + listas)
     planesDePago: {
         cuits: {
             get:      (cuit)  => ipcRenderer.invoke('planesDePago:cuits:get', cuit),
@@ -96,7 +96,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
             editar:   (datos) => ipcRenderer.invoke('planesDePago:cuits:editar', datos),
             eliminar: (datos) => ipcRenderer.invoke('planesDePago:cuits:eliminar', datos)
         },
-        generar:  (datos) => ipcRenderer.invoke('planesDePago:generar', datos),
+        listas: {
+            get:       ()     => ipcRenderer.invoke('planesDePago:listas:get'),
+            guardar:   (datos) => ipcRenderer.invoke('planesDePago:listas:guardar', datos),
+            renombrar: (datos) => ipcRenderer.invoke('planesDePago:listas:renombrar', datos),
+            eliminar:  (datos) => ipcRenderer.invoke('planesDePago:listas:eliminar', datos)
+        },
+        generar:      (datos) => ipcRenderer.invoke('planesDePago:generar', datos),
+        generarLote:  (datos) => ipcRenderer.invoke('planesDePago:generarLote', datos),
         onUpdate: (callback) => ipcRenderer.on('planesDePago:update', (_event, datos) => callback(datos))
     },
 

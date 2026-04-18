@@ -1,5 +1,5 @@
 .planes-container {
-    max-width: 900px;
+    max-width: 950px;
     margin: 30px auto;
     padding: 25px;
     background: #1a1a2e;
@@ -32,23 +32,34 @@
     letter-spacing: 0.5px;
 }
 
-/* Info representante */
-.planes-representante-fila {
+/* ========================================
+   GESTIÓN DE LISTAS
+   ======================================== */
+.listas-fila {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 15px;
-}
-
-.planes-representante-datos {
-    display: flex;
-    gap: 20px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
 }
 
-.planes-btn-cambiar-usuario {
-    padding: 8px 16px;
+.planes-select-lista {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 12px;
+    background: #0f1a30;
+    color: #e0e0e0;
+    border: 1px solid #2a3a5c;
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+
+.planes-select-lista:focus {
+    outline: none;
+    border-color: #a0c4ff;
+}
+
+.planes-btn-lista {
+    padding: 6px 14px;
     background: transparent;
     color: #a0c4ff;
     border: 1px solid #2a3a5c;
@@ -59,49 +70,130 @@
     white-space: nowrap;
 }
 
-.planes-btn-cambiar-usuario:hover {
+.planes-btn-lista:hover {
     background: #1a2744;
     border-color: #a0c4ff;
 }
 
-.planes-representante-datos .dato {
+.planes-btn-lista-eliminar {
+    color: #ff6b6b;
+    border-color: #3a2020;
+}
+
+.planes-btn-lista-eliminar:hover {
+    background: #3a1a1a;
+    border-color: #ff6b6b;
+}
+
+.nombre-lista-fila {
     display: flex;
-    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
 }
 
-.planes-representante-datos .dato-label {
-    font-size: 0.75rem;
-    color: #7f8c8d;
-    text-transform: uppercase;
+.planes-input-nombre {
+    flex: 1;
 }
 
-.planes-representante-datos .dato-valor {
-    font-size: 1.1rem;
+.planes-btn-confirmar-nombre {
+    background: #0f3460;
     color: #ffffff;
-    font-weight: 500;
 }
 
-/* Tabla de CUITs */
+/* ========================================
+   BLOQUES COLAPSABLES POR REPRESENTANTE
+   ======================================== */
+.planes-bloque-representante {
+    background: #0f1a30;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    border: 1px solid #2a3a5c;
+}
+
+.planes-bloque-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.2s;
+    user-select: none;
+}
+
+.planes-bloque-header:hover {
+    background: #1a2744;
+}
+
+.planes-bloque-info {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.planes-bloque-nombre {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: 1rem;
+}
+
+.planes-bloque-cuit {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+}
+
+.planes-bloque-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    background: #0f3460;
+    color: #a0c4ff;
+}
+
+.planes-bloque-toggle {
+    color: #a0c4ff;
+    font-size: 1.2rem;
+    transition: transform 0.2s;
+}
+
+.planes-bloque-toggle.abierto {
+    transform: rotate(180deg);
+}
+
+.planes-bloque-contenido {
+    padding: 0 16px 16px;
+    display: none;
+}
+
+.planes-bloque-contenido.abierto {
+    display: block;
+}
+
+/* Tabla de CUITs dentro del bloque */
 .planes-tabla-cuits {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .planes-tabla-cuits th {
     background: #0f3460;
     color: #a0c4ff;
-    padding: 10px 12px;
+    padding: 8px 10px;
     text-align: left;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 
 .planes-tabla-cuits td {
-    padding: 10px 12px;
+    padding: 8px 10px;
     border-bottom: 1px solid #1a1a3e;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
 }
 
 .planes-tabla-cuits tbody tr {
@@ -156,6 +248,7 @@
     font-weight: 500;
 }
 
+/* Botones de acción en tabla */
 .planes-btn-accion {
     background: none;
     border: none;
@@ -182,45 +275,36 @@
     background: #3a1a1a;
 }
 
-/* Mensaje sin asociados */
-.planes-mensaje-info {
-    background: #1a2744;
-    border: 1px solid #2a3a5c;
-    border-radius: 8px;
-    padding: 16px;
-    text-align: center;
-    color: #a0c4ff;
-    font-size: 0.95rem;
-}
-
-/* Agregar CUIT */
+/* ========================================
+   AGREGAR CUIT
+   ======================================== */
 .planes-agregar-cuit {
-    margin-top: 15px;
-    background: #0f1a30;
-    border-radius: 8px;
-    padding: 15px;
+    margin-top: 10px;
+    background: #16213e;
+    border-radius: 6px;
+    padding: 12px;
 }
 
 .planes-agregar-titulo {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #7f8c8d;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 
 .planes-agregar-tabs {
     display: flex;
     gap: 8px;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .planes-tab {
-    padding: 6px 16px;
+    padding: 5px 14px;
     border: 1px solid #2a3a5c;
     background: transparent;
     color: #a0c4ff;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     transition: all 0.2s;
 }
 
@@ -236,29 +320,29 @@
 
 .planes-agregar-panel {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
 }
 
 .planes-select-cliente {
     flex: 1;
-    min-width: 200px;
-    padding: 8px 12px;
-    background: #16213e;
+    min-width: 180px;
+    padding: 7px 10px;
+    background: #0f1a30;
     color: #e0e0e0;
     border: 1px solid #2a3a5c;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .planes-input {
-    padding: 8px 12px;
-    background: #16213e;
+    padding: 7px 10px;
+    background: #0f1a30;
     color: #e0e0e0;
     border: 1px solid #2a3a5c;
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
 .planes-input:focus,
@@ -267,7 +351,8 @@
     border-color: #a0c4ff;
 }
 
-.planes-input.input-error {
+.planes-input.input-error,
+.planes-select-lista.input-error {
     border-color: #ff6b6b;
     animation: shake 0.3s;
 }
@@ -279,14 +364,14 @@
 }
 
 .planes-btn-agregar {
-    padding: 8px 18px;
+    padding: 7px 14px;
     background: #43e97b;
     color: #1a1a2e;
     border: none;
     border-radius: 6px;
     font-weight: 600;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     transition: background 0.2s;
 }
 
@@ -295,13 +380,13 @@
 }
 
 .planes-btn-cancelar {
-    padding: 8px 18px;
+    padding: 7px 14px;
     background: transparent;
     color: #a0c4ff;
     border: 1px solid #2a3a5c;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     transition: background 0.2s;
 }
 
@@ -309,27 +394,145 @@
     background: #1a2744;
 }
 
-/* Panel editar */
+/* Panel editar inline */
 .planes-panel-editar {
     border: 1px solid #a0c4ff;
+    padding: 12px;
+    margin-top: 8px;
+    border-radius: 6px;
+    background: #16213e;
 }
 
 .planes-editar-fila {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     align-items: center;
     flex-wrap: wrap;
 }
 
 .planes-editar-fila .planes-input {
     flex: 1;
-    min-width: 150px;
+    min-width: 130px;
 }
 
-/* Botón principal */
-.planes-accion {
-    text-align: center;
+/* ========================================
+   TEXTAREA DE BÚSQUEDA POR NOMBRE
+   ======================================== */
+.planes-hint {
+    color: #7f8c8d;
+    font-weight: 400;
+    text-transform: none;
+    font-size: 0.8rem;
+}
+
+#textareaNombresPlanes {
+    width: 100%;
+    background: #0f1a30;
+    color: #e0e0e0;
+    border: 1px solid #2a3a5c;
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    font-family: monospace;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+#textareaNombresPlanes:focus {
+    outline: none;
+    border-color: #a0c4ff;
+}
+
+.textarea-acciones {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.planes-btn-buscar-seleccionar {
+    padding: 9px 18px;
+    background: #0f3460;
+    color: #a0c4ff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.planes-btn-buscar-seleccionar:hover {
+    background: #1a4a8a;
+    color: #ffffff;
+}
+
+.planes-btn-guardar-lista {
+    padding: 9px 18px;
+    background: #1a4a2e;
+    color: #43e97b;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.planes-btn-guardar-lista:hover {
+    background: #206238;
+    color: #ffffff;
+}
+
+/* Resultado del match */
+#matchResultadoPlanes {
+    margin-top: 10px;
+    font-size: 0.85rem;
+}
+
+.match-ok {
+    color: #43e97b;
+    margin-bottom: 4px;
+}
+
+.match-warn {
+    color: #f6ad55;
+    margin-bottom: 2px;
+}
+
+/* ========================================
+   LIMPIAR SELECCIÓN
+   ======================================== */
+.planes-controles {
+    margin-top: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+}
+
+.planes-btn-limpiar-seleccion {
+    background: #3a1a1a;
+    color: #ff6b6b;
+    border: 1px solid #742a2a;
+    padding: 9px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.planes-btn-limpiar-seleccion:hover {
+    background: #5a2a2a;
+    color: #ffffff;
+    border-color: #ff6b6b;
+}
+
+/* ========================================
+   BOTÓN PROCESAR
+   ======================================== */
+.planes-procesar {
     margin-top: 20px;
+    text-align: center;
 }
 
 .planes-btn-obtener {
@@ -338,11 +541,13 @@
     color: #1a1a2e;
     border: none;
     border-radius: 8px;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.3s;
     box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);
+    width: 100%;
+    max-width: 400px;
 }
 
 .planes-btn-obtener:hover:not(:disabled) {
@@ -356,7 +561,40 @@
     transform: none;
 }
 
-/* Resultados */
+/* ========================================
+   BADGES DE ESTADO (tabla de seleccionados)
+   ======================================== */
+.estado-cell {
+    text-align: center;
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.badge-validado {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.badge-invalido {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.badge-sin-validar {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+/* ========================================
+   RESULTADOS
+   ======================================== */
 .planes-resultado {
     padding: 10px 14px;
     border-radius: 6px;
@@ -389,17 +627,25 @@
     font-weight: 600;
 }
 
+.planes-resultado-representante {
+    background: #0f3460;
+    color: #ffffff;
+    border-left: 3px solid #a0c4ff;
+    font-weight: 600;
+    margin-top: 12px;
+}
+
 /* Botón abrir carpeta */
 .planes-btn-abrir-carpeta {
     display: inline-block;
-    margin-top: 12px;
-    padding: 10px 24px;
+    margin-top: 8px;
+    padding: 8px 20px;
     background: #0f3460;
     color: #a0c4ff;
     border: 1px solid #2a3a5c;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 500;
     transition: all 0.2s;
 }
@@ -408,4 +654,15 @@
     background: #1a2744;
     border-color: #a0c4ff;
     color: #ffffff;
+}
+
+/* Mensaje sin asociados */
+.planes-mensaje-info {
+    background: #1a2744;
+    border: 1px solid #2a3a5c;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    color: #a0c4ff;
+    font-size: 0.9rem;
 }
