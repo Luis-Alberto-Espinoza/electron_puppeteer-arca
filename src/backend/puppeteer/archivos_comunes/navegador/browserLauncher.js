@@ -1,5 +1,34 @@
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const puppeteer = require('puppeteer-core');
+
+// Crea un perfil temporal con el Password Manager de Google desactivado.
+// Necesario porque el modal "Cambia la contraseña" (leak detection) se controla
+// por preferencia de perfil, no por --disable-features.
+function createIsolatedUserDataDir() {
+  const dir = path.join(
+    os.tmpdir(),
+    `afip-electron-profile-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
+  const defaultDir = path.join(dir, 'Default');
+  fs.mkdirSync(defaultDir, { recursive: true });
+
+  const preferences = {
+    credentials_enable_service: false,
+    profile: {
+      password_manager_leak_detection: false,
+      password_manager_enabled: false
+    },
+    safebrowsing: { enabled: false }
+  };
+  fs.writeFileSync(path.join(defaultDir, 'Preferences'), JSON.stringify(preferences));
+
+  const localState = { password_manager: { leak_detection_enabled: false } };
+  fs.writeFileSync(path.join(dir, 'Local State'), JSON.stringify(localState));
+
+  return dir;
+}
 
 async function launchBrowser({ headless = true, args = [] } = {}) { // <-- permite pasar headless y args personalizados
   // Se eliminó la dependencia de 'electron.screen' para que sea compatible con workers.
@@ -36,17 +65,21 @@ async function launchBrowser({ headless = true, args = [] } = {}) { // <-- permi
 
       '--disable-prompt-on-repost', // Desactivar prompt de repost
       '--disable-hang-monitor', // Desactivar monitor de cuelgue
-      '--disable-features=DownloadBubble,DownloadBubbleV2,PasswordCheck,PasswordLeakDetection', // Desactivar diálogo de descarga moderno y verificación de contraseñas comprometidas
+      '--disable-features=DownloadBubble,DownloadBubbleV2,PasswordCheck,PasswordLeakDetection,AutofillServerCommunication,PasswordManagerOnboarding', // Desactivar diálogo de descarga moderno, verificación de contraseñas comprometidas y onboarding del password manager
 
       // ===== DESHABILITAR PASSWORD MANAGER DE CHROME =====
       '--disable-save-password-bubble', // No mostrar popup de guardar contraseña
       '--disable-password-generation', // No sugerir contraseñas generadas
+      '--disable-password-manager-reauthentication', // No pedir reautenticación para autocompletar
       '--password-store=basic' // Usar almacén básico sin integración con el sistema
     ],
     defaultViewport: null,
     ignoreDefaultArgs: ['--enable-automation'],
     devtools: false
   };
+
+  const userDataDir = createIsolatedUserDataDir();
+  launchOptions.userDataDir = userDataDir;
 
   let executablePath;
   if (process.platform === 'win32') {
@@ -83,9 +116,13 @@ async function launchBrowser({ headless = true, args = [] } = {}) { // <-- permi
 
   try {
     const browser = await puppeteer.launch(launchOptions);
+    browser.on('disconnected', () => {
+      fs.rm(userDataDir, { recursive: true, force: true }, () => {});
+    });
     return browser;
   } catch (error) {
     console.error('Error al lanzar Puppeteer:', error);
+    fs.rm(userDataDir, { recursive: true, force: true }, () => {});
     throw error;
   }
 }
