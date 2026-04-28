@@ -5,136 +5,218 @@
  * @param {object} options - Opciones adicionales
  * @param {number} options.timeoutNuevaPestana - Timeout para esperar nueva pestaña (default: 5000ms)
  * @param {boolean} options.esperarNuevaPestana - Si debe esperar nueva pestaña (default: true)
+ * @param {string|null} options.textoEsperadoEnResultado - Si se pasa, se valida que el primer
+ *        resultado de la lista incluya ese texto (case-insensitive). Si no coincide, o si el click
+ *        no produce navegación, el retry hace F5 (recarga la página) antes de reintentar.
+ *        Esto cubre el caso típico: el portal a veces se "cuelga" y el primer resultado no es el
+ *        correcto, o el click se ignora silenciosamente. El F5 limpia ese estado.
+ *        Si no se pasa (default), se mantiene el comportamiento clásico (sin validación, retry
+ *        suave que solo limpia el input). Esto es para no romper otros callers.
  * @returns {Promise<import('puppeteer').Page>} La nueva página o la página actual
  */
 async function buscarEnAfip(page, textoBusqueda, options = {}) {
-    try {
-        const {
-            timeoutNuevaPestana = 5000,
-            esperarNuevaPestana = true
-        } = options;
+    const {
+        timeoutNuevaPestana = 5000,
+        esperarNuevaPestana = true,
+        textoEsperadoEnResultado = null
+    } = options;
 
-        console.log(`  → Buscando "${textoBusqueda}" en el buscador de AFIP...`);
+    const MAX_INTENTOS = 2;
+    let ultimoError = null;
 
-        // Esperar a que el buscador esté disponible
-        await page.waitForSelector('#buscadorInput', { timeout: 20000 });
-
-        const browser = page.browser();
-        let nuevaPestanaPromise = null;
-
-        // Configurar listener para nueva pestaña ANTES del click (si se espera)
-        if (esperarNuevaPestana) {
-            nuevaPestanaPromise = new Promise((resolve) => {
-                const handleTarget = async (target) => {
-                    // Verificar que sea un target de tipo 'page'
-                    if (target.type() !== 'page') {
-                        return;
-                    }
-
-                    const newPage = await target.page();
-
-                    if (newPage) {
-                        browser.off('targetcreated', handleTarget);
-                        resolve(newPage);
-                    }
-                };
-
-                browser.on('targetcreated', handleTarget);
+    for (let intento = 1; intento <= MAX_INTENTOS; intento++) {
+        try {
+            return await intentarBusqueda(page, textoBusqueda, {
+                timeoutNuevaPestana,
+                esperarNuevaPestana,
+                textoEsperadoEnResultado,
+                intento
             });
-        }
-
-        // Ejecutar la búsqueda y click en el primer resultado
-        const busquedaExitosa = await page.evaluate((texto) => {
-            return new Promise((resolve) => {
-                const input = document.getElementById('buscadorInput');
-
-                if (!input) {
-                    resolve(false);
-                    return;
-                }
-
-                // Simular secuencia completa de interacción
-                input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                input.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-                input.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-                input.focus();
-
-                setTimeout(() => {
+        } catch (e) {
+            ultimoError = e;
+            console.warn(`  ⚠️ Buscador intento ${intento}/${MAX_INTENTOS} falló: ${e.message}`);
+            if (intento < MAX_INTENTOS) {
+                if (textoEsperadoEnResultado) {
+                    // Recovery duro: F5. Solo se activa si el caller pidió validación.
+                    console.log('  → [Buscador] Recargando página (F5) antes de reintentar...');
                     try {
-                        // Para React, necesitas usar el setter nativo
-                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                            window.HTMLInputElement.prototype, 'value'
-                        ).set;
-
-                        nativeInputValueSetter.call(input, texto);
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-
-                        // Esperar un poco para que aparezcan los resultados
-                        setTimeout(() => {
-                            try {
-                                // Acceder al primer elemento de la lista mostrada
-                                const primerElemento = document.querySelector('#resBusqueda li:first-child a.dropdown-item');
-
-                                if (primerElemento) {
-                                    primerElemento.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-                                    primerElemento.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-                                    primerElemento.click();
-                                    resolve(true);
-                                } else {
-                                    resolve(false);
-                                }
-                            } catch (error) {
-                                resolve(false);
-                            }
-                        }, 500);
-                    } catch (error) {
-                        resolve(false);
+                        await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
+                        await new Promise(r => setTimeout(r, 1000));
+                    } catch (eReload) {
+                        console.warn(`  ⚠️ F5 falló: ${eReload.message}. Reintento usará la página tal como está.`);
                     }
-                }, 100);
-            });
-        }, textoBusqueda);
-
-        if (!busquedaExitosa) {
-            throw new Error(`No se pudo realizar la búsqueda de "${textoBusqueda}"`);
+                } else {
+                    // Recovery suave: comportamiento clásico. Otros callers no se ven afectados.
+                    await limpiarInputBuscador(page);
+                    await new Promise(r => setTimeout(r, 800));
+                }
+            }
         }
+    }
 
-        console.log('  → Click realizado en el primer resultado.');
+    throw ultimoError || new Error(`No se pudo completar la búsqueda de "${textoBusqueda}"`);
+}
 
-        // Si no se espera nueva pestaña, retornar la página actual
+async function limpiarInputBuscador(page) {
+    try {
+        await page.evaluate(() => {
+            const input = document.getElementById('buscadorInput');
+            if (!input) return;
+            const setter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+            ).set;
+            setter.call(input, '');
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+    } catch (_) { /* no es crítico */ }
+}
+
+/**
+ * Un intento completo de búsqueda: tipear → esperar resultados → click real → validar
+ * que algo cambió (nueva pestaña o URL distinta). Si nada cambió, tira para que el
+ * caller pueda reintentar.
+ */
+async function intentarBusqueda(page, textoBusqueda, opts) {
+    const { timeoutNuevaPestana, esperarNuevaPestana, textoEsperadoEnResultado, intento } = opts;
+    const SELECTOR_PRIMER_RESULTADO = '#resBusqueda li:first-child a.dropdown-item';
+
+    console.log(`  → Buscando "${textoBusqueda}" en el buscador de AFIP... (intento ${intento})`);
+
+    await page.waitForSelector('#buscadorInput', { timeout: 30000 });
+
+    // Capturamos la URL antes del click para detectar si la navegación realmente ocurrió.
+    // El check viejo (document.readyState === 'complete') es siempre true → falso positivo.
+    const urlAntes = page.url();
+
+    // 1) Tipear. El input es React-like, por eso usamos el setter nativo + 'input'.
+    const tipeoExitoso = await page.evaluate((texto) => {
+        const input = document.getElementById('buscadorInput');
+        if (!input) return false;
+        input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        input.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        input.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        input.focus();
+        const setter = Object.getOwnPropertyDescriptor(
+            window.HTMLInputElement.prototype, 'value'
+        ).set;
+        setter.call(input, texto);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+    }, textoBusqueda);
+
+    if (!tipeoExitoso) {
+        throw new Error('No se pudo escribir en #buscadorInput (input no encontrado)');
+    }
+
+    // 2) Esperar a que la lista tenga al menos un resultado (sin sleep fijo).
+    try {
+        await page.waitForSelector(SELECTOR_PRIMER_RESULTADO, { visible: true, timeout: 15000 });
+    } catch (_) {
+        throw new Error(`No aparecieron resultados para "${textoBusqueda}" tras esperar 15s`);
+    }
+
+    // 2.5) Si el caller pidió validación, comprobar que el primer <li> tenga el texto esperado.
+    // El portal AFIP a veces queda "frío" y la lista muestra resultados que no son los reales
+    // (cacheados, parciales, etc). En ese caso lanzamos para que el retry haga F5.
+    if (textoEsperadoEnResultado) {
+        const textoPrimerResultado = await page.evaluate(() => {
+            const li = document.querySelector('#resBusqueda li:first-child');
+            if (!li) return null;
+            const aria = li.getAttribute('aria-label') || '';
+            const txt = (li.textContent || '').replace(/\s+/g, ' ').trim();
+            return (aria + ' || ' + txt).trim();
+        });
+        if (!textoPrimerResultado) {
+            throw new Error('No se pudo leer el primer resultado del buscador para validar');
+        }
+        const coincide = textoPrimerResultado.toLowerCase().includes(textoEsperadoEnResultado.toLowerCase());
+        if (!coincide) {
+            throw new Error(
+                `Primer resultado no coincide con "${textoEsperadoEnResultado}". ` +
+                `Encontrado: "${textoPrimerResultado.substring(0, 120)}"`
+            );
+        }
+        console.log(`  → [Buscador] Primer resultado validado (incluye "${textoEsperadoEnResultado}").`);
+    }
+
+    // 3) Listener de nueva pestaña ANTES del click. Lo registramos siempre y lo
+    // limpiamos al final para no acumular handlers entre reintentos.
+    const browser = page.browser();
+    let handleTarget = null;
+    let nuevaPestanaPromise = null;
+    if (esperarNuevaPestana) {
+        nuevaPestanaPromise = new Promise((resolve) => {
+            handleTarget = async (target) => {
+                if (target.type() !== 'page') return;
+                const newPage = await target.page();
+                if (newPage) {
+                    browser.off('targetcreated', handleTarget);
+                    resolve(newPage);
+                }
+            };
+            browser.on('targetcreated', handleTarget);
+        });
+    }
+
+    // Helper para garantizar que el listener no quede colgado pase lo que pase.
+    const limpiarListener = () => {
+        if (handleTarget) {
+            try { browser.off('targetcreated', handleTarget); } catch (_) {}
+            handleTarget = null;
+        }
+    };
+
+    try {
+        // 4) Click REAL con mouse de Puppeteer (isTrusted: true).
+        // El portal AFIP a veces ignora clicks sintéticos (el.click() desde evaluate),
+        // y eso era lo que producía el fallo 1/25 — la búsqueda parecía completa pero
+        // el portal no recibía el click y la URL no cambiaba.
+        const handle = await page.$(SELECTOR_PRIMER_RESULTADO);
+        if (!handle) {
+            throw new Error('El primer resultado desapareció antes del click (DOM cambió)');
+        }
+        try { await handle.scrollIntoView(); } catch (_) { /* no es crítico */ }
+        await handle.click();
+
+        console.log('  → Click realizado en el primer resultado (mouse real).');
+
         if (!esperarNuevaPestana) {
             console.log('  ✅ Búsqueda completada (sin nueva pestaña).');
             return page;
         }
 
-        // Esperar a que se abra la nueva pestaña
-        let newPage;
+        // 5) Verificar que algo cambió: nueva pestaña O URL distinta.
+        let newPage = null;
         try {
-            console.log('  → Esperando nueva pestaña...');
             newPage = await Promise.race([
                 nuevaPestanaPromise,
                 new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Timeout esperando nueva pestaña')), timeoutNuevaPestana)
+                    setTimeout(() => reject(new Error('timeout-nueva-pestana')), timeoutNuevaPestana)
                 )
             ]);
             console.log('  ✅ Nueva pestaña capturada correctamente');
-        } catch (timeoutError) {
-            console.log('  ⚠️ No se detectó nueva pestaña. Verificando si navegó en la misma página...');
+        } catch (_) {
+            limpiarListener();
+            console.log('  → No hubo nueva pestaña. Verificando cambio de URL en la misma pestaña...');
 
-            // Verificar si navegó en la misma página
+            // Esperar hasta 8s a que la URL realmente cambie. Si no cambia, el click
+            // no produjo efecto → tirar para que el retry externo lo intente de nuevo.
             try {
                 await page.waitForFunction(
-                    () => document.readyState === 'complete',
-                    { timeout: 3000 }
+                    (urlPrevia) => window.location.href !== urlPrevia,
+                    { timeout: 8000 },
+                    urlAntes
                 );
-                console.log('  ✅ Navegó en la misma pestaña. Usando página actual.');
+                console.log(`  ✅ Navegó en la misma pestaña. URL nueva: ${page.url()}`);
                 newPage = page;
-            } catch (e) {
-                console.error('  ❌ No se pudo detectar navegación.');
-                throw new Error(`No se pudo acceder a "${textoBusqueda}" (no se abrió nueva pestaña ni navegó)`);
+            } catch (_) {
+                throw new Error(
+                    `Click en "${textoBusqueda}" no produjo navegación (URL sigue en ${urlAntes})`
+                );
             }
         }
 
-        // Esperar a que la nueva página cargue
+        // 6) Esperar a que la nueva página termine de cargar lo básico.
         if (newPage && newPage !== page) {
             try {
                 await newPage.waitForSelector('body', { timeout: 5000 });
@@ -147,9 +229,8 @@ async function buscarEnAfip(page, textoBusqueda, options = {}) {
         console.log(`  ✅ Búsqueda de "${textoBusqueda}" completada exitosamente`);
         return newPage;
 
-    } catch (error) {
-        console.error(`Error en buscarEnAfip("${textoBusqueda}"):`, error);
-        throw error;
+    } finally {
+        limpiarListener();
     }
 }
 

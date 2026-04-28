@@ -65,7 +65,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -115,6 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('cargarModuloPlanesDePago', () => {
         cargarModuloPlanesDePago();
+    });
+
+    document.addEventListener('cargarModuloCuentaTributaria', () => {
+        cargarModuloCuentaTributaria();
     });
 });
 
@@ -662,6 +666,88 @@ async function cargarModuloPlanesDePago() {
     } catch (error) {
         console.error('Error cargando módulo Planes de Pago:', error);
         planesDePagoDiv.innerHTML = '<div style="color:red;">Error cargando el módulo de Planes de Pago.</div>';
+    }
+}
+
+/**
+ * Carga el módulo de Cuenta Tributaria (SCT)
+ * Mismo patrón que VEP: HTML + CSS + componente SelectorUsuarios + módulo ES6.
+ */
+async function cargarModuloCuentaTributaria() {
+    console.log('🟢 cargarModuloCuentaTributaria() - Iniciando...');
+    mostrarSoloModulo('cuentaTributariaDiv');
+    const ctDiv = document.getElementById('cuentaTributariaDiv');
+    if (!ctDiv) {
+        console.error('❌ No se encontró cuentaTributariaDiv');
+        return;
+    }
+
+    ctDiv.innerHTML = '';
+
+    try {
+        const htmlPath = '../cuentaTributaria/cuentaTributaria.html';
+        const cssPath = '../cuentaTributaria/cuentaTributaria.css';
+        const jsPath = '../cuentaTributaria/cuentaTributaria.js';
+
+        const selectorCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+        const selectorJsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+
+        // 1. HTML
+        const response = await fetch(htmlPath);
+        if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+        const html = await response.text();
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        tempDiv.querySelectorAll('link[rel="stylesheet"]').forEach(l => l.remove());
+        ctDiv.innerHTML = tempDiv.innerHTML;
+
+        // 2. CSS componente genérico
+        if (!document.head.querySelector(`link[href="${selectorCssPath}"]`)) {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = selectorCssPath;
+            document.head.appendChild(l);
+        }
+
+        // 3. CSS específico CT
+        if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = cssPath;
+            document.head.appendChild(l);
+        }
+
+        // 4. JS componente genérico (asegurar carga)
+        await new Promise((resolve, reject) => {
+            if (typeof SelectorUsuarios !== 'undefined') return resolve();
+            const old = document.head.querySelector(`script[src="${selectorJsPath}"]`);
+            if (old) old.remove();
+            const s = document.createElement('script');
+            s.src = selectorJsPath;
+            s.defer = true;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Error cargando selectorUsuarios.js'));
+            document.head.appendChild(s);
+        });
+
+        // 5. JS controlador CT (módulo ES6)
+        const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+        if (oldScript) oldScript.remove();
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = jsPath;
+        script.onload = () => {
+            if (window.inicializarCuentaTributaria) {
+                window.inicializarCuentaTributaria();
+            } else {
+                console.error('❌ window.inicializarCuentaTributaria no está definida');
+            }
+        };
+        document.head.appendChild(script);
+
+    } catch (error) {
+        console.error('❌ Error cargando módulo Cuenta Tributaria:', error);
+        ctDiv.innerHTML = '<div style="color:red;">Error cargando el módulo Cuenta Tributaria.</div>';
     }
 }
 

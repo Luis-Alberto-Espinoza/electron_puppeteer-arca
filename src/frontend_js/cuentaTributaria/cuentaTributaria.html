@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cuenta Tributaria - AFIP</title>
+
+    <!-- Estilos del componente genérico -->
+    <link rel="stylesheet" href="../componentes/selectorUsuarios/selectorUsuarios.css">
+
+    <!-- Estilos específicos de Cuenta Tributaria -->
+    <link rel="stylesheet" href="cuentaTributaria.css">
+</head>
+<body>
+    <div class="contenedor-principal-ct">
+        <!-- Header -->
+        <header class="header-ct">
+            <div class="breadcrumb">
+                🏠 Home › Cuenta Tributaria
+            </div>
+            <h1 class="titulo-principal">Sistema de Cuenta Tributaria (SCT)</h1>
+
+            <!-- Tabs de navegación entre flujos -->
+            <div class="tabs-navegacion">
+                <button id="tab-consulta-seleccion" class="tab-btn tab-activo">
+                    🔍 Consulta con selección
+                </button>
+                <button id="tab-generar-directo" class="tab-btn">
+                    ⚡ Generar VEP directo
+                </button>
+            </div>
+
+            <!-- Descripción para Consulta con selección (Flujo A) -->
+            <p id="descripcion-consulta-seleccion" class="descripcion-principal">
+                Consulta la deuda en SCT, descarga el reporte y genera VEPs para las filas que selecciones
+            </p>
+
+            <!-- Descripción para Generar VEP directo (Flujo B) -->
+            <p id="descripcion-generar-directo" class="descripcion-principal" style="display: none;">
+                Generar VEP directo a partir de período + impuesto (con un Excel previo de referencia)
+            </p>
+        </header>
+
+        <!-- ========== MÓDULO: CONSULTA CON SELECCIÓN (Flujo A) ========== -->
+        <div id="modulo-consulta-seleccion">
+            <!-- Selector de usuarios (genérico) -->
+            <div id="selector-usuarios-ct"></div>
+
+            <!-- Botón consultar (primera pasada) -->
+            <button
+                id="btn-consultar-deuda-ct"
+                class="btn-consultar-ct"
+                disabled
+            >
+                Consultar deuda para <span id="contador-grupos-ct">0</span> CUIT(s)
+            </button>
+
+            <!-- Sección de resultados (se muestra después de primera pasada) -->
+            <div id="seccion-resultados-ct" class="seccion-resultados" style="display: none;">
+                <div class="resultados-header">
+                    <h2>Resultados de la consulta</h2>
+                    <p class="resultados-descripcion">Selecciona las filas a pagar y el medio de pago para cada CUIT</p>
+                </div>
+
+                <!-- Grupo: Procesados Automáticamente (sin deuda / Excel descargado sin filas marcables) -->
+                <div id="grupo-procesados-auto-ct" class="grupo-resultados grupo-procesados" style="display: none;">
+                    <div class="grupo-header">
+                        <span class="grupo-icono">✅</span>
+                        <span class="grupo-titulo">PROCESADOS AUTOMÁTICAMENTE</span>
+                        <span class="grupo-contador" id="contador-procesados-auto-ct">0</span>
+                    </div>
+                    <div class="grupo-contenido" id="contenido-procesados-auto-ct"></div>
+                </div>
+
+                <!-- Grupo: Requieren Selección (CUITs con filas para marcar) -->
+                <div id="grupo-requieren-seleccion-ct" class="grupo-resultados grupo-pendientes" style="display: none;">
+                    <div class="grupo-header">
+                        <span class="grupo-icono">⏸️</span>
+                        <span class="grupo-titulo">REQUIEREN SELECCIÓN DE FILAS</span>
+                        <span class="grupo-contador" id="contador-requieren-seleccion-ct">0</span>
+                    </div>
+                    <div class="grupo-contenido" id="contenido-requieren-seleccion-ct"></div>
+                </div>
+
+                <!-- Grupo: Errores -->
+                <div id="grupo-errores-ct" class="grupo-resultados grupo-errores" style="display: none;">
+                    <div class="grupo-header">
+                        <span class="grupo-icono">❌</span>
+                        <span class="grupo-titulo">ERRORES</span>
+                        <span class="grupo-contador" id="contador-errores-ct">0</span>
+                    </div>
+                    <div class="grupo-contenido" id="contenido-errores-ct"></div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="resultados-acciones">
+                    <button id="btn-confirmar-seleccion-ct" class="btn-confirmar" style="display: none;">
+                        Confirmar y generar VEP
+                    </button>
+                    <button id="btn-cancelar-todo-ct" class="btn-cancelar">
+                        Cancelar todo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sección de archivos descargados (PDFs de VEP de la 2da pasada) -->
+            <div id="seccion-archivos-descargados-ct" class="seccion-archivos-descargados" style="display: none;">
+                <div class="archivos-header">
+                    <h2>✅ Archivos descargados</h2>
+                    <p class="archivos-descripcion">Excels de deuda y/o VEPs generados</p>
+                </div>
+
+                <div id="lista-archivos-descargados-ct" class="lista-archivos">
+                    <!-- Los archivos se renderizarán dinámicamente aquí -->
+                </div>
+
+                <div class="archivos-acciones">
+                    <button id="btn-nuevo-proceso-ct" class="btn-nuevo-proceso">
+                        ← Nueva consulta
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- FIN MÓDULO: CONSULTA CON SELECCIÓN -->
+
+        <!-- ========== MÓDULO: GENERAR VEP DIRECTO (Flujo B) ========== -->
+        <div id="modulo-generar-directo" style="display: none;">
+            <!-- Placeholder — se completa en la Fase 5 -->
+            <div class="placeholder-flujo-b">
+                <p>⚙️ Generación directa (Flujo B) — pendiente de implementación en la siguiente fase.</p>
+            </div>
+        </div>
+        <!-- FIN MÓDULO: GENERAR VEP DIRECTO -->
+
+        <!-- Modal de progreso -->
+        <div id="modal-progreso-ct" class="modal-progreso" style="display: none;">
+            <div class="modal-contenido">
+                <h3 id="modal-progreso-titulo-ct">Consultando deuda...</h3>
+                <div class="progreso-barra">
+                    <div id="progreso-fill-ct" class="progreso-fill"></div>
+                </div>
+                <p id="progreso-texto-ct">Procesando...</p>
+            </div>
+        </div>
+    </div>
+
+    <!--
+        NOTA: Los scripts se cargan dinámicamente desde controlador.js.
+        Si se abre este HTML directamente, descomentar:
+
+        <script src="../componentes/selectorUsuarios/selectorUsuarios.js"></script>
+        <script type="module" src="./cuentaTributaria.js"></script>
+    -->
+</body>
+</html>

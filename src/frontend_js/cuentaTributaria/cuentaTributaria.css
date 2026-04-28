@@ -1,0 +1,866 @@
+/**
+ * ESTILOS ESPECÍFICOS PARA CUENTA TRIBUTARIA (SCT)
+ * Espejo del diseño de VEP, scopeado a .contenedor-principal-ct
+ */
+
+/* ========================================
+   RESET Y BODY (sólo si se abre standalone — no rompe el shell global)
+   ======================================== */
+.contenedor-principal-ct,
+.contenedor-principal-ct * {
+    box-sizing: border-box;
+}
+
+/* ========================================
+   CONTENEDOR PRINCIPAL
+   ======================================== */
+.contenedor-principal-ct {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    animation: ct-fadeIn 0.3s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+@keyframes ct-fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+.header-ct {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.contenedor-principal-ct .breadcrumb {
+    font-size: 13px;
+    color: #6b7280;
+    margin-bottom: 12px;
+    background: none;
+    padding: 0;
+    border-radius: 0;
+}
+
+.contenedor-principal-ct .titulo-principal {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+}
+
+.contenedor-principal-ct .descripcion-principal {
+    font-size: 14px;
+    color: #6b7280;
+    font-weight: 400;
+}
+
+/* ========================================
+   TABS DE NAVEGACIÓN (flujos)
+   ======================================== */
+.contenedor-principal-ct .tabs-navegacion {
+    display: flex;
+    gap: 12px;
+    margin: 20px 0;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0;
+}
+
+.contenedor-principal-ct .tab-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%) !important;
+    border: 2px solid #c7d2fe !important;
+    border-radius: 8px 8px 0 0 !important;
+    color: #4c1d95 !important;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.contenedor-principal-ct .tab-btn:hover {
+    background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.contenedor-principal-ct .tab-btn.tab-activo {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    border-color: #667eea !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+}
+
+/* ========================================
+   BOTÓN PRINCIPAL DE CONSULTA
+   ======================================== */
+.btn-consultar-ct {
+    width: 100%;
+    padding: 16px 32px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    margin-bottom: 20px;
+}
+
+.btn-consultar-ct:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn-consultar-ct:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ========================================
+   SECCIÓN DE RESULTADOS
+   ======================================== */
+.contenedor-principal-ct .seccion-resultados {
+    margin-top: 40px;
+    padding-top: 30px;
+    border-top: 3px solid #e5e7eb;
+    animation: ct-fadeIn 0.4s ease;
+}
+
+.contenedor-principal-ct .resultados-header {
+    margin-bottom: 30px;
+}
+
+.contenedor-principal-ct .resultados-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 8px;
+}
+
+.contenedor-principal-ct .resultados-descripcion {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* ========================================
+   GRUPOS DE RESULTADOS
+   ======================================== */
+.contenedor-principal-ct .grupo-resultados {
+    margin-bottom: 30px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    animation: ct-slideInUp 0.4s ease;
+}
+
+@keyframes ct-slideInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.contenedor-principal-ct .grupo-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    font-weight: 600;
+    font-size: 15px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.contenedor-principal-ct .grupo-header:hover {
+    filter: brightness(1.05);
+}
+
+.contenedor-principal-ct .grupo-procesados .grupo-header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.contenedor-principal-ct .grupo-pendientes .grupo-header {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.contenedor-principal-ct .grupo-errores .grupo-header {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.contenedor-principal-ct .grupo-icono {
+    font-size: 20px;
+}
+
+.contenedor-principal-ct .grupo-titulo {
+    flex: 1;
+    letter-spacing: 0.5px;
+}
+
+.contenedor-principal-ct .grupo-contador {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.contenedor-principal-ct .grupo-contenido {
+    padding: 20px;
+    background: #f9fafb;
+}
+
+/* ========================================
+   TARJETAS DE GRUPO (cliente + cuit)
+   ======================================== */
+.contenedor-principal-ct .tarjeta-grupo {
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+.contenedor-principal-ct .tarjeta-grupo:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.contenedor-principal-ct .tarjeta-grupo:last-child {
+    margin-bottom: 0;
+}
+
+.contenedor-principal-ct .tarjeta-grupo.tarjeta-procesado {
+    border-left: 4px solid #10b981;
+}
+
+.contenedor-principal-ct .tarjeta-grupo.tarjeta-requiere-seleccion {
+    border-left: 4px solid #f59e0b;
+}
+
+.contenedor-principal-ct .tarjeta-grupo.tarjeta-error {
+    border-left: 4px solid #ef4444;
+}
+
+.contenedor-principal-ct .tarjeta-grupo.excluido {
+    opacity: 0.5;
+    background: #f3f4f6;
+}
+
+.contenedor-principal-ct .tarjeta-grupo.excluido .tarjeta-body {
+    pointer-events: none;
+}
+
+/* ========================================
+   HEADER DE TARJETA
+   ======================================== */
+.contenedor-principal-ct .tarjeta-header {
+    padding: 16px 20px;
+    background: #fafbfc;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+}
+
+.contenedor-principal-ct .grupo-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.contenedor-principal-ct .checkbox-grupo-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.contenedor-principal-ct .checkbox-incluir-grupo {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #667eea;
+}
+
+.contenedor-principal-ct .checkbox-label {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.contenedor-principal-ct .grupo-detalles {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: 26px;
+    flex-wrap: wrap;
+}
+
+.contenedor-principal-ct .grupo-cliente-nombre {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.contenedor-principal-ct .grupo-cuit {
+    font-size: 13px;
+    color: #4b5563;
+    font-family: monospace;
+    background: #eef2ff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid #c7d2fe;
+}
+
+.contenedor-principal-ct .grupo-cuit-login {
+    font-size: 12px;
+    color: #6b7280;
+    font-family: monospace;
+    background: #f3f4f6;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Selector de medio de pago en header de tarjeta */
+.contenedor-principal-ct .selector-medio-pago-grupo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.contenedor-principal-ct .selector-medio-pago-grupo label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.contenedor-principal-ct .select-medio-pago-grupo {
+    padding: 8px 12px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    color: #1f2937;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.contenedor-principal-ct .select-medio-pago-grupo:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* ========================================
+   BODY DE TARJETA
+   ======================================== */
+.contenedor-principal-ct .tarjeta-body {
+    padding: 16px 20px;
+}
+
+.contenedor-principal-ct .resultado-mensaje {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: #ecfdf5;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #065f46;
+}
+
+.contenedor-principal-ct .icono-exito {
+    font-size: 20px;
+    color: #10b981;
+    font-weight: bold;
+}
+
+.contenedor-principal-ct .error-mensaje {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    background: #fef2f2;
+    border-radius: 6px;
+    margin-bottom: 12px;
+}
+
+.contenedor-principal-ct .icono-error {
+    font-size: 20px;
+    color: #ef4444;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.contenedor-principal-ct .error-texto {
+    flex: 1;
+    font-size: 14px;
+    color: #991b1b;
+    line-height: 1.5;
+}
+
+.contenedor-principal-ct .error-acciones {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.contenedor-principal-ct .btn-reintentar {
+    padding: 8px 16px;
+    background: #ef4444;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.contenedor-principal-ct .btn-reintentar:hover {
+    background: #dc2626;
+    transform: translateY(-1px);
+}
+
+/* ========================================
+   TABLA DE FILAS DE DEUDA
+   ======================================== */
+.contenedor-principal-ct .tabla-deuda-wrapper {
+    overflow-x: auto;
+    margin-top: 8px;
+}
+
+.contenedor-principal-ct .tabla-deuda {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.contenedor-principal-ct .tabla-deuda thead {
+    background: #f9fafb;
+}
+
+.contenedor-principal-ct .tabla-deuda th {
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #e5e7eb;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.contenedor-principal-ct .tabla-deuda .col-check {
+    width: 50px;
+    text-align: center;
+}
+
+.contenedor-principal-ct .tabla-deuda .col-periodo {
+    width: 90px;
+}
+
+.contenedor-principal-ct .tabla-deuda .col-impuesto,
+.contenedor-principal-ct .tabla-deuda .col-concepto,
+.contenedor-principal-ct .tabla-deuda .col-subconcepto {
+    width: 80px;
+    text-align: center;
+}
+
+.contenedor-principal-ct .tabla-deuda .col-importe {
+    width: 130px;
+    text-align: right;
+}
+
+.contenedor-principal-ct .tabla-deuda tbody tr {
+    border-bottom: 1px solid #f3f4f6;
+    transition: background-color 0.15s;
+}
+
+.contenedor-principal-ct .tabla-deuda tbody tr:hover {
+    background: #fafbfc;
+}
+
+.contenedor-principal-ct .tabla-deuda td {
+    padding: 10px 12px;
+    vertical-align: middle;
+}
+
+.contenedor-principal-ct .tabla-deuda td.col-importe {
+    font-family: monospace;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.contenedor-principal-ct .fila-deuda.seleccionada {
+    background: #eff6ff !important;
+}
+
+.contenedor-principal-ct .fila-deuda.seleccionada:hover {
+    background: #dbeafe !important;
+}
+
+.contenedor-principal-ct .checkbox-fila {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #667eea;
+}
+
+/* Totales de la tabla */
+.contenedor-principal-ct .tabla-totales {
+    margin-top: 8px;
+    padding: 10px 14px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 24px;
+    font-size: 13px;
+}
+
+.contenedor-principal-ct .total-label {
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.contenedor-principal-ct .total-valor {
+    color: #1f2937;
+    font-weight: 700;
+    font-family: monospace;
+}
+
+/* Subtítulo de tabla (para distinguir secciones dentro de la tarjeta) */
+.contenedor-principal-ct .titulo-tabla-deuda {
+    font-size: 13px;
+    font-weight: 700;
+    color: #4b5563;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 8px 0 4px 0;
+}
+
+/* ========================================
+   ACCIONES DE RESULTADOS
+   ======================================== */
+.contenedor-principal-ct .resultados-acciones {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f9fafb;
+    border-radius: 8px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+
+.contenedor-principal-ct .btn-confirmar,
+.contenedor-principal-ct .btn-cancelar {
+    padding: 14px 28px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.contenedor-principal-ct .btn-confirmar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.contenedor-principal-ct .btn-confirmar:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.contenedor-principal-ct .btn-confirmar:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+.contenedor-principal-ct .btn-cancelar {
+    background: white;
+    color: #6b7280;
+    border: 2px solid #d1d5db;
+}
+
+.contenedor-principal-ct .btn-cancelar:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+    color: #374151;
+}
+
+/* ========================================
+   ARCHIVOS DESCARGADOS
+   ======================================== */
+.contenedor-principal-ct .seccion-archivos-descargados {
+    margin-top: 30px;
+    padding: 24px;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 2px solid #10b981;
+}
+
+.contenedor-principal-ct .archivos-header {
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.contenedor-principal-ct .archivos-header h2 {
+    font-size: 24px;
+    color: #10b981;
+    margin-bottom: 8px;
+}
+
+.contenedor-principal-ct .archivos-descripcion {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.contenedor-principal-ct .lista-archivos {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.contenedor-principal-ct .archivo-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+}
+
+.contenedor-principal-ct .archivo-item:hover {
+    border-color: #10b981;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
+}
+
+.contenedor-principal-ct .archivo-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.contenedor-principal-ct .archivo-icono {
+    font-size: 28px;
+}
+
+.contenedor-principal-ct .archivo-detalles {
+    flex: 1;
+}
+
+.contenedor-principal-ct .archivo-usuario {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+
+.contenedor-principal-ct .archivo-nombre {
+    font-size: 12px;
+    color: #6b7280;
+    font-family: 'Courier New', monospace;
+}
+
+.contenedor-principal-ct .archivo-acciones {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.contenedor-principal-ct .btn-abrir-archivo {
+    padding: 10px 24px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.contenedor-principal-ct .btn-abrir-archivo:hover {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.contenedor-principal-ct .btn-abrir-carpeta {
+    padding: 10px 20px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.contenedor-principal-ct .btn-abrir-carpeta:hover {
+    background: #4f46e5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.contenedor-principal-ct .archivos-acciones {
+    display: flex;
+    justify-content: center;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.contenedor-principal-ct .btn-nuevo-proceso {
+    padding: 12px 32px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 15px;
+}
+
+.contenedor-principal-ct .btn-nuevo-proceso:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.3);
+}
+
+/* ========================================
+   PLACEHOLDER DE FLUJO B
+   ======================================== */
+.contenedor-principal-ct .placeholder-flujo-b {
+    margin: 40px auto;
+    padding: 40px;
+    background: #f9fafb;
+    border: 2px dashed #d1d5db;
+    border-radius: 10px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 15px;
+    max-width: 600px;
+}
+
+/* ========================================
+   MODAL DE PROGRESO
+   ======================================== */
+.modal-progreso {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(4px);
+}
+
+.modal-progreso .modal-contenido {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    min-width: 400px;
+    text-align: center;
+}
+
+.modal-progreso .modal-contenido h3 {
+    font-size: 20px;
+    color: #1f2937;
+    margin-bottom: 20px;
+}
+
+.modal-progreso .progreso-barra {
+    width: 100%;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+}
+
+.modal-progreso .progreso-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+#progreso-texto-ct {
+    font-size: 14px;
+    color: #6b7280;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 768px) {
+    .contenedor-principal-ct {
+        padding: 20px;
+    }
+
+    .contenedor-principal-ct .titulo-principal {
+        font-size: 22px;
+    }
+
+    .contenedor-principal-ct .tarjeta-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .contenedor-principal-ct .grupo-detalles {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        margin-left: 26px;
+    }
+
+    .contenedor-principal-ct .resultados-acciones {
+        flex-direction: column;
+        padding: 16px;
+    }
+
+    .contenedor-principal-ct .btn-confirmar,
+    .contenedor-principal-ct .btn-cancelar {
+        width: 100%;
+    }
+
+    .modal-progreso .modal-contenido {
+        min-width: 300px;
+        padding: 30px 20px;
+    }
+}

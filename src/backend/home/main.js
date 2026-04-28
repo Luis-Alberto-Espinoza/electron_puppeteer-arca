@@ -22,6 +22,7 @@ const setupMercadoPagoHandlers = require('../afip/extraerDemercadoPago/handlers.
 const setupFacturaHandlers = require('../afip/factura/handlers.js');
 const setupVepHandlers = require('../afip/vep/handlers.js');
 const setupConsultaDeudaHandlers = require('../afip/consultaDeuda/handlers.js');
+const setupCuentaTributariaHandlers = require('../afip/cuentaTributaria/handlers.js');
 const setupLibroIvaHandlers = require('../afip/libroIVA/handlers.js');
 
 // Importar handlers de ATM por servicio
@@ -344,6 +345,7 @@ app.whenReady().then(async () => {
         setupFacturaHandlers(ipcMain, userStorage, mainWindow);
         setupVepHandlers(ipcMain, userStorage, mainWindow, app);
         setupConsultaDeudaHandlers(ipcMain, userStorage, app);
+        setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app);
         setupLibroIvaHandlers(ipcMain);
 
         // Handlers de ATM por servicio

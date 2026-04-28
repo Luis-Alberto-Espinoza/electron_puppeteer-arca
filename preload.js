@@ -119,6 +119,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onConsultaDeudaUpdate: (callback) => ipcRenderer.on('consultaDeuda:update', (_event, datos) => callback(datos))
     },
 
+    // APIs para Cuenta Tributaria (SCT)
+    // modos: 'consultarA' | 'pagarA' | 'pagarDirectoB'
+    cuentaTributaria: {
+        procesar: (datos) => ipcRenderer.invoke('cuentaTributaria:procesar', datos),
+        onUpdate: (callback) => ipcRenderer.on('cuentaTributaria:update', (_event, datos) => callback(datos))
+    },
+
     // APIs para Facturas Tipificadas
     facturaTipificada: {
         generar: (datos) => ipcRenderer.invoke('facturaTipificada:generar', datos),

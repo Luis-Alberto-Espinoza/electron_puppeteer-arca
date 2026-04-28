@@ -17,7 +17,8 @@ const { launchBrowser } = require('./browserLauncher');
  */
 async function ejecutar(callback, opciones = {}) {
     let browser;
-    const { headless = true } = opciones;
+    let huboError = false;
+    const { headless = true, dejarAbiertoEnError = false, dejarAbiertoSiempre = false } = opciones;
 
     try {
         console.log('[PuppeteerManager] Iniciando navegador...');
@@ -29,9 +30,14 @@ async function ejecutar(callback, opciones = {}) {
         // Ejecutar la logica de negocio (manager -> flujo)
         const resultado = await callback(browser, page);
 
+        // Si el flujo devuelve {success:false} también lo tratamos como error
+        // a los fines de "dejar abierto" para depurar.
+        if (resultado && resultado.success === false) huboError = true;
+
         return resultado;
 
     } catch (error) {
+        huboError = true;
         console.error('[PuppeteerManager] Error:', error.message);
         return {
             success: false,
@@ -40,8 +46,14 @@ async function ejecutar(callback, opciones = {}) {
         };
     } finally {
         if (browser) {
-            console.log('[PuppeteerManager] Cerrando navegador...');
-            await browser.close();
+            if (dejarAbiertoSiempre) {
+                console.log('[PuppeteerManager] ⚠️  dejarAbiertoSiempre=true → navegador queda abierto (modo debug). Cerralo manualmente.');
+            } else if (huboError && dejarAbiertoEnError) {
+                console.log('[PuppeteerManager] ⚠️  Hubo error y dejarAbiertoEnError=true → navegador queda abierto para inspección. Cerralo manualmente.');
+            } else {
+                console.log('[PuppeteerManager] Cerrando navegador...');
+                await browser.close();
+            }
         }
     }
 }

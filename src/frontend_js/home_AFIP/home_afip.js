@@ -27,6 +27,14 @@ function inicializarHomeAfip() {
             cargarModuloPlanesDePagoDesdeHome();
         });
     }
+
+    const btnCuentaTributaria = document.getElementById('btnCuentaTributaria');
+    if (btnCuentaTributaria) {
+        btnCuentaTributaria.addEventListener('click', () => {
+            console.log('Cargando módulo Cuenta Tributaria...');
+            cargarModuloCuentaTributariaDesdeHome();
+        });
+    }
 }
 
 /**
@@ -54,6 +62,14 @@ async function cargarModuloGenerarFactura() {
  */
 async function cargarModuloPlanesDePagoDesdeHome() {
     const evento = new CustomEvent('cargarModuloPlanesDePago');
+    document.dispatchEvent(evento);
+}
+
+/**
+ * Carga el módulo de Cuenta Tributaria (Flujo A — consulta SCT con selección)
+ */
+async function cargarModuloCuentaTributariaDesdeHome() {
+    const evento = new CustomEvent('cargarModuloCuentaTributaria');
     document.dispatchEvent(evento);
 }
 
