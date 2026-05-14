@@ -125,10 +125,20 @@
 
         <!-- ========== MÓDULO: GENERAR VEP DIRECTO (Flujo B) ========== -->
         <div id="modulo-generar-directo" style="display: none;">
-            <!-- Placeholder — se completa en la Fase 5 -->
-            <div class="placeholder-flujo-b">
-                <p>⚙️ Generación directa (Flujo B) — pendiente de implementación en la siguiente fase.</p>
-            </div>
+            <!-- Selector de usuarios (mismo componente que Flujo A) -->
+            <div id="selector-usuarios-ct-b"></div>
+
+            <!-- Formulario por (cliente, CUIT) — se renderiza dinámicamente -->
+            <div id="formularios-directo-ct" class="formularios-directo-ct"></div>
+
+            <!-- Botón Generar (deshabilitado hasta que haya entradas válidas) -->
+            <button
+                id="btn-generar-directo-ct"
+                class="btn-consultar-ct"
+                disabled
+            >
+                Generar VEPs directos para <span id="contador-grupos-directo-ct">0</span> CUIT(s)
+            </button>
         </div>
         <!-- FIN MÓDULO: GENERAR VEP DIRECTO -->
 

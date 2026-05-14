@@ -738,6 +738,41 @@
     border-top: 1px solid #e5e7eb;
 }
 
+.contenedor-principal-ct .bloque-archivos-ct {
+    margin-bottom: 18px;
+}
+
+.contenedor-principal-ct .bloque-archivos-titulo {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.contenedor-principal-ct .bloque-archivos-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.contenedor-principal-ct .archivo-meta {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+.contenedor-principal-ct .archivo-item-error {
+    border-color: #fca5a5;
+    background: #fff5f5;
+}
+
+.contenedor-principal-ct .archivo-item-error:hover {
+    border-color: #ef4444;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+}
+
 .contenedor-principal-ct .btn-nuevo-proceso {
     padding: 12px 32px;
     background: #667eea;
@@ -863,4 +898,193 @@
         min-width: 300px;
         padding: 30px 20px;
     }
+}
+
+/* ========================================
+   FLUJO B — GENERAR VEP DIRECTO
+   ======================================== */
+.contenedor-principal-ct .formularios-directo-ct {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 20px 0;
+}
+
+.contenedor-principal-ct .formulario-directo-vacio {
+    text-align: center;
+    padding: 32px 16px;
+    color: #6b7280;
+    font-size: 14px;
+    background: #f9fafb;
+    border-radius: 10px;
+    border: 1px dashed #d1d5db;
+}
+
+.contenedor-principal-ct .card-grupo-directo {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.contenedor-principal-ct .card-grupo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 12px;
+}
+
+.contenedor-principal-ct .card-grupo-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.contenedor-principal-ct .card-grupo-cliente {
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 15px;
+}
+
+.contenedor-principal-ct .card-grupo-cuit {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+    color: #4b5563;
+    background: #f3f4f6;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.contenedor-principal-ct .card-grupo-medio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.contenedor-principal-ct .card-grupo-medio label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.contenedor-principal-ct .card-grupo-medio select {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+.contenedor-principal-ct .tabla-entradas-directo {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+}
+
+.contenedor-principal-ct .tabla-entradas-directo th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: #6b7280;
+    font-weight: 600;
+    padding: 6px 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.contenedor-principal-ct .tabla-entradas-directo td {
+    padding: 6px 8px;
+    vertical-align: top;
+}
+
+.contenedor-principal-ct .col-periodo-directo { width: 30%; }
+.contenedor-principal-ct .col-impuesto-directo { width: 55%; }
+.contenedor-principal-ct .col-acciones-directo { width: 60px; text-align: center; }
+
+.contenedor-principal-ct .input-periodo-directo,
+.contenedor-principal-ct .input-impuesto-custom {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: 'Courier New', monospace;
+    background: white;
+    color: #1f2937;
+    box-sizing: border-box;
+}
+
+.contenedor-principal-ct .input-periodo-directo::placeholder,
+.contenedor-principal-ct .input-impuesto-custom::placeholder {
+    color: #9ca3af;
+}
+
+.contenedor-principal-ct .select-impuesto-directo {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    background: white;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+.contenedor-principal-ct .select-impuesto-directo option,
+.contenedor-principal-ct .card-grupo-medio select option,
+.contenedor-principal-ct .select-medio-pago-grupo option {
+    background: white;
+    color: #1f2937;
+}
+
+.contenedor-principal-ct .input-invalido {
+    border-color: #ef4444;
+    background: #fef2f2;
+}
+
+.contenedor-principal-ct .fila-valida {
+    background: #f0fdf4;
+}
+
+.contenedor-principal-ct .btn-eliminar-entrada {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    color: #6b7280;
+    transition: all 0.15s ease;
+}
+
+.contenedor-principal-ct .btn-eliminar-entrada:hover {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #ef4444;
+}
+
+.contenedor-principal-ct .btn-agregar-entrada {
+    margin-top: 6px;
+    padding: 6px 14px;
+    background: #f3f4f6;
+    border: 1px dashed #9ca3af;
+    border-radius: 6px;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.contenedor-principal-ct .btn-agregar-entrada:hover {
+    background: #e5e7eb;
+    border-color: #6b7280;
+    color: #1f2937;
 }

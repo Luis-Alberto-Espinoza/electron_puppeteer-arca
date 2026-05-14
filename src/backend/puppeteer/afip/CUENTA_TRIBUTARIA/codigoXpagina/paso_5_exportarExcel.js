@@ -53,33 +53,71 @@ async function ejecutar(page, usuario, cuitAsociado, downloadsPath) {
             try { await iframeHandle.scrollIntoView(); } catch (_) { /* no es crítico */ }
         }
 
-        // 1) Buscar el botón "Exportar" VISIBLE (Bootstrap-Vue renderiza todas las
-        // tabs en el DOM pero solo la activa tiene tamaño; las otras tienen
-        // display:none → su botón "Exportar" no es clickeable).
-        const exportarHandle = await frame.evaluateHandle(() => {
-            const botones = Array.from(document.querySelectorAll('button.dropdown-toggle'));
-            return botones.find(b => {
-                if (!(b.textContent || '').toLowerCase().includes('exportar')) return false;
-                const rect = b.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0;
-            }) || null;
-        });
-        const exportarEl = exportarHandle.asElement();
-        if (!exportarEl) throw new Error('No se encontró un botón "Exportar" visible en la tab activa');
-        await exportarEl.scrollIntoView();
-        await new Promise(r => setTimeout(r, 200));
-        await exportarEl.click(); // click "real" — isTrusted=true
+        // 0) Pre-check: esperar a que la tabla tenga al menos una fila ANTES
+        // de tocar Exportar. Si AFIP aún no terminó de poblar la tabla, el
+        // dropdown puede no abrirse correctamente al primer click.
+        try {
+            await frame.waitForFunction(
+                () => document.querySelectorAll('.tab-pane.active tbody tr[role="row"]').length > 0,
+                { timeout: 15000 }
+            );
+        } catch (_) {
+            console.warn('  ⚠️ [SCT] La tabla parece vacía al iniciar Exportar (continuando igual).');
+        }
 
-        // 2) Esperar a que aparezca el item XLS VISIBLE (mismo razonamiento: hay
-        // un dropdown por tab; solo el de la tab activa tiene tamaño real).
-        await frame.waitForFunction(() => {
-            const items = Array.from(document.querySelectorAll('a.dropdown-item'));
-            return items.some(el => {
-                if (!(el.textContent || '').trim().toUpperCase().includes('XLS')) return false;
-                const rect = el.getBoundingClientRect();
-                return rect.width > 0 && rect.height > 0;
+        // 1) Helper para localizar el botón "Exportar" visible — lo re-buscamos
+        // en cada intento porque el handle puede invalidarse si Vue re-renderiza.
+        async function buscarExportarEl() {
+            const handle = await frame.evaluateHandle(() => {
+                const botones = Array.from(document.querySelectorAll('button.dropdown-toggle'));
+                return botones.find(b => {
+                    if (!(b.textContent || '').toLowerCase().includes('exportar')) return false;
+                    const rect = b.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0;
+                }) || null;
             });
-        }, { timeout: 8000 });
+            return handle.asElement();
+        }
+
+        async function dropdownAbierto() {
+            return await frame.evaluate(() => {
+                const items = Array.from(document.querySelectorAll('a.dropdown-item'));
+                return items.some(el => {
+                    if (!(el.textContent || '').trim().toUpperCase().includes('XLS')) return false;
+                    const rect = el.getBoundingClientRect();
+                    return rect.width > 0 && rect.height > 0;
+                });
+            });
+        }
+
+        // 2) Click "Exportar" con retry. Si tras el primer click el dropdown
+        // no se abre en 6s, reintentar (típico cuando Vue todavía estaba
+        // atando handlers al botón).
+        const MAX_INTENTOS_EXPORTAR = 3;
+        let dropdownListo = false;
+        for (let intento = 1; intento <= MAX_INTENTOS_EXPORTAR; intento++) {
+            const exportarEl = await buscarExportarEl();
+            if (!exportarEl) {
+                throw new Error('No se encontró un botón "Exportar" visible en la tab activa');
+            }
+            try { await exportarEl.scrollIntoView(); } catch (_) {}
+            await new Promise(r => setTimeout(r, 200));
+            await exportarEl.click(); // click real — isTrusted=true
+
+            // Polling activo: el dropdown puede tardar entre 100ms y varios segundos.
+            const inicio = Date.now();
+            while (Date.now() - inicio < 6000) {
+                if (await dropdownAbierto()) { dropdownListo = true; break; }
+                await new Promise(r => setTimeout(r, 200));
+            }
+            if (dropdownListo) break;
+
+            console.warn(`  ⚠️ [SCT] Dropdown "Exportar" no abrió tras click ${intento}/${MAX_INTENTOS_EXPORTAR}; reintentando.`);
+        }
+
+        if (!dropdownListo) {
+            throw new Error('El dropdown "Exportar" no se abrió tras varios intentos');
+        }
 
         // 3) Click real en el <a.dropdown-item> visible de XLS.
         const xlsHandle = await frame.evaluateHandle(() => {
@@ -106,7 +144,11 @@ async function ejecutar(page, usuario, cuitAsociado, downloadsPath) {
         const ext = path.extname(originalName) || '.xlsx';
 
         // 4) Mover a archivos_afip/<cliente>/ con nombre estandarizado.
-        const destinoDir = getDownloadPath(downloadsPath, usuario.nombre, 'archivos_afip');
+        const destinoDir = getDownloadPath(downloadsPath, {
+            cuit: usuario.cuit || cuitAsociado,
+            nombre: usuario.nombre,
+            apellido: usuario.apellido
+        }, 'archivos_afip');
         const nuevoNombre = `DeudaCT_${cuitAsociado || usuario.cuit}_${fechaHoy()}${ext}`;
         const destinoPath = path.join(destinoDir, nuevoNombre);
         await fs.rename(srcPath, destinoPath);

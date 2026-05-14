@@ -27,6 +27,30 @@ function obtenerCredenciales(userStorage, cliente) {
     };
 }
 
+/**
+ * Devuelve un cliente enriquecido con `apellido` (y otros campos faltantes)
+ * desde el storage. El frontend SCT pasa `{id, nombre, cuitLogin}` recortado;
+ * el paso_12 (descarga PDF) necesita además `apellido` para armar la carpeta
+ * canónica `${cuit}_${nombre}_${apellido}`. Si el cliente no se encuentra en
+ * storage, se devuelve tal cual (fallback seguro).
+ */
+function enriquecerCliente(userStorage, cliente) {
+    if (!cliente || !cliente.id) return cliente;
+    try {
+        const dataBD = userStorage.loadData();
+        const u = dataBD.users.find(x => String(x.id) === String(cliente.id));
+        if (!u) return cliente;
+        return {
+            ...cliente,
+            nombre: cliente.nombre || u.nombre,
+            apellido: cliente.apellido || u.apellido,
+            cuitLogin: cliente.cuitLogin || u.cuit,
+        };
+    } catch (_) {
+        return cliente;
+    }
+}
+
 function emitirUpdate(mainWindow, datos) {
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('cuentaTributaria:update', datos);
@@ -63,7 +87,8 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
 
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
-                    const { cliente, cuitAsociado } = item;
+                    let { cliente, cuitAsociado } = item;
+                    cliente = enriquecerCliente(userStorage, cliente);
 
                     emitirUpdate(mainWindow, {
                         tipo: 'progreso',
@@ -141,27 +166,192 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
             }
 
             // ============================================================
-            // FLUJO A — SEGUNDA PASADA  (pendiente fase 4)
+            // FLUJO A — SEGUNDA PASADA
             // ============================================================
+            // Cada item viene con seleccionFilas:{modo:'ids', ids:[...]} y medioPago.
             if (modo === 'consulta-con-seleccion' && seleccionFilas) {
-                return {
-                    success: false,
+                const resultados = [];
+
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    let { cliente, cuitAsociado, medioPago, seleccionFilas: selItem } = item;
+                    cliente = enriquecerCliente(userStorage, cliente);
+
+                    emitirUpdate(mainWindow, {
+                        tipo: 'progreso',
+                        modo,
+                        pasada: 2,
+                        cliente: cliente && cliente.nombre,
+                        cuitAsociado,
+                        procesados: i,
+                        total: items.length
+                    });
+
+                    // Validaciones por item.
+                    if (!medioPago || !medioPago.id) {
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            status: 'error',
+                            error: 'Falta medioPago para este grupo'
+                        });
+                        continue;
+                    }
+                    const ids = selItem && Array.isArray(selItem.ids) ? selItem.ids : [];
+                    if (ids.length === 0) {
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            status: 'error',
+                            error: 'No hay filas seleccionadas para este grupo'
+                        });
+                        continue;
+                    }
+
+                    try {
+                        const credenciales = obtenerCredenciales(userStorage, cliente);
+                        const r = await cuentaTributariaManager.iniciarProceso(
+                            url,
+                            credenciales,
+                            { cliente, cuitAsociado, medioPago, idsSeleccionadas: ids },
+                            'pagarA',
+                            downloadsPath
+                        );
+
+                        if (!r || r.success === false) {
+                            resultados.push({
+                                cliente, cuitAsociado,
+                                medioPago,
+                                status: r && r.status ? r.status : 'error',
+                                error: (r && (r.message || r.error)) || 'Error desconocido'
+                            });
+                            continue;
+                        }
+
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            medioPago,
+                            status: 'success',
+                            pdfDescargado: r.pdfDescargado,
+                            marcadas: r.marcadas,
+                            noEncontradas: r.noEncontradas || []
+                        });
+
+                    } catch (err) {
+                        console.error(`[CuentaTributaria] Error 2da pasada (${cliente && cliente.nombre}, ${cuitAsociado}):`, err);
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            medioPago,
+                            status: 'error',
+                            error: err.message
+                        });
+                    }
+                }
+
+                emitirUpdate(mainWindow, {
+                    tipo: 'progreso',
                     modo,
                     pasada: 2,
-                    message: 'Segunda pasada aún no implementada (fase 4)',
-                    notImplemented: true
+                    procesados: items.length,
+                    total: items.length
+                });
+
+                return {
+                    success: true,
+                    modo,
+                    pasada: 2,
+                    resultados
                 };
             }
 
             // ============================================================
-            // FLUJO B — GENERAR DIRECTO  (pendiente fase 5)
+            // FLUJO B — GENERAR DIRECTO
             // ============================================================
+            // Cada item viene con deudasABuscar:[{periodo, impuesto}, ...] y medioPago.
             if (modo === 'generar-directo') {
-                return {
-                    success: false,
+                const resultados = [];
+
+                for (let i = 0; i < items.length; i++) {
+                    const item = items[i];
+                    let { cliente, cuitAsociado, deudasABuscar, medioPago } = item;
+                    cliente = enriquecerCliente(userStorage, cliente);
+
+                    emitirUpdate(mainWindow, {
+                        tipo: 'progreso',
+                        modo,
+                        cliente: cliente && cliente.nombre,
+                        cuitAsociado,
+                        procesados: i,
+                        total: items.length
+                    });
+
+                    if (!medioPago || !medioPago.id) {
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            status: 'error',
+                            error: 'Falta medioPago para este grupo'
+                        });
+                        continue;
+                    }
+                    if (!Array.isArray(deudasABuscar) || deudasABuscar.length === 0) {
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            status: 'error',
+                            error: 'No hay deudas a buscar para este grupo'
+                        });
+                        continue;
+                    }
+
+                    try {
+                        const credenciales = obtenerCredenciales(userStorage, cliente);
+                        const r = await cuentaTributariaManager.iniciarProceso(
+                            url,
+                            credenciales,
+                            { cliente, cuitAsociado, deudasABuscar, medioPago },
+                            'pagarDirectoB',
+                            downloadsPath
+                        );
+
+                        if (!r || r.success === false) {
+                            resultados.push({
+                                cliente, cuitAsociado,
+                                medioPago,
+                                status: r && r.status ? r.status : 'error',
+                                error: (r && (r.message || r.error)) || 'Error desconocido',
+                                noMatcheadas: r && r.noMatcheadas ? r.noMatcheadas : undefined
+                            });
+                            continue;
+                        }
+
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            medioPago,
+                            status: 'success',
+                            pdfDescargado: r.pdfDescargado,
+                            matcheadas: r.matcheadas,
+                            noMatcheadas: r.noMatcheadas || []
+                        });
+
+                    } catch (err) {
+                        console.error(`[CuentaTributaria] Error generar-directo (${cliente && cliente.nombre}, ${cuitAsociado}):`, err);
+                        resultados.push({
+                            cliente, cuitAsociado,
+                            medioPago,
+                            status: 'error',
+                            error: err.message
+                        });
+                    }
+                }
+
+                emitirUpdate(mainWindow, {
+                    tipo: 'progreso',
                     modo,
-                    message: 'Flujo B (generar-directo) aún no implementado (fase 5)',
-                    notImplemented: true
+                    procesados: items.length,
+                    total: items.length
+                });
+
+                return {
+                    success: true,
+                    modo,
+                    resultados
                 };
             }
 

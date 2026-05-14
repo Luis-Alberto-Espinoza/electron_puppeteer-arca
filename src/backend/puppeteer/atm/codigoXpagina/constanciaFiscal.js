@@ -16,7 +16,7 @@ const {
 async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPath) {
   try {
     // 1. Obtener la ruta de descarga y configurar el comportamiento de descarga
-    const downloadDir = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm');
+    const downloadDir = getDownloadPath(downloadsPath, { cuit, nombre: nombreUsuario }, 'archivos_atm');
     const client = await page.target().createCDPSession();
     await client.send('Page.setDownloadBehavior', {
       behavior: 'allow',

@@ -289,7 +289,7 @@ async function descargarRetencionGenerico(config) {
         console.log(`[${nombre}]    ✓ ${cantidad} registro(s) encontrado(s)`);
 
         // Preparar descarga
-        const downloadDir = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm/RetencionesYPercepciones');
+        const downloadDir = getDownloadPath(downloadsPath, { cuit, nombre: nombreUsuario }, 'archivos_atm/RetencionesYPercepciones');
         const archivosAntesDeDescarga = await fs.readdir(downloadDir);
 
         // Configurar CDP session para descargas

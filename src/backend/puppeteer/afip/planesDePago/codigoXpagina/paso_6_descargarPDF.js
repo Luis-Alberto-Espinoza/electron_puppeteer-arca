@@ -18,8 +18,11 @@ async function ejecutar(datosTabla, infoPlan, usuario, cuitConsulta, downloadsPa
         const numeroPlan = infoPlan.numero || 'SinNumero';
         console.log(`  → Paso 6: Generando PDF del plan #${numeroPlan}...`);
 
-        const nombreUsuario = usuario.nombre || 'sin_nombre';
-        const downloadDir = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_afip');
+        const downloadDir = getDownloadPath(downloadsPath, {
+            cuit: usuario.cuit || cuitConsulta,
+            nombre: usuario.nombre,
+            apellido: usuario.apellido
+        }, 'archivos_afip');
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         const fechaDescarga = new Date().toISOString().slice(0, 10);
         const finalFilename = `PlanDePago_${cuitLimpio}_Plan${numeroPlan}_${fechaDescarga}.pdf`;

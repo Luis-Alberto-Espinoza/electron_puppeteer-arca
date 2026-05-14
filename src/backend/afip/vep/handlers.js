@@ -62,9 +62,17 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                             contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
                         };
 
+                        // Enriquecer el usuario con apellido (el frontend pasa solo
+                        // {id, nombre, cuit}). El paso_10 lo necesita para armar la
+                        // carpeta canónica `${cuit}_${nombre}_${apellido}` igual que el SCT.
+                        const itemEnriquecido = {
+                            ...item,
+                            usuario: { ...usuario, apellido: usuario.apellido || usuarioCompleto.apellido }
+                        };
+
                         // Llamar al VEP Manager SIN periodos seleccionados
                         const downloadsPath = app.getPath('downloads');
-                        const resultado = await vepManager.iniciarProceso(url, credenciales, item, null, downloadsPath);
+                        const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, null, downloadsPath);
 
                         if (resultado.requiereSeleccion) {
                             // Cliente con multiples periodos
@@ -181,9 +189,16 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                         contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
                     };
 
+                    // Enriquecer el usuario con apellido (mismo motivo que en la
+                    // primera pasada — el frontend manda recortado).
+                    const itemEnriquecido = {
+                        ...item,
+                        usuario: { ...usuario, apellido: usuario.apellido || (usuarioCompleto && usuarioCompleto.apellido) }
+                    };
+
                     // Llamar con los periodos seleccionados
                     const downloadsPath = app.getPath('downloads');
-                    const resultado = await vepManager.iniciarProceso(url, credenciales, item, periodosCliente, downloadsPath);
+                    const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, periodosCliente, downloadsPath);
 
                     if (resultado.success) {
                         console.log(`  ${usuario.nombre} completado`);

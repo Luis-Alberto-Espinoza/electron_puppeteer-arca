@@ -163,7 +163,11 @@ async function ejecutar(page, usuario, medioPago, downloadsPath) {
         const fechaDescarga = new Date().toISOString().slice(0, 10);
         const nuevoNombre = `VEP-${nroVep || 'SinNumero'}_${cuit || usuario.cuit}_${medioPago.id}_${periodo || 'SinPeriodo'}_${fechaDescarga}.pdf`;
 
-        const destinoDir = getDownloadPath(downloadsPath, usuario.nombre, 'archivos_afip');
+        const destinoDir = getDownloadPath(downloadsPath, {
+            cuit: usuario.cuit,
+            nombre: usuario.nombre,
+            apellido: usuario.apellido
+        }, 'archivos_afip');
         const destinoPath = path.join(destinoDir, nuevoNombre);
 
         await fs.rename(pdfPath, destinoPath);

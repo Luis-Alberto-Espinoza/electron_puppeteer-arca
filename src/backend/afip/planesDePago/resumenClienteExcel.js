@@ -35,8 +35,11 @@ function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath) {
             return { success: false, message: 'Sin planes para resumir' };
         }
 
-        const nombreUsuario = usuario.nombre || 'sin_nombre';
-        const downloadDir = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_afip');
+        const downloadDir = getDownloadPath(downloadsPath, {
+            cuit: usuario.cuit || cuitConsulta,
+            nombre: usuario.nombre,
+            apellido: usuario.apellido
+        }, 'archivos_afip');
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         const fechaISO = new Date().toISOString().slice(0, 10);
         const nombreArchivo = `ResumenCliente_${cuitLimpio}_${fechaISO}.xlsx`;

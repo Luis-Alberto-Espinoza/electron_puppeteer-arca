@@ -35,6 +35,14 @@ async function ejecutar(page, cuitObjetivo, options = {}) {
 
         if (!tieneSelect) {
             console.log('  ℹ️ [SCT] No hay selector de CUIT interno; único CUIT del representante. Continuando.');
+            // Garantizar que el iframe del SCT esté listo antes de devolver el
+            // control — si paso_2 sale rápido por skip, paso_3 a veces llega
+            // antes de que el iframe haya terminado de montarse.
+            try {
+                await esperarIframeSctListo(page, { timeout: 30000 });
+            } catch (e) {
+                console.warn(`  ⚠️ [SCT] Iframe no detectado tras skip de paso_2: ${e.message}`);
+            }
             return { success: true, cambiado: false, message: 'Selector ausente, se saltea' };
         }
 
@@ -70,6 +78,12 @@ async function ejecutar(page, cuitObjetivo, options = {}) {
 
         if (!resultado.cambio) {
             console.log(`  ✅ [SCT] CUIT interno ya seleccionado: ${resultado.texto}`);
+            // Mismo razonamiento que en el path "sin select": esperar al iframe.
+            try {
+                await esperarIframeSctListo(page, { timeout: 30000 });
+            } catch (e) {
+                console.warn(`  ⚠️ [SCT] Iframe no detectado (CUIT ya seleccionado): ${e.message}`);
+            }
             return { success: true, cambiado: false, yaSeleccionado: true, option: resultado.texto };
         }
 
@@ -94,7 +108,7 @@ async function ejecutar(page, cuitObjetivo, options = {}) {
         // esté montado y con tabs visibles antes de devolver el control al flujo,
         // así paso_3 no agarra una referencia al iframe viejo que se está desprendiendo.
         try {
-            await esperarIframeSctListo(page);
+            await esperarIframeSctListo(page, { timeout: 30000 });
         } catch (e) {
             console.warn(`  ⚠️ [SCT] No se confirmó iframe listo tras cambio de CUIT: ${e.message}`);
         }

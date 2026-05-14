@@ -2,15 +2,92 @@ const fs = require('fs');
 const path = require('path');
 
 /**
+ * Normaliza un texto para usarlo como segmento de nombre de carpeta:
+ * trim → quita tildes (NFD) → lowercase → no-alfanuméricos a `_` → colapsa `_`.
+ * Determinista: misma entrada → misma salida, sin importar capitalización ni acentos.
+ */
+function normalizarTexto(s) {
+    return String(s || '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+/**
+ * Capitaliza cada palabra de un texto (para guardar nombres canónicos).
+ * "  juAN  pErEz " → "Juan Perez". No toca tildes.
+ */
+function capitalizarTexto(s) {
+    return String(s || '')
+        .trim()
+        .replace(/\s+/g, ' ')
+        .toLowerCase()
+        .replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
+
+/**
+ * Capitaliza para uso como segmento de carpeta: quita tildes, separa palabras
+ * por `_` y deja cada palabra en TitleCase. "  juAN pÉrEz " → "Juan_Perez".
+ * Usado por `nombreCarpetaCliente` para apellido y nombre.
+ */
+function capitalizarParaCarpeta(s) {
+    return String(s || '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .trim()
+        .split(/[^a-zA-Z0-9]+/)
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join('_');
+}
+
+/**
+ * Construye el segmento de carpeta canónico para un cliente, con identidad
+ * basada en el CUIT (siempre estable, no varía aunque cambien capitalización
+ * u orden del nombre). Formato: `${cuit}_${Nombre}_${Apellido}` con nombre
+ * y apellido en TitleCase (sin apellido si no está disponible).
+ *
+ * @param {{cuit: string, nombre?: string, apellido?: string}} cliente
+ * @returns {string}
+ */
+function nombreCarpetaCliente({ cuit, nombre, apellido } = {}) {
+    const cuitLimpio = String(cuit || '').replace(/\D/g, '') || 'sinCuit';
+    const nombreCap = capitalizarParaCarpeta(nombre);
+    const apellidoCap = capitalizarParaCarpeta(apellido);
+    const partes = [cuitLimpio, nombreCap, apellidoCap].filter(Boolean);
+    return partes.join('_');
+}
+
+/**
  * Asegura que el directorio de descargas exista y devuelve la ruta completa.
+ *
+ * Acepta dos formas de identificar al cliente:
+ *  - **Recomendado:** objeto `{ cuit, nombre, apellido? }` → carpeta canónica
+ *    `${cuit}_${apellido}_${nombre}` (identidad por CUIT, evita duplicados por
+ *    capitalización u orden).
+ *  - **Legacy:** string con el nombre suelto → comportamiento histórico
+ *    (sanitización vieja). Loguea un warning para detectar callsites pendientes
+ *    de migrar.
+ *
  * @param {string} basePath - La ruta base de descargas (ej: app.getPath('downloads')).
- * @param {string} userName - Nombre de usuario (se sanitizará).
+ * @param {string|{cuit: string, nombre?: string, apellido?: string}} clienteOrName
  * @param {string} serviceType - 'archivos_afip' o 'archivos_atm'.
  * @returns {string} La ruta absoluta al directorio de descargas específico.
  */
-function getDownloadPath(basePath, userName, serviceType) {
-    const sanitizedUserName = userName.replace(/[^a-zA-Z0-9]/g, '_');
-    const downloadDir = path.join(basePath, 'gestor_afip_atm', sanitizedUserName, serviceType);
+function getDownloadPath(basePath, clienteOrName, serviceType) {
+    let segmento;
+    if (clienteOrName && typeof clienteOrName === 'object') {
+        segmento = nombreCarpetaCliente(clienteOrName);
+    } else {
+        // Fallback legacy: el callsite todavía pasa un string. La carpeta no
+        // tendrá CUIT y puede colisionar con variantes (paTriCio vs Patricio).
+        // Migrar a `{cuit, nombre, apellido}` cuanto antes.
+        console.warn('[fileManager] getDownloadPath recibió un string en vez de {cuit,nombre,apellido} — carpeta sin CUIT, riesgo de duplicados');
+        segmento = String(clienteOrName || '').replace(/[^a-zA-Z0-9]/g, '_');
+    }
+
+    const downloadDir = path.join(basePath, 'gestor_afip_atm', segmento, serviceType);
 
     if (!fs.existsSync(downloadDir)) {
         fs.mkdirSync(downloadDir, { recursive: true });
@@ -115,4 +192,7 @@ module.exports = {
     getFilename,
     getFilenameRetenciones,
     waitForFile,
+    nombreCarpetaCliente,
+    normalizarTexto,
+    capitalizarTexto,
 };

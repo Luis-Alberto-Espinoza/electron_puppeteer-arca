@@ -1,6 +1,24 @@
 const { app } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { capitalizarTexto } = require('../../utils/fileManager.js');
+
+/**
+ * Aplica normalización canónica a `nombre` y `apellido` de un usuario.
+ * Capitaliza, hace trim y colapsa espacios. Idempotente: aplicado dos veces
+ * da el mismo resultado. Garantiza que "paTriCio" y "Patricio" queden iguales
+ * en disco, evitando los duplicados de carpeta que descubrimos en SCT.
+ */
+function normalizarUsuario(u) {
+  if (!u || typeof u !== 'object') return u;
+  if (u.nombre !== undefined && u.nombre !== null) {
+    u.nombre = capitalizarTexto(u.nombre);
+  }
+  if (u.apellido !== undefined && u.apellido !== null) {
+    u.apellido = capitalizarTexto(u.apellido);
+  }
+  return u;
+}
 
 
 // Clase para manejar el almacenamiento JSON
@@ -38,8 +56,13 @@ class JsonStorage {
   loadData() {
     try {
       const data = fs.readFileSync(this.dataPath, 'utf8');
-      //console.log('📖 Datos cargados:', data);
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      // Normalizar nombre/apellido al leer (defensivo: por si el JSON tiene
+      // entradas viejas guardadas antes de esta normalización).
+      if (parsed && Array.isArray(parsed.users)) {
+        parsed.users.forEach(normalizarUsuario);
+      }
+      return parsed;
     } catch (error) {
       console.error('❌ Error cargando datos:', error);
       return { users: [] };
@@ -49,6 +72,10 @@ class JsonStorage {
   // Guardar datos al archivo JSON
   saveData(data) {
     try {
+      // Normalizar antes de persistir — fuente única de verdad canónica.
+      if (data && Array.isArray(data.users)) {
+        data.users.forEach(normalizarUsuario);
+      }
       fs.writeFileSync(this.dataPath, JSON.stringify(data, null, 2), 'utf8');
       console.log('💾 Datos guardados exitosamente');
       return true;

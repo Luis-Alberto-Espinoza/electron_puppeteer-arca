@@ -930,7 +930,11 @@ async function generarArchivoExcel(datosTabla, datosPersonales, datosResumen, fi
     XLSX.utils.book_append_sheet(workbook, hojaDetalleDeuda, 'Detalle de Deuda');
 
     // Determinar ruta del archivo
-    const downloadPath = getDownloadPath(basePath, usuario.nombre, 'archivos_afip');
+    const downloadPath = getDownloadPath(basePath, {
+        cuit: usuario.cuit,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido
+    }, 'archivos_afip');
 
     // Convertir períodos de "MM/AAAA" a "AAAA-MM"
     const convertirPeriodo = (periodo) => {

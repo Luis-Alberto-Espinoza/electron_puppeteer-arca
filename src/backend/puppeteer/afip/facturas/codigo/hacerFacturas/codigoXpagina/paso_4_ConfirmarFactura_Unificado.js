@@ -15,6 +15,7 @@ const os = require('os');
 const path = require('path');
 const fs = require('fs').promises;
 const { fork } = require('child_process');
+const { getDownloadPath } = require('../../../../../../utils/fileManager.js');
 
 async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSeleccionado = null, downloadsPath = null) {
     console.log("Ejecutando paso_4_ConfirmarFactura_Unificado...");
@@ -27,21 +28,13 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
         let downloadDir = null;
 
         // ==========================================
-        // CONFIGURAR DESCARGA DE PDF (COPIADO EXACTO de ambos archivos)
+        // CONFIGURAR DESCARGA DE PDF
+        // Carpeta canónica via fileManager: gestor_afip_atm/<cuit>_<apellido>_<nombre>/archivos_afip/facturas/
+        // El subdirectorio "facturas" lo agregamos como sufijo de serviceType.
         // ==========================================
         if (!modoTest && usuarioSeleccionado && downloadsPath) {
-            const userName = usuarioSeleccionado.nombreUsuario || 'default';
-
-            // Estructura: /Descargas/gestor_afip_atm/[USUARIO]/archivos_afip/facturas/
-            downloadDir = path.join(
-                downloadsPath,
-                'gestor_afip_atm',
-                userName.replace(/[^a-zA-Z0-9]/g, '_'),
-                'archivos_afip',
-                'facturas'
-            );
-
-            // Crear el directorio si no existe
+            const baseDir = getDownloadPath(downloadsPath, usuarioSeleccionado, 'archivos_afip');
+            downloadDir = path.join(baseDir, 'facturas');
             await fs.mkdir(downloadDir, { recursive: true });
 
             console.log(`📁 PDF se descargará en: ${downloadDir}`);

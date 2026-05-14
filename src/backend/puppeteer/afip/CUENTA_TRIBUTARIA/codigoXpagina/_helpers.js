@@ -57,9 +57,76 @@ const FN_FIND_TAB_DEUDAS = `() => {
     return tabs.find(el => (el.textContent || '').includes('Deudas')) || null;
 }`;
 
+/**
+ * Busca el primer frame (incluyendo `page.mainFrame()`) cuyo `document` tenga
+ * algún elemento que matchee el selector. Útil cuando AFIP renderiza una vista
+ * en otro iframe distinto al del SCT (p.ej. medios de pago, modal de pago, etc).
+ *
+ * @param {import('puppeteer').Page} page
+ * @param {string} selector  CSS selector
+ * @returns {Promise<import('puppeteer').Frame|null>}
+ */
+async function frameConSelector(page, selector) {
+    const frames = page.frames();
+    for (const f of frames) {
+        try {
+            const has = await f.evaluate(
+                (sel) => !!document.querySelector(sel),
+                selector
+            );
+            if (has) return f;
+        } catch (_) {
+            // Frame detached o cross-origin sin acceso — saltar.
+        }
+    }
+    return null;
+}
+
+/**
+ * Polling hasta encontrar un frame que matchee el selector, o timeout.
+ *
+ * @param {import('puppeteer').Page} page
+ * @param {string} selector
+ * @param {{ timeout?: number, intervalo?: number }} [opts]
+ * @returns {Promise<import('puppeteer').Frame>}
+ */
+async function esperarFrameConSelector(page, selector, { timeout = 15000, intervalo = 400 } = {}) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < timeout) {
+        const f = await frameConSelector(page, selector);
+        if (f) return f;
+        await new Promise(r => setTimeout(r, intervalo));
+    }
+    throw new Error(`Timeout esperando frame con selector "${selector}"`);
+}
+
+/**
+ * Busca el primer frame cuyo `document` tenga algún elemento que satisfaga el
+ * predicado (función evaluable en contexto de página). Útil cuando hay que
+ * matchear por texto/atributo y el selector CSS no alcanza.
+ *
+ * @param {import('puppeteer').Page} page
+ * @param {string} predicateFnSrc  Source de una función `() => boolean` que
+ *        devuelve true si en ese document existe lo buscado.
+ * @returns {Promise<import('puppeteer').Frame|null>}
+ */
+async function frameConPredicado(page, predicateFnSrc) {
+    const frames = page.frames();
+    for (const f of frames) {
+        try {
+            const ok = await f.evaluate(`(${predicateFnSrc})()`);
+            if (ok) return f;
+        } catch (_) {}
+    }
+    return null;
+}
+
 module.exports = {
     SELECTOR_IFRAME_SCT,
     getSctFrame,
     esperarIframeSctListo,
-    FN_FIND_TAB_DEUDAS
+    FN_FIND_TAB_DEUDAS,
+    frameConSelector,
+    esperarFrameConSelector,
+    frameConPredicado
 };

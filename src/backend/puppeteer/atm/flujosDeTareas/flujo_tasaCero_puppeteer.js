@@ -105,7 +105,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // ========================================================================
         // PASO 0: Construir ruta de destino final
         // ========================================================================
-        const carpetaDestino = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm/tasa_cero');
+        const carpetaDestino = getDownloadPath(downloadsPath, { cuit: credenciales.cuit, nombre: nombreUsuario }, 'archivos_atm/tasa_cero');
         console.log(`[Flujo Tasa Cero] Carpeta de destino: ${carpetaDestino}`);
 
         // ========================================================================

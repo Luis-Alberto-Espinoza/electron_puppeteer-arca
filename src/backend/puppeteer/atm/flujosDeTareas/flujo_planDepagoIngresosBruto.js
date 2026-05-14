@@ -74,7 +74,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         const numeroDeFilas = await contarFilasVigentes(oficinaVirtualPage);
         if (numeroDeFilas === 0) {
             enviarProgreso('info', 'No se encontraron planes de pago vigentes.');
-            return { success: true, files: [], downloadDir: getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm') };
+            return { success: true, files: [], downloadDir: getDownloadPath(downloadsPath, { cuit: credencialesATM.cuit, nombre: nombreUsuario }, 'archivos_atm') };
         }
         enviarProgreso('info', `Se encontraron ${numeroDeFilas} planes de pago para descargar.`);
 
@@ -110,7 +110,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
             const numeroBoleto = encontrarNumeroDeBoleto(datosPdf);
             const nuevoNombre = `PlanPago_${credencialesATM.cuit}_boleto_${numeroBoleto}_Consulta_${diaConsulta}.pdf`;
 
-            const destinoDir = getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm');
+            const destinoDir = getDownloadPath(downloadsPath, { cuit: credencialesATM.cuit, nombre: nombreUsuario }, 'archivos_atm');
             const destinoPath = path.join(destinoDir, nuevoNombre);
             await fs.rename(tempFilePath, destinoPath);
 
@@ -121,7 +121,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         return {
             success: true,
             files: finalFilePaths,
-            downloadDir: getDownloadPath(downloadsPath, nombreUsuario, 'archivos_atm')
+            downloadDir: getDownloadPath(downloadsPath, { cuit: credencialesATM.cuit, nombre: nombreUsuario }, 'archivos_atm')
         };
 
     } catch (error) {

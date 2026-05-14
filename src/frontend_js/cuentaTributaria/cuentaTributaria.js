@@ -1,7 +1,6 @@
 /**
  * MÓDULO PRINCIPAL: Cuenta Tributaria (SCT)
- * Controlador del Flujo A — Consulta con selección.
- * (Flujo B se completará en la Fase 5)
+ * Controlador de Flujo A (consulta con selección) y Flujo B (generar VEP directo).
  */
 
 import EstadoCT from './modulos/estadoCT.js';
@@ -15,16 +14,30 @@ import {
     inicializarManejadorFilas,
     resetearManejadorFilas
 } from './modulos/manejadorFilas.js';
+import {
+    renderizarArchivosDescargados,
+    ocultarSeccionArchivos,
+    limpiarArchivos
+} from './modulos/renderizadorArchivos.js';
+import {
+    inicializarFormularioDirecto,
+    actualizarGrupos as actualizarGruposDirecto,
+    recopilarItems as recopilarItemsDirecto,
+    resetFormularioDirecto
+} from './modulos/formularioDirecto.js';
 import { capitalizarTexto } from './modulos/utilidadesCT.js';
 
 // ============================================================
 // ESTADO LOCAL DEL CONTROLADOR
 // ============================================================
 
-let selectorUsuariosCT = null;
+let selectorUsuariosCT = null;     // Flujo A
+let selectorUsuariosCT_B = null;   // Flujo B
 
 // Por usuario (clienteId) → Set de cuitAsociados marcados para procesar.
-const cuitsProcesarPorUsuario = {};
+// Estado independiente por flujo.
+const cuitsProcesarPorUsuarioA = {};
+const cuitsProcesarPorUsuarioB = {};
 
 // Modo activo: 'consulta-seleccion' (Flujo A) o 'generar-directo' (Flujo B)
 let flujoActivo = 'consulta-seleccion';
@@ -47,14 +60,20 @@ function inicializarCuentaTributaria() {
     // Reset de estado al entrar
     EstadoCT.reset();
     resetearManejadorFilas();
-    Object.keys(cuitsProcesarPorUsuario).forEach(k => delete cuitsProcesarPorUsuario[k]);
+    Object.keys(cuitsProcesarPorUsuarioA).forEach(k => delete cuitsProcesarPorUsuarioA[k]);
+    Object.keys(cuitsProcesarPorUsuarioB).forEach(k => delete cuitsProcesarPorUsuarioB[k]);
+    resetFormularioDirecto();
 
-    montarSelectorUsuarios();
+    montarSelectorUsuariosA();
+    montarSelectorUsuariosB();
+    inicializarFormularioDirecto({
+        onCambio: () => { /* el módulo ya actualiza su botón y contador */ }
+    });
     configurarEventListeners();
     inicializarManejadorFilas();
     suscribirIPCProgreso();
 
-    actualizarContadorGrupos([]);
+    actualizarContadorGruposA([]);
     ocultarSeccionResultados();
     ocultarSeccionArchivos();
 
@@ -62,10 +81,10 @@ function inicializarCuentaTributaria() {
 }
 
 // ============================================================
-// SELECTOR DE USUARIOS
+// SELECTOR DE USUARIOS — Flujo A
 // ============================================================
 
-function montarSelectorUsuarios() {
+function montarSelectorUsuariosA() {
     selectorUsuariosCT = new SelectorUsuarios('selector-usuarios-ct', {
         campoCredencial: 'claveAFIP',
         campoEstado: 'estado_afip',
@@ -76,34 +95,65 @@ function montarSelectorUsuarios() {
         mostrarColumnaCUIT: false,
 
         onCambioSeleccion: (seleccionados) => {
-            // Limpiar cuits guardados de usuarios que ya no están seleccionados
             const idsSeleccionados = new Set(seleccionados.map(u => String(u.id)));
-            Object.keys(cuitsProcesarPorUsuario).forEach(k => {
-                if (!idsSeleccionados.has(String(k))) delete cuitsProcesarPorUsuario[k];
+            Object.keys(cuitsProcesarPorUsuarioA).forEach(k => {
+                if (!idsSeleccionados.has(String(k))) delete cuitsProcesarPorUsuarioA[k];
             });
-
-            // Auto-marcar el CUIT principal si el usuario sólo tiene 1 (o ninguno asociado)
             for (const u of seleccionados) {
                 const cuits = obtenerCuitsAsociados(u);
-                if (!cuitsProcesarPorUsuario[u.id]) {
-                    cuitsProcesarPorUsuario[u.id] = new Set();
+                if (!cuitsProcesarPorUsuarioA[u.id]) {
+                    cuitsProcesarPorUsuarioA[u.id] = new Set();
                 }
                 if (cuits.length === 1) {
-                    cuitsProcesarPorUsuario[u.id].add(cuits[0]);
+                    cuitsProcesarPorUsuarioA[u.id].add(cuits[0]);
                 }
             }
-
-            actualizarContadorGrupos(seleccionados);
+            actualizarContadorGruposA(seleccionados);
         },
 
-        renderizarColumnasExtras: renderizarColumnaCuits,
+        renderizarColumnasExtras: renderizarColumnaCuitsA,
+        headersColumnasExtras: ['CUITs a procesar']
+    });
+}
+
+// ============================================================
+// SELECTOR DE USUARIOS — Flujo B
+// ============================================================
+
+function montarSelectorUsuariosB() {
+    selectorUsuariosCT_B = new SelectorUsuarios('selector-usuarios-ct-b', {
+        campoCredencial: 'claveAFIP',
+        campoEstado: 'estado_afip',
+        campoError: 'errorAfip',
+        permitirInvalidos: false,
+        permitirSinValidar: false,
+        mensajeSinValidar: 'Debe validar las credenciales AFIP en Gestión de Clientes',
+        mostrarColumnaCUIT: false,
+
+        onCambioSeleccion: (seleccionados) => {
+            const idsSeleccionados = new Set(seleccionados.map(u => String(u.id)));
+            Object.keys(cuitsProcesarPorUsuarioB).forEach(k => {
+                if (!idsSeleccionados.has(String(k))) delete cuitsProcesarPorUsuarioB[k];
+            });
+            for (const u of seleccionados) {
+                const cuits = obtenerCuitsAsociados(u);
+                if (!cuitsProcesarPorUsuarioB[u.id]) {
+                    cuitsProcesarPorUsuarioB[u.id] = new Set();
+                }
+                if (cuits.length === 1) {
+                    cuitsProcesarPorUsuarioB[u.id].add(cuits[0]);
+                }
+            }
+            sincronizarFormularioDirecto(seleccionados);
+        },
+
+        renderizarColumnasExtras: renderizarColumnaCuitsB,
         headersColumnasExtras: ['CUITs a procesar']
     });
 }
 
 /**
  * Devuelve la lista de CUITs asociados disponibles para un usuario.
- * Incluye el CUIT principal si no está duplicado.
  */
 function obtenerCuitsAsociados(usuario) {
     const principal = usuario.cuit || usuario.cuil;
@@ -116,12 +166,28 @@ function obtenerCuitsAsociados(usuario) {
     return Array.from(set);
 }
 
-/**
- * Renderiza la columna extra del selector: checkboxes para cada CUIT asociado.
- */
-function renderizarColumnaCuits(usuario) {
+function renderizarColumnaCuitsA(usuario) {
+    return renderizarColumnaCuitsGeneric(usuario, cuitsProcesarPorUsuarioA, 'ct-cuit-check-a');
+}
+
+function renderizarColumnaCuitsB(usuario) {
+    return renderizarColumnaCuitsGeneric(usuario, cuitsProcesarPorUsuarioB, 'ct-cuit-check-b');
+}
+
+function renderizarColumnaCuitsGeneric(usuario, estadoCuits, claseCheckbox) {
     const cuits = obtenerCuitsAsociados(usuario);
-    const seleccionadosUsuario = cuitsProcesarPorUsuario[usuario.id] || new Set();
+
+    // Pre-marcar en el estado cuando el cliente tiene 1 solo CUIT (sin asociados).
+    // Si tiene múltiples CUITs (con asociados), ninguno queda pre-marcado.
+    // Lo hacemos acá para que el HTML del checkbox refleje el estado desde
+    // el primer render — el componente SelectorUsuarios renderiza la columna
+    // antes de invocar onCambioSeleccion, y un side-effect post-render no
+    // llegaría al `checked` del input.
+    if (cuits.length === 1 && !estadoCuits[usuario.id]) {
+        estadoCuits[usuario.id] = new Set([cuits[0]]);
+    }
+
+    const seleccionadosUsuario = estadoCuits[usuario.id] || new Set();
 
     if (cuits.length === 0) {
         return `<td style="text-align:center; color:#9ca3af; font-size:12px;">Sin CUITs</td>`;
@@ -133,7 +199,7 @@ function renderizarColumnaCuits(usuario) {
         return `
             <label style="display:flex; align-items:center; gap:6px; font-size:12px; margin:2px 0; cursor:pointer; font-family:monospace;">
                 <input type="checkbox"
-                       class="ct-cuit-check"
+                       class="${claseCheckbox}"
                        data-usuario-id="${usuario.id}"
                        value="${cuit}"
                        ${checked}
@@ -157,23 +223,37 @@ function configurarEventListeners() {
     if (tabA) tabA.addEventListener('click', () => cambiarFlujo('consulta-seleccion'));
     if (tabB) tabB.addEventListener('click', () => cambiarFlujo('generar-directo'));
 
-    // Delegación de cambios en checkboxes de CUITs (selector de usuarios)
-    const contenedorSelector = document.getElementById('selector-usuarios-ct');
-    if (contenedorSelector) {
-        contenedorSelector.addEventListener('change', (ev) => {
+    // Delegación checkboxes CUITs — Flujo A
+    const contenedorSelectorA = document.getElementById('selector-usuarios-ct');
+    if (contenedorSelectorA) {
+        contenedorSelectorA.addEventListener('change', (ev) => {
             const t = ev.target;
-            if (!t || !t.classList.contains('ct-cuit-check')) return;
-            manejarCambioCuit(t);
+            if (!t || !t.classList.contains('ct-cuit-check-a')) return;
+            manejarCambioCuitA(t);
         });
     }
 
-    // Botón Consultar (primera pasada)
+    // Delegación checkboxes CUITs — Flujo B
+    const contenedorSelectorB = document.getElementById('selector-usuarios-ct-b');
+    if (contenedorSelectorB) {
+        contenedorSelectorB.addEventListener('change', (ev) => {
+            const t = ev.target;
+            if (!t || !t.classList.contains('ct-cuit-check-b')) return;
+            manejarCambioCuitB(t);
+        });
+    }
+
+    // Botón Consultar (primera pasada — Flujo A)
     const btnConsultar = document.getElementById('btn-consultar-deuda-ct');
     if (btnConsultar) btnConsultar.addEventListener('click', ejecutarConsultaPrimeraPasada);
 
-    // Botón Confirmar y generar VEP (segunda pasada)
+    // Botón Confirmar y generar VEP (segunda pasada — Flujo A)
     const btnConfirmar = document.getElementById('btn-confirmar-seleccion-ct');
     if (btnConfirmar) btnConfirmar.addEventListener('click', ejecutarConsultaSegundaPasada);
+
+    // Botón Generar VEPs directos (Flujo B)
+    const btnDirecto = document.getElementById('btn-generar-directo-ct');
+    if (btnDirecto) btnDirecto.addEventListener('click', ejecutarGenerarDirecto);
 
     // Botón Cancelar todo
     const btnCancelar = document.getElementById('btn-cancelar-todo-ct');
@@ -193,22 +273,68 @@ function configurarEventListeners() {
     });
 }
 
-function manejarCambioCuit(checkbox) {
+function manejarCambioCuitA(checkbox) {
     const usuarioId = checkbox.dataset.usuarioId;
     const cuit = checkbox.value;
     if (!usuarioId || !cuit) return;
 
-    if (!cuitsProcesarPorUsuario[usuarioId]) {
-        cuitsProcesarPorUsuario[usuarioId] = new Set();
+    if (!cuitsProcesarPorUsuarioA[usuarioId]) {
+        cuitsProcesarPorUsuarioA[usuarioId] = new Set();
     }
     if (checkbox.checked) {
-        cuitsProcesarPorUsuario[usuarioId].add(cuit);
+        cuitsProcesarPorUsuarioA[usuarioId].add(cuit);
     } else {
-        cuitsProcesarPorUsuario[usuarioId].delete(cuit);
+        cuitsProcesarPorUsuarioA[usuarioId].delete(cuit);
     }
 
     const seleccionados = selectorUsuariosCT.obtenerSeleccionados();
-    actualizarContadorGrupos(seleccionados);
+    actualizarContadorGruposA(seleccionados);
+}
+
+function manejarCambioCuitB(checkbox) {
+    const usuarioId = checkbox.dataset.usuarioId;
+    const cuit = checkbox.value;
+    if (!usuarioId || !cuit) return;
+
+    if (!cuitsProcesarPorUsuarioB[usuarioId]) {
+        cuitsProcesarPorUsuarioB[usuarioId] = new Set();
+    }
+    if (checkbox.checked) {
+        cuitsProcesarPorUsuarioB[usuarioId].add(cuit);
+    } else {
+        cuitsProcesarPorUsuarioB[usuarioId].delete(cuit);
+    }
+
+    const seleccionados = selectorUsuariosCT_B.obtenerSeleccionados();
+    sincronizarFormularioDirecto(seleccionados);
+}
+
+/**
+ * Convierte la selección actual del selector B en items y se la pasa al
+ * módulo formularioDirecto para que renderice las cards correspondientes.
+ */
+function sincronizarFormularioDirecto(usuariosSeleccionados) {
+    const items = expandirItemsB(usuariosSeleccionados);
+    actualizarGruposDirecto(items);
+}
+
+function expandirItemsB(usuariosSeleccionados) {
+    const items = [];
+    for (const u of usuariosSeleccionados || []) {
+        const cuits = cuitsProcesarPorUsuarioB[u.id];
+        if (!cuits || cuits.size === 0) continue;
+        for (const cuit of cuits) {
+            items.push({
+                cliente: {
+                    id: u.id,
+                    nombre: u.nombre || '',
+                    cuitLogin: u.cuit || u.cuil || ''
+                },
+                cuitAsociado: String(cuit)
+            });
+        }
+    }
+    return items;
 }
 
 // ============================================================
@@ -246,10 +372,10 @@ function cambiarFlujo(flujo) {
 // EXPANSIÓN (cliente × cuit) → items para backend
 // ============================================================
 
-function expandirItems(usuariosSeleccionados) {
+function expandirItemsA(usuariosSeleccionados) {
     const items = [];
     for (const u of usuariosSeleccionados) {
-        const cuits = cuitsProcesarPorUsuario[u.id];
+        const cuits = cuitsProcesarPorUsuarioA[u.id];
         if (!cuits || cuits.size === 0) continue;
         for (const cuit of cuits) {
             items.push({
@@ -265,8 +391,8 @@ function expandirItems(usuariosSeleccionados) {
     return items;
 }
 
-function actualizarContadorGrupos(usuariosSeleccionados) {
-    const items = expandirItems(usuariosSeleccionados);
+function actualizarContadorGruposA(usuariosSeleccionados) {
+    const items = expandirItemsA(usuariosSeleccionados);
     const cont = document.getElementById('contador-grupos-ct');
     if (cont) cont.textContent = String(items.length);
     const btn = document.getElementById('btn-consultar-deuda-ct');
@@ -279,7 +405,7 @@ function actualizarContadorGrupos(usuariosSeleccionados) {
 
 async function ejecutarConsultaPrimeraPasada() {
     const seleccionados = selectorUsuariosCT.obtenerSeleccionados();
-    const items = expandirItems(seleccionados);
+    const items = expandirItemsA(seleccionados);
 
     if (items.length === 0) {
         alert('Seleccione al menos un cliente y un CUIT a procesar.');
@@ -357,13 +483,6 @@ async function ejecutarConsultaSegundaPasada() {
         });
 
         ocultarModalProgreso();
-
-        if (respuesta?.notImplemented) {
-            alert('La segunda pasada (generación de VEP desde SCT) aún no está implementada.\n' +
-                  'Se implementará en la Fase 4.');
-            return;
-        }
-
         manejarRespuestaSegundaPasada(respuesta);
 
     } catch (err) {
@@ -374,10 +493,77 @@ async function ejecutarConsultaSegundaPasada() {
 }
 
 function manejarRespuestaSegundaPasada(respuesta) {
-    // Por ahora un placeholder: cuando la Fase 4 esté lista, esto renderizará
-    // la sección de archivos descargados (PDFs).
-    console.log('🟢 Respuesta segunda pasada:', respuesta);
-    alert('VEPs procesados. Ver consola para detalles.');
+    if (!respuesta) {
+        alert('Respuesta vacía del backend');
+        return;
+    }
+    if (respuesta.success === false && !Array.isArray(respuesta.resultados)) {
+        alert(`Error: ${respuesta.message || 'desconocido'}`);
+        return;
+    }
+
+    const resultados = respuesta.resultados || [];
+    const exitosos = resultados.filter(r => r && r.status === 'success');
+    const conProblemas = resultados.filter(r => r && r.status && r.status !== 'success');
+
+    renderizarArchivosDescargados(resultados);
+
+    // Resumen breve.
+    const partes = [];
+    partes.push(`${exitosos.length} VEP(s) generado(s)`);
+    if (conProblemas.length) partes.push(`${conProblemas.length} con problemas`);
+    console.log(`🟢 [CT] 2da pasada: ${partes.join(' · ')}`);
+}
+
+// ============================================================
+// FLUJO B — GENERAR VEP DIRECTO
+// ============================================================
+
+async function ejecutarGenerarDirecto() {
+    const items = recopilarItemsDirecto();
+    if (items.length === 0) {
+        alert('Cargue al menos una deuda válida y elija medio de pago en cada grupo.');
+        return;
+    }
+
+    mostrarModalProgreso('Generando VEPs directos...', `0 / ${items.length}`);
+
+    try {
+        const respuesta = await window.electronAPI.cuentaTributaria.procesar({
+            modo: 'generar-directo',
+            items
+        });
+
+        ocultarModalProgreso();
+        manejarRespuestaGenerarDirecto(respuesta);
+
+    } catch (err) {
+        ocultarModalProgreso();
+        console.error('❌ Error en Flujo B:', err);
+        alert(`Error al generar VEP directo: ${err?.message || err}`);
+    }
+}
+
+function manejarRespuestaGenerarDirecto(respuesta) {
+    if (!respuesta) {
+        alert('Respuesta vacía del backend');
+        return;
+    }
+    if (respuesta.success === false && !Array.isArray(respuesta.resultados)) {
+        alert(`Error: ${respuesta.message || 'desconocido'}`);
+        return;
+    }
+
+    const resultados = respuesta.resultados || [];
+    const exitosos = resultados.filter(r => r && r.status === 'success');
+    const conProblemas = resultados.filter(r => r && r.status && r.status !== 'success');
+
+    renderizarArchivosDescargados(resultados);
+
+    const partes = [];
+    partes.push(`${exitosos.length} VEP(s) generado(s)`);
+    if (conProblemas.length) partes.push(`${conProblemas.length} con problemas`);
+    console.log(`🟢 [CT] Flujo B: ${partes.join(' · ')}`);
 }
 
 // ============================================================
@@ -439,17 +625,21 @@ function cancelarTodo() {
     if (!confirm('¿Cancelar todo y limpiar resultados?')) return;
     EstadoCT.reset();
     limpiarTodosLosGrupos();
-    ocultarSeccionArchivos();
+    limpiarArchivos();
+    resetFormularioDirecto();
     actualizarBotonConfirmar();
 }
 
 function iniciarNuevoProceso() {
     EstadoCT.reset();
     limpiarTodosLosGrupos();
-    ocultarSeccionArchivos();
-    Object.keys(cuitsProcesarPorUsuario).forEach(k => delete cuitsProcesarPorUsuario[k]);
+    limpiarArchivos();
+    Object.keys(cuitsProcesarPorUsuarioA).forEach(k => delete cuitsProcesarPorUsuarioA[k]);
+    Object.keys(cuitsProcesarPorUsuarioB).forEach(k => delete cuitsProcesarPorUsuarioB[k]);
+    resetFormularioDirecto();
     if (selectorUsuariosCT?.limpiarSeleccion) selectorUsuariosCT.limpiarSeleccion();
-    actualizarContadorGrupos([]);
+    if (selectorUsuariosCT_B?.limpiarSeleccion) selectorUsuariosCT_B.limpiarSeleccion();
+    actualizarContadorGruposA([]);
     actualizarBotonConfirmar();
 }
 
@@ -486,11 +676,6 @@ function actualizarProgreso(porcentaje, texto) {
 function ocultarModalProgreso() {
     const modal = document.getElementById('modal-progreso-ct');
     if (modal) modal.style.display = 'none';
-}
-
-function ocultarSeccionArchivos() {
-    const s = document.getElementById('seccion-archivos-descargados-ct');
-    if (s) s.style.display = 'none';
 }
 
 // ============================================================
