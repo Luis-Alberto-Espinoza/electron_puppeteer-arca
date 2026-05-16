@@ -65,7 +65,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -119,6 +119,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('cargarModuloCuentaTributaria', () => {
         cargarModuloCuentaTributaria();
+    });
+
+    document.addEventListener('cargarModuloConsultaComprobantes', () => {
+        cargarModuloConsultaComprobantes();
     });
 });
 
@@ -748,6 +752,63 @@ async function cargarModuloCuentaTributaria() {
     } catch (error) {
         console.error('❌ Error cargando módulo Cuenta Tributaria:', error);
         ctDiv.innerHTML = '<div style="color:red;">Error cargando el módulo Cuenta Tributaria.</div>';
+    }
+}
+
+/**
+ * Carga el módulo de Consulta de Comprobantes Emitidos.
+ * No usa SelectorUsuarios: el módulo trae su propio <select> simple.
+ */
+async function cargarModuloConsultaComprobantes() {
+    mostrarSoloModulo('consultaComprobantesDiv');
+    const div = document.getElementById('consultaComprobantesDiv');
+    if (!div) {
+        console.error('❌ No se encontró consultaComprobantesDiv');
+        return;
+    }
+
+    div.innerHTML = '';
+
+    try {
+        const htmlPath = '../consultaComprobantes/consulta_comprobantes.html';
+        const cssPath  = '../consultaComprobantes/consulta_comprobantes.css';
+        const jsPath   = '../consultaComprobantes/consulta_comprobantes.js';
+
+        // 1. HTML
+        const response = await fetch(htmlPath);
+        if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+        const html = await response.text();
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        tempDiv.querySelectorAll('link[rel="stylesheet"]').forEach(l => l.remove());
+        div.innerHTML = tempDiv.innerHTML;
+
+        // 2. CSS
+        if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = cssPath;
+            document.head.appendChild(l);
+        }
+
+        // 3. JS
+        const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+        if (oldScript) oldScript.remove();
+        const script = document.createElement('script');
+        script.src = jsPath;
+        script.defer = true;
+        script.onload = () => {
+            if (typeof window.inicializarConsultaComprobantes === 'function') {
+                window.inicializarConsultaComprobantes();
+            } else {
+                console.error('❌ window.inicializarConsultaComprobantes no está definida');
+            }
+        };
+        document.head.appendChild(script);
+
+    } catch (error) {
+        console.error('❌ Error cargando módulo Consulta de Comprobantes:', error);
+        div.innerHTML = '<div style="color:red;">Error cargando el módulo de Consulta de Comprobantes.</div>';
     }
 }
 

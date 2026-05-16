@@ -35,6 +35,14 @@ function inicializarHomeAfip() {
             cargarModuloCuentaTributariaDesdeHome();
         });
     }
+
+    const btnConsultaComprobantes = document.getElementById('btnConsultaComprobantes');
+    if (btnConsultaComprobantes) {
+        btnConsultaComprobantes.addEventListener('click', () => {
+            console.log('Cargando módulo Consulta de Comprobantes...');
+            document.dispatchEvent(new CustomEvent('cargarModuloConsultaComprobantes'));
+        });
+    }
 }
 
 /**

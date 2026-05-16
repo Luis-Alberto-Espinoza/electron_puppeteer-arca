@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Consulta de Comprobantes Emitidos</title>
+</head>
+<body>
+    <div class="cc-contenedor">
+        <header class="cc-header">
+            <div class="cc-breadcrumb">🏠 Home › AFIP › Consulta de Comprobantes</div>
+            <h1 class="cc-titulo">Consulta de Comprobantes Emitidos</h1>
+            <p class="cc-descripcion">
+                Seleccione un cliente, una empresa y un rango de fechas. El sistema abrirá AFIP,
+                hará la consulta y mostrará los comprobantes emitidos junto con la suma total.
+            </p>
+        </header>
+
+        <!-- Formulario de consulta -->
+        <section class="cc-formulario">
+            <div class="cc-campo">
+                <label for="cc-select-cliente">Cliente</label>
+                <select id="cc-select-cliente" disabled>
+                    <option value="">Cargando clientes...</option>
+                </select>
+            </div>
+
+            <div class="cc-campo">
+                <label for="cc-select-empresa">Empresa / Razón social</label>
+                <select id="cc-select-empresa" disabled>
+                    <option value="">Seleccione primero un cliente</option>
+                </select>
+            </div>
+
+            <div class="cc-campo">
+                <label for="cc-select-pdv">Punto de venta</label>
+                <div class="cc-pdv-fila">
+                    <select id="cc-select-pdv" disabled>
+                        <option value="">Seleccione primero una empresa</option>
+                    </select>
+                    <button id="cc-btn-refrescar-pdv" class="cc-btn-refrescar" type="button"
+                            title="Volver a leer los puntos de venta desde AFIP"
+                            style="display:none;">
+                        🔄 Refrescar
+                    </button>
+                </div>
+                <div id="cc-pdv-info" class="cc-pdv-info" style="display:none;"></div>
+            </div>
+
+            <div class="cc-fila-fechas">
+                <div class="cc-campo">
+                    <label for="cc-fecha-desde">Fecha desde</label>
+                    <input type="text" id="cc-fecha-desde" placeholder="dd/mm/aaaa" autocomplete="off">
+                </div>
+
+                <div class="cc-campo">
+                    <label for="cc-fecha-hasta">Fecha hasta</label>
+                    <input type="text" id="cc-fecha-hasta" placeholder="dd/mm/aaaa" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="cc-acciones">
+                <button id="cc-btn-consultar" class="cc-btn-consultar" disabled>
+                    🔍 Consultar comprobantes
+                </button>
+                <button id="cc-btn-volver" class="cc-btn-volver">← Volver</button>
+            </div>
+
+            <div id="cc-mensaje-error" class="cc-mensaje-error" style="display:none;"></div>
+        </section>
+
+        <!-- Estado de procesamiento -->
+        <section id="cc-procesando" class="cc-procesando" style="display:none;">
+            <div class="cc-spinner"></div>
+            <p id="cc-procesando-texto">Iniciando navegador y consultando AFIP...</p>
+        </section>
+
+        <!-- Resultados -->
+        <section id="cc-resultados" class="cc-resultados" style="display:none;">
+            <h2>Resultados</h2>
+
+            <div class="cc-totales">
+                <div class="cc-tarjeta">
+                    <span class="cc-tarjeta-label">Comprobantes</span>
+                    <span class="cc-tarjeta-valor" id="cc-total-cantidad">0</span>
+                </div>
+                <div class="cc-tarjeta">
+                    <span class="cc-tarjeta-label">Suma total</span>
+                    <span class="cc-tarjeta-valor" id="cc-total-suma">$0,00</span>
+                </div>
+            </div>
+
+            <div id="cc-archivo-excel" class="cc-archivo-excel" style="display:none;">
+                <div class="cc-archivo-info">
+                    <span class="cc-archivo-icono">📊</span>
+                    <div>
+                        <div class="cc-archivo-titulo">Excel generado</div>
+                        <div class="cc-archivo-ruta" id="cc-archivo-ruta"></div>
+                    </div>
+                </div>
+                <div class="cc-archivo-acciones">
+                    <button id="cc-btn-abrir-archivo" class="cc-btn-mini">Abrir archivo</button>
+                    <button id="cc-btn-abrir-carpeta" class="cc-btn-mini">Abrir carpeta</button>
+                </div>
+            </div>
+
+            <div class="cc-tabla-wrapper">
+                <table class="cc-tabla">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Pto Vta</th>
+                            <th>Comp. Nro</th>
+                            <th>Período Desde</th>
+                            <th>Período Hasta</th>
+                            <th>CUIT</th>
+                            <th>Razón Social</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cc-tabla-body"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</body>
+</html>

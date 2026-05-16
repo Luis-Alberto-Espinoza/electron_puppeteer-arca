@@ -2,6 +2,7 @@ const { app } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { capitalizarTexto } = require('../../utils/fileManager.js');
+const { normalizarCliente } = require('../model.js');
 
 /**
  * Aplica normalización canónica a `nombre` y `apellido` de un usuario.
@@ -59,8 +60,12 @@ class JsonStorage {
       const parsed = JSON.parse(data);
       // Normalizar nombre/apellido al leer (defensivo: por si el JSON tiene
       // entradas viejas guardadas antes de esta normalización).
+      // Luego normalizar el modelo de cliente (cuit→string, empresas[], alias puntosDeVenta).
       if (parsed && Array.isArray(parsed.users)) {
-        parsed.users.forEach(normalizarUsuario);
+        parsed.users.forEach(u => {
+          normalizarUsuario(u);
+          normalizarCliente(u);
+        });
       }
       return parsed;
     } catch (error) {
@@ -74,7 +79,10 @@ class JsonStorage {
     try {
       // Normalizar antes de persistir — fuente única de verdad canónica.
       if (data && Array.isArray(data.users)) {
-        data.users.forEach(normalizarUsuario);
+        data.users.forEach(u => {
+          normalizarUsuario(u);
+          normalizarCliente(u);
+        });
       }
       fs.writeFileSync(this.dataPath, JSON.stringify(data, null, 2), 'utf8');
       console.log('💾 Datos guardados exitosamente');

@@ -119,6 +119,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onConsultaDeudaUpdate: (callback) => ipcRenderer.on('consultaDeuda:update', (_event, datos) => callback(datos))
     },
 
+    // APIs para Consulta de Comprobantes Emitidos
+    consultaComprobantes: {
+        consultar: (datos) => ipcRenderer.invoke('consultaComprobantes:consultar', datos)
+    },
+
+    // APIs para operaciones sobre Empresa (lectura on-demand desde AFIP)
+    empresa: {
+        descubrirPuntosDeVenta: (datos) => ipcRenderer.invoke('empresa:descubrirPuntosDeVenta', datos)
+    },
+
     // APIs para Cuenta Tributaria (SCT)
     // modos: 'consultarA' | 'pagarA' | 'pagarDirectoB'
     cuentaTributaria: {
