@@ -12,6 +12,9 @@
  * @typedef {Object} PuntoDeVenta
  * @property {string} numero            "00001", "00002"… siempre string con leading zeros
  * @property {string|null} descripcion  descripción AFIP si la hay
+ * @property {string|null} sistema      ej "RECE para aplicativo y web services" (col 2 del ABM)
+ * @property {string|null} domicilio    ej "LOCALES Y ESTABLECIMIENTOS - 0001 - SEVERO..." (col 4 del ABM)
+ * @property {boolean|null} activo      true si hay check.png en el ABM; null si no se sabe (ej: solo lite)
  */
 
 /**
@@ -32,6 +35,7 @@
  * @property {string} claveAFIP
  * @property {string} [claveATM]
  * @property {Empresa[]} empresas
+ * @property {boolean} analizado_afip          true si ya se hizo el scraping detallado del ABM
  * @property {'B'|'C'|null} tipoContribuyente  LEGACY a nivel cliente (pendiente de mover a empresa)
  */
 
@@ -77,14 +81,23 @@ function normalizarPuntoDeVenta(raw) {
     if (typeof raw === 'string' || typeof raw === 'number') {
         const numero = normalizarNumeroPdv(raw);
         if (!numero) return null;
-        return { numero, descripcion: null };
+        return { numero, descripcion: null, sistema: null, domicilio: null, activo: null };
     }
 
     if (typeof raw === 'object') {
         const numero = normalizarNumeroPdv(raw.numero);
         if (!numero) return null;
         const descripcion = raw.descripcion != null ? String(raw.descripcion).trim() : null;
-        return { numero, descripcion: descripcion || null };
+        const sistema = raw.sistema != null ? String(raw.sistema).trim() : null;
+        const domicilio = raw.domicilio != null ? String(raw.domicilio).trim() : null;
+        const activo = typeof raw.activo === 'boolean' ? raw.activo : null;
+        return {
+            numero,
+            descripcion: descripcion || null,
+            sistema: sistema || null,
+            domicilio: domicilio || null,
+            activo
+        };
     }
 
     return null;
@@ -103,6 +116,7 @@ function esEmpresaObjeto(e) {
  * Normaliza un cliente leído del JSON:
  *  - `cuit` → string
  *  - construye `empresas[]` si no existe (desde el legacy `puntosDeVenta[]` de strings)
+ *  - asegura `analizado_afip` boolean (default false si falta)
  *  - borra del JSON los alias mal nombrados: `puntosDeVenta` y `empresasDisponible` (raíz)
  *  - borra `cuil` cuando viene vacío
  *
@@ -120,7 +134,14 @@ function normalizarCliente(raw) {
         raw.cuit = String(raw.cuit);
     }
 
-    // 2. Asegurar empresas[]
+    // 2. analizado_afip: boolean. Clientes preexistentes vienen sin este campo,
+    //    los marcamos como NO analizados aunque tengan empresas viejas, porque
+    //    no podemos garantizar que esas empresas tengan PDV detallados del ABM.
+    if (typeof raw.analizado_afip !== 'boolean') {
+        raw.analizado_afip = false;
+    }
+
+    // 3. Asegurar empresas[]
     if (!Array.isArray(raw.empresas)) {
         // Construir desde el legacy `puntosDeVenta` si es array de strings
         const legacy = Array.isArray(raw.puntosDeVenta) ? raw.puntosDeVenta : [];
@@ -134,7 +155,7 @@ function normalizarCliente(raw) {
             .map(e => crearEmpresa(e));
     }
 
-    // 3. Eliminar alias mal nombrados a nivel cliente:
+    // 4. Eliminar alias mal nombrados a nivel cliente:
     //    - puntosDeVenta[] guardaba razones sociales (no PDV reales). Los PDV
     //      reales viven en cliente.empresas[i].puntosDeVenta[].
     //    - empresasDisponible era duplicado de puntosDeVenta mantenido a mano
@@ -147,7 +168,7 @@ function normalizarCliente(raw) {
         delete raw.empresasDisponible;
     }
 
-    // 4. Limpiar cuil cuando viene vacío. Si el cliente carga un CUIL real
+    // 5. Limpiar cuil cuando viene vacío. Si el cliente carga un CUIL real
     //    después, el campo reaparece.
     if ('cuil' in raw && (raw.cuil === '' || raw.cuil === null || raw.cuil === undefined)) {
         delete raw.cuil;
