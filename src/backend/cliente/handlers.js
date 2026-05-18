@@ -228,10 +228,13 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     const usuario = data.users[userIndex];
                     const servicesToVerify = verificationJobs.map(j => j.service);
 
-                    // ✅ VALIDAR UNA SOLA VEZ (obtiene puntos de venta automáticamente)
-                    await gestionarValidacion(browser, usuario, servicesToVerify);
+                    // Modo lite: si el frontend lo pidió, solo validar credenciales sin scraping.
+                    const soloLogin = credenciales.soloLogin === true;
+
+                    await gestionarValidacion(browser, usuario, servicesToVerify, { soloLogin });
 
                     // Obtener empresas y CUITs del usuario validado.
+                    // En modo lite, empresas[] viene vacío (no se scrapea).
                     const empresas = Array.isArray(usuario.empresas)
                         ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
                         : [];

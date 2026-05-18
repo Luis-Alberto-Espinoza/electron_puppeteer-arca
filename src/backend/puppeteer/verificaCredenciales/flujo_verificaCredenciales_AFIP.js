@@ -7,13 +7,21 @@ const { obtenerCuitsAsociados } = require('../afip/archivosComunes/obtenerCuitsA
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
- * Valida credenciales de AFIP, y si son correctas, extrae los puntos de venta.
+ * Valida credenciales de AFIP.
+ *
+ * Por default hace VALIDACIÓN COMPLETA: login + lista empresas + CUITs asociados.
+ * Con `opciones.soloLogin === true` corta justo después del login exitoso
+ * (modo "lite": solo confirma que las credenciales andan, sin scrapear nada).
+ *
  * @param {import('puppeteer').Page} page - IGNORADO (mantiene firma por compatibilidad)
- * @param {object} usuario El objeto de usuario que contiene CUIT y claveAFIP.
+ * @param {object} usuario - { cuit, claveAFIP, ... }
+ * @param {object} [opciones]
+ * @param {boolean} [opciones.soloLogin=false]  si true, vuelve después del login
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
-async function verificarYObtenerDatosAFIP(page, usuario) {
-    console.log('    [AFIP] ==> Entrando a verificacion de credenciales');
+async function verificarYObtenerDatosAFIP(page, usuario, opciones = {}) {
+    const { soloLogin = false } = opciones;
+    console.log(`    [AFIP] ==> Entrando a verificacion de credenciales (soloLogin=${soloLogin})`);
 
     const { cuit, claveAFIP, nombreEmpresa } = usuario;
     if (!cuit || !claveAFIP) {
@@ -33,7 +41,7 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
             return { success: false, error: loginResult.message };
         }
 
-        // 2. Verificar buscador AFIP
+        // 2. Verificar buscador AFIP (confirma que el login dejó al usuario adentro)
         console.log('    [AFIP] -> Login exitoso. Esperando buscador AFIP...');
         try {
             await loggedPage.waitForSelector('#buscadorInput', { timeout: 10000 });
@@ -45,6 +53,12 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
                 return { success: false, error: 'UPDATE_PASSWORD_REQUIRED' };
             }
             return { success: false, error: 'No se pudo detectar la pagina principal de AFIP tras el login' };
+        }
+
+        // Salida temprana modo lite: las credenciales son válidas, nada más que hacer
+        if (soloLogin) {
+            console.log('    [AFIP] <== Modo soloLogin: credenciales OK, salgo sin scraping.');
+            return { success: true, data: {} };
         }
 
         // 3. Buscar comprobante en linea

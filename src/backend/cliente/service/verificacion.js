@@ -5,10 +5,16 @@ const { crearEmpresa } = require('../model.js');
 /**
  * Orquesta la validación de credenciales y la extracción de datos para un usuario.
  * Abre y cierra pestañas dedicadas para cada servicio (AFIP, ATM, etc.).
+ *
  * @param {import('puppeteer').Browser} browser La instancia del navegador Puppeteer.
  * @param {object} usuario El objeto de usuario a procesar.
+ * @param {Array<string>|null} servicesToVerify Servicios a chequear; null = todos los disponibles.
+ * @param {object} [opciones]
+ * @param {boolean} [opciones.soloLogin=false] Si true, AFIP solo valida login sin scrapear empresas.
+ *                                             En este modo NO se reescribe usuario.empresas.
  */
-async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
+async function gestionarValidacion(browser, usuario, servicesToVerify = null, opciones = {}) {
+    const { soloLogin = false } = opciones;
     console.log(`[MANAGER] ==> Entrando a gestionarValidacion para CUIT: ${usuario.cuit}`);
 
     // Determinar qué servicios verificar
@@ -36,27 +42,33 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
         console.log('[MANAGER] -> Iniciando flujo AFIP...');
         const afipPage = await browser.newPage();
         try {
-            const resultadoAFIP = await verificarYObtenerDatosAFIP(afipPage, usuario);
+            const resultadoAFIP = await verificarYObtenerDatosAFIP(afipPage, usuario, { soloLogin });
             if (resultadoAFIP.success) {
                 usuario.claveAfipValida = true;
                 usuario.errorAfip = null;
-                // Escribir directamente a empresas[] preservando PDV cacheados de
-                // empresas previas que sigan en AFIP.
-                const empresasAfip = (resultadoAFIP.data && Array.isArray(resultadoAFIP.data.empresasArray))
-                    ? resultadoAFIP.data.empresasArray
-                    : [];
-                const empresasPrevias = Array.isArray(usuario.empresas) ? usuario.empresas : [];
-                usuario.empresas = empresasAfip.map(razonSocial => {
-                    const previa = empresasPrevias.find(e =>
-                        e.razonSocial && e.razonSocial.trim().toLowerCase() === String(razonSocial).trim().toLowerCase()
-                    );
-                    return previa || crearEmpresa({ razonSocial });
-                });
-                console.log(`  -> AFIP: Válido. Empresas encontradas: ${usuario.empresas.length}`);
-                // Agregar CUITs asociados si existen
-                if (resultadoAFIP.data && resultadoAFIP.data.cuitAsociados) {
-                    usuario.cuitAsociados = resultadoAFIP.data.cuitAsociados;
-                    console.log(`  -> AFIP: CUITs asociados encontrados: ${usuario.cuitAsociados.length}`);
+
+                if (soloLogin) {
+                    // Modo lite: solo confirmamos credenciales, no tocamos empresas[]
+                    // ni cuitAsociados. El scraping pesado lo hace "Analizar cliente".
+                    console.log('  -> AFIP: Válido (modo lite, sin scraping de empresas).');
+                } else {
+                    // Modo completo: refrescar empresas[] preservando PDV cacheados
+                    // de empresas previas que sigan en AFIP.
+                    const empresasAfip = (resultadoAFIP.data && Array.isArray(resultadoAFIP.data.empresasArray))
+                        ? resultadoAFIP.data.empresasArray
+                        : [];
+                    const empresasPrevias = Array.isArray(usuario.empresas) ? usuario.empresas : [];
+                    usuario.empresas = empresasAfip.map(razonSocial => {
+                        const previa = empresasPrevias.find(e =>
+                            e.razonSocial && e.razonSocial.trim().toLowerCase() === String(razonSocial).trim().toLowerCase()
+                        );
+                        return previa || crearEmpresa({ razonSocial });
+                    });
+                    console.log(`  -> AFIP: Válido. Empresas encontradas: ${usuario.empresas.length}`);
+                    if (resultadoAFIP.data && resultadoAFIP.data.cuitAsociados) {
+                        usuario.cuitAsociados = resultadoAFIP.data.cuitAsociados;
+                        console.log(`  -> AFIP: CUITs asociados encontrados: ${usuario.cuitAsociados.length}`);
+                    }
                 }
             } else {
                 usuario.claveAfipValida = false; // La clave no es válida para la automatización
