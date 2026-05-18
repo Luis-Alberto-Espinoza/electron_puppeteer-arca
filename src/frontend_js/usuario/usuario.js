@@ -604,6 +604,9 @@ function inicializarVerificarCredenciales() {
             claveATM: document.getElementById('claveATM').value.trim(),
             cuit: document.getElementById('cuit').value.trim(),
             cuil: document.getElementById('cuil').value.trim(),
+            // Modo lite: solo validar credenciales. El scraping de empresas y PDV
+            // se hace después con el botón "Analizar cliente" en la edición.
+            soloLogin: true,
         };
 
         if (!credenciales.cuit && !credenciales.cuil) {
@@ -615,10 +618,10 @@ function inicializarVerificarCredenciales() {
 
         try {
             const response = await window.electronAPI.user.verifyOnCreate(credenciales);
-            // Preferir response.empresas (modelo nuevo); fallback al alias legacy.
-            window.empresasCliente = response.empresas || response.empresasDisponible || [];
-            window.cuitAsociados = response.cuitAsociados || [];
-            mostrarEmpresas(window.empresasCliente);
+            // En modo lite no vienen empresas. Quedan vacías hasta "Analizar cliente".
+            window.empresasCliente = [];
+            window.cuitAsociados = [];
+            mostrarPendienteDeAnalisis();
 
             if (response.success) {
                 // Marcar qué servicios fueron verificados exitosamente usando la info detallada
@@ -637,8 +640,9 @@ function inicializarVerificarCredenciales() {
 
                 btnCrearUsuario.style.display = '';
 
-                // Mensaje detallado
-                let mensaje = 'Verificación completada.';
+                // Mensaje detallado (modo lite: las credenciales andan, pero todavía
+                // no scrapeamos empresas; eso pasa al apretar "Analizar cliente").
+                let mensaje = 'Credenciales verificadas.';
                 const exitosos = [];
                 const fallidos = [];
 
@@ -652,11 +656,12 @@ function inicializarVerificarCredenciales() {
                 }
 
                 if (exitosos.length > 0) {
-                    mensaje += ` ✅ ${exitosos.join(', ')} validado(s).`;
+                    mensaje += ` ✅ ${exitosos.join(', ')} válido(s).`;
                 }
                 if (fallidos.length > 0) {
                     mensaje += ` ⚠️ ${fallidos.join(', ')} falló/fallaron.`;
                 }
+                mensaje += ' Podés crear el cliente y luego analizarlo para traer empresas y puntos de venta.';
 
                 showVerificationAlert(mensaje, exitosos.length > 0 ? 'success' : 'warning');
             } else {
@@ -1803,4 +1808,19 @@ function mostrarEmpresas(empresasArray) {
     } else {
         contenedor.innerHTML = '';
     }
+}
+
+/**
+ * Mensaje informativo cuando se hace verificación lite (sin scraping de empresas).
+ * El usuario sabe que el cliente todavía no está "analizado".
+ */
+function mostrarPendienteDeAnalisis() {
+    const contenedor = document.getElementById('elegirEmpresa');
+    if (!contenedor) return;
+    contenedor.innerHTML = `
+        <div style="padding: 10px; background:#fff8e1; border-left: 3px solid #f0ad4e; font-size: 13px;">
+            ⏳ <strong>Análisis pendiente.</strong> Las credenciales son válidas pero todavía no scrapeamos empresas ni puntos de venta.
+            Después de crear el cliente, entrá a la edición y apretá <em>"Analizar cliente"</em> para completar los datos.
+        </div>
+    `;
 }
