@@ -855,17 +855,22 @@ function displayUsers(users) {
             `;
         }).join('');
 
+        const analisisBadge = user.analizado_afip === true
+            ? `<span class="badge-analizado" style="display:inline-block;margin-top:4px;padding:2px 8px;background:#e8f5e9;color:#2e7d32;border-radius:10px;font-size:11px;">✅ analizado</span>`
+            : `<span class="badge-analizado" style="display:inline-block;margin-top:4px;padding:2px 8px;background:#fff8e1;color:#b26a00;border-radius:10px;font-size:11px;">⏳ sin analizar</span>`;
+
         return `
             <div class="user-item" data-user-id="${user.id}">
                 <div class="user-info">
                     <div class="user-name">👤 ${user.nombre} ${user.apellido || ''}</div>
                     <div class="user-details">🆔 CUIT/L: ${user.cuit || user.cuil || 'N/A'}</div>
+                    ${analisisBadge}
                 </div>
                 <div class="user-status">
                     ${servicesHTML}
                 </div>
                 <div class="user-actions">
-                    <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.claveAFIP || ''}', '${user.claveATM || ''}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}')">✏️ Editar</button>
+                    <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.claveAFIP || ''}', '${user.claveATM || ''}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}', ${user.analizado_afip === true})">✏️ Editar</button>
                     <button class="btn btn-delete" onclick="window.deleteUser('${user.id}', '${user.nombre}')">🗑️ Eliminar</button>
                 </div>
             </div>
@@ -1067,8 +1072,8 @@ function resetCreateForm() {
 // ========== FIN FUNCIONES DE NAVEGACIÓN ==========
 
 // Editar usuario
-window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido) {
-    window.currentEditingUser = { id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido };
+window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido, analizadoAfip) {
+    window.currentEditingUser = { id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido, analizado_afip: analizadoAfip === true };
 
     document.getElementById('editNombre').value = nombre;
     document.getElementById('editClaveAFIP').value = claveAFIP;
@@ -1077,6 +1082,8 @@ window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoCon
     document.getElementById('editCuil').value = cuil;
     document.getElementById('editTipoContribuyente').value = tipoContribuyente;
     document.getElementById('editApellido').value = apellido;
+
+    actualizarEstadoAnalisisEnEdicion();
 
     // ✨ Ocultar la sección de usuarios mientras se edita
     const usersSection = document.querySelector('.users-section');
@@ -1087,6 +1094,31 @@ window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoCon
     document.getElementById('editForm').classList.remove('hidden');
     document.getElementById('editForm').scrollIntoView({ behavior: 'smooth' });
 }
+
+/**
+ * Actualiza el cartel "#editEstadoAnalisis" según el flag analizado_afip del cliente actual.
+ */
+function actualizarEstadoAnalisisEnEdicion() {
+    const cont = document.getElementById('editEstadoAnalisis');
+    if (!cont) return;
+    const analizado = !!(window.currentEditingUser && window.currentEditingUser.analizado_afip);
+    if (analizado) {
+        cont.innerHTML = `<span style="color:#2e7d32;">✅ Cliente analizado.</span> Empresas y puntos de venta están en caché.`;
+    } else {
+        cont.innerHTML = `<span style="color:#b26a00;">⏳ Cliente sin analizar.</span> Apretá <em>"Analizar Cliente"</em> para traer empresas y puntos de venta desde AFIP.`;
+    }
+}
+
+/**
+ * STUB temporal — se conectará al handler real cuando esté el flujo ABM Puppeteer.
+ */
+window.analizarCliente = function () {
+    if (!window.currentEditingUser || !window.currentEditingUser.id) {
+        showAlert('No hay un cliente en edición.', 'error');
+        return;
+    }
+    showAlert(`🚧 "Analizar cliente" todavía no está implementado del lado del backend (Fases 2-3 del scraping ABM). Próximamente para CUIT ${window.currentEditingUser.cuit || window.currentEditingUser.cuil}.`, 'warning');
+};
 
 // Eliminar cliente
 window.deleteUser = async function(id, nombre) {
