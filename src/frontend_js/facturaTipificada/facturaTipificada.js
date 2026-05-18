@@ -86,12 +86,9 @@ function mostrarInfoUsuario() {
 
     console.log("\n\nel contenido del usuario\t" + JSON.stringify(usuario, null, 2) + "\n\n");
 
-    // Obtener punto de venta (debe ser numérico como '0001', '0002', etc.)
-    let puntoVenta = '0001'; // Valor por defecto
-    if (usuario.puntosDeVenta && usuario.puntosDeVenta.length > 0) {
-        puntoVenta = usuario.puntosDeVenta[0];
-    }
-    // NOTA: empresasDisponible contiene NOMBRES, no números de punto de venta
+    // Placeholder hasta que se implemente el selector lazy de PDV por empresa
+    // (como en Consulta Comprobantes). El PDV real está en cliente.empresas[i].puntosDeVenta[j].numero.
+    const puntoVenta = '0001';
 
     infoContainer.innerHTML = `
         <div class="info-usuario-card">
@@ -120,8 +117,9 @@ function inicializarSelectorEmpresas() {
 
     const usuario = window.usuarioSeleccionado;
 
-    // Obtener empresas disponibles (pueden estar en empresasDisponible o puntosDeVenta)
-    const empresas = usuario.empresasDisponible || usuario.puntosDeVenta || [];
+    const empresas = Array.isArray(usuario?.empresas)
+        ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
+        : [];
 
     if (empresas.length === 0) {
         console.warn('⚠ No hay empresas/puntos de venta disponibles');
@@ -651,8 +649,9 @@ function recopilarDatosFormulario() {
     // Obtener el índice de la empresa/punto de venta seleccionado
     const indiceEmpresaSeleccionada = parseInt(formData.get('empresaPuntoVenta')) || 0;
 
-    // Obtener empresas disponibles
-    const empresas = usuario.empresasDisponible || usuario.puntosDeVenta || [];
+    const empresas = Array.isArray(usuario?.empresas)
+        ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
+        : [];
 
     // Obtener el punto de venta seleccionado (empresa y punto de venta son lo mismo)
     let puntoVenta = '0001'; // Valor por defecto

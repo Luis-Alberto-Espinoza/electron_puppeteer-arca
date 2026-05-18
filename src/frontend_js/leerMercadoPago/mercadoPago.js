@@ -416,7 +416,9 @@ function inicializarUsuarioEmpresaActividadMP() {
     const selectEmpresaMP = document.getElementById('selectEmpresaDisponibleMP');
     if (selectEmpresaMP && usuario) {
         selectEmpresaMP.innerHTML = '';
-        const empresas = usuario.empresasDisponible || [];
+        const empresas = Array.isArray(usuario?.empresas)
+            ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
+            : [];
         if (empresas.length === 0) {
             const option = document.createElement('option');
             option.value = '';

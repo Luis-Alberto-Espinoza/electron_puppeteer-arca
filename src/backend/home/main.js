@@ -218,7 +218,8 @@ function setupIpcListeners() {
 
             let finalResult = {
                 success: false, // Será true si CUALQUIER credencial es válida
-                empresasDisponible: [],
+                empresas: [],
+                empresasDisponible: [], // alias retrocompat
                 cuitAsociados: [],
                 error: null
             };
@@ -229,7 +230,9 @@ function setupIpcListeners() {
                 const afipResult = await verificarYObtenerDatosAFIP(page, credenciales);
                 if (afipResult.success) {
                     finalResult.success = true;
-                    finalResult.empresasDisponible = afipResult.data.puntosDeVentaArray || [];
+                    const empresas = afipResult.data.empresasArray || [];
+                    finalResult.empresas = empresas;
+                    finalResult.empresasDisponible = empresas; // alias retrocompat
                     finalResult.cuitAsociados = afipResult.data.cuitAsociados || [];
                     console.log('[Verificación Manual] AFIP: Éxito.');
                 } else {

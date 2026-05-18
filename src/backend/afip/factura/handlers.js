@@ -3,6 +3,7 @@
 
 const { procesarDatosFactura: comunicacionConFactura } = require('./service/procesarFactura.js');
 const facturaManagerUnificado = require('./facturaManagerUnificado.js');
+const { listarRazonesSociales } = require('../../cliente/model.js');
 
 // Managers antiguos (comentados - ahora usamos el unificado)
 // const facturaManager = require('./facturaManager.js');
@@ -100,7 +101,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             const credenciales = {
                 usuario: usuarioSeleccionado.cuit || usuarioSeleccionado.cuil,
                 contrasena: usuarioSeleccionado.claveAFIP,
-                nombreEmpresa: usuarioSeleccionado.empresasDisponible?.[0] || ''
+                nombreEmpresa: listarRazonesSociales(usuarioSeleccionado)[0] || ''
             };
 
             // Validar credenciales
@@ -123,7 +124,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                 datosFactura,
                 false, // test mode = false
                 usuarioSeleccionado,
-                usuarioSeleccionado.empresasDisponible?.[0] || datosFactura.puntoVenta || '0001'
+                listarRazonesSociales(usuarioSeleccionado)[0] || datosFactura.puntoVenta || '0001'
             );
 
             console.log('Resultado de facturacion:', resultado);
@@ -172,7 +173,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
         const credenciales = {
             usuario: datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil,
             contrasena: datosComunes.usuarioSeleccionado.claveAFIP,
-            nombreEmpresa: datosComunes.usuarioSeleccionado.empresasDisponible?.[0] || ''
+            nombreEmpresa: listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || ''
         };
 
         // Validar credenciales
@@ -228,7 +229,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                     datosFactura,
                     usarModoTest, // test mode según checkbox y si es primera factura
                     datosComunes.usuarioSeleccionado,
-                    datosComunes.usuarioSeleccionado.empresasDisponible?.[0] || datosComunes.puntoVenta || '0001'
+                    listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || datosComunes.puntoVenta || '0001'
                 );
 
                 // Si es modo test, salir del loop después de la primera factura
@@ -343,7 +344,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
         const credenciales = {
             usuario: usuarioSeleccionado.cuit || usuarioSeleccionado.cuil,
             contrasena: usuarioSeleccionado.claveAFIP,
-            nombreEmpresa: usuarioSeleccionado.empresasDisponible?.[0] || ''
+            nombreEmpresa: listarRazonesSociales(usuarioSeleccionado)[0] || ''
         };
 
         // Validar credenciales
@@ -379,7 +380,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                 datosParaFlujo,
                 modoTest || false,
                 usuarioSeleccionado,
-                usuarioSeleccionado.empresasDisponible?.[0] || datosComunes.puntoVenta || '0001',
+                listarRazonesSociales(usuarioSeleccionado)[0] || datosComunes.puntoVenta || '0001',
                 enviarProgreso
             );
 

@@ -51,10 +51,10 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
         console.log('    [AFIP] -> Buscando comprobante en linea...');
         const newPage = await buscarEnAfip(loggedPage, 'compr', { esperarNuevaPestana: true });
 
-        // 4. Listar empresas
+        // 4. Listar empresas (razones sociales asociadas al CUIT en AFIP)
         console.log('    [AFIP] -> Listando empresas disponibles...');
-        const puntosDeVentaArray = await listarEmpresas(newPage);
-        console.log(`    [AFIP] -> Empresas encontradas: ${puntosDeVentaArray.length}`);
+        const empresasArray = await listarEmpresas(newPage);
+        console.log(`    [AFIP] -> Empresas encontradas: ${empresasArray.length}`);
 
         // 5. Buscar CUITs asociados
         console.log('    [AFIP] -> Volviendo a la pestana principal para buscar CUITs asociados...');
@@ -91,7 +91,7 @@ async function verificarYObtenerDatosAFIP(page, usuario) {
 
         // 6. Preparar respuesta
         const responseData = {
-            puntosDeVentaArray: puntosDeVentaArray
+            empresasArray: empresasArray
         };
 
         if (cuitAsociados && cuitAsociados.length > 0) {

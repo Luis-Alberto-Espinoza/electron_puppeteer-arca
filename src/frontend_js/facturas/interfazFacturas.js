@@ -257,7 +257,9 @@ function configurarEmpresasDisponibles() {
     // Limpiar opciones previas
     selectEmpresaDisponible.innerHTML = '';
 
-    const empresas = usuarioSeleccionado.empresasDisponible || [];
+    const empresas = Array.isArray(usuarioSeleccionado?.empresas)
+        ? usuarioSeleccionado.empresas.map(e => e.razonSocial).filter(Boolean)
+        : [];
     if (empresas.length === 0) {
         // Si no hay empresas, mostrar opción vacía
         const option = document.createElement('option');

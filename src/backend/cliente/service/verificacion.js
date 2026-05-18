@@ -1,5 +1,6 @@
 const verificarYObtenerDatosAFIP = require('../../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
 const verificarCredencialesATM = require('../../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm.js');
+const { crearEmpresa } = require('../model.js');
 
 /**
  * Orquesta la validación de credenciales y la extracción de datos para un usuario.
@@ -39,10 +40,19 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null) {
             if (resultadoAFIP.success) {
                 usuario.claveAfipValida = true;
                 usuario.errorAfip = null;
-                if (resultadoAFIP.data && resultadoAFIP.data.puntosDeVentaArray) {
-                    usuario.puntosDeVenta = resultadoAFIP.data.puntosDeVentaArray;
-                    console.log(`  -> AFIP: Válido. Puntos de venta encontrados: ${usuario.puntosDeVenta.length}`);
-                }
+                // Escribir directamente a empresas[] preservando PDV cacheados de
+                // empresas previas que sigan en AFIP.
+                const empresasAfip = (resultadoAFIP.data && Array.isArray(resultadoAFIP.data.empresasArray))
+                    ? resultadoAFIP.data.empresasArray
+                    : [];
+                const empresasPrevias = Array.isArray(usuario.empresas) ? usuario.empresas : [];
+                usuario.empresas = empresasAfip.map(razonSocial => {
+                    const previa = empresasPrevias.find(e =>
+                        e.razonSocial && e.razonSocial.trim().toLowerCase() === String(razonSocial).trim().toLowerCase()
+                    );
+                    return previa || crearEmpresa({ razonSocial });
+                });
+                console.log(`  -> AFIP: Válido. Empresas encontradas: ${usuario.empresas.length}`);
                 // Agregar CUITs asociados si existen
                 if (resultadoAFIP.data && resultadoAFIP.data.cuitAsociados) {
                     usuario.cuitAsociados = resultadoAFIP.data.cuitAsociados;

@@ -32,8 +32,7 @@
  * @property {string} claveAFIP
  * @property {string} [claveATM]
  * @property {Empresa[]} empresas
- * @property {string[]} puntosDeVenta          LEGACY: alias derivado de empresas[].razonSocial
- * @property {'B'|'C'|null} tipoContribuyente  LEGACY a nivel cliente
+ * @property {'B'|'C'|null} tipoContribuyente  LEGACY a nivel cliente (pendiente de mover a empresa)
  */
 
 /**
@@ -103,8 +102,9 @@ function esEmpresaObjeto(e) {
 /**
  * Normaliza un cliente leído del JSON:
  *  - `cuit` → string
- *  - construye `empresas[]` si no existe (desde `puntosDeVenta[]` legacy de strings)
- *  - regenera `puntosDeVenta[]` legacy desde `empresas[].razonSocial` (alias derivado)
+ *  - construye `empresas[]` si no existe (desde el legacy `puntosDeVenta[]` de strings)
+ *  - borra del JSON los alias mal nombrados: `puntosDeVenta` y `empresasDisponible` (raíz)
+ *  - borra `cuil` cuando viene vacío
  *
  * Idempotente: aplicar dos veces da el mismo resultado.
  * NO toca `nombre`/`apellido` (eso lo hace `normalizarUsuario` en storage.js).
@@ -134,9 +134,24 @@ function normalizarCliente(raw) {
             .map(e => crearEmpresa(e));
     }
 
-    // 3. Regenerar puntosDeVenta[] legacy como alias derivado
-    //    (siempre desde empresas[], que es la fuente de verdad)
-    raw.puntosDeVenta = raw.empresas.map(e => e.razonSocial).filter(Boolean);
+    // 3. Eliminar alias mal nombrados a nivel cliente:
+    //    - puntosDeVenta[] guardaba razones sociales (no PDV reales). Los PDV
+    //      reales viven en cliente.empresas[i].puntosDeVenta[].
+    //    - empresasDisponible era duplicado de puntosDeVenta mantenido a mano
+    //      por los handlers viejos.
+    //    Ambos se borran del JSON en el próximo save.
+    if ('puntosDeVenta' in raw) {
+        delete raw.puntosDeVenta;
+    }
+    if ('empresasDisponible' in raw) {
+        delete raw.empresasDisponible;
+    }
+
+    // 4. Limpiar cuil cuando viene vacío. Si el cliente carga un CUIL real
+    //    después, el campo reaparece.
+    if ('cuil' in raw && (raw.cuil === '' || raw.cuil === null || raw.cuil === undefined)) {
+        delete raw.cuil;
+    }
 
     return raw;
 }
@@ -155,10 +170,21 @@ function getEmpresaPorRazonSocial(cliente, razonSocial) {
     ) || null;
 }
 
+/**
+ * Devuelve la lista de razones sociales del cliente desde `empresas[]`.
+ * @param {Cliente} cliente
+ * @returns {string[]}
+ */
+function listarRazonesSociales(cliente) {
+    if (!cliente || !Array.isArray(cliente.empresas)) return [];
+    return cliente.empresas.map(e => e.razonSocial).filter(Boolean);
+}
+
 module.exports = {
     crearEmpresa,
     normalizarCliente,
     normalizarPuntoDeVenta,
     normalizarNumeroPdv,
-    getEmpresaPorRazonSocial
+    getEmpresaPorRazonSocial,
+    listarRazonesSociales
 };

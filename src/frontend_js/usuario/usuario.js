@@ -3,7 +3,7 @@ console.log('CARGANDO SCRIPT usuario.js...');
 window.currentEditingUser = window.currentEditingUser || null;
 
 // Variable global para empresas disponibles
-window.empresasDisponible = [];
+window.empresasCliente = [];
 
 // Variables globales para rastrear si las credenciales fueron verificadas
 window.verificacionRealizada = {
@@ -615,9 +615,10 @@ function inicializarVerificarCredenciales() {
 
         try {
             const response = await window.electronAPI.user.verifyOnCreate(credenciales);
-            window.empresasDisponible = response.empresasDisponible || [];
+            // Preferir response.empresas (modelo nuevo); fallback al alias legacy.
+            window.empresasCliente = response.empresas || response.empresasDisponible || [];
             window.cuitAsociados = response.cuitAsociados || [];
-            mostrarPuntosDeVenta(response.empresasDisponible);
+            mostrarEmpresas(window.empresasCliente);
 
             if (response.success) {
                 // Marcar qué servicios fueron verificados exitosamente usando la info detallada
@@ -725,7 +726,7 @@ async function createUser() {
             cuil,
             tipoContribuyente,
             apellido,
-            empresasDisponible: window.empresasDisponible || [],
+            empresas: window.empresasCliente || [],
             cuitAsociados: window.cuitAsociados || [],
             verificadoAFIP: window.verificacionRealizada.afip,  // ✅ Pasar flag de verificación
             verificadoATM: window.verificacionRealizada.atm     // ✅ Pasar flag de verificación
@@ -744,7 +745,7 @@ async function createUser() {
             // Resetear flags de verificación después de crear
             window.verificacionRealizada.afip = false;
             window.verificacionRealizada.atm = false;
-            window.empresasDisponible = [];
+            window.empresasCliente = [];
             window.cuitAsociados = [];
 
             // Cerrar formulario y recargar lista
@@ -1021,7 +1022,7 @@ function resetCreateForm() {
     // Resetear estados de verificación
     window.verificacionRealizada.afip = false;
     window.verificacionRealizada.atm = false;
-    window.empresasDisponible = [];
+    window.empresasCliente = [];
     window.cuitAsociados = [];
 
     // Ocultar botón de crear hasta verificación
@@ -1782,17 +1783,21 @@ function inicializarCargaMasiva() {
     });
 }
 
-function mostrarPuntosDeVenta(puntosDeVentaArray) {
+function mostrarEmpresas(empresasArray) {
     const contenedor = document.getElementById('elegirEmpresa');
     if (!contenedor) {
         console.warn('No se encontró el div elegirEmpresa');
         return;
     }
-    if (Array.isArray(puntosDeVentaArray) && puntosDeVentaArray.length > 0) {
+    // Acepta array de strings (razones sociales) o array de objetos Empresa.
+    const razones = (Array.isArray(empresasArray) ? empresasArray : [])
+        .map(e => typeof e === 'string' ? e : (e && e.razonSocial))
+        .filter(Boolean);
+    if (razones.length > 0) {
         contenedor.innerHTML = `
-            <div style="margin-bottom: 8px; font-weight: bold;">Puntos de Venta encontrados:</div>
+            <div style="margin-bottom: 8px; font-weight: bold;">Empresas asociadas a este CUIT:</div>
             <ul style="margin:0; padding-left: 18px;">
-                ${puntosDeVentaArray.map(nombre => `<li>${nombre}</li>`).join('')}
+                ${razones.map(nombre => `<li>${nombre}</li>`).join('')}
             </ul>
         `;
     } else {

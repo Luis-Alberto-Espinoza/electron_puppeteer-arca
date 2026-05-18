@@ -51,8 +51,7 @@ window.inicializarConsultaComprobantes = () => {
             // Filtrar clientes con clave AFIP y al menos una empresa
             clientesCache = res.users.filter(u => {
                 const tieneClave = (u.claveAFIP && u.claveAFIP.trim()) || (u.clave && u.clave.trim());
-                const lista = u.puntosDeVenta || u.empresasDisponible || [];
-                return tieneClave && Array.isArray(lista) && lista.length > 0;
+                return tieneClave && Array.isArray(u.empresas) && u.empresas.length > 0;
             });
 
             if (clientesCache.length === 0) {
@@ -89,10 +88,7 @@ window.inicializarConsultaComprobantes = () => {
         }
 
         const cliente = clientesCache.find(u => String(u.id) === String(clienteId));
-        // Preferir empresas[] (modelo nuevo). Fallback a puntosDeVenta/empresasDisponible (legacy).
-        const empresas = Array.isArray(cliente?.empresas) && cliente.empresas.length > 0
-            ? cliente.empresas
-            : (cliente?.puntosDeVenta || cliente?.empresasDisponible || []);
+        const empresas = Array.isArray(cliente?.empresas) ? cliente.empresas : [];
 
         if (empresas.length === 0) {
             selectEmpresa.innerHTML = '<option value="">El cliente no tiene empresas registradas</option>';

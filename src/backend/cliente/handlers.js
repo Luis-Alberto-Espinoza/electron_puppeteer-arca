@@ -1,3 +1,5 @@
+const { crearEmpresa, normalizarCliente } = require('./model.js');
+
 module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, dialog) {
     ipcMain.handle('user:create', async (event, userData) => {
         try {
@@ -32,7 +34,24 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 }
             }
 
-            const newUser = {
+            // empresas[] viene del frontend. Aceptamos:
+            //   - array de objetos Empresa (modelo nuevo)
+            //   - array de strings (razones sociales) → se construyen con crearEmpresa
+            //   - fallback al legacy userData.empresasDisponible (strings) si el
+            //     frontend todavía no migró.
+            let empresasInput;
+            if (Array.isArray(userData.empresas) && userData.empresas.length > 0) {
+                empresasInput = userData.empresas;
+            } else if (Array.isArray(userData.empresasDisponible)) {
+                empresasInput = userData.empresasDisponible;
+            } else {
+                empresasInput = [];
+            }
+            const empresas = empresasInput
+                .map(e => typeof e === 'string' ? crearEmpresa({ razonSocial: e }) : crearEmpresa(e))
+                .filter(e => e.razonSocial);
+
+            const newUser = normalizarCliente({
                 id: userStorage.generateId(),
                 nombre: userData.nombre || null,
                 apellido: userData.apellido || null,
@@ -41,13 +60,13 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 tipoContribuyente: userData.tipoContribuyente || null,
                 claveAFIP: userData.claveAFIP,
                 claveATM: userData.claveATM,
-                empresasDisponible: userData.empresasDisponible || [],
+                empresas,
                 cuitAsociados: userData.cuitAsociados || [],
                 fechaCreacion: new Date().toISOString(),
                 estado_afip: estadoAFIP,
                 estado_atm: estadoATM,
                 fechaVerificacion: (userData.verificadoAFIP || userData.verificadoATM) ? new Date().toISOString() : null
-            };
+            });
 
             data.users.push(newUser);
             return userStorage.saveData(data)
@@ -212,11 +231,13 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     // ✅ VALIDAR UNA SOLA VEZ (obtiene puntos de venta automáticamente)
                     await gestionarValidacion(browser, usuario, servicesToVerify);
 
-                    // ✅ Obtener puntos de venta y CUITs del usuario validado
-                    const empresasDisponible = usuario.puntosDeVenta || [];
+                    // Obtener empresas y CUITs del usuario validado.
+                    const empresas = Array.isArray(usuario.empresas)
+                        ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
+                        : [];
                     const cuitAsociados = usuario.cuitAsociados || [];
 
-                    console.log('[Verificación Manual] Empresas disponibles obtenidas:', empresasDisponible);
+                    console.log('[Verificación Manual] Empresas obtenidas:', empresas);
                     if (cuitAsociados.length > 0) {
                         console.log('[Verificación Manual] CUITs asociados obtenidos:', cuitAsociados);
                     }
@@ -224,7 +245,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     // Traducir resultados
                     const finalResult = {
                         success: false,
-                        empresasDisponible,
+                        empresas,
+                        empresasDisponible: empresas, // alias retrocompat
                         cuitAsociados,
                         error: null,
                         verificaciones: {
@@ -271,7 +293,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     resolve({
                         success: false,
                         error: error.message,
-                        empresasDisponible: [],
+                        empresas: [],
+                        empresasDisponible: [], // alias retrocompat
                         cuitAsociados: [],
                         verificaciones: {
                             afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
@@ -309,7 +332,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             return {
                 success: false,
                 error: error.message,
-                empresasDisponible: [],
+                empresas: [],
+                empresasDisponible: [], // alias retrocompat
                 cuitAsociados: [],
                 verificaciones: {
                     afip: { intentado: !!credenciales.claveAFIP, exitoso: false, error: error.message },
@@ -403,10 +427,10 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 // Llama a la función de validación modular
                 await gestionarValidacion(browser, usuario, servicesToVerify);
 
-                // Mapear puntos de venta y CUITs asociados a los campos correctos del esquema de usuario
-                if (usuario.puntosDeVenta && usuario.puntosDeVenta.length > 0) {
-                    usuario.empresasDisponible = usuario.puntosDeVenta;
-                    console.log(`  -> Puntos de venta mapeados a empresasDisponible: ${usuario.empresasDisponible.length}`);
+                // gestionarValidacion ya escribió usuario.empresas[] directamente.
+                // El normalizador regenera el alias legacy puntosDeVenta[] al guardar.
+                if (Array.isArray(usuario.empresas) && usuario.empresas.length > 0) {
+                    console.log(`  -> Empresas guardadas: ${usuario.empresas.length}`);
                 }
                 if (usuario.cuitAsociados && usuario.cuitAsociados.length > 0) {
                     console.log(`  -> CUITs asociados guardados: ${usuario.cuitAsociados.length}`);
