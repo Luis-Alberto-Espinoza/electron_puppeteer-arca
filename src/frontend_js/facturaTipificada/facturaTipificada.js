@@ -74,7 +74,8 @@ async function inicializarFacturasTipificadas() {
 }
 
 /**
- * Muestra la información del usuario seleccionado
+ * Muestra la información del usuario seleccionado.
+ * El PDV NO va acá: tiene su propio selector más abajo en el formulario.
  */
 function mostrarInfoUsuario() {
     const infoContainer = document.getElementById('infoUsuarioFacturaTipificada');
@@ -84,12 +85,6 @@ function mostrarInfoUsuario() {
     const nombreCompleto = usuario.nombre || 'Usuario sin nombre';
     const cuitCuil = usuario.cuit || usuario.cuil || 'Sin CUIT/CUIL';
 
-    console.log("\n\nel contenido del usuario\t" + JSON.stringify(usuario, null, 2) + "\n\n");
-
-    // Placeholder hasta que se implemente el selector lazy de PDV por empresa
-    // (como en Consulta Comprobantes). El PDV real está en cliente.empresas[i].puntosDeVenta[j].numero.
-    const puntoVenta = '0001';
-
     infoContainer.innerHTML = `
         <div class="info-usuario-card">
             <div class="info-usuario-contenido">
@@ -97,55 +92,245 @@ function mostrarInfoUsuario() {
                 <p><strong>Nombre:</strong> ${nombreCompleto}</p>
                 <p><strong>CUIT/CUIL:</strong> ${cuitCuil}</p>
                 <p><strong>Tipo:</strong> ${usuario.tipoContribuyente || 'No especificado'}</p>
-                <p><strong>Punto de Venta:</strong> ${puntoVenta}</p>
             </div>
         </div>
     `;
 
     console.log('✅ Info de usuario mostrada:', nombreCompleto);
-    console.log('📍 Punto de venta:', puntoVenta);
 }
 
 /**
- * Inicializa el selector de empresas/puntos de venta
+ * Inicializa el selector de empresas y el selector lazy de PDV.
  */
 function inicializarSelectorEmpresas() {
     if (!window.usuarioSeleccionado) return;
 
-    const select = document.getElementById('empresaPuntoVenta');
-    if (!select) return;
+    // Clonar para limpiar listeners de invocaciones anteriores
+    // (esta función la llama también `cancelarFormulario`).
+    ['empresaPuntoVenta', 'puntoDeVentaSelect', 'btnRefrescarPdv'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.replaceWith(el.cloneNode(true));
+    });
+
+    const selectEmpresa = document.getElementById('empresaPuntoVenta');
+    const selectPdv = document.getElementById('puntoDeVentaSelect');
+    const btnRefrescar = document.getElementById('btnRefrescarPdv');
+    if (!selectEmpresa) return;
 
     const usuario = window.usuarioSeleccionado;
-
     const empresas = Array.isArray(usuario?.empresas)
         ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
         : [];
 
     if (empresas.length === 0) {
-        console.warn('⚠ No hay empresas/puntos de venta disponibles');
-        select.innerHTML = '<option value="">No hay empresas disponibles</option>';
+        console.warn('⚠ No hay empresas disponibles para el cliente');
+        selectEmpresa.innerHTML = '<option value="">No hay empresas disponibles</option>';
+        resetPdvSelect('Sin empresa');
         return;
     }
 
-    // Limpiar opciones existentes
-    select.innerHTML = '<option value="">Seleccionar...</option>';
-
-    // Agregar cada empresa como opción
-    empresas.forEach((empresa, index) => {
-        const option = document.createElement('option');
-        option.value = index; // El índice corresponde a la posición en el array
-        option.textContent = empresa;
-
-        // Preseleccionar la primera opción
-        if (index === 0) {
-            option.selected = true;
-        }
-
-        select.appendChild(option);
+    selectEmpresa.innerHTML = '<option value="">Seleccionar...</option>';
+    empresas.forEach((razonSocial, index) => {
+        const opt = document.createElement('option');
+        opt.value = index;
+        opt.textContent = razonSocial;
+        if (index === 0) opt.selected = true;
+        selectEmpresa.appendChild(opt);
     });
 
+    // Listener de empresa: cambio manual del usuario → auto-fetch si no hay cache.
+    selectEmpresa.addEventListener('change', () => manejarCambioEmpresa({ desdeUsuario: true }));
+
+    // Listener de refrescar.
+    if (btnRefrescar) {
+        btnRefrescar.addEventListener('click', async () => {
+            const indice = parseInt(selectEmpresa.value, 10);
+            const empresa = (usuario.empresas || [])[indice];
+            if (!empresa) return;
+            await descubrirYPopularPdv(usuario.id, empresa.razonSocial, indice);
+        });
+    }
+
+    // Disparar inicialización con la empresa preseleccionada — sin auto-fetch
+    // para no costar 20-40s de Puppeteer en cada apertura del formulario.
+    manejarCambioEmpresa({ desdeUsuario: false });
+
     console.log('✅ Selector de empresas inicializado con', empresas.length, 'empresa(s)');
-    console.log('📍 Empresas disponibles:', empresas);
+}
+
+/**
+ * Maneja un cambio del select de empresa.
+ * - Si hay PDV cacheados: poblar selector al instante.
+ * - Si NO hay cache y el cambio vino del usuario: disparar scraping lazy.
+ * - Si NO hay cache y es el init: dejar el botón Refrescar visible y avisar.
+ */
+async function manejarCambioEmpresa({ desdeUsuario }) {
+    const selectEmpresa = document.getElementById('empresaPuntoVenta');
+    const usuario = window.usuarioSeleccionado;
+    if (!selectEmpresa || !usuario) return;
+
+    const indice = parseInt(selectEmpresa.value, 10);
+    const empresa = Number.isInteger(indice) ? (usuario.empresas || [])[indice] : null;
+
+    if (!empresa) {
+        resetPdvSelect('Seleccione una empresa');
+        mostrarBtnRefrescarPdv(false);
+        ocultarPdvInfo();
+        return;
+    }
+
+    const tieneCache = Array.isArray(empresa.puntosDeVenta)
+        && empresa.puntosDeVenta.length > 0
+        && empresa.puntosDeVentaActualizados;
+
+    if (tieneCache) {
+        popularPdvSelect(empresa.puntosDeVenta, true);
+        mostrarBtnRefrescarPdv(true);
+        mostrarPdvInfo(
+            `Cargados desde caché — ${empresa.puntosDeVenta.length} PDV (actualizado ${formatearFechaPdv(empresa.puntosDeVentaActualizados)})`,
+            'idle'
+        );
+        return;
+    }
+
+    if (desdeUsuario) {
+        // Mismo patrón que consulta_comprobantes: cache miss en cambio manual → scrape.
+        await descubrirYPopularPdv(usuario.id, empresa.razonSocial, indice);
+        return;
+    }
+
+    // Init sin cache: no auto-scrape, dejarle al usuario el botón Refrescar.
+    resetPdvSelect('Sin PDV cacheados — haga clic en Refrescar');
+    mostrarBtnRefrescarPdv(true);
+    mostrarPdvInfo('Esta empresa no tiene PDV cacheados. Use 🔄 Refrescar para descubrirlos desde AFIP.', 'loading');
+}
+
+/**
+ * Llama al backend para descubrir PDV vía Puppeteer y los cachea en el modelo en memoria.
+ * @param {number|string} usuarioId
+ * @param {string} razonSocial
+ * @param {number} indiceEmpresa  índice de la empresa dentro de usuario.empresas[]
+ */
+async function descubrirYPopularPdv(usuarioId, razonSocial, indiceEmpresa) {
+    const selectPdv = document.getElementById('puntoDeVentaSelect');
+    const btnRefrescar = document.getElementById('btnRefrescarPdv');
+    const usuario = window.usuarioSeleccionado;
+
+    if (selectPdv) {
+        selectPdv.innerHTML = '<option value="">Descubriendo puntos de venta…</option>';
+        selectPdv.disabled = true;
+    }
+    if (btnRefrescar) btnRefrescar.disabled = true;
+    mostrarBtnRefrescarPdv(true);
+    mostrarPdvInfo('Conectando a AFIP para leer los puntos de venta — puede demorar 20–40s', 'loading');
+
+    try {
+        const res = await window.electronAPI.empresa.descubrirPuntosDeVenta({
+            usuarioId,
+            razonSocial
+        });
+
+        if (!res || !res.success) {
+            resetPdvSelect('Error al descubrir PDV');
+            mostrarPdvInfo(res?.message || 'Error al descubrir puntos de venta', 'error');
+            if (btnRefrescar) btnRefrescar.disabled = false;
+            return;
+        }
+
+        // Refrescar cache local en el usuario en memoria.
+        const empresa = (usuario?.empresas || [])[indiceEmpresa];
+        if (empresa) {
+            empresa.puntosDeVenta = res.data.puntosDeVenta;
+            empresa.puntosDeVentaActualizados = res.data.puntosDeVentaActualizados;
+        }
+
+        const pdvs = Array.isArray(res.data.puntosDeVenta) ? res.data.puntosDeVenta : [];
+        popularPdvSelect(pdvs, true);
+
+        if (pdvs.length > 0) {
+            mostrarPdvInfo(`Actualizado ahora — ${pdvs.length} PDV encontrado(s)`, 'idle');
+        }
+        if (btnRefrescar) btnRefrescar.disabled = false;
+    } catch (e) {
+        console.error('❌ Error descubriendo PDV:', e);
+        resetPdvSelect('Error al descubrir PDV');
+        mostrarPdvInfo(e.message || 'Error inesperado', 'error');
+        if (btnRefrescar) btnRefrescar.disabled = false;
+    }
+}
+
+/**
+ * Puebla el select de PDV con los objetos {numero, descripcion}.
+ * Si `preseleccionarPrimero` es true, marca el primer PDV.
+ */
+function popularPdvSelect(pdvs, preseleccionarPrimero) {
+    const selectPdv = document.getElementById('puntoDeVentaSelect');
+    if (!selectPdv) return;
+
+    if (!Array.isArray(pdvs) || pdvs.length === 0) {
+        selectPdv.innerHTML = '<option value="">— sin facturación habilitada —</option>';
+        selectPdv.disabled = true;
+        mostrarPdvInfo(
+            '⚠️ Esta empresa no tiene facturación habilitada en AFIP. No hay PDV activos.',
+            'error'
+        );
+        return;
+    }
+
+    selectPdv.innerHTML = '<option value="">Seleccione un punto de venta</option>';
+    pdvs.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.numero;
+        opt.textContent = p.descripcion ? `${p.numero} — ${p.descripcion}` : p.numero;
+        selectPdv.appendChild(opt);
+    });
+    selectPdv.disabled = false;
+
+    if (preseleccionarPrimero && pdvs.length > 0) {
+        selectPdv.value = pdvs[0].numero;
+    }
+}
+
+function resetPdvSelect(placeholder) {
+    const selectPdv = document.getElementById('puntoDeVentaSelect');
+    if (!selectPdv) return;
+    selectPdv.innerHTML = `<option value="">${placeholder}</option>`;
+    selectPdv.disabled = true;
+}
+
+function mostrarBtnRefrescarPdv(visible) {
+    const btn = document.getElementById('btnRefrescarPdv');
+    if (btn) btn.style.display = visible ? '' : 'none';
+}
+
+function mostrarPdvInfo(texto, tipo) {
+    const info = document.getElementById('pdvInfo');
+    if (!info) return;
+    info.textContent = texto;
+    info.style.display = 'block';
+    info.style.color = tipo === 'error' ? '#dc3545'
+                      : tipo === 'loading' ? '#0066cc'
+                      : '#28a745';
+}
+
+function ocultarPdvInfo() {
+    const info = document.getElementById('pdvInfo');
+    if (!info) return;
+    info.style.display = 'none';
+    info.textContent = '';
+}
+
+function formatearFechaPdv(iso) {
+    if (!iso) return '';
+    try {
+        const d = new Date(iso);
+        return d.toLocaleString('es-AR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+    } catch (_) {
+        return iso;
+    }
 }
 
 /**
@@ -646,21 +831,18 @@ function recopilarDatosFormulario() {
     // Obtener usuario seleccionado
     const usuario = window.usuarioSeleccionado;
 
-    // Obtener el índice de la empresa/punto de venta seleccionado
-    const indiceEmpresaSeleccionada = parseInt(formData.get('empresaPuntoVenta')) || 0;
+    // Empresa elegida (índice) → razón social
+    const indiceEmpresaSeleccionada = parseInt(formData.get('empresaPuntoVenta'), 10);
+    const empresaElegida = Number.isInteger(indiceEmpresaSeleccionada)
+        ? (usuario?.empresas || [])[indiceEmpresaSeleccionada]
+        : null;
+    const nombreEmpresa = empresaElegida?.razonSocial || '';
 
-    const empresas = Array.isArray(usuario?.empresas)
-        ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
-        : [];
+    // PDV elegido (numero como "00006")
+    const puntoVenta = formData.get('puntoDeVenta') || '';
 
-    // Obtener el punto de venta seleccionado (empresa y punto de venta son lo mismo)
-    let puntoVenta = '0001'; // Valor por defecto
-    if (empresas.length > indiceEmpresaSeleccionada) {
-        puntoVenta = empresas[indiceEmpresaSeleccionada];
-    }
-
-    console.log('📍 Índice seleccionado:', indiceEmpresaSeleccionada);
-    console.log('📍 Punto de venta/Empresa seleccionada:', puntoVenta);
+    console.log('📍 Empresa elegida:', nombreEmpresa);
+    console.log('📍 Punto de venta:', puntoVenta);
 
     // Datos comunes (compartidos por todas las facturas)
     const datosComunes = {
@@ -668,6 +850,7 @@ function recopilarDatosFormulario() {
         tipoContribuyente: usuario.tipoContribuyente,
         fechaComprobante: formData.get('fechaComprobante'),
         puntoVenta: puntoVenta,
+        nombreEmpresa: nombreEmpresa,
 
         // Fechas de servicio (si aplica)
         fechaDesde: formData.get('fechaDesde') || formData.get('fechaComprobante'),

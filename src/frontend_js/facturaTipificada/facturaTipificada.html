@@ -36,11 +36,28 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="empresaPuntoVenta">Empresa / Punto de Venta *</label>
+                            <label for="empresaPuntoVenta">Empresa / Razón Social *</label>
                             <select id="empresaPuntoVenta" name="empresaPuntoVenta" required>
                                 <option value="">Seleccionar...</option>
                                 <!-- Las opciones se llenarán dinámicamente desde el JS -->
                             </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="puntoDeVentaSelect">Punto de Venta *</label>
+                            <div class="pdv-fila" style="display:flex; gap:8px; align-items:center;">
+                                <select id="puntoDeVentaSelect" name="puntoDeVenta" required style="flex:1;">
+                                    <option value="">Seleccione primero una empresa</option>
+                                </select>
+                                <button id="btnRefrescarPdv" type="button" class="btn-secundario"
+                                        title="Volver a leer los puntos de venta desde AFIP"
+                                        style="display:none; white-space:nowrap;">
+                                    🔄 Refrescar
+                                </button>
+                            </div>
+                            <div id="pdvInfo" class="pdv-info" style="display:none; font-size:0.85em; margin-top:6px;"></div>
                         </div>
                     </div>
 
