@@ -820,11 +820,21 @@ function displayUsers(users) {
         </label>
     `).join('');
 
+    // Cantidad de candidatos al análisis por lote: AFIP validado + sin analizar.
+    const pendientesAnalisis = users.filter(u =>
+        u.estado_afip === 'validado' && u.analizado_afip !== true
+    ).length;
+
+    const botonLote = pendientesAnalisis > 0
+        ? `<button class="btn btn-warning" id="btnAnalizarLote" style="margin-left:10px;">🔍 Analizar pendientes (${pendientesAnalisis})</button>`
+        : '';
+
     const bulkActionsHeader = `
         <div class="user-item bulk-actions-header">
             <div class="bulk-actions-controls">
                 ${selectAllCheckboxes}
                 <button class="btn btn-primary" id="btnVerificarSeleccionados">Verificar Seleccionados</button>
+                ${botonLote}
             </div>
         </div>
     `;
@@ -838,33 +848,37 @@ function displayUsers(users) {
             const hasKey = !!user[`clave${service.toUpperCase()}`];
             const isCheckable = hasKey && status !== 'validado';
 
+            // Para AFIP validado, en lugar del badge "✔ Validado" mostramos
+            // el sub-estado de análisis: botón "Analizar" si falta, badge si ya está.
+            let indicador = renderStatus(status);
+            if (service === 'afip' && status === 'validado') {
+                indicador = user.analizado_afip === true
+                    ? `<span class="status-badge status-validado" title="Credenciales OK y empresas/PDV scrapeados">✅ Analizado</span>`
+                    : `<button onclick="window.analizarClienteDesdeListado('${user.id}', '${(user.nombre || '').replace(/'/g, "\\'")}')" style="padding:3px 10px;background:#fff8e1;color:#b26a00;border:1px solid #f0ad4e;border-radius:4px;font-size:12px;cursor:pointer;" title="Validado. Falta scrapear empresas y puntos de venta.">🔍 Analizar</button>`;
+            }
+
             return `
                 <div class="service-status">
                     <label>
-                        <input 
-                            type="checkbox" 
-                            class="service-checkbox" 
-                            data-user-id="${user.id}" 
-                            data-service="${service}" 
+                        <input
+                            type="checkbox"
+                            class="service-checkbox"
+                            data-user-id="${user.id}"
+                            data-service="${service}"
                             ${isCheckable ? '' : 'disabled'}
                         >
                         <span>${service.toUpperCase()}:</span>
                     </label>
-                    ${renderStatus(status)}
+                    ${indicador}
                 </div>
             `;
         }).join('');
-
-        const analisisBadge = user.analizado_afip === true
-            ? `<span class="badge-analizado" style="display:inline-block;margin-top:4px;padding:2px 8px;background:#e8f5e9;color:#2e7d32;border-radius:10px;font-size:11px;">✅ analizado</span>`
-            : `<span class="badge-analizado" style="display:inline-block;margin-top:4px;padding:2px 8px;background:#fff8e1;color:#b26a00;border-radius:10px;font-size:11px;">⏳ sin analizar</span>`;
 
         return `
             <div class="user-item" data-user-id="${user.id}">
                 <div class="user-info">
                     <div class="user-name">👤 ${user.nombre} ${user.apellido || ''}</div>
                     <div class="user-details">🆔 CUIT/L: ${user.cuit || user.cuil || 'N/A'}</div>
-                    ${analisisBadge}
                 </div>
                 <div class="user-status">
                     ${servicesHTML}
@@ -1110,14 +1124,56 @@ function actualizarEstadoAnalisisEnEdicion() {
 }
 
 /**
- * STUB temporal — se conectará al handler real cuando esté el flujo ABM Puppeteer.
+ * Dispara el análisis completo del cliente: login AFIP, lista empresas,
+ * scrapea PDV detallados (ABM) de cada una y persiste en `cliente.empresas`.
+ * Setea `analizado_afip=true` si al menos una empresa fue procesada con éxito.
  */
-window.analizarCliente = function () {
+window.analizarCliente = async function () {
     if (!window.currentEditingUser || !window.currentEditingUser.id) {
         showAlert('No hay un cliente en edición.', 'error');
         return;
     }
-    showAlert(`🚧 "Analizar cliente" todavía no está implementado del lado del backend (Fases 2-3 del scraping ABM). Próximamente para CUIT ${window.currentEditingUser.cuit || window.currentEditingUser.cuil}.`, 'warning');
+
+    const btn = document.getElementById('btnAnalizarCliente');
+    const loading = document.getElementById('analizarLoading');
+
+    if (btn) btn.disabled = true;
+    if (loading) {
+        loading.classList.remove('hidden');
+        loading.innerHTML = '<span class="spinner"></span><span class="loader-text">Analizando...</span>';
+    }
+
+    try {
+        const response = await window.electronAPI.empresa.analizarCliente({
+            usuarioId: window.currentEditingUser.id
+        });
+
+        if (response.success) {
+            const { totalEmpresas, empresasExitosas, resultados } = response.data || {};
+            window.currentEditingUser.analizado_afip = true;
+            actualizarEstadoAnalisisEnEdicion();
+
+            const detalles = (resultados || []).map(r =>
+                r.success
+                    ? `  ✅ ${r.razonSocial}: ${r.count} PDV`
+                    : `  ❌ ${r.razonSocial}: ${r.error}`
+            ).join('\n');
+            showAlert(
+                `✅ Análisis completado. ${empresasExitosas}/${totalEmpresas} empresa(s) OK.\n${detalles}`,
+                'success'
+            );
+
+            if (typeof loadUsers === 'function') await loadUsers();
+        } else {
+            showAlert(`❌ Análisis falló: ${response.message || response.error || 'error desconocido'}`, 'error');
+        }
+    } catch (error) {
+        console.error('[Analizar cliente] error:', error);
+        showAlert(`Error de comunicación: ${error.message}`, 'error');
+    } finally {
+        if (btn) btn.disabled = false;
+        if (loading) loading.classList.add('hidden');
+    }
 };
 
 // Eliminar cliente
@@ -1256,6 +1312,12 @@ function inicializarUsuarioFrontend() {
     // Event listener para los controles de bulk actions (ahora en contenedor separado)
     bulkActionsContainer.addEventListener('click', async (event) => {
         const target = event.target;
+
+        // --- Análisis por lote (todos los AFIP validados sin analizar) ---
+        if (target.matches('#btnAnalizarLote')) {
+            await analizarPorLote();
+            return;
+        }
 
         // --- Verificación en lote ---
         if (target.matches('#btnVerificarSeleccionados')) {
@@ -1855,4 +1917,127 @@ function mostrarPendienteDeAnalisis() {
             Después de crear el cliente, entrá a la edición y apretá <em>"Analizar cliente"</em> para completar los datos.
         </div>
     `;
+}
+
+/**
+ * Modal overlay para mostrar el progreso del análisis (individual o por lote).
+ * Devuelve un controlador con .actualizar(actual, mensaje, stats) y .cerrar().
+ */
+function mostrarModalProgreso(total) {
+    const overlay = document.createElement('div');
+    overlay.id = 'modalProgresoAnalisis';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+        <div style="background:white;padding:30px;border-radius:8px;min-width:420px;max-width:640px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+            <h3 style="margin:0 0 10px 0;">🔍 Analizando ${total === 1 ? 'cliente' : `${total} clientes`}</h3>
+            <div id="modalProgresoTexto" style="margin:15px 0;font-size:14px;color:#444;">Preparando...</div>
+            <div style="background:#eee;border-radius:4px;height:18px;overflow:hidden;">
+                <div id="modalProgresoBarra" style="background:linear-gradient(90deg,#28a745,#20c997);height:100%;width:0%;transition:width .3s;"></div>
+            </div>
+            <div id="modalProgresoStats" style="margin-top:15px;font-size:13px;color:#666;"></div>
+            <div style="margin-top:10px;font-size:11px;color:#999;">El proceso no se puede cancelar a mitad. Cada cliente abre una sesión de AFIP.</div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    return {
+        actualizar(actual, mensaje, stats) {
+            const t = document.getElementById('modalProgresoTexto');
+            const b = document.getElementById('modalProgresoBarra');
+            const s = document.getElementById('modalProgresoStats');
+            if (t) t.textContent = `${actual}/${total}: ${mensaje}`;
+            if (b) b.style.width = `${Math.round((actual / total) * 100)}%`;
+            if (s && stats) s.innerHTML = `✅ ${stats.exitosos} &nbsp;&nbsp; ❌ ${stats.fallidos}`;
+        },
+        cerrar() {
+            overlay.remove();
+        }
+    };
+}
+
+/**
+ * Dispara el análisis de un solo cliente desde el botón inline del listado.
+ * (sin abrir el formulario de edición).
+ */
+window.analizarClienteDesdeListado = async function (userId, nombre) {
+    const display = nombre || `cliente ${userId}`;
+    const progreso = mostrarModalProgreso(1);
+    progreso.actualizar(1, display, { exitosos: 0, fallidos: 0 });
+
+    try {
+        const response = await window.electronAPI.empresa.analizarCliente({ usuarioId: userId });
+        progreso.cerrar();
+        if (response.success) {
+            const { empresasExitosas, totalEmpresas } = response.data || {};
+            showAlert(`✅ ${display}: ${empresasExitosas}/${totalEmpresas} empresa(s) OK.`, 'success');
+        } else {
+            showAlert(`❌ ${display}: ${response.message || response.error || 'falló'}`, 'error');
+        }
+    } catch (err) {
+        progreso.cerrar();
+        showAlert(`Error analizando ${display}: ${err.message}`, 'error');
+    } finally {
+        if (typeof loadUsers === 'function') await loadUsers();
+    }
+};
+
+/**
+ * Análisis por lote: itera todos los clientes con AFIP validado + sin analizar.
+ * Confirmación previa, modal de progreso, resumen al final.
+ */
+async function analizarPorLote() {
+    const result = await window.electronAPI.user.getAll();
+    if (!result.success) {
+        return showAlert('No se pudo cargar la lista de clientes.', 'error');
+    }
+    const pendientes = (result.users || []).filter(u =>
+        u.estado_afip === 'validado' && u.analizado_afip !== true
+    );
+
+    if (pendientes.length === 0) {
+        return showAlert('No hay clientes pendientes de análisis.', 'info');
+    }
+
+    const confirmed = await showConfirmModal({
+        title: 'Análisis por lote',
+        message: `Vas a analizar ${pendientes.length} cliente(s) con AFIP validado y sin analizar.\n\nCada cliente abre una sesión de AFIP, hace login y scrapea sus empresas. Si tenés muchos puede tardar bastante.\n\n¿Continuar?`,
+        icon: '🔍',
+        confirmText: 'Sí, analizar todos',
+        cancelText: 'Cancelar'
+    });
+    if (!confirmed) return;
+
+    const progreso = mostrarModalProgreso(pendientes.length);
+    let exitosos = 0;
+    let fallidos = 0;
+    const resumen = [];
+
+    for (let i = 0; i < pendientes.length; i++) {
+        const cli = pendientes[i];
+        const display = `${cli.nombre || ''} ${cli.apellido || ''}`.trim() || cli.cuit || cli.id;
+        progreso.actualizar(i + 1, display, { exitosos, fallidos });
+
+        try {
+            const resp = await window.electronAPI.empresa.analizarCliente({ usuarioId: cli.id });
+            if (resp.success) {
+                exitosos++;
+                resumen.push(`✅ ${display}: ${resp.data.empresasExitosas}/${resp.data.totalEmpresas} empresa(s) OK`);
+            } else {
+                fallidos++;
+                resumen.push(`❌ ${display}: ${resp.message || resp.error || 'falló'}`);
+            }
+        } catch (err) {
+            fallidos++;
+            resumen.push(`❌ ${display}: ${err.message}`);
+        }
+        progreso.actualizar(i + 1, display, { exitosos, fallidos });
+    }
+
+    progreso.cerrar();
+    if (typeof loadUsers === 'function') await loadUsers();
+
+    showAlert(
+        `Lote terminado: ${exitosos} OK, ${fallidos} fallido(s).\n\n${resumen.join('\n')}`,
+        exitosos > 0 && fallidos === 0 ? 'success' : (exitosos > 0 ? 'warning' : 'error')
+    );
 }
