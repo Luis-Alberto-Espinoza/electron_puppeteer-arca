@@ -25,6 +25,21 @@ function setupEmpresaHandlers(ipcMain, userStorage) {
             return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
         }
     });
+
+    ipcMain.handle('empresa:analizarCliente', async (event, datos) => {
+        console.log('BACKEND: empresa:analizarCliente recibido');
+
+        try {
+            const { usuarioId } = datos || {};
+            if (!usuarioId) return { success: false, error: 'MISSING_USER', message: 'Falta el id del usuario.' };
+
+            return await empresaManager.analizarCliente(userStorage, usuarioId);
+
+        } catch (error) {
+            console.error('BACKEND: Error en empresa:analizarCliente:', error);
+            return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
+        }
+    });
 }
 
 module.exports = setupEmpresaHandlers;

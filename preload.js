@@ -126,7 +126,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // APIs para operaciones sobre Empresa (lectura on-demand desde AFIP)
     empresa: {
-        descubrirPuntosDeVenta: (datos) => ipcRenderer.invoke('empresa:descubrirPuntosDeVenta', datos)
+        descubrirPuntosDeVenta: (datos) => ipcRenderer.invoke('empresa:descubrirPuntosDeVenta', datos),
+        analizarCliente: (datos) => ipcRenderer.invoke('empresa:analizarCliente', datos)
     },
 
     // APIs para Cuenta Tributaria (SCT)
