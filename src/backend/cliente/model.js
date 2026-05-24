@@ -19,9 +19,14 @@
 
 /**
  * @typedef {Object} Empresa
- * @property {string|null} cuit                       CUIT de la empresa (puede no conocerse aún)
+ * @property {string|null} cuit                       CUIT de la empresa (lo llena el scraping ABM)
  * @property {string} razonSocial                     razón social tal como aparece en AFIP
  * @property {'B'|'C'|null} tipoContribuyente         tipo DE LA EMPRESA (puede diferir del cliente)
+ * @property {string|null} claveATM                   PARCHE: clave ATM propia de la empresa (ATM
+ *   Mendoza es por empresa, no por representante). Se carga manualmente por ahora.
+ *   Deuda técnica conocida: cuando llegue el modelo BD (Contribuyente + Credencial),
+ *   esto se reemplaza por una fila en `credenciales(servicio='atm_mendoza')`.
+ *   Ver docs/analisis/baseDeDatos/2_idea.md §1.2.
  * @property {PuntoDeVenta[]} puntosDeVenta           lista de pdv numéricos habilitados
  * @property {string|null} puntosDeVentaActualizados  ISO timestamp; null si nunca se trajeron
  */
@@ -63,6 +68,7 @@ function crearEmpresa(parcial = {}) {
         cuit: parcial.cuit != null ? String(parcial.cuit) : null,
         razonSocial: String(parcial.razonSocial || '').trim(),
         tipoContribuyente: parcial.tipoContribuyente || null,
+        claveATM: parcial.claveATM ? String(parcial.claveATM) : null,
         puntosDeVenta: Array.isArray(parcial.puntosDeVenta)
             ? parcial.puntosDeVenta.map(normalizarPuntoDeVenta).filter(Boolean)
             : [],
