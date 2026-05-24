@@ -177,6 +177,12 @@
     border-left: 3px solid #f59e0b;
 }
 
+/* GRUPO 4: Sin analizar - Naranja claro (credenciales OK pero falta scraping) */
+.usuario-fila.estado-sin_analizar {
+    background-color: #fff8e1 !important;
+    border-left: 3px solid #f0ad4e;
+}
+
 /* Estado deshabilitado (no seleccionable) */
 .usuario-fila.deshabilitado {
     cursor: not-allowed;
@@ -203,6 +209,11 @@
 .usuario-fila.estado-sin_validar .usuario-mensaje-estado {
     color: #92400e;
     background-color: rgba(252, 211, 77, 0.3);
+}
+
+.usuario-fila.estado-sin_analizar .usuario-mensaje-estado {
+    color: #b26a00;
+    background-color: rgba(240, 173, 78, 0.2);
 }
 
 /* Animación cuando se intenta seleccionar un usuario bloqueado */

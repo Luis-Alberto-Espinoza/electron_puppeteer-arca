@@ -215,6 +215,10 @@ async function mostrarSelectorUsuario() {
             permitirSinValidar: false,
             mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
 
+            // El selector que sirve para Facturación / MP / Factura Tipificada exige
+            // que el cliente esté analizado (tener empresas + PDV scrapeados).
+            requiereAnalisis: true,
+
             onCambioSeleccion: (usuariosSeleccionados) => {
                 // Solo permitir 1 usuario - tomar el ÚLTIMO (el recién clickeado)
                 if (usuariosSeleccionados.length > 0) {

@@ -48,14 +48,17 @@ window.inicializarConsultaComprobantes = () => {
                 return;
             }
 
-            // Filtrar clientes con clave AFIP y al menos una empresa
+            // Mostramos todos los clientes con clave AFIP. Los que no estén
+            // analizados aparecen deshabilitados (no se pueden seleccionar)
+            // con sufijo "(sin analizar)" — estrategia coherente con el
+            // selector de Facturación.
             clientesCache = res.users.filter(u => {
                 const tieneClave = (u.claveAFIP && u.claveAFIP.trim()) || (u.clave && u.clave.trim());
-                return tieneClave && Array.isArray(u.empresas) && u.empresas.length > 0;
+                return tieneClave;
             });
 
             if (clientesCache.length === 0) {
-                selectCliente.innerHTML = '<option value="">No hay clientes con AFIP + empresas</option>';
+                selectCliente.innerHTML = '<option value="">No hay clientes con clave AFIP</option>';
                 return;
             }
 
@@ -64,7 +67,14 @@ window.inicializarConsultaComprobantes = () => {
                 const opt = document.createElement('option');
                 opt.value = u.id;
                 const nombre = `${u.nombre || ''} ${u.apellido || ''}`.trim();
-                opt.textContent = `${nombre} — ${u.cuit || ''}`;
+                const analizado = u.analizado_afip === true && Array.isArray(u.empresas) && u.empresas.length > 0;
+                if (!analizado) {
+                    opt.disabled = true;
+                    opt.textContent = `⏳ ${nombre} — ${u.cuit || ''} (sin analizar)`;
+                    opt.title = 'Analizá primero el cliente (botón "🔍 Analizar" en Gestión de Cliente).';
+                } else {
+                    opt.textContent = `${nombre} — ${u.cuit || ''}`;
+                }
                 selectCliente.appendChild(opt);
             });
             selectCliente.disabled = false;

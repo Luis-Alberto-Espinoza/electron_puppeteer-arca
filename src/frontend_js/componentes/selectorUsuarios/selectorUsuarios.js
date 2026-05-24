@@ -56,6 +56,17 @@ class SelectorUsuarios {
             // Mensaje para usuarios sin validar
             mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
 
+            // ====== ANÁLISIS (scraping de empresas + PDV) ======
+            // Si true, los usuarios validados pero sin análisis se muestran
+            // deshabilitados (no seleccionables) con el mensaje de abajo.
+            requiereAnalisis: false,
+
+            // Campo booleano que indica si ya se hizo el scraping detallado.
+            campoAnalisis: 'analizado_afip',
+
+            // Mensaje para usuarios que están validados pero sin analizar.
+            mensajeSinAnalizar: 'Analizá primero el cliente (botón "🔍 Analizar" en Gestión de Cliente) para traer empresas y puntos de venta.',
+
             // API de Electron (pasada desde el contexto que tiene acceso)
             api: null,
 
@@ -83,7 +94,7 @@ class SelectorUsuarios {
     /**
      * Determina el estado de validación de un usuario
      * @param {Object} usuario - Usuario a evaluar
-     * @returns {Object} { estado: 'validado'|'invalido'|'sin_validar', mensaje: string, esSeleccionable: boolean }
+     * @returns {Object} { estado: 'validado'|'invalido'|'sin_validar'|'sin_analizar', mensaje: string, esSeleccionable: boolean }
      */
     obtenerEstadoValidacion(usuario) {
         // Si no hay configuración de validación, todos son válidos
@@ -100,6 +111,15 @@ class SelectorUsuarios {
 
         // GRUPO 1: Validado ✅
         if (estadoUsuario === 'validado') {
+            // Sub-chequeo: si la vista requiere análisis (scraping de empresas/PDV),
+            // un cliente validado pero sin analizar no es usable acá.
+            if (this.opciones.requiereAnalisis && usuario[this.opciones.campoAnalisis] !== true) {
+                return {
+                    estado: 'sin_analizar',
+                    mensaje: this.opciones.mensajeSinAnalizar,
+                    esSeleccionable: false
+                };
+            }
             return {
                 estado: 'validado',
                 mensaje: null,
@@ -184,16 +204,20 @@ class SelectorUsuarios {
                     console.log(`🔵 Filtrado por ${campoCredencial}: ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
                 }
 
-                // FILTRAR por estado de validación si está configurado
+                // FILTRAR por estado de validación si está configurado.
+                // Eliminamos del listado a los inválidos y sin_validar; los
+                // "sin_analizar" (estado nuevo) NO se filtran: queremos
+                // mostrarlos deshabilitados con su mensaje informativo.
                 if (this.opciones.campoEstado && !this.opciones.permitirInvalidos && !this.opciones.permitirSinValidar) {
                     const usuariosAntesDeFiltar = usuarios.length;
 
                     usuarios = usuarios.filter(user => {
                         const estadoValidacion = this.obtenerEstadoValidacion(user);
-                        return estadoValidacion.estado === 'validado';
+                        return estadoValidacion.estado === 'validado'
+                            || estadoValidacion.estado === 'sin_analizar';
                     });
 
-                    console.log(`🔵 Filtrado por estado validado: ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
+                    console.log(`🔵 Filtrado (oculta inválidos / sin_validar): ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
                 }
 
                 // Ordenar alfabéticamente por nombre
@@ -315,6 +339,8 @@ class SelectorUsuarios {
                 icono = '❌';
             } else if (estadoValidacion.estado === 'sin_validar') {
                 icono = '⚠️';
+            } else if (estadoValidacion.estado === 'sin_analizar') {
+                icono = '⏳';
             }
 
             return `
