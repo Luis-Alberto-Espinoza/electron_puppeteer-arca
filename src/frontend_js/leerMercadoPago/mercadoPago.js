@@ -330,6 +330,9 @@ function mostrarBotonHacerFactura(resultado) {
             const selectEmpresa = document.getElementById('selectEmpresaDisponibleMP');
             const empresaElegida = selectEmpresa ? selectEmpresa.value : '';
 
+            const selectPdvMP = document.getElementById('selectPuntoDeVentaMP');
+            const puntoVenta = selectPdvMP && selectPdvMP.value ? selectPdvMP.value : null;
+
             const radioActividad = document.querySelector('input[name="ActividadMP"]:checked');
             const actividadElegida = radioActividad ? radioActividad.value : 'Servicio';
 
@@ -348,10 +351,11 @@ function mostrarBotonHacerFactura(resultado) {
                 Actividad: actividadElegida,
                 tipoContribuyente: usuarioSeleccionado.tipoContribuyente || 'C',
                 datos: datosDiarios,
-                fechaComprobante, 
+                fechaComprobante,
                 metodoIngreso: 'masivo',
                 servicio: "factura",
                 empresaElegida,
+                puntoVenta,
                 usuario: usuarioSeleccionado
             };
             mercadoPagoFacturas(datosParaEnviar);
@@ -416,32 +420,36 @@ function inicializarUsuarioEmpresaActividadMP() {
     const selectEmpresaMP = document.getElementById('selectEmpresaDisponibleMP');
     if (selectEmpresaMP && usuario) {
         selectEmpresaMP.innerHTML = '';
-        const empresas = Array.isArray(usuario?.empresas)
+        const razonesSociales = Array.isArray(usuario?.empresas)
             ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
             : [];
-        if (empresas.length === 0) {
+        if (razonesSociales.length === 0) {
             const option = document.createElement('option');
             option.value = '';
             option.textContent = 'Sin empresas disponibles';
             selectEmpresaMP.appendChild(option);
             selectEmpresaMP.disabled = true;
             window.empresaElegidaMP = '';
+            window.puntoVentaElegidoMP = '';
+            popularPuntosDeVentaMP(-1);
         } else {
-            empresas.forEach(empresa => {
+            razonesSociales.forEach(razon => {
                 const option = document.createElement('option');
-                option.value = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
-                option.textContent = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
+                option.value = razon;
+                option.textContent = razon;
                 selectEmpresaMP.appendChild(option);
             });
-            selectEmpresaMP.disabled = empresas.length === 1;
-            if (empresas.length === 1) {
+            selectEmpresaMP.disabled = razonesSociales.length === 1;
+            if (razonesSociales.length === 1 || selectEmpresaMP.selectedIndex < 0) {
                 selectEmpresaMP.selectedIndex = 0;
                 window.empresaElegidaMP = selectEmpresaMP.value;
             }
+            popularPuntosDeVentaMP(selectEmpresaMP.selectedIndex);
         }
-        // Guardar la empresa elegida al cambiar
+        // Guardar la empresa elegida al cambiar + refrescar PDV
         selectEmpresaMP.addEventListener('change', () => {
             window.empresaElegidaMP = selectEmpresaMP.value;
+            popularPuntosDeVentaMP(selectEmpresaMP.selectedIndex);
         });
     }
 
@@ -477,6 +485,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Asegura que la inicialización se ejecute también después de cargar el HTML dinámicamente
 window.configurarUsuarioMercadoPago = inicializarUsuarioEmpresaActividadMP;
+
+/**
+ * Pobla el <select id="selectPuntoDeVentaMP"> con los PDV cacheados de la empresa
+ * en el índice dado. Cliente llega ya analizado (Fase 5), así que sin fetch lazy.
+ */
+function popularPuntosDeVentaMP(indiceEmpresa) {
+    const selectPdv = document.getElementById('selectPuntoDeVentaMP');
+    if (!selectPdv) return;
+    const usuario = window.usuarioSeleccionado;
+    const empresa = (usuario?.empresas || [])[indiceEmpresa] || null;
+    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser operable
+    // (Factura en Linea - Responsable Inscripto + activo). Cubre datos viejos
+    // del JSON guardados antes del filtrado en backend.
+    const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const pdvs = (empresa?.puntosDeVenta || []).filter(p => {
+        if (!p || !p.numero) return false;
+        if (p.sistema) {
+            return normSistema(p.sistema) === 'factura en linea - responsable inscripto'
+                && p.activo === true;
+        }
+        return true;
+    });
+
+    selectPdv.innerHTML = '';
+
+    if (pdvs.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = empresa ? '— sin puntos de venta —' : '— elegí una empresa —';
+        selectPdv.appendChild(opt);
+        selectPdv.disabled = true;
+        window.puntoVentaElegidoMP = '';
+        return;
+    }
+
+    pdvs.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.numero;
+        opt.textContent = p.descripcion ? `${p.numero} — ${p.descripcion}` : p.numero;
+        selectPdv.appendChild(opt);
+    });
+    selectPdv.disabled = false;
+    selectPdv.selectedIndex = 0;
+    window.puntoVentaElegidoMP = selectPdv.value;
+
+    selectPdv.onchange = () => {
+        window.puntoVentaElegidoMP = selectPdv.value;
+    };
+}
 
 // ========================================
 // FUNCIONES AUXILIARES

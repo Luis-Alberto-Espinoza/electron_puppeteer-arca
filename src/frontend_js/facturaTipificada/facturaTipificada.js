@@ -260,12 +260,32 @@ async function descubrirYPopularPdv(usuarioId, razonSocial, indiceEmpresa) {
 }
 
 /**
+ * Filtro defensivo para selects de PDV en frontend.
+ * Si el PDV tiene un `sistema` declarado (vino del ABM), exigir que sea
+ * "Factura en Linea - Responsable Inscripto" y activo. Si no tiene sistema
+ * (vino del fallback Comprobantes en Línea), dejar pasar.
+ * Cubre datos viejos del JSON guardados antes del filtrado en backend.
+ */
+function _esPdvOperable(p) {
+    if (!p || !p.numero) return false;
+    if (p.sistema) {
+        const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        return norm(p.sistema) === 'factura en linea - responsable inscripto'
+            && p.activo === true;
+    }
+    return true;
+}
+
+/**
  * Puebla el select de PDV con los objetos {numero, descripcion}.
  * Si `preseleccionarPrimero` es true, marca el primer PDV.
  */
 function popularPdvSelect(pdvs, preseleccionarPrimero) {
     const selectPdv = document.getElementById('puntoDeVentaSelect');
     if (!selectPdv) return;
+
+    // Filtro defensivo por si el JSON tiene datos viejos sin filtrar.
+    pdvs = Array.isArray(pdvs) ? pdvs.filter(_esPdvOperable) : [];
 
     if (!Array.isArray(pdvs) || pdvs.length === 0) {
         selectPdv.innerHTML = '<option value="">— sin facturación habilitada —</option>';

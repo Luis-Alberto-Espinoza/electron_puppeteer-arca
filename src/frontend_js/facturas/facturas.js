@@ -12,7 +12,10 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
     const data = Object.fromEntries(formData.entries());
     let errores = [];
     const usuarioSeleccionado = window.usuarioSeleccionado || null;
-    const empresaElegida = window.empresaElegida || null; 
+    const empresaElegida = window.empresaElegida || null;
+    // El select de PDV se llena al cambiar la empresa (configurarEmpresasDisponibles).
+    // formData ya lo trae bajo el name="puntoDeVenta" del <select>.
+    const puntoVenta = (data.puntoDeVenta || '').trim() || null;
     if (data.metodoIngreso === 'masivo') {
         if (!datosValidados || datosMasivos.length === 0) {
             alert('Debe procesar los datos antes de enviarlos.');
@@ -25,14 +28,15 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
             return;
         }
         const datosMasivosParaEnviar = {
-            servicio: 'factura', // agrega el titulo del formulario 
+            servicio: 'factura', // agrega el titulo del formulario
             metodoIngreso: 'masivo',
             tipoContribuyente: usuarioSeleccionado.tipoContribuyente,
             Actividad: data.Actividad,
             fechaComprobante: data.fechaComprobante,
             datos: datosMasivos,
             usuario: usuarioSeleccionado,
-            empresaElegida 
+            empresaElegida,
+            puntoVenta
         };
         console.log("Datos masivos para enviar:", datosMasivosParaEnviar);
         window.electronAPI.sendFormData(datosMasivosParaEnviar);
@@ -56,7 +60,8 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
     if (datosParaEnviar.tipoMonto !== 'montoTotal')
         datosParaEnviar.monto = datosParaEnviar.montoManual;
     datosParaEnviar.usuario = usuarioSeleccionado;
-    datosParaEnviar.empresaElegida = empresaElegida; 
+    datosParaEnviar.empresaElegida = empresaElegida;
+    datosParaEnviar.puntoVenta = puntoVenta;
 
     delete datosParaEnviar.montoManual;
     delete datosParaEnviar.montoTotalInput;

@@ -257,10 +257,12 @@ function configurarEmpresasDisponibles() {
     // Limpiar opciones previas
     selectEmpresaDisponible.innerHTML = '';
 
-    const empresas = Array.isArray(usuarioSeleccionado?.empresas)
-        ? usuarioSeleccionado.empresas.map(e => e.razonSocial).filter(Boolean)
+    const empresasObjetos = Array.isArray(usuarioSeleccionado?.empresas)
+        ? usuarioSeleccionado.empresas
         : [];
-    if (empresas.length === 0) {
+    const razonesSociales = empresasObjetos.map(e => e.razonSocial).filter(Boolean);
+
+    if (razonesSociales.length === 0) {
         // Si no hay empresas, mostrar opción vacía
         const option = document.createElement('option');
         option.value = '';
@@ -268,23 +270,82 @@ function configurarEmpresasDisponibles() {
         selectEmpresaDisponible.appendChild(option);
         selectEmpresaDisponible.disabled = true;
         window.empresaElegida = '';
+        popularPuntosDeVentaFactura(-1);
         return;
     }
 
-    empresas.forEach((empresa, idx) => {
+    razonesSociales.forEach((razon, idx) => {
         const option = document.createElement('option');
-        // Si empresa es un objeto, puedes usar empresa.nombre o similar
-        option.value = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
-        option.textContent = typeof empresa === 'object' && empresa.nombre ? empresa.nombre : empresa;
+        option.value = razon;
+        option.textContent = razon;
         selectEmpresaDisponible.appendChild(option);
     });
 
-    selectEmpresaDisponible.disabled = empresas.length === 1;
+    selectEmpresaDisponible.disabled = razonesSociales.length === 1;
     // Si solo hay una empresa, seleccionarla por defecto
-    if (empresas.length === 1) {
+    if (razonesSociales.length === 1) {
+        selectEmpresaDisponible.selectedIndex = 0;
+        window.empresaElegida = selectEmpresaDisponible.value;
+    } else if (selectEmpresaDisponible.selectedIndex < 0) {
         selectEmpresaDisponible.selectedIndex = 0;
         window.empresaElegida = selectEmpresaDisponible.value;
     }
+
+    // Listener: cuando cambia la empresa, refrescar los PDV.
+    // Clonamos para limpiar listeners previos en re-inicializaciones.
+    const clonado = selectEmpresaDisponible.cloneNode(true);
+    selectEmpresaDisponible.replaceWith(clonado);
+    clonado.addEventListener('change', () => {
+        window.empresaElegida = clonado.value;
+        popularPuntosDeVentaFactura(clonado.selectedIndex);
+    });
+
+    // Poblar PDV de la empresa inicialmente seleccionada
+    popularPuntosDeVentaFactura(clonado.selectedIndex);
+}
+
+/**
+ * Pobla el <select id="selectPuntoDeVentaFactura"> con los PDV cacheados
+ * de la empresa en el índice dado. Si no hay empresa válida o PDV, deshabilita.
+ * Como el cliente llega ya analizado (Fase 5 garantiza eso), no hay fetch lazy.
+ */
+function popularPuntosDeVentaFactura(indiceEmpresa) {
+    const selectPdv = document.getElementById('selectPuntoDeVentaFactura');
+    if (!selectPdv) return;
+    const usuario = window.usuarioSeleccionado;
+    const empresa = (usuario?.empresas || [])[indiceEmpresa] || null;
+    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser operable
+    // (Factura en Linea - Responsable Inscripto + activo). Cubre datos viejos
+    // del JSON guardados antes del filtrado en backend.
+    const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const pdvs = (empresa?.puntosDeVenta || []).filter(p => {
+        if (!p || !p.numero) return false;
+        if (p.sistema) {
+            return normSistema(p.sistema) === 'factura en linea - responsable inscripto'
+                && p.activo === true;
+        }
+        return true;
+    });
+
+    selectPdv.innerHTML = '';
+
+    if (pdvs.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = empresa ? '— sin puntos de venta —' : '— elegí una empresa —';
+        selectPdv.appendChild(opt);
+        selectPdv.disabled = true;
+        return;
+    }
+
+    pdvs.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.numero;
+        opt.textContent = p.descripcion ? `${p.numero} — ${p.descripcion}` : p.numero;
+        selectPdv.appendChild(opt);
+    });
+    selectPdv.disabled = false;
+    selectPdv.selectedIndex = 0;
 }
 
 function configurarBotonesExpandirTablas() {

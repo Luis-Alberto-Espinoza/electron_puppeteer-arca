@@ -124,7 +124,10 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                 datosFactura,
                 false, // test mode = false
                 usuarioSeleccionado,
-                listarRazonesSociales(usuarioSeleccionado)[0] || datosFactura.puntoVenta || '0001'
+                // Priorizar el puntoVenta elegido por el usuario en el selector frontend.
+                // El fallback al primer nombre de empresa queda por retrocompatibilidad
+                // con flujos viejos que no mandaban puntoVenta explícito.
+                datosFactura.puntoVenta || listarRazonesSociales(usuarioSeleccionado)[0] || '0001'
             );
 
             console.log('Resultado de facturacion:', resultado);
@@ -229,7 +232,8 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                     datosFactura,
                     usarModoTest, // test mode según checkbox y si es primera factura
                     datosComunes.usuarioSeleccionado,
-                    listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || datosComunes.puntoVenta || '0001'
+                    // Priorizar el puntoVenta elegido en el selector frontend.
+                    datosComunes.puntoVenta || listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || '0001'
                 );
 
                 // Si es modo test, salir del loop después de la primera factura
@@ -380,7 +384,8 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                 datosParaFlujo,
                 modoTest || false,
                 usuarioSeleccionado,
-                listarRazonesSociales(usuarioSeleccionado)[0] || datosComunes.puntoVenta || '0001',
+                // Priorizar el puntoVenta elegido en el selector frontend.
+                datosComunes.puntoVenta || listarRazonesSociales(usuarioSeleccionado)[0] || '0001',
                 enviarProgreso
             );
 
