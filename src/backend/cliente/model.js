@@ -71,7 +71,34 @@ function crearEmpresa(parcial = {}) {
 }
 
 /**
+ * Deriva una descripción "humana" desde el campo domicilio del ABM.
+ * El domicilio viene con el formato:
+ *   "TIPO_DE_LOCAL - NNNN - DIRECCIÓN REAL"
+ * (ej. "LOCALES Y ESTABLECIMIENTOS - 0001 - SEVERO DEL CASTILLO 5506 - CORRALITOS - MENDOZA")
+ *
+ * Queremos la parte útil para identificar el PDV, sin el prefijo del tipo
+ * ni el número (que ya tenemos aparte). Devuelve `null` si no puede limpiarlo.
+ */
+function derivarDescripcionDeDomicilio(domicilio) {
+    if (!domicilio || typeof domicilio !== 'string') return null;
+    // Quitar "- NNNN -" del medio (el número de PDV)
+    let limpio = domicilio.replace(/\s*-\s*\d{3,5}\s*-\s*/, ' - ');
+    // Quitar prefijo genérico tipo "LOCALES Y ESTABLECIMIENTOS - " (solo si toda la
+    // primera parte es mayúsculas / espacios, para no comer una dirección legítima).
+    limpio = limpio.replace(/^[A-ZÁÉÍÓÚÑ\s]{6,}-\s*/, '').trim();
+    // Colapsar espacios múltiples
+    limpio = limpio.replace(/\s+/g, ' ');
+    return limpio || null;
+}
+
+/**
  * Normaliza un punto de venta — acepta string ("00001"), number (1) u objeto.
+ *
+ * Si el objeto viene con `domicilio` poblado pero `descripcion` vacío (caso típico
+ * del scraping ABM), derivamos una descripción útil del domicilio para que las
+ * vistas tengan algo legible que mostrar al usuario. Los datos del flujo viejo
+ * (que vienen con descripcion poblada y sin domicilio) no se ven afectados.
+ *
  * @param {string|number|Object} raw
  * @returns {PuntoDeVenta|null}
  */
@@ -87,10 +114,16 @@ function normalizarPuntoDeVenta(raw) {
     if (typeof raw === 'object') {
         const numero = normalizarNumeroPdv(raw.numero);
         if (!numero) return null;
-        const descripcion = raw.descripcion != null ? String(raw.descripcion).trim() : null;
+        let descripcion = raw.descripcion != null ? String(raw.descripcion).trim() : null;
         const sistema = raw.sistema != null ? String(raw.sistema).trim() : null;
         const domicilio = raw.domicilio != null ? String(raw.domicilio).trim() : null;
         const activo = typeof raw.activo === 'boolean' ? raw.activo : null;
+
+        // Si no vino descripcion pero sí domicilio, derivar una.
+        if (!descripcion && domicilio) {
+            descripcion = derivarDescripcionDeDomicilio(domicilio);
+        }
+
         return {
             numero,
             descripcion: descripcion || null,
