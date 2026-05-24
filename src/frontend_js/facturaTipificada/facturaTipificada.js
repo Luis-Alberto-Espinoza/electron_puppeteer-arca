@@ -225,7 +225,10 @@ async function descubrirYPopularPdv(usuarioId, razonSocial, indiceEmpresa) {
     mostrarPdvInfo('Conectando a AFIP para leer los puntos de venta — puede demorar 20–40s', 'loading');
 
     try {
-        const res = await window.electronAPI.empresa.descubrirPuntosDeVenta({
+        // Usamos el flujo ABM unificado (analizarEmpresa) en vez del viejo
+        // descubrirPuntosDeVenta. Mismo backend que analizarCliente: una sola
+        // fuente de verdad para los PDV operables (Factura en Línea + check).
+        const res = await window.electronAPI.empresa.analizarEmpresa({
             usuarioId,
             razonSocial
         });

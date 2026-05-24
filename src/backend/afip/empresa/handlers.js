@@ -40,6 +40,22 @@ function setupEmpresaHandlers(ipcMain, userStorage) {
             return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
         }
     });
+
+    ipcMain.handle('empresa:analizarEmpresa', async (event, datos) => {
+        console.log('BACKEND: empresa:analizarEmpresa recibido');
+
+        try {
+            const { usuarioId, razonSocial } = datos || {};
+            if (!usuarioId)   return { success: false, error: 'MISSING_USER',    message: 'Falta el id del usuario.' };
+            if (!razonSocial) return { success: false, error: 'MISSING_EMPRESA', message: 'Falta la razón social.' };
+
+            return await empresaManager.analizarEmpresa(userStorage, usuarioId, razonSocial);
+
+        } catch (error) {
+            console.error('BACKEND: Error en empresa:analizarEmpresa:', error);
+            return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
+        }
+    });
 }
 
 module.exports = setupEmpresaHandlers;

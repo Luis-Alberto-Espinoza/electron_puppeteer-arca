@@ -334,9 +334,103 @@ async function analizarCliente(userStorage, usuarioId) {
     }, { headless: false });
 }
 
+/**
+ * Analiza UNA empresa puntual del cliente (no todas).
+ *
+ * Reutiliza el mismo flujo Puppeteer ABM que `analizarCliente`. Útil para el
+ * botón "Refrescar PDV" de Factura Tipificada, que apunta a una empresa
+ * específica de un cliente ya cargado.
+ *
+ * Solo persiste los PDV de esa empresa. NO toca el array `usuario.empresas[]`
+ * ni el flag `analizado_afip` global (el cliente sigue marcado como analizado
+ * si ya lo estaba, y se mantiene tal cual si no lo estaba todavía).
+ *
+ * @param {Object} userStorage
+ * @param {string|number} usuarioId
+ * @param {string} razonSocial
+ * @returns {Promise<{success:boolean, data?:Object, error?:string, message?:string}>}
+ */
+async function analizarEmpresa(userStorage, usuarioId, razonSocial) {
+    console.log('🔵 [EmpresaManager] analizarEmpresa', { usuarioId, razonSocial });
+
+    const data = userStorage.loadData();
+    const usuario = data.users.find(u => String(u.id) === String(usuarioId));
+    if (!usuario) {
+        return { success: false, error: 'USER_NOT_FOUND', message: 'No se encontró el usuario.' };
+    }
+    if (!usuario.claveAFIP && !usuario.clave) {
+        return { success: false, error: 'NO_AFIP_KEY', message: 'El cliente no tiene clave AFIP cargada.' };
+    }
+    if (!getEmpresaPorRazonSocial(usuario, razonSocial)) {
+        return {
+            success: false,
+            error: 'EMPRESA_NOT_FOUND',
+            message: `La empresa "${razonSocial}" no está en el cliente. Analizá el cliente completo primero.`
+        };
+    }
+
+    const credenciales = {
+        usuario: usuario.cuit,
+        contrasena: usuario.claveAFIP || usuario.clave
+    };
+
+    return await puppeteerManager.ejecutar(async (browser, page) => {
+        console.log('🔵 [EmpresaManager] Login en AFIP...');
+        const loginResult = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
+        if (!loginResult.success) {
+            return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
+        }
+
+        console.log('🔵 [EmpresaManager] Abriendo "Administración de PDV"...');
+        const { page: pageLista, modo } = await abrirAbmPuntosVenta(page);
+
+        let pdvsCrudos;
+        if (modo === 'lista') {
+            pdvsCrudos = await procesarEmpresaEnAbm(pageLista, razonSocial);
+        } else {
+            // AFIP saltó la lista — esto sólo pasa en clientes de UNA empresa.
+            // Procesamos el ABM directo y asumimos que esos PDV corresponden
+            // a la empresa pedida (no hay otra para confundir).
+            pdvsCrudos = await procesarEnAbmSinSelector(pageLista, modo);
+        }
+
+        const pdvsNormalizados = pdvsCrudos
+            .map(p => normalizarPuntoDeVenta(p))
+            .filter(Boolean);
+
+        // Persistir SOLO los PDV de esta empresa (lectura fresca para no pisar
+        // cambios que pudieron ocurrir en disco entretanto).
+        const dataPersist = userStorage.loadData();
+        const usuarioPersist = dataPersist.users.find(u => String(u.id) === String(usuarioId));
+        const empresa = getEmpresaPorRazonSocial(usuarioPersist, razonSocial);
+        if (!empresa) {
+            return {
+                success: false,
+                error: 'EMPRESA_NOT_FOUND',
+                message: `Empresa "${razonSocial}" desapareció del cliente durante el scraping.`
+            };
+        }
+        const ahora = new Date().toISOString();
+        empresa.puntosDeVenta = pdvsNormalizados;
+        empresa.puntosDeVentaActualizados = ahora;
+        userStorage.saveData(dataPersist);
+
+        console.log(`✅ [EmpresaManager] ${pdvsNormalizados.length} PDV guardado(s) en "${razonSocial}".`);
+        return {
+            success: true,
+            data: {
+                razonSocial,
+                puntosDeVenta: pdvsNormalizados,
+                puntosDeVentaActualizados: ahora
+            }
+        };
+    }, { headless: false });
+}
+
 module.exports = {
     descubrirPuntosDeVenta,
     analizarCliente,
+    analizarEmpresa,
     // Exportados para tests:
     parsearOpcionPdv
 };
