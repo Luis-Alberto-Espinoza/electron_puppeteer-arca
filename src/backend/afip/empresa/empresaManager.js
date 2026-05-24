@@ -265,14 +265,16 @@ async function analizarCliente(userStorage, usuarioId) {
             try {
                 console.log(`🔵 [EmpresaManager] Empresa ${num}: ${razon}`);
                 let pdvsNormalizados;
+                let cuitEmpresa = null;
                 if (modo === 'fallback-viejo') {
                     // Ya tenemos los PDV (vinieron del flujo Comprobantes en Línea); no rescrapeamos.
                     pdvsNormalizados = pdvsPreFetched;
                 } else {
-                    const pdvsCrudos = modo === 'lista'
+                    const r = modo === 'lista'
                         ? await procesarEmpresaEnAbm(pageLista, razon)
                         : await procesarEnAbmSinSelector(pageLista, modo);
-                    pdvsNormalizados = pdvsCrudos
+                    cuitEmpresa = r.cuit;
+                    pdvsNormalizados = (r.pdvs || [])
                         .map(p => normalizarPuntoDeVenta(p))
                         .filter(Boolean);
                 }
@@ -282,12 +284,13 @@ async function analizarCliente(userStorage, usuarioId) {
                 const usuarioPersist = dataPersist.users.find(u => String(u.id) === String(usuarioId));
                 const empresa = getEmpresaPorRazonSocial(usuarioPersist, razon);
                 if (empresa) {
+                    if (cuitEmpresa) empresa.cuit = cuitEmpresa;
                     empresa.puntosDeVenta = pdvsNormalizados;
                     empresa.puntosDeVentaActualizados = new Date().toISOString();
                     userStorage.saveData(dataPersist);
                 }
                 resultados.push({ razonSocial: razon, success: true, count: pdvsNormalizados.length });
-                console.log(`  ✅ Empresa ${num} OK: ${pdvsNormalizados.length} PDV.`);
+                console.log(`  ✅ Empresa ${num} OK: ${pdvsNormalizados.length} PDV${cuitEmpresa ? ` (CUIT ${cuitEmpresa})` : ''}.`);
             } catch (err) {
                 console.error(`  ❌ Empresa ${num} "${razon}" falló: ${err.message}`);
                 resultados.push({ razonSocial: razon, success: false, error: err.message });
@@ -384,17 +387,11 @@ async function analizarEmpresa(userStorage, usuarioId, razonSocial) {
         console.log('🔵 [EmpresaManager] Abriendo "Administración de PDV"...');
         const { page: pageLista, modo } = await abrirAbmPuntosVenta(page);
 
-        let pdvsCrudos;
-        if (modo === 'lista') {
-            pdvsCrudos = await procesarEmpresaEnAbm(pageLista, razonSocial);
-        } else {
-            // AFIP saltó la lista — esto sólo pasa en clientes de UNA empresa.
-            // Procesamos el ABM directo y asumimos que esos PDV corresponden
-            // a la empresa pedida (no hay otra para confundir).
-            pdvsCrudos = await procesarEnAbmSinSelector(pageLista, modo);
-        }
+        const r = modo === 'lista'
+            ? await procesarEmpresaEnAbm(pageLista, razonSocial)
+            : await procesarEnAbmSinSelector(pageLista, modo);
 
-        const pdvsNormalizados = pdvsCrudos
+        const pdvsNormalizados = (r.pdvs || [])
             .map(p => normalizarPuntoDeVenta(p))
             .filter(Boolean);
 
@@ -411,15 +408,17 @@ async function analizarEmpresa(userStorage, usuarioId, razonSocial) {
             };
         }
         const ahora = new Date().toISOString();
+        if (r.cuit) empresa.cuit = r.cuit;
         empresa.puntosDeVenta = pdvsNormalizados;
         empresa.puntosDeVentaActualizados = ahora;
         userStorage.saveData(dataPersist);
 
-        console.log(`✅ [EmpresaManager] ${pdvsNormalizados.length} PDV guardado(s) en "${razonSocial}".`);
+        console.log(`✅ [EmpresaManager] ${pdvsNormalizados.length} PDV guardado(s) en "${razonSocial}"${r.cuit ? ` (CUIT ${r.cuit})` : ''}.`);
         return {
             success: true,
             data: {
                 razonSocial,
+                cuit: r.cuit,
                 puntosDeVenta: pdvsNormalizados,
                 puntosDeVentaActualizados: ahora
             }

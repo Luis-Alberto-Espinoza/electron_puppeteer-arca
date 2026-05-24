@@ -138,6 +138,41 @@ async function clickAbmPuntosDeVentaEmision(page) {
 }
 
 /**
+ * Lee el encabezado `#encabezado_usuario` de AFIP (aparece tanto en mostrarMenu.do
+ * como en abmPuntosVenta.do) y extrae el CUIT y razón social de la empresa que
+ * estamos "representando".
+ *
+ * Estructura esperada:
+ *   <table id="encabezado_usuario">
+ *     <tr><th>Usuario:</th>          <td>20266865458 - MAFFEI JUAN MANUEL</td></tr>
+ *     <tr><th>Representando a:</th>  <td>30718692853 - OHR S. A. S.</td></tr>
+ *     <tr><th>Dependencia:</th>      <td>AGENCIA ...</td></tr>
+ *   </table>
+ *
+ * Devuelve `{cuit: null, razonSocial: null}` si no encuentra el encabezado.
+ */
+async function extraerCuitEmpresa(page) {
+    return await page.evaluate(() => {
+        const tabla = document.querySelector('#encabezado_usuario');
+        if (!tabla) return { cuit: null, razonSocial: null };
+        const filas = Array.from(tabla.querySelectorAll('tr'));
+        for (const fila of filas) {
+            const th = fila.querySelector('th');
+            const td = fila.querySelector('td');
+            if (!th || !td) continue;
+            const titulo = (th.textContent || '').toLowerCase().replace(/[:\s]/g, '');
+            if (titulo.includes('representando')) {
+                const texto = (td.textContent || '').replace(/\s+/g, ' ').trim();
+                const m = texto.match(/^(\d+)\s*-\s*(.+)$/);
+                if (m) return { cuit: m[1], razonSocial: m[2].trim() };
+                return { cuit: null, razonSocial: texto || null };
+            }
+        }
+        return { cuit: null, razonSocial: null };
+    });
+}
+
+/**
  * Cierra el popup de advertencias si aparece (no siempre aparece).
  */
 async function cerrarPopupAdvertencias(page) {
@@ -286,6 +321,13 @@ async function procesarEmpresaEnAbm(pageLista, razonSocial) {
     await esperar(800);
     verificarUrl(pageEmpresa, URLS.menu, 'menú post-empresa');
 
+    // Extraer CUIT desde el encabezado mientras estamos en mostrarMenu.do
+    // (también está en abmPuntosVenta.do, pero acá ya estamos seguros).
+    const encabezado = await extraerCuitEmpresa(pageEmpresa);
+    if (encabezado.cuit) {
+        console.log(`  → [ABM PDV] CUIT empresa detectado: ${encabezado.cuit} (${encabezado.razonSocial || 'sin razón'})`);
+    }
+
     console.log('  → [ABM PDV] Click "A/B/M de puntos de venta / emisión"...');
     await clickAbmPuntosDeVentaEmision(pageEmpresa);
 
@@ -298,7 +340,7 @@ async function procesarEmpresaEnAbm(pageLista, razonSocial) {
 
     const pdvs = await leerTablaPuntosDeVenta(pageEmpresa);
     console.log(`  ✅ [ABM PDV] ${pdvs.length} PDV operables en "${razonSocial}".`);
-    return pdvs;
+    return { cuit: encabezado.cuit, pdvs };
 }
 
 /**
@@ -309,6 +351,12 @@ async function procesarEmpresaEnAbm(pageLista, razonSocial) {
  * @param {'menu'|'abm'} modoActual
  */
 async function procesarEnAbmSinSelector(page, modoActual) {
+    // Extraer CUIT del encabezado antes de movernos.
+    const encabezado = await extraerCuitEmpresa(page);
+    if (encabezado.cuit) {
+        console.log(`  → [ABM PDV] CUIT empresa detectado: ${encabezado.cuit} (${encabezado.razonSocial || 'sin razón'})`);
+    }
+
     if (modoActual === 'menu') {
         console.log('  → [ABM PDV] (empresa única) Click "A/B/M de puntos de venta / emisión"...');
         await clickAbmPuntosDeVentaEmision(page);
@@ -320,7 +368,7 @@ async function procesarEnAbmSinSelector(page, modoActual) {
     verificarUrl(page, URLS.abm, 'ABM puntos de venta (empresa única)');
     const pdvs = await leerTablaPuntosDeVenta(page);
     console.log(`  ✅ [ABM PDV] (empresa única) ${pdvs.length} PDV operables.`);
-    return pdvs;
+    return { cuit: encabezado.cuit, pdvs };
 }
 
 /**
@@ -357,5 +405,6 @@ module.exports = {
     procesarEmpresaEnAbm,
     procesarEnAbmSinSelector,
     volverAListaEmpresas,
+    extraerCuitEmpresa,
     SISTEMA_OPERABLE
 };
