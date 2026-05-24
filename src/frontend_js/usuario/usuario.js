@@ -820,13 +820,20 @@ function displayUsers(users) {
         </label>
     `).join('');
 
-    // Cantidad de candidatos al análisis por lote: AFIP validado + sin analizar.
+    // Candidatos al análisis por lote: AFIP validado + sin analizar.
     const pendientesAnalisis = users.filter(u =>
         u.estado_afip === 'validado' && u.analizado_afip !== true
     ).length;
+    // Candidatos al re-análisis: AFIP validado + ya analizado (refresh masivo).
+    const analizadosCount = users.filter(u =>
+        u.estado_afip === 'validado' && u.analizado_afip === true
+    ).length;
 
-    const botonLote = pendientesAnalisis > 0
+    const botonAnalizarPendientes = pendientesAnalisis > 0
         ? `<button class="btn btn-warning" id="btnAnalizarLote" style="margin-left:10px;">🔍 Analizar pendientes (${pendientesAnalisis})</button>`
+        : '';
+    const botonReanalizarTodos = analizadosCount > 0
+        ? `<button class="btn btn-info" id="btnReanalizarTodos" style="margin-left:6px;" title="Vuelve a scrapear empresas y PDV de TODOS los clientes ya analizados. Puede tardar bastante.">🔄 Re-analizar todos (${analizadosCount})</button>`
         : '';
 
     const bulkActionsHeader = `
@@ -834,7 +841,8 @@ function displayUsers(users) {
             <div class="bulk-actions-controls">
                 ${selectAllCheckboxes}
                 <button class="btn btn-primary" id="btnVerificarSeleccionados">Verificar Seleccionados</button>
-                ${botonLote}
+                ${botonAnalizarPendientes}
+                ${botonReanalizarTodos}
             </div>
         </div>
     `;
@@ -852,9 +860,11 @@ function displayUsers(users) {
             // el sub-estado de análisis: botón "Analizar" si falta, badge si ya está.
             let indicador = renderStatus(status);
             if (service === 'afip' && status === 'validado') {
+                const nombreSafe = (user.nombre || '').replace(/'/g, "\\'");
                 indicador = user.analizado_afip === true
-                    ? `<span class="status-badge status-validado" title="Credenciales OK y empresas/PDV scrapeados">✅ Analizado</span>`
-                    : `<button onclick="window.analizarClienteDesdeListado('${user.id}', '${(user.nombre || '').replace(/'/g, "\\'")}')" style="padding:3px 10px;background:#fff8e1;color:#b26a00;border:1px solid #f0ad4e;border-radius:4px;font-size:12px;cursor:pointer;" title="Validado. Falta scrapear empresas y puntos de venta.">🔍 Analizar</button>`;
+                    ? `<span class="status-badge status-validado" title="Credenciales OK y empresas/PDV scrapeados">✅ Analizado</span>
+                       <button onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" style="margin-left:4px;padding:2px 6px;background:transparent;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:12px;" title="Re-analizar: vuelve a scrapear empresas y puntos de venta desde AFIP.">🔄</button>`
+                    : `<button onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" style="padding:3px 10px;background:#fff8e1;color:#b26a00;border:1px solid #f0ad4e;border-radius:4px;font-size:12px;cursor:pointer;" title="Validado. Falta scrapear empresas y puntos de venta.">🔍 Analizar</button>`;
             }
 
             return `
@@ -1316,6 +1326,12 @@ function inicializarUsuarioFrontend() {
         // --- Análisis por lote (todos los AFIP validados sin analizar) ---
         if (target.matches('#btnAnalizarLote')) {
             await analizarPorLote();
+            return;
+        }
+
+        // --- Re-análisis por lote (todos los AFIP validados YA analizados) ---
+        if (target.matches('#btnReanalizarTodos')) {
+            await reanalizarTodos();
             return;
         }
 
@@ -1982,38 +1998,34 @@ window.analizarClienteDesdeListado = async function (userId, nombre) {
 };
 
 /**
- * Análisis por lote: itera todos los clientes con AFIP validado + sin analizar.
- * Confirmación previa, modal de progreso, resumen al final.
+ * Itera una lista de clientes y dispara `empresa:analizarCliente` para cada uno.
+ * Muestra modal de progreso, recolecta resumen y refresca la lista al final.
+ * Helper compartido entre "Analizar pendientes" y "Re-analizar todos".
+ *
+ * @param {Array} clientes
+ * @param {{icono:string, mensajeConfirmacion:string, textoConfirmar:string}} opciones
  */
-async function analizarPorLote() {
-    const result = await window.electronAPI.user.getAll();
-    if (!result.success) {
-        return showAlert('No se pudo cargar la lista de clientes.', 'error');
-    }
-    const pendientes = (result.users || []).filter(u =>
-        u.estado_afip === 'validado' && u.analizado_afip !== true
-    );
-
-    if (pendientes.length === 0) {
-        return showAlert('No hay clientes pendientes de análisis.', 'info');
+async function procesarLoteAnalisis(clientes, opciones) {
+    if (clientes.length === 0) {
+        return showAlert('No hay clientes que procesar.', 'info');
     }
 
     const confirmed = await showConfirmModal({
         title: 'Análisis por lote',
-        message: `Vas a analizar ${pendientes.length} cliente(s) con AFIP validado y sin analizar.\n\nCada cliente abre una sesión de AFIP, hace login y scrapea sus empresas. Si tenés muchos puede tardar bastante.\n\n¿Continuar?`,
-        icon: '🔍',
-        confirmText: 'Sí, analizar todos',
+        message: opciones.mensajeConfirmacion,
+        icon: opciones.icono,
+        confirmText: opciones.textoConfirmar,
         cancelText: 'Cancelar'
     });
     if (!confirmed) return;
 
-    const progreso = mostrarModalProgreso(pendientes.length);
+    const progreso = mostrarModalProgreso(clientes.length);
     let exitosos = 0;
     let fallidos = 0;
     const resumen = [];
 
-    for (let i = 0; i < pendientes.length; i++) {
-        const cli = pendientes[i];
+    for (let i = 0; i < clientes.length; i++) {
+        const cli = clientes[i];
         const display = `${cli.nombre || ''} ${cli.apellido || ''}`.trim() || cli.cuit || cli.id;
         progreso.actualizar(i + 1, display, { exitosos, fallidos });
 
@@ -2040,4 +2052,54 @@ async function analizarPorLote() {
         `Lote terminado: ${exitosos} OK, ${fallidos} fallido(s).\n\n${resumen.join('\n')}`,
         exitosos > 0 && fallidos === 0 ? 'success' : (exitosos > 0 ? 'warning' : 'error')
     );
+}
+
+/**
+ * Análisis por lote: itera todos los clientes con AFIP validado + sin analizar.
+ */
+async function analizarPorLote() {
+    const result = await window.electronAPI.user.getAll();
+    if (!result.success) {
+        return showAlert('No se pudo cargar la lista de clientes.', 'error');
+    }
+    const pendientes = (result.users || []).filter(u =>
+        u.estado_afip === 'validado' && u.analizado_afip !== true
+    );
+    if (pendientes.length === 0) {
+        return showAlert('No hay clientes pendientes de análisis.', 'info');
+    }
+    await procesarLoteAnalisis(pendientes, {
+        icono: '🔍',
+        textoConfirmar: 'Sí, analizar todos',
+        mensajeConfirmacion:
+            `Vas a analizar ${pendientes.length} cliente(s) con AFIP validado y sin analizar.\n\n` +
+            'Cada cliente abre una sesión de AFIP, hace login y scrapea sus empresas. ' +
+            'Si tenés muchos puede tardar bastante.\n\n¿Continuar?'
+    });
+}
+
+/**
+ * Re-análisis por lote: itera todos los clientes con AFIP validado YA analizados.
+ * Pisa los datos de empresas/PDV con el scraping fresco.
+ */
+async function reanalizarTodos() {
+    const result = await window.electronAPI.user.getAll();
+    if (!result.success) {
+        return showAlert('No se pudo cargar la lista de clientes.', 'error');
+    }
+    const analizados = (result.users || []).filter(u =>
+        u.estado_afip === 'validado' && u.analizado_afip === true
+    );
+    if (analizados.length === 0) {
+        return showAlert('No hay clientes analizados para refrescar.', 'info');
+    }
+    await procesarLoteAnalisis(analizados, {
+        icono: '🔄',
+        textoConfirmar: 'Sí, re-analizar TODOS',
+        mensajeConfirmacion:
+            `Vas a RE-ANALIZAR ${analizados.length} cliente(s) ya analizados.\n\n` +
+            'Cada cliente abre una sesión de AFIP completa (login + scrapeo de todas sus empresas). ' +
+            `Con ${analizados.length} clientes esto puede tardar varias HORAS.\n\n` +
+            'Los datos de empresas y puntos de venta se reemplazan por el scraping fresco.\n\n¿Continuar?'
+    });
 }
