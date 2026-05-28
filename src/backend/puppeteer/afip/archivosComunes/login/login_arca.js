@@ -111,11 +111,61 @@ async function hacerLogin(page, url, credenciales) {
     // Si la navegación ganó, procedemos
     console.log('✅ [Login ARCA] Login y navegación completados con éxito.');
 
+    // Tras el login, AFIP a veces interpone una pantalla de cambio/recordatorio de
+    // clave fiscal (botones "Cambiar"/"Cancelar"). NO es el home: si seguimos, los
+    // flujos que esperan #buscadorInput (analizar cliente, verificación, etc.) se
+    // cuelgan con un error crudo. La detectamos acá, en el chokepoint común a todos.
+    if (await detectarCambioClaveAfip(page)) {
+      console.log('🔒 [Login ARCA] AFIP exige/recomienda actualizar la clave fiscal. Abortando flujo automatizado.');
+      return {
+        success: false,
+        error: 'UPDATE_PASSWORD_REQUIRED',
+        message: 'AFIP requiere que el cliente actualice su clave fiscal antes de operar. ' +
+                 'Ingresá manualmente a AFIP con este CUIT, cambiá la contraseña y volvé a intentar.'
+      };
+    }
+
     return { success: true };
 
   } catch (error) {
     console.error('❌ Error inesperado en hacerLogin:', error);
     return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
+  }
+}
+
+/**
+ * Detecta si, tras el login, AFIP mostró una pantalla de cambio/recordatorio de
+ * clave fiscal en vez del home. Cubre dos variantes:
+ *   - Cambio forzado (form action con "cambioClave..." / URL con "cambioclave").
+ *   - Recordatorio sugerido (pantalla con botones "Cambiar"/"Cancelar").
+ * Conservador: si ya vemos el buscador del portal (#buscadorInput) damos por
+ * hecho que estamos en el home y devolvemos false, para evitar falsos positivos.
+ *
+ * @param {import('puppeteer').Page} page
+ * @returns {Promise<boolean>}
+ */
+async function detectarCambioClaveAfip(page) {
+  try {
+    const url = (page.url() || '').toLowerCase();
+    if (url.includes('cambioclave')) return true;
+
+    return await page.evaluate(() => {
+      // Si ya estamos en el portal (buscador presente), no es pantalla de cambio.
+      if (document.getElementById('buscadorInput')) return false;
+
+      // 1) Form de cambio de clave (forzado o sugerido).
+      if (document.querySelector('form[action*="cambioClave" i]')) return true;
+
+      // 2) Heurística por contenido: la pantalla de recordatorio habla de la clave
+      //    fiscal y ofrece cambiarla. Pedimos ambas señales para no disparar de más.
+      const texto = ((document.body && document.body.innerText) || '').toLowerCase();
+      const mencionaClave = texto.includes('clave fiscal') || texto.includes('contraseña') || texto.includes('su clave');
+      const pideCambio = texto.includes('cambio de clave') || texto.includes('cambiar') || texto.includes('actualizar');
+      return mencionaClave && pideCambio;
+    });
+  } catch (_) {
+    // Ante cualquier error de evaluación preferimos no bloquear el login.
+    return false;
   }
 }
 

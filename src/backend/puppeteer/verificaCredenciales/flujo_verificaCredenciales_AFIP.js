@@ -38,7 +38,9 @@ async function verificarYObtenerDatosAFIP(page, usuario, opciones = {}) {
 
         if (!loginResult.success) {
             console.error('    [AFIP] -> El login fallo:', loginResult.message);
-            return { success: false, error: loginResult.message };
+            // Propagar el CÓDIGO de error (no el mensaje), para que gestionarValidacion
+            // pueda distinguir UPDATE_PASSWORD_REQUIRED y marcar requiere_actualizacion.
+            return { success: false, error: loginResult.error, message: loginResult.message };
         }
 
         // 2. Verificar buscador AFIP (confirma que el login dejó al usuario adentro)

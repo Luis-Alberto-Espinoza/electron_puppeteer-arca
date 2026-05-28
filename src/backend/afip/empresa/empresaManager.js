@@ -81,6 +81,41 @@ function persistirPuntosDeVenta(userStorage, usuarioId, razonSocial, puntosDeVen
 }
 
 /**
+ * Traduce un login fallido en el resultado a devolver por los flujos de empresa.
+ *
+ * El caso especial es UPDATE_PASSWORD_REQUIRED: AFIP exige que el cliente cambie
+ * la clave fiscal (pantalla "Cambiar/Cancelar"). No es una clave mala ni un fallo
+ * nuestro, así que dejamos asentado el estado del cliente para que la UI lo muestre
+ * ("⚠️ Actualizar") y devolvemos un mensaje claro y accionable. El resto de fallos
+ * de login se mapean al genérico LOGIN_FAILED.
+ *
+ * @param {Object} userStorage
+ * @param {string|number} usuarioId
+ * @param {{error?:string, message?:string}} loginResult
+ * @returns {{success:false, error:string, message:string}}
+ */
+function manejarFalloLogin(userStorage, usuarioId, loginResult) {
+    if (loginResult.error === 'UPDATE_PASSWORD_REQUIRED') {
+        const data = userStorage.loadData();
+        const usuario = data.users.find(u => String(u.id) === String(usuarioId));
+        if (usuario) {
+            usuario.estado_afip = 'requiere_actualizacion';
+            usuario.claveAfipValida = false;
+            usuario.claveAfipRequiereActualizacion = true;
+            usuario.errorAfip = 'AFIP requiere actualizar la clave fiscal';
+            userStorage.saveData(data);
+        }
+        return {
+            success: false,
+            error: 'UPDATE_PASSWORD_REQUIRED',
+            message: loginResult.message ||
+                'AFIP requiere que el cliente actualice su clave fiscal antes de operar.'
+        };
+    }
+    return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
+}
+
+/**
  * Descubre los puntos de venta de una empresa.
  *
  * @param {Object} userStorage           - inyectado, instancia de JsonStorage
@@ -111,7 +146,7 @@ async function descubrirPuntosDeVenta(userStorage, usuarioId, razonSocial) {
         console.log('🔵 [EmpresaManager] Login en AFIP...');
         const loginResult = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
         if (!loginResult.success) {
-            return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
+            return manejarFalloLogin(userStorage, usuarioId, loginResult);
         }
 
         console.log('🔵 [EmpresaManager] Ejecutando flujo de descubrimiento...');
@@ -173,7 +208,7 @@ async function analizarCliente(userStorage, usuarioId) {
         console.log('🔵 [EmpresaManager] Login en AFIP...');
         const loginResult = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
         if (!loginResult.success) {
-            return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
+            return manejarFalloLogin(userStorage, usuarioId, loginResult);
         }
 
         const nombreFallback = `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || usuario.cuit;
@@ -381,7 +416,7 @@ async function analizarEmpresa(userStorage, usuarioId, razonSocial) {
         console.log('🔵 [EmpresaManager] Login en AFIP...');
         const loginResult = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
         if (!loginResult.success) {
-            return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
+            return manejarFalloLogin(userStorage, usuarioId, loginResult);
         }
 
         console.log('🔵 [EmpresaManager] Abriendo "Administración de PDV"...');
