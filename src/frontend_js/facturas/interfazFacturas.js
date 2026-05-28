@@ -314,15 +314,15 @@ function popularPuntosDeVentaFactura(indiceEmpresa) {
     if (!selectPdv) return;
     const usuario = window.usuarioSeleccionado;
     const empresa = (usuario?.empresas || [])[indiceEmpresa] || null;
-    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser operable
-    // (Factura en Linea - Responsable Inscripto + activo). Cubre datos viejos
-    // del JSON guardados antes del filtrado en backend.
+    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser
+    // "Factura en Linea - Responsable Inscripto". Sin requisito de `activo`
+    // (la columna "Usado" del ABM no es bloqueante — un PDV puede estar
+    // habilitado sin haber emitido todavía).
     const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
     const pdvs = (empresa?.puntosDeVenta || []).filter(p => {
         if (!p || !p.numero) return false;
         if (p.sistema) {
-            return normSistema(p.sistema) === 'factura en linea - responsable inscripto'
-                && p.activo === true;
+            return normSistema(p.sistema) === 'factura en linea - responsable inscripto';
         }
         return true;
     });

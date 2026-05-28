@@ -265,16 +265,19 @@ async function descubrirYPopularPdv(usuarioId, razonSocial, indiceEmpresa) {
 /**
  * Filtro defensivo para selects de PDV en frontend.
  * Si el PDV tiene un `sistema` declarado (vino del ABM), exigir que sea
- * "Factura en Linea - Responsable Inscripto" y activo. Si no tiene sistema
- * (vino del fallback Comprobantes en Línea), dejar pasar.
+ * "Factura en Linea - Responsable Inscripto". Si no tiene sistema (vino del
+ * fallback Comprobantes en Línea), dejar pasar.
  * Cubre datos viejos del JSON guardados antes del filtrado en backend.
+ *
+ * NO se exige `activo === true`: por consulta con contador, la columna
+ * "Usado" del ABM no es bloqueante — un PDV puede estar habilitado para
+ * Factura en Línea aunque todavía no se haya emitido nunca desde ahí.
  */
 function _esPdvOperable(p) {
     if (!p || !p.numero) return false;
     if (p.sistema) {
         const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        return norm(p.sistema) === 'factura en linea - responsable inscripto'
-            && p.activo === true;
+        return norm(p.sistema) === 'factura en linea - responsable inscripto';
     }
     return true;
 }
