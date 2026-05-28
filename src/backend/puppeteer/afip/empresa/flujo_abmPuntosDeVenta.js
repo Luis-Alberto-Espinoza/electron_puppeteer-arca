@@ -41,13 +41,15 @@ function normalizarSistema(s) {
 }
 
 /**
- * Una fila es "operable" si:
- *   - sistema (normalizado) coincide con SISTEMA_OPERABLE, Y
- *   - activo === true (la columna "Usado" tiene el check.png).
+ * Una fila es "operable" si su sistema (normalizado) coincide con SISTEMA_OPERABLE.
+ *
+ * Decisión actual (por consulta con contador): NO exigir activo === true.
+ * La columna "Usado" del ABM indica si AFIP registró emisiones desde ese PDV,
+ * pero un PDV puede estar habilitado para Factura en Línea aunque todavía no
+ * se haya emitido nunca desde ahí (activo=false). El criterio único es el sistema.
  */
 function esOperable(pdv) {
-    return normalizarSistema(pdv.sistema) === normalizarSistema(SISTEMA_OPERABLE)
-        && pdv.activo === true;
+    return normalizarSistema(pdv.sistema) === normalizarSistema(SISTEMA_OPERABLE);
 }
 
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
@@ -107,6 +109,20 @@ async function clickAbmPuntosDeVentaEmision(page) {
     }
 
     if (!frame) {
+        // Si la única acción disponible es "Volver", AFIP nos rebotó: error en
+        // la página (sin permisos, problema interno AFIP, etc.). Damos mensaje
+        // claro para que el usuario sepa que no es bug nuestro.
+        const soloTieneVolver = await page.evaluate(() => {
+            const acciones = Array.from(document.querySelectorAll(
+                'a[id], button[id], input[type="button"][id], input[type="submit"][id]'
+            ));
+            return acciones.length === 1 && acciones[0].id === 'btn_volver';
+        }).catch(() => false);
+
+        if (soloTieneVolver) {
+            throw new Error('AFIP no permite acceder al ABM de esta empresa (solo botón "Volver" disponible). Verificalo manualmente en AFIP.');
+        }
+
         const diag = await page.evaluate(() => {
             return Array.from(document.querySelectorAll('a[id], button[id]'))
                 .map(el => `${el.tagName}#${el.id}: "${(el.textContent || '').replace(/\s+/g, ' ').trim().substring(0, 80)}"`)
@@ -239,6 +255,23 @@ async function leerTodasLasPaginas(page) {
     const MAX_PAGINAS = 30; // safety
     const todas = [];
 
+    // Diagnóstico: leer la info de paginación que AFIP renderiza arriba/abajo
+    // de la grilla. Sirve para comparar "cuántos registros me dice AFIP que hay"
+    // contra "cuántas filas terminé leyendo". Si difieren, hay bug.
+    const infoPaginacion = await page.evaluate(() => {
+        const get = (sel) => {
+            const el = document.querySelector(sel);
+            return el ? (el.textContent || '').trim() : null;
+        };
+        const sel = document.querySelector('#tblmiGrilla_pageSize');
+        return {
+            pageInfo: get('#tblmiGrilla_pageInfo'),
+            totalRecords: get('#tblmiGrilla_totalRecords'),
+            pageSizeActual: sel ? sel.value : null
+        };
+    });
+    console.log(`  → [ABM PDV] AFIP reporta: páginas "${infoPaginacion.pageInfo}" | total registros "${infoPaginacion.totalRecords}" | pageSize "${infoPaginacion.pageSizeActual}".`);
+
     for (let i = 0; i < MAX_PAGINAS; i++) {
         const filas = await leerFilasDePaginaActual(page);
         todas.push(...filas);
@@ -259,26 +292,49 @@ async function leerTodasLasPaginas(page) {
             break;
         }
 
-        // Capturar referencia de la primera fila para detectar cuando la tabla cambia.
+        // Capturar referencia para detectar cuando la tabla cambia. Usamos el id
+        // de la PRIMERA fila REAL (tr[id^="tblmiGrilla_tr_"]) — no la primera tr
+        // del tbody que podría ser un wrapper sin id.
         const refAnterior = await page.evaluate(() => {
-            const tr = document.querySelector('#tblmiGrilla tbody tr');
+            const tr = document.querySelector('#tblmiGrilla tr[id^="tblmiGrilla_tr_"]');
             return tr ? `${tr.id}::${(tr.textContent || '').substring(0, 50)}` : null;
         });
 
-        await page.click('#tblmiGrilla_btn_next');
+        // El botón de paginación es un <div> chiquito de 20px de ancho. Hacemos
+        // scrollIntoView + click con el handle (mouse real al centro del elemento),
+        // que es más confiable que page.click(selector) cuando el target es chico.
+        const handleNext = await page.$('#tblmiGrilla_btn_next');
+        if (handleNext) {
+            try { await handleNext.scrollIntoView(); } catch (_) {}
+            await esperar(200);
+            await handleNext.click();
+        } else {
+            console.log('  → [ABM PDV] Botón next desapareció entre el check y el click.');
+            break;
+        }
 
         try {
             await page.waitForFunction((prev) => {
-                const tr = document.querySelector('#tblmiGrilla tbody tr');
+                const tr = document.querySelector('#tblmiGrilla tr[id^="tblmiGrilla_tr_"]');
                 if (!tr) return false;
                 const actual = `${tr.id}::${(tr.textContent || '').substring(0, 50)}`;
                 return actual !== prev;
-            }, { timeout: 6000 }, refAnterior);
-            await esperar(400);
+            }, { timeout: 8000 }, refAnterior);
+            await esperar(500);
         } catch (_) {
             console.log('  → [ABM PDV] La tabla no cambió tras click next; asumo última página.');
             break;
         }
+    }
+
+    // Sanity check: si AFIP reportó un total numérico y leímos otra cantidad,
+    // alertar fuerte. Casi siempre indica que el selector de filas se perdió
+    // alguna (paginación, scroll virtual, fila con id distinto, etc.).
+    const totalEsperado = parseInt(infoPaginacion.totalRecords, 10);
+    if (Number.isFinite(totalEsperado) && totalEsperado !== todas.length) {
+        console.log(`  ⚠️ [ABM PDV] DISCREPANCIA: AFIP reportó ${totalEsperado} registros pero leímos ${todas.length} fila(s). Probable bug de scraping.`);
+    } else if (Number.isFinite(totalEsperado)) {
+        console.log(`  ✅ [ABM PDV] Conteo OK: AFIP=${totalEsperado}, leído=${todas.length}.`);
     }
 
     return todas;
@@ -296,12 +352,6 @@ async function leerTablaPuntosDeVenta(page) {
     const todas = await leerTodasLasPaginas(page);
     const operables = todas.filter(esOperable);
     console.log(`  → [ABM PDV] ${todas.length} fila(s) totales, ${operables.length} operables.`);
-    // Log conciso de cada fila descartada para auditar (útil si AFIP cambia textos).
-    if (operables.length < todas.length) {
-        todas.filter(p => !esOperable(p)).forEach(p => {
-            console.log(`     descartado: numero="${p.numero}" sistema="${p.sistema}" activo=${p.activo}`);
-        });
-    }
     return operables;
 }
 
