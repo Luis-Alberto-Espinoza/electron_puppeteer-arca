@@ -113,14 +113,31 @@ async function buscarComprobantesYCapturarTabla(page, datos) {
 
     console.log(`  ✅ Página de resultados capturada (${pageTabla.url()})`);
 
-    // Esperar a que la tabla esté presente.
-    // El selector real lo descubrimos por los inputs "Ver" — esperamos al menos uno
-    // o a que el body cargue completamente.
+    // Esperar a que la pestaña de resultados ESTÉ LISTA (no a que aparezca un
+    // botón "Ver" que, sin comprobantes, nunca llegaría → ahorramos los 30s).
+    // La página de AFIP es server-rendered: cuando terminó de cargar, las filas
+    // (o su ausencia) ya están en el DOM. Detectamos "lista" = readyState
+    // complete + contenido real (no about:blank de la pestaña recién abierta).
     try {
-        await pageTabla.waitForSelector("input[type='button'][value='Ver']", { timeout: 30000 });
+        await pageTabla.waitForFunction(() => {
+            if (document.readyState !== 'complete') return false;
+            const hayVer = !!document.querySelector("input[type='button'][value='Ver']");
+            const hayContenido = document.body && document.body.innerText.trim().length > 0;
+            return hayVer || hayContenido;
+        }, { timeout: 30000, polling: 'mutation' });
     } catch (_) {
-        // Puede no haber comprobantes en el rango → no hay botones "Ver".
-        console.log('  ℹ️  No se encontraron botones "Ver" — quizá el rango no tiene comprobantes.');
+        console.log('  ⚠️  La pestaña de resultados no estabilizó en 30s.');
+    }
+
+    // Contar filas una sola vez, ya con la página estable.
+    const cantidad = await pageTabla
+        .$$eval("input[type='button'][value='Ver']", els => els.length)
+        .catch(() => 0);
+
+    if (cantidad === 0) {
+        console.log('  ℹ️  Sin comprobantes en el rango (0 filas).');
+    } else {
+        console.log(`  ✅ ${cantidad} comprobante(s) en la tabla.`);
     }
 
     return pageTabla;
