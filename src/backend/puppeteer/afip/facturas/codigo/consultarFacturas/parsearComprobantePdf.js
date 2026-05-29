@@ -82,15 +82,46 @@ async function parsearComprobantePdf(pdfPath) {
         datos.comprobanteNumero = buscarValorEnFila(filaPtoVenta, /Comp\.?\s*Nro:?\s*(\d{4,8})/i);
     }
 
-    // === Período Facturado Desde / Hasta (en la misma fila visual) ===
-    // En el PDF la fila contiene: "Período Facturado Desde: <fecha>  Hasta: <fecha>  Fecha de Vto..."
-    const filaPeriodo = buscarFila(/Per[ií]odo\s+Facturado\s+Desde/i);
-    if (filaPeriodo) {
-        // Tomar las primeras dos fechas dd/mm/yyyy en orden
-        const fechas = filaPeriodo.texto.match(/\d{2}\/\d{2}\/\d{4}/g);
+    // === Período Facturado Desde / Hasta ===
+    // Robusto a que pdfjs parta la línea "Período Facturado Desde: <fecha>
+    // Hasta: <fecha> Fecha de Vto..." en varias filas visuales, y a que la
+    // etiqueta y la fecha vengan en el mismo item o en items separados.
+    const fechaRe = /(\d{2}\/\d{2}\/\d{4})/;
+    const itemsCrudos = content.items.map(it => ({
+        str: it.str || '',
+        x: it.transform[4],
+        y: it.transform[5]
+    }));
+
+    // Devuelve la fecha asociada a una etiqueta ("Desde" / "Hasta"):
+    //   a) en el mismo item ("Desde: 01/03/2026"), o
+    //   b) en el primer item a su derecha en la misma línea (±6 pt en Y).
+    const fechaDeEtiqueta = (etiqueta) => {
+        const etiquetaRe = new RegExp(etiqueta, 'i');
+        const label = itemsCrudos.find(it => etiquetaRe.test(it.str));
+        if (!label) return null;
+
+        const despues = label.str.slice(label.str.search(etiquetaRe));
+        const mismoItem = despues.match(fechaRe);
+        if (mismoItem) return mismoItem[1];
+
+        const aLaDerecha = itemsCrudos
+            .filter(it => it.x > label.x && Math.abs(it.y - label.y) <= 6 && fechaRe.test(it.str))
+            .sort((a, b) => a.x - b.x)[0];
+        return aLaDerecha ? aLaDerecha.str.match(fechaRe)[1] : null;
+    };
+
+    datos.periodoDesde = fechaDeEtiqueta('Desde');
+    datos.periodoHasta = fechaDeEtiqueta('Hasta');
+
+    // Fallback: si no se ubicaron por etiqueta, usar las 2 primeras fechas de
+    // la fila "Período Facturado".
+    if (!datos.periodoDesde || !datos.periodoHasta) {
+        const filaPeriodo = buscarFila(/Per[ií]odo\s+Facturado/i);
+        const fechas = filaPeriodo?.texto.match(/\d{2}\/\d{2}\/\d{4}/g);
         if (fechas && fechas.length >= 2) {
-            datos.periodoDesde = fechas[0];
-            datos.periodoHasta = fechas[1];
+            datos.periodoDesde = datos.periodoDesde || fechas[0];
+            datos.periodoHasta = datos.periodoHasta || fechas[1];
         }
     }
 
