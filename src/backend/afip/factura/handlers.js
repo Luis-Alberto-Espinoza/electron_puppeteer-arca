@@ -5,10 +5,6 @@ const { procesarDatosFactura: comunicacionConFactura } = require('./service/proc
 const facturaManagerUnificado = require('./facturaManagerUnificado.js');
 const { listarRazonesSociales } = require('../../cliente/model.js');
 
-// Managers antiguos (comentados - ahora usamos el unificado)
-// const facturaManager = require('./facturaManager.js');
-// const { iniciarProcesoFacturaCliente } = require('./facturaClienteManager');
-
 // Variables de estado (antes globales en main.js)
 // Usadas por el flujo antiguo de facturacion
 let resultadoCodigo = null;
