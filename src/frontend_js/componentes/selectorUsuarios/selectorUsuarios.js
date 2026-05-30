@@ -34,6 +34,10 @@ class SelectorUsuarios {
             // Mostrar tabla de seleccionados (útil para casos de selección única)
             mostrarTablaSeleccionados: true,
 
+            // Selección única: al elegir otro usuario, reemplaza la selección
+            // previa en vez de acumular (modo radio en vez de checkbox).
+            seleccionUnica: false,
+
             // Mostrar columna CUIT por defecto
             mostrarColumnaCUIT: true,
 
@@ -205,19 +209,18 @@ class SelectorUsuarios {
                 }
 
                 // FILTRAR por estado de validación si está configurado.
-                // Eliminamos del listado a los inválidos y sin_validar; los
-                // "sin_analizar" (estado nuevo) NO se filtran: queremos
-                // mostrarlos deshabilitados con su mensaje informativo.
+                // Solo dejamos pasar a los 'validado': ocultamos del listado a
+                // todos los que no se pueden operar (inválidos, sin_validar y
+                // también sin_analizar cuando requiereAnalisis está activo).
                 if (this.opciones.campoEstado && !this.opciones.permitirInvalidos && !this.opciones.permitirSinValidar) {
                     const usuariosAntesDeFiltar = usuarios.length;
 
                     usuarios = usuarios.filter(user => {
                         const estadoValidacion = this.obtenerEstadoValidacion(user);
-                        return estadoValidacion.estado === 'validado'
-                            || estadoValidacion.estado === 'sin_analizar';
+                        return estadoValidacion.estado === 'validado';
                     });
 
-                    console.log(`🔵 Filtrado (oculta inválidos / sin_validar): ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
+                    console.log(`🔵 Filtrado (oculta inválidos): ${usuariosAntesDeFiltar} → ${usuarios.length} usuarios`);
                 }
 
                 // Ordenar alfabéticamente por nombre
@@ -568,7 +571,12 @@ class SelectorUsuarios {
 
             // Sí se puede agregar
             console.log('🔵 Agregando usuario a seleccionados:', usuario.nombre);
-            this.usuariosSeleccionados.push(usuario);
+            if (this.opciones.seleccionUnica) {
+                // Modo single: reemplaza la selección previa (comportamiento radio).
+                this.usuariosSeleccionados = [usuario];
+            } else {
+                this.usuariosSeleccionados.push(usuario);
+            }
         }
 
         console.log('🔵 Total seleccionados:', this.usuariosSeleccionados.length);

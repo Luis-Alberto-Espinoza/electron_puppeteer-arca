@@ -778,6 +778,10 @@ async function cargarModuloConsultaComprobantes() {
         const cssPath  = '../consultaComprobantes/consulta_comprobantes.css';
         const jsPath   = '../consultaComprobantes/consulta_comprobantes.js';
 
+        // Rutas del componente genérico SelectorUsuarios (buscador de clientes)
+        const selectorUsuariosCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+        const selectorUsuariosJsPath  = '../componentes/selectorUsuarios/selectorUsuarios.js';
+
         // 1. HTML
         const response = await fetch(htmlPath);
         if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
@@ -794,6 +798,32 @@ async function cargarModuloConsultaComprobantes() {
             l.href = cssPath;
             document.head.appendChild(l);
         }
+
+        // 2b. CSS del componente SelectorUsuarios
+        if (!document.head.querySelector(`link[href="${selectorUsuariosCssPath}"]`)) {
+            const selectorCssLink = document.createElement('link');
+            selectorCssLink.rel = 'stylesheet';
+            selectorCssLink.href = selectorUsuariosCssPath;
+            document.head.appendChild(selectorCssLink);
+        }
+
+        // 2c. Cargar JS del componente SelectorUsuarios primero, para que
+        //     inicializarConsultaComprobantes() tenga la clase disponible.
+        await new Promise((resolve, reject) => {
+            if (typeof SelectorUsuarios !== 'undefined') {
+                resolve();
+                return;
+            }
+            const oldSelectorScript = document.head.querySelector(`script[src="${selectorUsuariosJsPath}"]`);
+            if (oldSelectorScript) oldSelectorScript.remove();
+
+            const selectorScript = document.createElement('script');
+            selectorScript.src = selectorUsuariosJsPath;
+            selectorScript.defer = true;
+            selectorScript.onload = () => resolve();
+            selectorScript.onerror = () => reject(new Error('Error al cargar SelectorUsuarios.js'));
+            document.head.appendChild(selectorScript);
+        });
 
         // 3. JS
         const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);

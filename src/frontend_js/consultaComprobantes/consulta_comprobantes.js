@@ -5,7 +5,6 @@
 window.inicializarConsultaComprobantes = () => {
     console.log('🔵 [ConsultaComprobantes] Inicializando módulo...');
 
-    const selectCliente   = document.getElementById('cc-select-cliente');
     const selectEmpresa   = document.getElementById('cc-select-empresa');
     const selectPdv       = document.getElementById('cc-select-pdv');
     const btnRefrescarPdv = document.getElementById('cc-btn-refrescar-pdv');
@@ -24,7 +23,9 @@ window.inicializarConsultaComprobantes = () => {
     const totalSuma       = document.getElementById('cc-total-suma');
     const tablaBody       = document.getElementById('cc-tabla-body');
 
-    let clientesCache = [];
+    // Cliente actualmente elegido en el buscador (objeto usuario completo, viene
+    // del componente SelectorUsuarios). null si no hay ninguno seleccionado.
+    let clienteSeleccionado = null;
 
     // ===== Flatpickr para fechas (si está disponible) =====
     if (typeof flatpickr === 'function') {
@@ -37,68 +38,44 @@ window.inicializarConsultaComprobantes = () => {
         flatpickr(inputHasta, cfg);
     }
 
-    // ===== Cargar clientes =====
-    cargarClientes();
+    // ===== Buscador de clientes (componente compartido SelectorUsuarios) =====
+    // Mismo buscador que usan VEP / Cuenta Tributaria / ATM. Selección única:
+    // al elegir otro cliente se reemplaza el anterior. Con requiereAnalisis, los
+    // clientes sin analizar ni siquiera aparecen en la lista (no se pueden operar).
+    montarSelectorClientes();
 
-    async function cargarClientes() {
-        try {
-            const res = await window.electronAPI.user.getAll();
-            if (!res.success || !Array.isArray(res.users)) {
-                selectCliente.innerHTML = '<option value="">No se pudieron cargar los clientes</option>';
-                return;
-            }
-
-            // Mostramos todos los clientes con clave AFIP. Los que no estén
-            // analizados aparecen deshabilitados (no se pueden seleccionar)
-            // con sufijo "(sin analizar)" — estrategia coherente con el
-            // selector de Facturación.
-            clientesCache = res.users.filter(u => {
-                const tieneClave = (u.claveAFIP && u.claveAFIP.trim()) || (u.clave && u.clave.trim());
-                return tieneClave;
-            });
-
-            if (clientesCache.length === 0) {
-                selectCliente.innerHTML = '<option value="">No hay clientes con clave AFIP</option>';
-                return;
-            }
-
-            selectCliente.innerHTML = '<option value="">Seleccione un cliente</option>';
-            clientesCache.forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u.id;
-                const nombre = `${u.nombre || ''} ${u.apellido || ''}`.trim();
-                const analizado = u.analizado_afip === true && Array.isArray(u.empresas) && u.empresas.length > 0;
-                if (!analizado) {
-                    opt.disabled = true;
-                    opt.textContent = `⏳ ${nombre} — ${u.cuit || ''} (sin analizar)`;
-                    opt.title = 'Analizá primero el cliente (botón "🔍 Analizar" en Gestión de Cliente).';
-                } else {
-                    opt.textContent = `${nombre} — ${u.cuit || ''}`;
-                }
-                selectCliente.appendChild(opt);
-            });
-            selectCliente.disabled = false;
-        } catch (e) {
-            console.error('Error cargando clientes:', e);
-            selectCliente.innerHTML = '<option value="">Error al cargar</option>';
+    function montarSelectorClientes() {
+        if (typeof SelectorUsuarios === 'undefined') {
+            console.warn('SelectorUsuarios aún no disponible — reintentando...');
+            setTimeout(montarSelectorClientes, 100);
+            return;
         }
+        new SelectorUsuarios('cc-selector-cliente', {
+            campoCredencial: 'claveAFIP',
+            campoEstado: 'estado_afip',
+            campoError: 'errorAfip',
+            requiereAnalisis: true,
+            seleccionUnica: true,
+            mostrarTablaSeleccionados: false,
+            mostrarColumnaCUIT: false,
+            onCambioSeleccion: (seleccionados) => onClienteSeleccionado(seleccionados[0] || null)
+        });
     }
 
     // ===== Cambio de cliente → poblar empresas =====
-    selectCliente.addEventListener('change', () => {
-        const clienteId = selectCliente.value;
+    function onClienteSeleccionado(cliente) {
+        clienteSeleccionado = cliente;
         selectEmpresa.innerHTML = '';
         selectEmpresa.disabled = true;
         resetPdv('Seleccione primero una empresa');
 
-        if (!clienteId) {
+        if (!cliente) {
             selectEmpresa.innerHTML = '<option value="">Seleccione primero un cliente</option>';
             actualizarEstadoBoton();
             return;
         }
 
-        const cliente = clientesCache.find(u => String(u.id) === String(clienteId));
-        const empresas = Array.isArray(cliente?.empresas) ? cliente.empresas : [];
+        const empresas = Array.isArray(cliente.empresas) ? cliente.empresas : [];
 
         if (empresas.length === 0) {
             selectEmpresa.innerHTML = '<option value="">El cliente no tiene empresas registradas</option>';
@@ -119,7 +96,7 @@ window.inicializarConsultaComprobantes = () => {
         });
         selectEmpresa.disabled = false;
         actualizarEstadoBoton();
-    });
+    }
 
     // ===== Cambio de empresa → poblar puntos de venta (lazy) =====
     selectEmpresa.addEventListener('change', async () => {
@@ -129,7 +106,7 @@ window.inicializarConsultaComprobantes = () => {
 
         if (!razonSocial) return;
 
-        const cliente = clientesCache.find(u => String(u.id) === String(selectCliente.value));
+        const cliente = clienteSeleccionado;
         const empresa = (cliente?.empresas || []).find(e => e.razonSocial === razonSocial);
 
         // Si la empresa NO está en el modelo nuevo (cliente legacy sin migrar todavía),
@@ -159,7 +136,7 @@ window.inicializarConsultaComprobantes = () => {
     // ===== Botón Refrescar PDV =====
     btnRefrescarPdv.addEventListener('click', async () => {
         const razonSocial = selectEmpresa.value;
-        const clienteId = selectCliente.value;
+        const clienteId = clienteSeleccionado?.id;
         if (!razonSocial || !clienteId) return;
         await descubrirYPopularPdv(clienteId, razonSocial);
     });
@@ -197,7 +174,9 @@ window.inicializarConsultaComprobantes = () => {
             }
 
             // Refrescar el cache local para que la próxima vez no haga llamada.
-            const cliente = clientesCache.find(u => String(u.id) === String(clienteId));
+            // clienteSeleccionado es el mismo objeto que guarda el componente en
+            // su lista interna, así que mutar la empresa persiste en la sesión.
+            const cliente = clienteSeleccionado;
             const empresa = (cliente?.empresas || []).find(e => e.razonSocial === razonSocial);
             if (empresa) {
                 empresa.puntosDeVenta = res.data.puntosDeVenta;
@@ -282,7 +261,7 @@ window.inicializarConsultaComprobantes = () => {
     });
 
     function actualizarEstadoBoton() {
-        const ok = selectCliente.value
+        const ok = clienteSeleccionado
             && selectEmpresa.value
             && selectPdv.value
             && inputDesde.value
@@ -304,7 +283,7 @@ window.inicializarConsultaComprobantes = () => {
         btnConsultar.disabled = true;
 
         const datos = {
-            usuario: { id: selectCliente.value },
+            usuario: { id: clienteSeleccionado.id },
             nombreEmpresa: selectEmpresa.value,
             puntoDeVenta: selectPdv.value,
             fechaDesde: inputDesde.value.trim(),
@@ -334,6 +313,10 @@ window.inicializarConsultaComprobantes = () => {
     function mostrarError(msg) {
         mensajeError.textContent = `❌ ${msg}`;
         mensajeError.style.display = 'block';
+
+        // Igual que con los resultados: llevar el foco al error para que se
+        // note que la automatización terminó (aunque haya fallado).
+        mensajeError.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function renderizarResultados(data) {
@@ -404,6 +387,10 @@ window.inicializarConsultaComprobantes = () => {
         }
 
         resultados.style.display = 'block';
+
+        // Llevar el foco a los resultados: si no scrolleamos, la vista queda
+        // igual que antes de consultar y no se nota que la automatización terminó.
+        resultados.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function formatearMoneda(n) {
