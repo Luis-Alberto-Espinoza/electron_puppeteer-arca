@@ -48,24 +48,39 @@ async function extraerDatosDelPDF(pdfPath) {
         let nroVep = null;
         let periodo = null;
         let cuit = null;
+        // Un VEP que agrupa varios períodos es "consolidado": no trae línea
+        // "Período:" sino "Concepto: VEP CONSOLIDADO" / "Nro. VEP Consolidado:".
+        let esConsolidado = false;
 
         for (const fila of allFilas) {
             for (let i = 0; i < fila.items.length; i++) {
                 const item = fila.items[i];
                 const texto = item.str.trim();
 
-                // Buscar Nro. VEP
-                if (!nroVep && (texto.includes('Nro. VEP:') || texto.includes('Nro.VEP:'))) {
-                    for (let j = i + 1; j < fila.items.length; j++) {
-                        const valor = fila.items[j].str.trim();
-                        if (valor && /^\d+$/.test(valor)) {
-                            nroVep = valor;
-                            break;
+                // Detectar si el VEP es consolidado (varios períodos)
+                if (!esConsolidado && /consolidado/i.test(texto)) {
+                    esConsolidado = true;
+                }
+
+                // Buscar Nro. VEP (cubre "Nro. VEP:" y "Nro. VEP Consolidado:")
+                if (!nroVep && (texto.includes('Nro. VEP') || texto.includes('Nro.VEP'))) {
+                    // Caso A: el número viene en el mismo item ("...: 1633556137")
+                    const mismoItem = texto.match(/(\d{6,})\s*$/);
+                    if (mismoItem) {
+                        nroVep = mismoItem[1];
+                    } else {
+                        // Caso B: el número viene en items siguientes de la misma fila
+                        for (let j = i + 1; j < fila.items.length; j++) {
+                            const valor = fila.items[j].str.trim();
+                            if (valor && /^\d+$/.test(valor)) {
+                                nroVep = valor;
+                                break;
+                            }
                         }
                     }
                 }
 
-                // Buscar Período
+                // Buscar Período (solo existe en VEPs de un único período)
                 if (!periodo && (texto.includes('Período:') || texto.includes('Periodo:'))) {
                     for (let j = i + 1; j < fila.items.length; j++) {
                         const valor = fila.items[j].str.trim();
@@ -89,8 +104,13 @@ async function extraerDatosDelPDF(pdfPath) {
                 }
             }
 
-            // Si ya encontramos todo, salir
+            // Si ya encontramos todo lo de un VEP simple, salir
             if (nroVep && periodo && cuit) break;
+        }
+
+        // Si es consolidado y no hubo línea de período, usamos "consolidado"
+        if (!periodo && esConsolidado) {
+            periodo = 'consolidado';
         }
 
         return { nroVep, periodo, cuit };
@@ -117,30 +137,29 @@ async function ejecutar(page, usuario, medioPago, downloadsPath) {
             downloadPath: tempDir
         });
 
-        // 3. Buscar y hacer click en botón PDF
-        const botonEncontrado = await page.evaluate(() => {
-            const spans = Array.from(document.querySelectorAll('span.material-icons'));
-            const pdfIcon = spans.find(span => span.textContent.trim() === 'picture_as_pdf');
-            return pdfIcon ? true : false;
-        });
-
-        if (!botonEncontrado) {
-            throw new Error('No se encontró el botón de descarga PDF');
-        }
-
+        // 3. Buscar y hacer click en el botón de descarga.
+        // UI nueva de AFIP/ARCA: ya no es el ícono material "picture_as_pdf",
+        // ahora es un <button> con el texto "Descargar VEP".
         const clickRealizado = await page.evaluate(() => {
-            const spans = Array.from(document.querySelectorAll('span.material-icons'));
-            const pdfIcon = spans.find(span => span.textContent.trim() === 'picture_as_pdf');
-            if (pdfIcon) {
-                const elemento = pdfIcon.closest('a') || pdfIcon;
-                elemento.click();
+            const texto = (el) => (el.textContent || '').trim().toLowerCase();
+
+            // Buscamos en botones y links
+            const candidatos = Array.from(document.querySelectorAll('button, a'));
+
+            // Preferimos "descargar vep"; si no, cualquier "descargar"
+            const boton = candidatos.find(el => texto(el).includes('descargar vep'))
+                       || candidatos.find(el => texto(el).includes('descargar'));
+
+            if (boton) {
+                boton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                boton.click();
                 return true;
             }
             return false;
         });
 
         if (!clickRealizado) {
-            throw new Error('No se pudo hacer click en el botón PDF');
+            throw new Error('No se encontró el botón de descarga PDF ("Descargar VEP")');
         }
 
         // 4. Esperar descarga
@@ -183,26 +202,38 @@ async function ejecutar(page, usuario, medioPago, downloadsPath) {
             console.log("  → Verificando si existe código QR en la página...");
 
             const qrData = await page.evaluate(() => {
-                // Buscar imagen con src que comience con "data:image/png;base64,"
+                // Cualquier <img> embebida como data URL (AFIP a veces rotula
+                // mal el mime: dice "image/png" pero el contenido es JPEG).
                 const imagenes = Array.from(document.querySelectorAll('img'));
                 const imgQR = imagenes.find(img =>
-                    img.src && img.src.startsWith('data:image/png;base64,')
+                    img.src && /^data:image\/[a-z]+;base64,/i.test(img.src)
                 );
 
-                if (imgQR) {
-                    return imgQR.src; // Retornar el data URL completo
-                }
-                return null;
+                return imgQR ? imgQR.src : null;
             });
 
             if (qrData) {
                 console.log("  → Código QR detectado. Descargando...");
 
-                // Extraer el base64 puro (sin el prefijo "data:image/png;base64,")
-                const base64Data = qrData.replace(/^data:image\/png;base64,/, '');
+                // Sacar el prefijo "data:image/...;base64," y limpiar espacios
+                // (el src de AFIP trae un espacio después de la coma).
+                const base64Data = qrData
+                    .replace(/^data:image\/[a-z]+;base64,/i, '')
+                    .replace(/\s/g, '');
 
-                // Generar nombre para el QR (mismo que el PDF pero con .png)
-                qrNombre = nuevoNombre.replace('.pdf', '.png');
+                // Detectar el formato REAL por los magic bytes del base64,
+                // no por el mime declarado (que viene mal).
+                let extension = '.png';
+                if (base64Data.startsWith('/9j/')) {
+                    extension = '.jpg';          // JPEG
+                } else if (base64Data.startsWith('iVBOR')) {
+                    extension = '.png';          // PNG
+                } else if (base64Data.startsWith('R0lGOD')) {
+                    extension = '.gif';          // GIF
+                }
+
+                // Mismo nombre que el PDF pero con la extensión real de la imagen
+                qrNombre = nuevoNombre.replace(/\.pdf$/i, extension);
                 qrPath = path.join(destinoDir, qrNombre);
 
                 // Guardar imagen

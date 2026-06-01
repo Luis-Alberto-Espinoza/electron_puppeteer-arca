@@ -30,19 +30,57 @@ async function ejecutar(page, medioPago) {
 
         console.log(`  → Seleccionando medio de pago: ${medioPago.nombre}...`);
 
-        // Esperar a que aparezcan los botones de medios de pago
-        await page.waitForSelector('input[type="image"]', { timeout: 10000 });
+        // UI nueva de AFIP/ARCA: los medios de pago ahora son
+        // <button class="...edpeffectbutton"> que adentro tienen
+        // <img id="0" src=".../edp0.gif">. El id del <img> sigue siendo
+        // el mismo mapeo (0 = QR, 1001 = Link, etc.).
+        const SELECTOR_BOTONES = 'button.edpeffectbutton';
+        try {
+            await page.waitForSelector(SELECTOR_BOTONES, { timeout: 10000 });
+        } catch (errSelector) {
+            // No aparecieron los botones de medio de pago: dejamos una pista
+            // acotada (solo lo que menciona qr/pago) por si AFIP volvió a cambiar.
+            const relevantes = await page.evaluate(() => {
+                const candidatos = Array.from(document.querySelectorAll('button, a, input, img, [role="button"]'));
+                return candidatos
+                    .filter(el => /qr|pago|medio/i.test(el.outerHTML))
+                    .map(el => ({
+                        tag: el.tagName.toLowerCase(),
+                        id: el.id || null,
+                        clase: el.className || null,
+                        alt: el.getAttribute('alt') || null,
+                        texto: (el.textContent || '').trim().slice(0, 40) || null
+                    }));
+            });
 
-        // Buscar el botón y hacer CLICK REAL
+            console.error("  ❌ No aparecieron los botones de medio de pago (button.edpeffectbutton).");
+            console.error("  Candidatos con 'qr'/'pago':", JSON.stringify(relevantes));
+            throw errSelector;
+        }
+
+        // Buscar el botón y hacer CLICK REAL.
+        // El <img> del medio tiene id === medioId (ej: "0" para QR);
+        // clickeamos el <button> que lo contiene.
         const clickRealizado = await page.evaluate((targetId) => {
-            const input = document.querySelector(`input[type="image"][id="${targetId}"]`);
+            const img = document.querySelector(`button.edpeffectbutton img[id="${targetId}"]`);
 
-            if (input) {
-                const button = input.closest('button');
+            if (img) {
+                const button = img.closest('button');
                 if (button) {
                     button.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     button.click();
-                    return { encontrado: true, clickRealizado: true };
+                    return { encontrado: true, clickRealizado: true, via: 'img-id' };
+                }
+            }
+
+            // Fallback: por el aria-label del botón (ej: "...ARCA-QR")
+            const porSrc = document.querySelector(`button.edpeffectbutton img[src*="edp${targetId}."]`);
+            if (porSrc) {
+                const button = porSrc.closest('button');
+                if (button) {
+                    button.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    button.click();
+                    return { encontrado: true, clickRealizado: true, via: 'img-src' };
                 }
             }
 

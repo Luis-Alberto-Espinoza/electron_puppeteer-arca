@@ -34,38 +34,54 @@ const EstadoVEP = {
     },
 
     /**
-     * Agrega un período seleccionado para un cliente
+     * Agrega un período seleccionado para un cliente.
+     * La selección se guarda por (tipo, período) para que las tablas de
+     * OBLIGACIONES e INTERESES sean independientes aunque compartan períodos.
      * @param {string} clienteId - ID del cliente
      * @param {string} periodo - Período seleccionado
+     * @param {string} tipo - 'obligaciones' | 'intereses'
      */
-    agregarSeleccionPeriodo(clienteId, periodo) {
+    agregarSeleccionPeriodo(clienteId, periodo, tipo = 'obligaciones') {
         if (!this.periodosSeleccionados[clienteId]) {
             this.periodosSeleccionados[clienteId] = [];
         }
 
-        if (!this.periodosSeleccionados[clienteId].includes(periodo)) {
-            this.periodosSeleccionados[clienteId].push(periodo);
-            console.log(`✅ Período ${periodo} agregado para cliente ${clienteId}`);
+        const yaEsta = this.periodosSeleccionados[clienteId].some(
+            p => p.periodo === periodo && p.tipo === tipo
+        );
+        if (!yaEsta) {
+            this.periodosSeleccionados[clienteId].push({ periodo, tipo });
         }
     },
 
     /**
-     * Quita un período seleccionado de un cliente
+     * Quita un período seleccionado de un cliente (por tipo).
      * @param {string} clienteId - ID del cliente
      * @param {string} periodo - Período a quitar
+     * @param {string} tipo - 'obligaciones' | 'intereses'
      */
-    quitarSeleccionPeriodo(clienteId, periodo) {
+    quitarSeleccionPeriodo(clienteId, periodo, tipo = 'obligaciones') {
         if (this.periodosSeleccionados[clienteId]) {
             this.periodosSeleccionados[clienteId] = this.periodosSeleccionados[clienteId]
-                .filter(p => p !== periodo);
+                .filter(p => !(p.periodo === periodo && p.tipo === tipo));
 
             // Si no quedan períodos, eliminar la entrada
             if (this.periodosSeleccionados[clienteId].length === 0) {
                 delete this.periodosSeleccionados[clienteId];
             }
-
-            console.log(`❌ Período ${periodo} quitado para cliente ${clienteId}`);
         }
+    },
+
+    /**
+     * Indica si un período de una tabla específica está seleccionado.
+     * @param {string} clienteId - ID del cliente
+     * @param {string} periodo - Período
+     * @param {string} tipo - 'obligaciones' | 'intereses'
+     * @returns {boolean}
+     */
+    estaPeriodoSeleccionado(clienteId, periodo, tipo) {
+        const sel = this.periodosSeleccionados[clienteId] || [];
+        return sel.some(p => p.periodo === periodo && p.tipo === tipo);
     },
 
     /**
@@ -96,12 +112,14 @@ const EstadoVEP = {
     },
 
     /**
-     * Obtiene los períodos seleccionados de un cliente
+     * Obtiene los períodos seleccionados de un cliente como strings únicos.
+     * (Para el backend, que espera una lista de períodos sin distinguir tabla.)
      * @param {string} clienteId - ID del cliente
      * @returns {Array<string>}
      */
     obtenerPeriodosCliente(clienteId) {
-        return this.periodosSeleccionados[clienteId] || [];
+        const sel = this.periodosSeleccionados[clienteId] || [];
+        return [...new Set(sel.map(p => p.periodo))];
     },
 
     /**

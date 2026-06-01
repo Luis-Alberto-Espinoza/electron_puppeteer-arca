@@ -151,53 +151,61 @@ function renderizarTablasPeriodos(periodos, clienteId) {
 
     // Renderizar tabla de OBLIGACIONES
     if (periodos.obligaciones && periodos.obligaciones.length > 0) {
-        html += `
-            <div class="seccion-tabla-periodos">
-                <h5 class="titulo-seccion-periodos">OBLIGACIONES</h5>
-                <div class="tabla-periodos-wrapper">
-                    <table class="tabla-periodos-cliente">
-                        <thead>
-                            <tr>
-                                <th class="col-check">Seleccionar</th>
-                                <th class="col-periodo">Período</th>
-                                <th class="col-detalle">Detalle</th>
-                                <th class="col-total">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${renderizarFilasPeriodos(periodos.obligaciones, clienteId)}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
+        html += renderizarTablaPeriodos('OBLIGACIONES', periodos.obligaciones, clienteId, 'obligaciones');
     }
 
     // Renderizar tabla de INTERESES
     if (periodos.intereses && periodos.intereses.length > 0) {
-        html += `
-            <div class="seccion-tabla-periodos">
-                <h5 class="titulo-seccion-periodos">DIFERENCIAS E INTERESES</h5>
-                <div class="tabla-periodos-wrapper">
-                    <table class="tabla-periodos-cliente">
-                        <thead>
-                            <tr>
-                                <th class="col-check">Seleccionar</th>
-                                <th class="col-periodo">Período</th>
-                                <th class="col-detalle">Detalle</th>
-                                <th class="col-total">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${renderizarFilasPeriodos(periodos.intereses, clienteId)}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
+        html += renderizarTablaPeriodos('DIFERENCIAS E INTERESES', periodos.intereses, clienteId, 'intereses');
     }
 
     return html;
+}
+
+/**
+ * Renderiza una tabla de períodos (obligaciones o intereses) con su botón de
+ * "Seleccionar todos / Quitar todos" en el encabezado.
+ * @param {string} titulo - Título visible de la tabla
+ * @param {Array} lista - Períodos de esta tabla
+ * @param {string} clienteId - ID del cliente
+ * @param {string} tipo - 'obligaciones' | 'intereses' (para el handler del botón)
+ * @returns {string} HTML de la tabla
+ */
+function renderizarTablaPeriodos(titulo, lista, clienteId, tipo) {
+    // Estado del botón: si ya están todos seleccionados (en ESTA tabla), ofrece "Quitar todos"
+    const todosSeleccionados = lista.length > 0 &&
+        lista.every(p => EstadoVEP.estaPeriodoSeleccionado(clienteId, p.periodo, tipo));
+    const labelBtn = todosSeleccionados ? 'Quitar todos' : 'Seleccionar todos';
+
+    return `
+        <div class="seccion-tabla-periodos">
+            <div class="encabezado-tabla-periodos" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <h5 class="titulo-seccion-periodos">${titulo}</h5>
+                <button
+                    type="button"
+                    class="btn-seleccionar-todos-periodos"
+                    data-cliente-id="${clienteId}"
+                    data-tipo="${tipo}"
+                    style="cursor:pointer; padding:4px 10px; font-size:12px; border:1px solid #3b82f6; border-radius:6px; background:${todosSeleccionados ? '#3b82f6' : '#fff'}; color:${todosSeleccionados ? '#fff' : '#3b82f6'};"
+                >${labelBtn}</button>
+            </div>
+            <div class="tabla-periodos-wrapper">
+                <table class="tabla-periodos-cliente">
+                    <thead>
+                        <tr>
+                            <th class="col-check">Seleccionar</th>
+                            <th class="col-periodo">Período</th>
+                            <th class="col-detalle">Detalle</th>
+                            <th class="col-total">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${renderizarFilasPeriodos(lista, clienteId, tipo)}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
 }
 
 /**
@@ -206,11 +214,10 @@ function renderizarTablasPeriodos(periodos, clienteId) {
  * @param {string} clienteId - ID del cliente
  * @returns {string} HTML de las filas
  */
-function renderizarFilasPeriodos(periodos, clienteId) {
+function renderizarFilasPeriodos(periodos, clienteId, tipo = 'obligaciones') {
     return periodos.map(periodo => {
         const { periodo: per, filas } = periodo;
-        const periodosSeleccionados = EstadoVEP.obtenerPeriodosCliente(clienteId);
-        const estaSeleccionado = periodosSeleccionados.includes(per);
+        const estaSeleccionado = EstadoVEP.estaPeriodoSeleccionado(clienteId, per, tipo);
         const total = formatearTotalPeriodo(filas);
 
         return `
@@ -221,6 +228,7 @@ function renderizarFilasPeriodos(periodos, clienteId) {
                         class="checkbox-periodo"
                         data-cliente-id="${clienteId}"
                         data-periodo="${per}"
+                        data-tipo="${tipo}"
                         ${estaSeleccionado ? 'checked' : ''}
                     />
                 </td>

@@ -17,10 +17,28 @@ export function inicializarEventListeners() {
         return;
     }
 
-    // Usar delegación de eventos
+    // Usar delegación de eventos (evitar duplicar si ya se inicializó)
+    seccionResultados.removeEventListener('change', manejarCambioCheckbox);
     seccionResultados.addEventListener('change', manejarCambioCheckbox);
 
+    seccionResultados.removeEventListener('click', manejarClickBoton);
+    seccionResultados.addEventListener('click', manejarClickBoton);
+
     console.log('✅ Event listeners de períodos inicializados');
+}
+
+/**
+ * Maneja clicks delegados en botones dentro de la sección de resultados.
+ * Hoy solo: "Seleccionar todos / Quitar todos" de cada tabla de períodos.
+ * @param {Event} event
+ */
+function manejarClickBoton(event) {
+    const btn = event.target.closest('.btn-seleccionar-todos-periodos');
+    if (!btn) return;
+
+    const clienteId = btn.dataset.clienteId;
+    const tipo = btn.dataset.tipo; // 'obligaciones' | 'intereses'
+    alternarSeleccionTabla(clienteId, tipo);
 }
 
 /**
@@ -41,7 +59,8 @@ function manejarCambioCheckbox(event) {
     if (target.classList.contains('checkbox-periodo')) {
         const clienteId = target.dataset.clienteId;
         const periodo = target.dataset.periodo;
-        manejarCheckboxPeriodo(clienteId, periodo, target.checked);
+        const tipo = target.dataset.tipo || 'obligaciones';
+        manejarCheckboxPeriodo(clienteId, periodo, tipo, target.checked);
         return;
     }
 }
@@ -52,8 +71,6 @@ function manejarCambioCheckbox(event) {
  * @param {boolean} incluir - True para incluir, false para excluir
  */
 function manejarCheckboxCliente(clienteId, incluir) {
-    console.log(`🔘 Cliente ${clienteId}: ${incluir ? 'incluir' : 'excluir'}`);
-
     if (incluir) {
         EstadoVEP.incluirCliente(clienteId);
     } else {
@@ -70,17 +87,15 @@ function manejarCheckboxCliente(clienteId, incluir) {
  * @param {string} periodo - Período seleccionado
  * @param {boolean} seleccionar - True para seleccionar, false para deseleccionar
  */
-function manejarCheckboxPeriodo(clienteId, periodo, seleccionar) {
-    console.log(`📅 Período ${periodo} de cliente ${clienteId}: ${seleccionar ? 'seleccionado' : 'deseleccionado'}`);
-
+function manejarCheckboxPeriodo(clienteId, periodo, tipo, seleccionar) {
     if (seleccionar) {
-        EstadoVEP.agregarSeleccionPeriodo(clienteId, periodo);
+        EstadoVEP.agregarSeleccionPeriodo(clienteId, periodo, tipo);
     } else {
-        EstadoVEP.quitarSeleccionPeriodo(clienteId, periodo);
+        EstadoVEP.quitarSeleccionPeriodo(clienteId, periodo, tipo);
     }
 
     // Actualizar visualización de la fila
-    actualizarVisualizacionFila(clienteId, periodo);
+    actualizarVisualizacionFila(clienteId, periodo, tipo);
 }
 
 /**
@@ -106,9 +121,9 @@ function actualizarVisualizacionTarjeta(clienteId) {
  * @param {string} clienteId - ID del cliente
  * @param {string} periodo - Período
  */
-function actualizarVisualizacionFila(clienteId, periodo) {
+function actualizarVisualizacionFila(clienteId, periodo, tipo = 'obligaciones') {
     const checkbox = document.querySelector(
-        `.checkbox-periodo[data-cliente-id="${clienteId}"][data-periodo="${periodo}"]`
+        `.checkbox-periodo[data-cliente-id="${clienteId}"][data-periodo="${periodo}"][data-tipo="${tipo}"]`
     );
 
     if (!checkbox) return;
@@ -160,37 +175,42 @@ export function validarSelecciones() {
 }
 
 /**
- * Selecciona todos los períodos de un cliente
+ * Alterna la selección de TODOS los períodos de una tabla (obligaciones o
+ * intereses) de un cliente. Si ya están todos seleccionados, los quita; si no,
+ * los selecciona todos. Pensado para tablas grandes donde tildar de a uno es
+ * engorroso.
+ *
  * @param {string} clienteId - ID del cliente
+ * @param {string} tipo - 'obligaciones' | 'intereses'
  */
-export function seleccionarTodosLosPeriodos(clienteId) {
-    const cliente = EstadoVEP.requierenSeleccion.find(c => c.usuario.id === clienteId);
+export function alternarSeleccionTabla(clienteId, tipo) {
+    const cliente = EstadoVEP.requierenSeleccion.find(
+        c => String(c.usuario.id) === String(clienteId)
+    );
+    if (!cliente || !cliente.periodos) return;
 
-    if (!cliente) return;
+    const lista = cliente.periodos[tipo] || [];
+    if (lista.length === 0) return;
 
-    cliente.periodos.forEach(periodo => {
-        EstadoVEP.agregarSeleccionPeriodo(clienteId, periodo.periodo);
+    // ¿Ya están todos los de ESTA tabla? → el botón quita; si no, agrega.
+    const todosSeleccionados = lista.every(
+        p => EstadoVEP.estaPeriodoSeleccionado(clienteId, p.periodo, tipo)
+    );
+
+    lista.forEach(p => {
+        if (todosSeleccionados) {
+            EstadoVEP.quitarSeleccionPeriodo(clienteId, p.periodo, tipo);
+        } else {
+            EstadoVEP.agregarSeleccionPeriodo(clienteId, p.periodo, tipo);
+        }
     });
 
-    // Re-renderizar el grupo para actualizar UI
+    // Re-renderizar el grupo para reflejar el nuevo estado (checkboxes + botón).
+    // La delegación de eventos vive en el contenedor padre persistente, así que
+    // NO hace falta re-inicializar listeners (evitamos duplicarlos).
     renderizarGrupoRequierenSeleccion(EstadoVEP.requierenSeleccion);
-    inicializarEventListeners();
 
-    console.log(`✅ Todos los períodos de ${clienteId} seleccionados`);
-}
-
-/**
- * Deselecciona todos los períodos de un cliente
- * @param {string} clienteId - ID del cliente
- */
-export function deseleccionarTodosLosPeriodos(clienteId) {
-    delete EstadoVEP.periodosSeleccionados[clienteId];
-
-    // Re-renderizar el grupo para actualizar UI
-    renderizarGrupoRequierenSeleccion(EstadoVEP.requierenSeleccion);
-    inicializarEventListeners();
-
-    console.log(`❌ Todos los períodos de ${clienteId} deseleccionados`);
+    console.log(`${todosSeleccionados ? '❌ Quitados' : '✅ Seleccionados'} todos los períodos de ${tipo} del cliente ${clienteId}`);
 }
 
 /**

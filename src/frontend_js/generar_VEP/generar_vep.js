@@ -512,6 +512,16 @@ async function confirmarYContinuar() {
                 // Limpiar grupos anteriores
                 limpiarTodosLosGrupos();
 
+                // OPCIÓN A: preservar la tabla. Solo quitamos los períodos que
+                // se generaron OK; el resto queda disponible para generar otro
+                // VEP sin repetir la primera pasada (volver a leer la deuda).
+                const idsExitosos = new Set(exitosos.map(e => String(e.usuario.id)));
+                const tablaPreservada = preservarPeriodosNoGenerados(
+                    EstadoVEP.requierenSeleccion,
+                    periodosSeleccionados,
+                    idsExitosos
+                );
+
                 // Actualizar estado con resultados finales
                 EstadoVEP.setResultados({
                     procesadosAuto: exitosos.map(e => ({
@@ -519,13 +529,16 @@ async function confirmarYContinuar() {
                         medioPago: e.medioPago,
                         pdfDescargado: e.pdfDescargado
                     })),
-                    requierenSeleccion: [], // Ya no hay nada que seleccionar
+                    requierenSeleccion: tablaPreservada,
                     errores: conErrores.map(e => ({
                         usuario: e.usuario,
                         medioPago: e.medioPago,
                         error: e.error
                     }))
                 });
+
+                // La tabla queda, pero las tildes de selección se reinician
+                EstadoVEP.periodosSeleccionados = {};
 
                 // Renderizar todos los grupos
                 renderizarTodosLosGrupos();
@@ -548,13 +561,13 @@ async function confirmarYContinuar() {
                     mostrarMensaje('success', `✅ ${exitosos.length} VEP generado(s) exitosamente`);
                 }
 
-                // Scroll automático a la sección de resultados
-                scrollAResultados();
+                // Foco/scroll a los archivos descargados (botón "Abrir")
+                enfocarArchivosDescargados();
 
-                // Ocultar botones de confirmación
+                // El botón de confirmar sigue visible si quedó tabla por procesar
                 const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
                 if (btnConfirmar) {
-                    btnConfirmar.style.display = 'none';
+                    btnConfirmar.style.display = tablaPreservada.length > 0 ? 'inline-block' : 'none';
                 }
 
                 // Mostrar botón de nuevo proceso
@@ -731,6 +744,67 @@ function scrollAResultados() {
             console.log('📜 Scroll automático a resultados');
         }
     }, 300); // 300ms para asegurar que el DOM esté actualizado
+}
+
+/**
+ * OPCIÓN A: dada la tabla original (requierenSeleccion) y los períodos que se
+ * acaban de generar, devuelve la tabla sin esos períodos, para no perder la
+ * lectura de deuda y poder generar otro VEP sin repetir la primera pasada.
+ *
+ * @param {Array} requierenSeleccion - Clientes con su tabla de períodos
+ * @param {Object} periodosGenerados - { clienteId: [periodo, ...] } generados
+ * @param {Set<string>} idsExitosos - IDs de clientes que se generaron OK
+ * @returns {Array} Tabla preservada (solo clientes con períodos restantes)
+ */
+function preservarPeriodosNoGenerados(requierenSeleccion, periodosGenerados, idsExitosos) {
+    const preservados = [];
+
+    for (const cliente of (requierenSeleccion || [])) {
+        const clienteId = String(cliente.usuario.id);
+
+        // Clientes fallidos o no procesados: se mantienen con la tabla completa
+        if (!idsExitosos.has(clienteId)) {
+            preservados.push(cliente);
+            continue;
+        }
+
+        const generados = periodosGenerados[clienteId] || [];
+        const sinGenerados = (lista) => (lista || []).filter(p => !generados.includes(p.periodo));
+
+        const obligaciones = sinGenerados(cliente.periodos && cliente.periodos.obligaciones);
+        const intereses = sinGenerados(cliente.periodos && cliente.periodos.intereses);
+
+        // Solo conservar el cliente si todavía le quedan períodos sin generar
+        if (obligaciones.length + intereses.length > 0) {
+            preservados.push({
+                ...cliente,
+                periodos: { ...cliente.periodos, obligaciones, intereses }
+            });
+        }
+    }
+
+    return preservados;
+}
+
+/**
+ * Lleva el foco a la sección de archivos descargados y enfoca el primer botón
+ * "Abrir", para que el usuario acceda rápido al archivo recién generado.
+ * Si no hubo archivos, cae al scroll de resultados normal.
+ */
+function enfocarArchivosDescargados() {
+    setTimeout(() => {
+        const seccion = document.getElementById('seccion-archivos-descargados');
+        if (seccion && seccion.style.display !== 'none') {
+            seccion.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+            const primerAbrir = seccion.querySelector('.btn-abrir-archivo');
+            if (primerAbrir) {
+                primerAbrir.focus({ preventScroll: true });
+            }
+            console.log('🎯 Foco en archivos descargados');
+        } else {
+            scrollAResultados();
+        }
+    }, 350);
 }
 
 function mostrarMensaje(tipo, mensaje) {
