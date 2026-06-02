@@ -143,6 +143,34 @@ function waitForFile(downloadPath, originalFilename, newFilename, timeout = 6000
 }
 
 /**
+ * Mueve un archivo de `origen` a `destino` de forma segura entre discos.
+ *
+ * `fs.rename` solo funciona dentro del mismo volumen: si el origen está en el
+ * temp del sistema (C:) y el destino en otra unidad (D:), Windows tira
+ * `EXDEV: cross-device link not permitted`. En ese caso copiamos y borramos el
+ * original. Por eso a veces "funcionaba": cuando temp y destino caían en el
+ * mismo disco el rename andaba; al cambiar la carpeta de descargas a otra
+ * unidad, fallaba.
+ *
+ * @param {string} origen - Ruta del archivo a mover.
+ * @param {string} destino - Ruta destino (incluye nombre de archivo).
+ * @returns {Promise<void>}
+ */
+async function moverArchivo(origen, destino) {
+    const fsp = fs.promises;
+    try {
+        await fsp.rename(origen, destino);
+    } catch (err) {
+        if (err.code === 'EXDEV') {
+            await fsp.copyFile(origen, destino);
+            await fsp.unlink(origen);
+        } else {
+            throw err;
+        }
+    }
+}
+
+/**
  * Genera un nombre de archivo estandarizado para retenciones/percepciones ATM.
  * Formato: CUIT_SubServiceName_YYYY-MM_YYYY-MM-DD.extension
  * Ejemplo: 20123456789_Retenciones_SIRTAC_IB_2025-01_2025-01-28.xlsx
@@ -189,6 +217,7 @@ function getConsolidadoAfipPath(basePath, subServicio) {
 module.exports = {
     getDownloadPath,
     getConsolidadoAfipPath,
+    moverArchivo,
     getFilename,
     getFilenameRetenciones,
     waitForFile,

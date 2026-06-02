@@ -6,7 +6,7 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const os = require('os');
 const path = require('path');
-const { getDownloadPath } = require('../../../../utils/fileManager.js');
+const { getDownloadPath, moverArchivo } = require('../../../../utils/fileManager.js');
 const { getSctFrame } = require('./_helpers.js');
 
 function fechaHoy() {
@@ -151,7 +151,7 @@ async function ejecutar(page, usuario, cuitAsociado, downloadsPath) {
         }, 'archivos_afip');
         const nuevoNombre = `DeudaCT_${cuitAsociado || usuario.cuit}_${fechaHoy()}${ext}`;
         const destinoPath = path.join(destinoDir, nuevoNombre);
-        await fs.rename(srcPath, destinoPath);
+        await moverArchivo(srcPath, destinoPath);
 
         console.log(`  ✅ [SCT] Excel guardado: ${nuevoNombre}`);
         return {

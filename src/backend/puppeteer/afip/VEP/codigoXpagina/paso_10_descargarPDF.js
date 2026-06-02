@@ -8,7 +8,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
-const { getDownloadPath } = require('../../../../utils/fileManager.js');
+const { getDownloadPath, moverArchivo } = require('../../../../utils/fileManager.js');
 
 async function extraerDatosDelPDF(pdfPath) {
     try {
@@ -189,7 +189,7 @@ async function ejecutar(page, usuario, medioPago, downloadsPath) {
         }, 'archivos_afip');
         const destinoPath = path.join(destinoDir, nuevoNombre);
 
-        await fs.rename(pdfPath, destinoPath);
+        await moverArchivo(pdfPath, destinoPath);
 
         console.log(`  ✅ PDF descargado: ${nuevoNombre}`);
         console.log(`     Nro. VEP: ${nroVep || 'N/A'} | Período: ${periodo || 'N/A'} | CUIT: ${cuit || 'N/A'}`);

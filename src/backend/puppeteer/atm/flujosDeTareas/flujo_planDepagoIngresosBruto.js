@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
-const { getDownloadPath } = require('../../../utils/fileManager.js');
+const { getDownloadPath, moverArchivo } = require('../../../utils/fileManager.js');
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
@@ -112,7 +112,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
 
             const destinoDir = getDownloadPath(downloadsPath, { cuit: credencialesATM.cuit, nombre: nombreUsuario }, 'archivos_atm');
             const destinoPath = path.join(destinoDir, nuevoNombre);
-            await fs.rename(tempFilePath, destinoPath);
+            await moverArchivo(tempFilePath, destinoPath);
 
             finalFilePaths.push(destinoPath);
         }

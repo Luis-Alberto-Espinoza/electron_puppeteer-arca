@@ -16,7 +16,7 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const os = require('os');
 const path = require('path');
-const { getDownloadPath } = require('../../../../utils/fileManager.js');
+const { getDownloadPath, moverArchivo } = require('../../../../utils/fileManager.js');
 const { frameConPredicado } = require('./_helpers.js');
 
 // ============================================================
@@ -291,7 +291,7 @@ async function ejecutar(page, cliente, cuitAsociado, medioPago, downloadsPath) {
         const destinoDir = getDownloadPath(downloadsPath, clienteParaCarpeta, 'archivos_afip');
         const destinoPath = path.join(destinoDir, nuevoNombre);
 
-        await fs.rename(srcPath, destinoPath);
+        await moverArchivo(srcPath, destinoPath);
 
         console.log(`  ✅ [SCT] PDF descargado: ${nuevoNombre}`);
         console.log(`     Nro VEP: ${nroVep || 'N/A'} | Período: ${periodoFinal} | CUIT: ${cuit || 'N/A'}${esConsolidado ? ' | Consolidado' : ''}`);

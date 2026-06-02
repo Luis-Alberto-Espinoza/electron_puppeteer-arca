@@ -17,7 +17,7 @@ const {
     ejecutarFlujoTasaCero,
     ejecutarFlujoReimpresion
 } = require('../codigoXpagina/tasaCero-formulario.js');
-const { getDownloadPath } = require('../../../utils/fileManager.js');
+const { getDownloadPath, moverArchivo } = require('../../../utils/fileManager.js');
 
 /**
  * Extrae el mes en español abreviado de un periodo en formato MM/YYYY
@@ -253,7 +253,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
             const rutaDestinoReimpreso = path.join(carpetaDestino, archivoPdfReimpreso);
 
             enviarProgreso('info', 'Moviendo archivo reimpreso a carpeta de destino...');
-            await fs.rename(rutaOrigenReimpreso, rutaDestinoReimpreso);
+            await moverArchivo(rutaOrigenReimpreso, rutaDestinoReimpreso);
 
             console.log(`[Flujo Tasa Cero] Archivo reimpreso guardado: ${rutaDestinoReimpreso}`);
             enviarProgreso('exito', `✅ Solicitud reimpresa. PDF descargado: ${archivoPdfReimpreso}`);
@@ -309,7 +309,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         const rutaDestino = path.join(carpetaDestino, `${nombreArchivoFinal}.pdf`);
 
         enviarProgreso('info', 'Moviendo archivo a carpeta de destino...');
-        await fs.rename(tempFilePath, rutaDestino);
+        await moverArchivo(tempFilePath, rutaDestino);
 
         console.log(`[Flujo Tasa Cero] Archivo guardado: ${rutaDestino}`);
 
