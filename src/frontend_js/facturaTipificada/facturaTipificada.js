@@ -6,6 +6,14 @@
 let contadorFacturas = 0;
 let contadoresLineasPorFactura = {}; // { facturaId: contadorLineas }
 
+// Lista de "facturas distintas": cada elemento es un cabezal propio + sus comprobantes.
+// Forma: { datos: { datosComunes, facturas }, snapshot: {...} }
+//   - datos:    lo que se manda al backend
+//   - snapshot: valores crudos del form para poder re-editar la tarjeta
+let grupos = [];
+// Índice del grupo que se está editando (o null si se está cargando uno nuevo).
+let grupoEnEdicion = null;
+
 /**
  * Obtiene la fecha actual en formato DD/MM/YYYY
  */
@@ -44,6 +52,11 @@ async function inicializarFacturasTipificadas() {
 
         // Inicializar datepickers (ya incluye establecer fechas por defecto)
         inicializarDatePickers();
+
+        // Resetear la lista de facturas distintas al (re)abrir la vista
+        grupos = [];
+        grupoEnEdicion = null;
+        renderGruposGuardados();
 
         // Agregar la primera factura
         agregarFactura();
@@ -443,16 +456,32 @@ function inicializarEventListeners() {
         btnAgregarFactura.addEventListener('click', agregarFactura);
     }
 
+    // Botón agregar factura distinta (otro cabezal)
+    const btnAgregarFacturaDistinta = document.getElementById('btnAgregarFacturaDistinta');
+    if (btnAgregarFacturaDistinta) {
+        btnAgregarFacturaDistinta.addEventListener('click', guardarFacturaDistinta);
+    }
+
     // Botón cancelar
     const btnCancelar = document.getElementById('btnCancelar');
     if (btnCancelar) {
         btnCancelar.addEventListener('click', cancelarFormulario);
     }
 
-    // Submit del formulario
+    // Botón generar (no es submit: validamos a mano para no bloquear cuando
+    // ya hay facturas distintas guardadas y el form quedó en blanco).
+    const btnGenerar = document.getElementById('btnGenerar');
+    if (btnGenerar) {
+        btnGenerar.addEventListener('click', manejarGenerar);
+    }
+
+    // Enter dentro del form no debe recargar la página: lo enrutamos a generar.
     const form = document.getElementById('formFacturaTipificada');
     if (form) {
-        form.addEventListener('submit', manejarEnvioFormulario);
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            manejarGenerar();
+        });
     }
 }
 
@@ -735,13 +764,15 @@ function eliminarLineaDeFactura(numeroFactura, numeroLinea) {
 }
 
 /**
- * Actualiza el contador de facturas en el botón
+ * Actualiza el contador de comprobantes en el botón "Generar".
+ * Cuenta los comprobantes ya guardados en facturas distintas + los del form actual.
  */
 function actualizarContadorFacturas() {
-    const facturas = document.querySelectorAll('.factura-item');
+    const enForm = document.querySelectorAll('.factura-item').length;
+    const enGrupos = grupos.reduce((sum, g) => sum + (g.datos.facturas?.length || 0), 0);
     const contador = document.getElementById('contadorFacturas');
     if (contador) {
-        contador.textContent = facturas.length;
+        contador.textContent = enForm + enGrupos;
     }
 }
 
@@ -760,72 +791,104 @@ function actualizarVisibilidadAlicuotas() {
 }
 
 /**
- * Cancela el formulario y limpia los datos
+ * Limpia el formulario y lo deja en su estado inicial (un comprobante en blanco,
+ * fechas en hoy, selectores reinicializados). NO toca la lista de facturas
+ * distintas ya guardadas.
+ */
+function limpiarFormulario() {
+    document.getElementById('formFacturaTipificada').reset();
+    document.getElementById('areaResultados').classList.add('contenido-oculto');
+    document.getElementById('areaProgreso').classList.add('contenido-oculto');
+
+    // Limpiar comprobantes
+    contadorFacturas = 0;
+    contadoresLineasPorFactura = {};
+    document.getElementById('facturasContainer').innerHTML = '';
+
+    // Agregar primer comprobante
+    agregarFactura();
+
+    // Re-establecer fechas por defecto
+    establecerFechasPorDefecto();
+
+    // Re-inicializar selector de empresas y tipo contribuyente
+    inicializarSelectorEmpresas();
+    establecerTipoContribuyente();
+}
+
+/**
+ * Cancela el formulario y limpia TODO (incluida la lista de facturas distintas).
  */
 function cancelarFormulario() {
     if (confirm('¿Está seguro que desea cancelar? Se perderán los datos ingresados.')) {
-        document.getElementById('formFacturaTipificada').reset();
-        document.getElementById('areaResultados').classList.add('contenido-oculto');
-        document.getElementById('areaProgreso').classList.add('contenido-oculto');
-
-        // Limpiar facturas
-        contadorFacturas = 0;
-        contadoresLineasPorFactura = {};
-        document.getElementById('facturasContainer').innerHTML = '';
-
-        // Agregar primera factura
-        agregarFactura();
-
-        // Re-establecer fechas por defecto
-        establecerFechasPorDefecto();
-
-        // Re-inicializar selector de empresas y tipo contribuyente
-        inicializarSelectorEmpresas();
-        establecerTipoContribuyente();
+        grupos = [];
+        grupoEnEdicion = null;
+        renderGruposGuardados();
+        limpiarFormulario();
     }
 }
 
 /**
- * Maneja el envío del formulario
+ * Genera todas las facturas: las distintas ya guardadas + (si tiene datos) el form actual.
  */
-async function manejarEnvioFormulario(e) {
-    e.preventDefault();
-
+async function manejarGenerar() {
     if (!window.usuarioSeleccionado) {
         mostrarError('No hay un usuario seleccionado');
         return;
     }
 
+    const form = document.getElementById('formFacturaTipificada');
+
+    // Lista final de facturas distintas a generar (clon de las guardadas).
+    const gruposParaEnviar = grupos.map(g => clonar(g.datos));
+
+    // Incluir el formulario actual si el usuario dejó datos cargados.
+    if (formularioTieneDatos()) {
+        if (!form.reportValidity()) return;
+        gruposParaEnviar.push(recopilarDatosFormulario());
+    }
+
+    if (gruposParaEnviar.length === 0) {
+        mostrarError('No hay facturas para generar. Completá el formulario o agregá una factura distinta.');
+        return;
+    }
+
+    // Modo prueba: fuente de verdad = el checkbox actual, aplicado a todos los grupos.
+    const modoTest = document.getElementById('modoPrueba')?.checked || false;
+    gruposParaEnviar.forEach(g => { g.datosComunes.modoTest = modoTest; });
+
+    const btnGenerar = document.getElementById('btnGenerar');
+
     try {
-        // Deshabilitar botón de envío
-        const btnGenerar = document.getElementById('btnGenerar');
         btnGenerar.disabled = true;
         btnGenerar.innerHTML = '<span class="loading-spinner"></span> Generando...';
 
-        // Recopilar datos del formulario
-        const datos = recopilarDatosFormulario();
+        // Total de comprobantes sumando todos los grupos.
+        const totalComprobantes = gruposParaEnviar.reduce((s, g) => s + (g.facturas?.length || 0), 0);
 
-        console.log('📤 Enviando datos al backend:', datos);
+        console.log(`📤 Enviando ${gruposParaEnviar.length} factura(s) distinta(s), ${totalComprobantes} comprobante(s) en total`);
 
-        // Mostrar área de progreso
-        mostrarAreaProgreso(datos.facturas.length);
+        mostrarAreaProgreso(totalComprobantes);
 
-        // Agregar items de progreso para cada factura
-        datos.facturas.forEach(factura => {
-            const primeraLinea = factura.lineasDetalle[0];
-            const descripcion = primeraLinea?.descripcion || 'Sin descripción';
-            agregarItemProgreso(factura.numeroFactura, descripcion);
+        // Crear items de progreso con índice global 1..N (coincide con el backend).
+        let indiceGlobal = 0;
+        gruposParaEnviar.forEach(g => {
+            const cliente = (g.datosComunes.receptor?.nombreCliente || '').trim()
+                || g.datosComunes.receptor?.numeroDocumento || 'Cliente';
+            (g.facturas || []).forEach(f => {
+                indiceGlobal++;
+                const desc = f.lineasDetalle[0]?.descripcion || 'Sin descripción';
+                agregarItemProgreso(indiceGlobal, `${cliente} — ${desc}`);
+            });
         });
 
-        // Enviar al backend a través de IPC
-        const resultado = await window.electronAPI.facturaTipificada.generarLote(datos);
+        // Enviar al backend a través de IPC (shape nuevo: { grupos }).
+        const resultado = await window.electronAPI.facturaTipificada.generarLote({ grupos: gruposParaEnviar });
 
         console.log('📥 Resultado recibido:', resultado);
 
-        // Mostrar resumen final
         if (resultado.success) {
             if (resultado.modoTest) {
-                // Modo prueba - mostrar mensaje especial
                 mostrarResultadoModoPrueba(resultado);
             } else if (resultado.resultados) {
                 mostrarResumenFinal(resultado.resultados);
@@ -838,12 +901,18 @@ async function manejarEnvioFormulario(e) {
         console.error('❌ Error al generar facturas:', error);
         mostrarError('Error: ' + error.message);
     } finally {
-        // Rehabilitar botón
-        const btnGenerar = document.getElementById('btnGenerar');
         btnGenerar.disabled = false;
-        const totalFacturas = document.querySelectorAll('.factura-item').length;
-        btnGenerar.innerHTML = `🧾 Generar <span id="contadorFacturas">${totalFacturas}</span> Factura(s)`;
+        const total = document.querySelectorAll('.factura-item').length
+            + grupos.reduce((s, g) => s + (g.datos.facturas?.length || 0), 0);
+        btnGenerar.innerHTML = `🧾 Generar <span id="contadorFacturas">${total}</span> Factura(s)`;
     }
+}
+
+/**
+ * Clona en profundidad un objeto serializable (mismos datos que viajan por IPC).
+ */
+function clonar(obj) {
+    return JSON.parse(JSON.stringify(obj));
 }
 
 /**
@@ -964,6 +1033,350 @@ function obtenerTodasLasFacturas() {
 
     console.log(`📊 Total de facturas a generar: ${facturas.length}`);
     return facturas;
+}
+
+// ============================================================
+// FACTURAS DISTINTAS (cada una con su propio cabezal)
+// ============================================================
+
+/**
+ * Indica si el formulario actual tiene al menos una línea con datos cargados
+ * (descripción o precio). Sirve para decidir si guardarlo/enviarlo o ignorarlo.
+ */
+function formularioTieneDatos() {
+    const facturas = obtenerTodasLasFacturas();
+    return facturas.some(f =>
+        f.lineasDetalle.some(l => (l.descripcion || '').trim() !== '' || l.precioUnitario > 0)
+    );
+}
+
+/**
+ * Guarda el formulario actual como una "factura distinta" (o reemplaza la que
+ * se estaba editando) y limpia el formulario para cargar la siguiente.
+ */
+function guardarFacturaDistinta() {
+    const form = document.getElementById('formFacturaTipificada');
+
+    // Validación nativa del cabezal + líneas (required del HTML).
+    if (!form.reportValidity()) return;
+
+    if (!formularioTieneDatos()) {
+        mostrarError('Cargá al menos una línea con descripción y precio antes de agregar una factura distinta.');
+        return;
+    }
+
+    const entrada = {
+        datos: recopilarDatosFormulario(),
+        snapshot: capturarSnapshotFormulario()
+    };
+
+    if (grupoEnEdicion !== null) {
+        grupos[grupoEnEdicion] = entrada;
+        grupoEnEdicion = null;
+    } else {
+        grupos.push(entrada);
+    }
+
+    renderGruposGuardados();
+    actualizarBotonFacturaDistinta();
+    limpiarFormulario();
+
+    // Arrastrar del form anterior los campos "boilerplate" para no recargarlos a mano.
+    // Lo que cambia entre facturas (cliente, montos) queda en blanco.
+    precargarCamposComunes(entrada.snapshot);
+
+    const section = document.getElementById('facturasDistintasSection');
+    if (section) section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/**
+ * Copia al formulario (ya limpio) los campos que conviene arrastrar de la factura
+ * anterior: fechas, condición de pago, condición frente al IVA y descripción.
+ * Cliente y montos NO se copian (cambian en cada factura).
+ */
+function precargarCamposComunes(snap) {
+    if (!snap || !snap.cabezal) return;
+    const c = snap.cabezal;
+
+    // Tipo de actividad: para que la sección de fechas de servicio quede visible igual.
+    const selTipo = document.getElementById('tipoActividad');
+    if (selTipo && c.tipoActividad) {
+        selTipo.value = c.tipoActividad;
+        selTipo.dispatchEvent(new Event('change'));
+    }
+
+    // Fechas (comprobante + servicio).
+    _setFecha('fechaComprobanteTipificada', c.fechaComprobante);
+    _setFecha('fechaDesde', c.fechaDesde);
+    _setFecha('fechaHasta', c.fechaHasta);
+    _setFecha('fechaVtoPago', c.fechaVtoPago);
+
+    // Condición frente al IVA.
+    _setVal('condicionIVA', c.condicionIVA);
+
+    // Condición de pago (condiciones de venta).
+    document.querySelectorAll('input[name="condicionVenta"]').forEach((cb) => {
+        cb.checked = (c.condicionesVenta || []).includes(cb.value);
+    });
+
+    // Descripción de la primera línea (el resto de la línea —cantidad/precio— queda en blanco).
+    const primeraDescripcion = snap.comprobantes?.[0]?.lineas?.[0]?.descripcion || '';
+    if (primeraDescripcion) _setVal('descripcion_f1_l1', primeraDescripcion);
+}
+
+/**
+ * Captura los valores crudos del formulario para poder re-editar la tarjeta
+ * después. Guarda valores de selects (índice de empresa, value de unidad/IVA)
+ * que se pierden en el formato que va al backend.
+ */
+function capturarSnapshotFormulario() {
+    const form = document.getElementById('formFacturaTipificada');
+    const fd = new FormData(form);
+
+    const cabezal = {
+        tipoActividad: fd.get('tipoActividad') || '',
+        empresaIndex: fd.get('empresaPuntoVenta') || '',
+        puntoVenta: fd.get('puntoDeVenta') || '',
+        fechaComprobante: fd.get('fechaComprobante') || '',
+        fechaDesde: fd.get('fechaDesde') || '',
+        fechaHasta: fd.get('fechaHasta') || '',
+        fechaVtoPago: fd.get('fechaVtoPago') || '',
+        tipoDocumento: fd.get('tipoDocumento') || '',
+        numeroDocumento: fd.get('numeroDocumento') || '',
+        condicionIVA: fd.get('condicionIVA') || '',
+        nombreCliente: fd.get('nombreCliente') || '',
+        condicionesVenta: obtenerCondicionesVentaSeleccionadas(),
+        usarCarpetaPersonalizada: fd.get('usarCarpetaPersonalizada') === 'on',
+        carpetaPDF: fd.get('carpetaPDF') || ''
+    };
+
+    const comprobantes = [];
+    document.querySelectorAll('.factura-item').forEach((div) => {
+        const nf = div.getAttribute('data-factura');
+        const lineas = [];
+        div.querySelectorAll('.linea-detalle').forEach((ld) => {
+            const nl = ld.getAttribute('data-linea');
+            lineas.push({
+                descripcion: _valorDe(`descripcion_f${nf}_l${nl}`),
+                unidadMedida: _valorDe(`unidadMedida_f${nf}_l${nl}`),
+                cantidad: _valorDe(`cantidad_f${nf}_l${nl}`),
+                precioUnitario: _valorDe(`precioUnitario_f${nf}_l${nl}`),
+                alicuotaIVA: _valorDe(`alicuotaIVA_f${nf}_l${nl}`)
+            });
+        });
+        comprobantes.push({ lineas });
+    });
+
+    return { cabezal, comprobantes };
+}
+
+/**
+ * Reconstruye el formulario a partir de un snapshot (para editar una tarjeta).
+ */
+async function restaurarSnapshotFormulario(snap) {
+    limpiarFormulario(); // deja un comprobante con una línea en blanco
+
+    const c = snap.cabezal;
+
+    // Tipo de actividad (dispara visibilidad de la sección de fechas de servicio).
+    const selTipo = document.getElementById('tipoActividad');
+    if (selTipo) {
+        selTipo.value = c.tipoActividad;
+        selTipo.dispatchEvent(new Event('change'));
+    }
+
+    // Empresa + PDV: poblar desde caché, sin disparar scraping.
+    const selEmpresa = document.getElementById('empresaPuntoVenta');
+    if (selEmpresa && c.empresaIndex !== '') {
+        selEmpresa.value = c.empresaIndex;
+        await manejarCambioEmpresa({ desdeUsuario: false });
+        _setVal('puntoDeVentaSelect', c.puntoVenta);
+    }
+
+    // Fechas (respetando flatpickr si está inicializado).
+    _setFecha('fechaComprobanteTipificada', c.fechaComprobante);
+    _setFecha('fechaDesde', c.fechaDesde);
+    _setFecha('fechaHasta', c.fechaHasta);
+    _setFecha('fechaVtoPago', c.fechaVtoPago);
+
+    // Receptor.
+    _setVal('tipoDocumento', c.tipoDocumento);
+    _setVal('numeroDocumento', c.numeroDocumento);
+    _setVal('condicionIVA', c.condicionIVA);
+    _setVal('nombreCliente', c.nombreCliente);
+
+    // Condiciones de venta.
+    document.querySelectorAll('input[name="condicionVenta"]').forEach((cb) => {
+        cb.checked = (c.condicionesVenta || []).includes(cb.value);
+    });
+
+    // Carpeta personalizada.
+    const chkCarpeta = document.getElementById('usarCarpetaPersonalizada');
+    if (chkCarpeta) {
+        chkCarpeta.checked = !!c.usarCarpetaPersonalizada;
+        chkCarpeta.dispatchEvent(new Event('change'));
+    }
+    _setVal('carpetaPDF', c.carpetaPDF);
+
+    // Reconstruir comprobantes y líneas. limpiarFormulario ya dejó el #1 con 1 línea.
+    const comprobantes = snap.comprobantes || [];
+    comprobantes.forEach((comp, idxComp) => {
+        if (idxComp > 0) agregarFactura();
+
+        const facturaDiv = document.querySelectorAll('.factura-item')[idxComp];
+        if (!facturaDiv) return;
+        const numeroFactura = facturaDiv.getAttribute('data-factura');
+
+        const lineas = comp.lineas || [];
+        for (let l = 1; l < lineas.length; l++) {
+            agregarLineaAFactura(parseInt(numeroFactura));
+        }
+
+        const lineasDiv = facturaDiv.querySelectorAll('.linea-detalle');
+        lineas.forEach((linea, idxLinea) => {
+            const ld = lineasDiv[idxLinea];
+            if (!ld) return;
+            const nl = ld.getAttribute('data-linea');
+            _setVal(`descripcion_f${numeroFactura}_l${nl}`, linea.descripcion);
+            _setVal(`unidadMedida_f${numeroFactura}_l${nl}`, linea.unidadMedida);
+            _setVal(`cantidad_f${numeroFactura}_l${nl}`, linea.cantidad);
+            _setVal(`precioUnitario_f${numeroFactura}_l${nl}`, linea.precioUnitario);
+            _setVal(`alicuotaIVA_f${numeroFactura}_l${nl}`, linea.alicuotaIVA);
+        });
+    });
+
+    actualizarVisibilidadAlicuotas();
+    actualizarContadorFacturas();
+}
+
+/**
+ * Carga una factura distinta guardada en el formulario para editarla.
+ */
+async function editarGrupo(indice) {
+    const g = grupos[indice];
+    if (!g) return;
+
+    grupoEnEdicion = indice;
+    actualizarBotonFacturaDistinta();
+    await restaurarSnapshotFormulario(g.snapshot);
+
+    const cont = document.getElementById('formularioFacturaTipificada');
+    if (cont) cont.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/**
+ * Quita una factura distinta de la lista.
+ */
+function eliminarGrupo(indice) {
+    if (!confirm('¿Quitar esta factura distinta de la lista?')) return;
+
+    grupos.splice(indice, 1);
+
+    // Ajustar el índice en edición si corresponde.
+    if (grupoEnEdicion === indice) {
+        grupoEnEdicion = null;
+        actualizarBotonFacturaDistinta();
+    } else if (grupoEnEdicion !== null && indice < grupoEnEdicion) {
+        grupoEnEdicion--;
+    }
+
+    renderGruposGuardados();
+}
+
+/**
+ * Pinta las tarjetas de facturas distintas guardadas.
+ */
+function renderGruposGuardados() {
+    const section = document.getElementById('facturasDistintasSection');
+    const container = document.getElementById('facturasDistintasContainer');
+    const contador = document.getElementById('contadorGrupos');
+    if (!container) return;
+
+    if (contador) contador.textContent = grupos.length;
+    if (section) section.style.display = grupos.length > 0 ? 'block' : 'none';
+
+    container.innerHTML = '';
+    grupos.forEach((g, i) => {
+        const dc = g.datos.datosComunes;
+        const cliente = (dc.receptor?.nombreCliente || '').trim()
+            || dc.receptor?.numeroDocumento || 'Sin cliente';
+        const fecha = dc.fechaComprobante || '';
+        const nComprobantes = g.datos.facturas?.length || 0;
+        const total = calcularTotalGrupo(g.datos);
+        const totalFmt = total.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const editando = grupoEnEdicion === i;
+
+        const card = document.createElement('div');
+        card.className = 'grupo-card' + (editando ? ' grupo-card-editando' : '');
+        card.innerHTML = `
+            <div class="grupo-card-info">
+                <strong>#${i + 1}</strong>
+                <span class="grupo-cliente">${_escaparHtml(cliente)}</span>
+                <span class="grupo-meta">${_escaparHtml(fecha)} · $${totalFmt} · ${nComprobantes} comprobante(s)${editando ? ' · ✏ editando…' : ''}</span>
+            </div>
+            <div class="grupo-card-acciones">
+                <button type="button" class="btn-editar-grupo" onclick="editarGrupo(${i})">✏ Editar</button>
+                <button type="button" class="btn-eliminar-grupo" onclick="eliminarGrupo(${i})">🗑</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    actualizarContadorFacturas();
+}
+
+/**
+ * Suma el total (cantidad × precio) de todos los comprobantes de una factura distinta.
+ */
+function calcularTotalGrupo(datos) {
+    let total = 0;
+    (datos.facturas || []).forEach(f => {
+        (f.lineasDetalle || []).forEach(l => {
+            total += (l.cantidad || 0) * (l.precioUnitario || 0);
+        });
+    });
+    return total;
+}
+
+/**
+ * Cambia el texto del botón según si se está agregando o editando.
+ */
+function actualizarBotonFacturaDistinta() {
+    const btn = document.getElementById('btnAgregarFacturaDistinta');
+    if (!btn) return;
+    btn.textContent = grupoEnEdicion !== null
+        ? '💾 Guardar cambios de la factura distinta'
+        : '➕ Agregar factura distinta (otro cabezal)';
+}
+
+// --- helpers de bajo nivel ---
+
+function _valorDe(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : '';
+}
+
+function _setVal(id, value) {
+    const el = document.getElementById(id);
+    if (el && value != null) el.value = value;
+}
+
+function _setFecha(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el._flatpickr) {
+        el._flatpickr.setDate(value, false);
+    } else {
+        el.value = value || '';
+    }
+}
+
+function _escaparHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 /**
@@ -1220,5 +1633,7 @@ window.eliminarLineaDeFactura = eliminarLineaDeFactura;
 window.agregarLineaAFactura = agregarLineaAFactura;
 window.abrirCarpetaPDF = abrirCarpetaPDF;
 window.mostrarInfoUsuario = mostrarInfoUsuario; // Para actualizar cuando se cambia de usuario
+window.editarGrupo = editarGrupo;   // Facturas distintas: editar tarjeta
+window.eliminarGrupo = eliminarGrupo; // Facturas distintas: quitar tarjeta
 
 console.log('📦 Módulo facturaTipificada.js cargado');

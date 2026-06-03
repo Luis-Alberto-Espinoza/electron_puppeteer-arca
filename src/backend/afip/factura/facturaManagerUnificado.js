@@ -117,6 +117,22 @@ async function iniciarProceso(
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
         // ==========================================
+        // PASO 0: CAPTURAR DIÁLOGOS NATIVOS DE AFIP
+        // ==========================================
+        // AFIP dispara alert()/confirm() en algunos pasos (p. ej. validación del
+        // receptor). Si no se manejan, el diálogo queda abierto y bloquea la
+        // navegación → el flujo se cuelga hasta el timeout. Los logueamos (para
+        // saber qué dice) y los aceptamos para destrabar el flujo.
+        page.on('dialog', async (dialog) => {
+            try {
+                console.log(`[AFIP dialog] tipo=${dialog.type()} mensaje="${dialog.message()}"`);
+                await dialog.accept();
+            } catch (e) {
+                console.warn('[AFIP dialog] no se pudo manejar el diálogo:', e.message);
+            }
+        });
+
+        // ==========================================
         // PASO 2: HACER LOGIN EN AFIP
         // ==========================================
         console.log("\n=== [2/4] Realizando login en AFIP ===");

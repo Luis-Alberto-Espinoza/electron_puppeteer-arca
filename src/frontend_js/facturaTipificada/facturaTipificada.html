@@ -17,6 +17,15 @@
             <!-- Se mostrará el usuario seleccionado -->
         </div>
 
+        <!-- LISTA DE FACTURAS DISTINTAS YA CARGADAS -->
+        <div id="facturasDistintasSection" class="facturas-distintas-section" style="display: none;">
+            <h3>📑 Facturas distintas cargadas (<span id="contadorGrupos">0</span>)</h3>
+            <p class="info-text">Cada tarjeta es una factura con su propio cabezal (cliente, fecha, etc.). Se generarán todas al presionar "Generar".</p>
+            <div id="facturasDistintasContainer">
+                <!-- Las tarjetas de facturas distintas se agregan aquí -->
+            </div>
+        </div>
+
         <!-- FORMULARIO -->
         <div id="formularioFacturaTipificada" class="formulario-container">
 
@@ -128,9 +137,9 @@
                             <label for="condicionIVA">Condición frente al IVA *</label>
                             <select id="condicionIVA" name="condicionIVA" required>
                                 <option value="">Seleccionar...</option>
-                                <option value="1" selected>IVA Responsable Inscripto</option>
+                                <option value="1">IVA Responsable Inscripto</option>
                                 <option value="4">IVA Sujeto Exento</option>
-                                <option value="5">Consumidor Final</option>
+                                <option value="5" selected>Consumidor Final</option>
                                 <option value="6">Responsable Monotributo</option>
                                 <option value="7">Sujeto No Categorizado</option>
                                 <option value="8">Proveedor del Exterior</option>
@@ -219,6 +228,14 @@
                     </div>
                 </div>
 
+                <!-- SECCIÓN 6: AGREGAR FACTURA DISTINTA (OTRO CABEZAL) -->
+                <div class="seccion-form seccion-factura-distinta">
+                    <button type="button" id="btnAgregarFacturaDistinta" class="btn-secundario btn-factura-distinta">
+                        ➕ Agregar factura distinta (otro cabezal)
+                    </button>
+                    <p class="info-text">Guarda esta factura como una factura aparte y limpia el formulario para cargar otra con datos diferentes (otra fecha, otro cliente, otros montos).</p>
+                </div>
+
                 <!-- BOTONES DE ACCIÓN -->
                 <div class="acciones-form">
                     <div class="modo-prueba-container">
@@ -232,7 +249,7 @@
                         <button type="button" id="btnCancelar" class="btn-cancelar">
                             Cancelar
                         </button>
-                        <button type="submit" id="btnGenerar" class="btn-generar">
+                        <button type="button" id="btnGenerar" class="btn-generar">
                             🧾 Generar <span id="contadorFacturas">1</span> Factura(s)
                         </button>
                     </div>
