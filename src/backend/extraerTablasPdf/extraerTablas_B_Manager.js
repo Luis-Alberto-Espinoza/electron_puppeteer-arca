@@ -6,7 +6,9 @@ const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 // La ruta base ahora se construye dinámicamente en la función principal,
 // pero dejamos una configuración por defecto para el worker.
 // Esta línea será sobreescrita por la lógica dentro de procesarPdfConFallback.
-pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(process.cwd(), 'node_modules/pdfjs-dist/build/pdf.worker.js');
+// require.resolve lo ubica tanto en dev como empaquetado; NO usar process.cwd()
+// porque en el portable de Windows apunta a donde se lanzó el .exe, no a la app.
+pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/build/pdf.worker.js');
 
 // --- Importar los módulos especialistas ---
 const { PDFTableExtractor } = require('./leer_pdf_Bancos/lectorBasePdf.js');
@@ -154,16 +156,27 @@ function extraerCuit(allFilas) {
 }
 
 async function procesarPdfConFallback(filePath, options = {}) {
-    // Configuración dinámica de la ruta del worker de PDF.js
-    const projectRoot = options.projectRoot || process.cwd();
-    const workerSrcPath = path.join(projectRoot, 'node_modules/pdfjs-dist/build/pdf.worker.js');
-    
+    // Worker y fuentes de PDF.js. Si el caller pasa projectRoot (legacy) lo
+    // respetamos; si no, los ubicamos con require.resolve, que funciona tanto
+    // en dev como empaquetado. NO caer a process.cwd(): en el portable de
+    // Windows apunta a donde se lanzó el .exe, no a la app.
+    let workerSrcPath;
+    let standardFontDataUrl;
+    if (options.projectRoot) {
+        workerSrcPath = path.join(options.projectRoot, 'node_modules/pdfjs-dist/build/pdf.worker.js');
+        standardFontDataUrl = path.join(options.projectRoot, 'node_modules/pdfjs-dist/standard_fonts/');
+    } else {
+        workerSrcPath = require.resolve('pdfjs-dist/build/pdf.worker.js');
+        const pdfjsRoot = path.dirname(require.resolve('pdfjs-dist/package.json'));
+        standardFontDataUrl = path.join(pdfjsRoot, 'standard_fonts/');
+    }
+
     if (!fs.existsSync(workerSrcPath)) {
         throw new Error(`El archivo worker de PDF.js no se encuentra en la ruta esperada: ${workerSrcPath}`);
     }
-    
+
     pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrcPath;
-    pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = path.join(projectRoot, 'node_modules/pdfjs-dist/standard_fonts/');
+    pdfjsLib.GlobalWorkerOptions.standardFontDataUrl = standardFontDataUrl;
 
     console.log(`Iniciando procesamiento orquestado para: ${filePath}`);
 

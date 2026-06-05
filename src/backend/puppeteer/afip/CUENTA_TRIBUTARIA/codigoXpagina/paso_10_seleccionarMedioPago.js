@@ -22,17 +22,36 @@ const MAPEO_MEDIOS_PAGO = {
 
 const TIMEOUT_MODAL = 15000;
 
+// Matchea el medio de pago tanto en la UI nueva de ARCA
+// (<button class="edpeffectbutton"><img id="0"></button>) como en la vieja
+// (<input type="image" id="0">).
+function selectorMedio(medioId) {
+    return `button.edpeffectbutton img[id="${medioId}"], input[type="image"][id="${medioId}"]`;
+}
+
 async function clickMedioPago(frame, medioId) {
     return await frame.evaluate((targetId) => {
-        const input = document.querySelector(`input[type="image"][id="${CSS.escape(targetId)}"]`);
-        if (!input) return { encontrado: false };
+        const id = CSS.escape(targetId);
 
-        // Si vive dentro de un <button> envolvente, clickear el botón.
-        // Si no, clickear el input directamente.
-        const target = input.closest('button') || input;
-        try { target.scrollIntoView({ block: 'center', behavior: 'instant' }); } catch (_) {}
-        target.click();
-        return { encontrado: true, clickeado: true };
+        // UI nueva de ARCA: clickeamos el <button> que envuelve al <img>.
+        const img = document.querySelector(`button.edpeffectbutton img[id="${id}"]`);
+        if (img) {
+            const target = img.closest('button') || img;
+            try { target.scrollIntoView({ block: 'center', behavior: 'instant' }); } catch (_) {}
+            target.click();
+            return { encontrado: true, clickeado: true, via: 'edpeffectbutton' };
+        }
+
+        // Fallback UI vieja: <input type="image">.
+        const input = document.querySelector(`input[type="image"][id="${id}"]`);
+        if (input) {
+            const target = input.closest('button') || input;
+            try { target.scrollIntoView({ block: 'center', behavior: 'instant' }); } catch (_) {}
+            target.click();
+            return { encontrado: true, clickeado: true, via: 'input-image' };
+        }
+
+        return { encontrado: false };
     }, medioId);
 }
 
@@ -48,9 +67,8 @@ async function ejecutar(page, medioPago) {
 
         console.log(`  → [SCT] Seleccionando medio de pago: ${medioPago.nombre} (id=${medioId})...`);
 
-        // Buscar en cualquier frame el input del medio de pago elegido.
-        const selectorInput = `input[type="image"][id="${medioId}"]`;
-        const frame = await esperarFrameConSelector(page, selectorInput, { timeout: 15000 });
+        // Buscar en cualquier frame el medio de pago elegido (UI nueva o vieja).
+        const frame = await esperarFrameConSelector(page, selectorMedio(medioId), { timeout: 15000 });
 
         const r = await clickMedioPago(frame, medioId);
         if (!r.encontrado) {

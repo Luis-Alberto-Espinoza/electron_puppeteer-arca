@@ -21,15 +21,20 @@ const TIMEOUT_RENDER_MEDIOS = 25000;
 // IDs conocidos de medios de pago en SCT (idéntico al VEP).
 const IDS_MEDIOS_PAGO = ['0', '1001', '1002', '1003', '1005'];
 
-const SELECTOR_INPUT_MEDIO_PAGO =
-    IDS_MEDIOS_PAGO.map(id => `input[type="image"][id="${id}"]`).join(', ');
+// La UI nueva de ARCA renderiza cada medio como
+//   <button class="edpeffectbutton"><img id="0" src=".../edp0.gif"></button>
+// La UI vieja usaba <input type="image" id="0">. Matcheamos ambas para
+// sobrevivir a cualquiera de las dos que sirva AFIP.
+const SELECTOR_MEDIO_PAGO =
+    IDS_MEDIOS_PAGO
+        .map(id => `button.edpeffectbutton img[id="${id}"], input[type="image"][id="${id}"]`)
+        .join(', ');
 
 /**
- * Devuelve el frame que tenga al menos un input de medio de pago. null si
- * ninguno tiene.
+ * Devuelve el frame que tenga al menos un medio de pago. null si ninguno tiene.
  */
 async function frameConMediosDePago(page) {
-    return await frameConSelector(page, SELECTOR_INPUT_MEDIO_PAGO);
+    return await frameConSelector(page, SELECTOR_MEDIO_PAGO);
 }
 
 /**

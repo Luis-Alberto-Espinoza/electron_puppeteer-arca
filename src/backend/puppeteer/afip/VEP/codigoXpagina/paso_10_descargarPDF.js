@@ -13,9 +13,16 @@ const { getDownloadPath, moverArchivo } = require('../../../../utils/fileManager
 async function extraerDatosDelPDF(pdfPath) {
     try {
         const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(process.cwd(), 'node_modules/pdfjs-dist/build/pdf.worker.js');
+        // require.resolve ubica el worker tanto en dev como empaquetado en
+        // app.asar. NO usar process.cwd(): en el portable de Windows apunta a
+        // donde se lanzó el .exe, no a la app.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
 
-        const loadingTask = pdfjsLib.getDocument(pdfPath);
+        // Pasar los bytes (no la ruta): getDocument(string) trata el argumento
+        // como URL y una ruta Windows ("C:\...") rompe el parseo. verbosity:0
+        // silencia los warnings de fuentes (no hacen falta para extraer texto).
+        const data = new Uint8Array(await fs.readFile(pdfPath));
+        const loadingTask = pdfjsLib.getDocument({ data, verbosity: 0 });
         const pdf = await loadingTask.promise;
 
         let allFilas = [];

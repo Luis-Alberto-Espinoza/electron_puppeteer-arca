@@ -26,12 +26,16 @@ const { frameConPredicado } = require('./_helpers.js');
 async function extraerDatosDelPDF(pdfPath) {
     try {
         const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
-            process.cwd(),
-            'node_modules/pdfjs-dist/build/pdf.worker.js'
-        );
+        // require.resolve ubica el worker tanto en dev como empaquetado en
+        // app.asar. NO usar process.cwd(): en el portable de Windows apunta a
+        // donde se lanzó el .exe, no a la app.
+        pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
 
-        const loadingTask = pdfjsLib.getDocument(pdfPath);
+        // Pasar los bytes (no la ruta): getDocument(string) trata el argumento
+        // como URL y una ruta Windows ("C:\...") rompe el parseo. verbosity:0
+        // silencia los warnings de fuentes (no hacen falta para extraer texto).
+        const data = new Uint8Array(await fs.readFile(pdfPath));
+        const loadingTask = pdfjsLib.getDocument({ data, verbosity: 0 });
         const pdf = await loadingTask.promise;
 
         let allFilas = [];
@@ -119,6 +123,12 @@ async function extraerDatosDelPDF(pdfPath) {
                             periodo = `${m[2]}-${m[1]}`;
                             break;
                         }
+                        // El período también puede venir como solo el año
+                        // (obligaciones anuales). Lo dejamos tal cual: "2023".
+                        if (m = valor.match(/^(\d{4})$/)) {
+                            periodo = m[1];
+                            break;
+                        }
                     }
                 }
 
@@ -182,9 +192,18 @@ async function esperarArchivoListo(tempDir, timeoutMs = 30000) {
 
 async function clickLinkPDF(frame) {
     return await frame.evaluate(() => {
-        // 1) Buscar por title (más robusto).
-        let link = document.querySelector('a[title="Exportar detalle en archivo PDF"]');
-        // 2) Fallback: link que contenga el ícono picture_as_pdf.
+        const norm = (el) => (el.textContent || '').trim().toLowerCase();
+        const cand = Array.from(document.querySelectorAll('button, a'));
+
+        // 1) UI nueva de ARCA: <button> "Descargar VEP" (preferido), si no,
+        //    cualquier control cuyo texto incluya "descargar".
+        let link = cand.find(el => norm(el).includes('descargar vep'))
+                || cand.find(el => norm(el).includes('descargar'));
+
+        // 2) Fallback UI vieja: link por title.
+        if (!link) link = document.querySelector('a[title="Exportar detalle en archivo PDF"]');
+
+        // 3) Fallback UI vieja: ícono picture_as_pdf.
         if (!link) {
             const spans = Array.from(document.querySelectorAll('span'));
             const pdfIcon = spans.find(s => (s.textContent || '').trim() === 'picture_as_pdf');
@@ -225,7 +244,12 @@ async function ejecutar(page, cliente, cuitAsociado, medioPago, downloadsPath) {
 
         // 2. Buscar el frame que tenga el link/botón de PDF (puede vivir en
         //    cualquier frame, no necesariamente en el del SCT).
+        // UI nueva de ARCA: el ícono "picture_as_pdf" se reemplazó por un
+        // <button> con texto "Descargar VEP". Dejamos el fallback viejo.
         const predicateSrc = `() => {
+            const norm = (el) => (el.textContent || '').trim().toLowerCase();
+            const cand = Array.from(document.querySelectorAll('button, a'));
+            if (cand.some(el => norm(el).includes('descargar'))) return true;
             if (document.querySelector('a[title="Exportar detalle en archivo PDF"]')) return true;
             const spans = Array.from(document.querySelectorAll('span'));
             return spans.some(s => (s.textContent || '').trim() === 'picture_as_pdf');
@@ -297,72 +321,86 @@ async function ejecutar(page, cliente, cuitAsociado, medioPago, downloadsPath) {
         console.log(`     Nro VEP: ${nroVep || 'N/A'} | Período: ${periodoFinal} | CUIT: ${cuit || 'N/A'}${esConsolidado ? ' | Consolidado' : ''}`);
 
         // 6. Si el medio de pago es QR, guardar también la imagen del código QR.
-        //    AFIP la renderiza como <img src="data:image/...;base64,..."> dentro
-        //    de un <div> que menciona "billeteras". Filtramos por ese contexto
-        //    porque la página tiene otras imágenes base64 (logo, etc.) y el
-        //    primer match genérico cae con el logo. Además, AFIP declara mime
-        //    `image/png` aunque el binario es JPEG, así que detectamos el tipo
-        //    real desde la firma del base64 y elegimos la extensión correcta.
+        //    AFIP la renderiza como <img src="data:image/...;base64,...">. La
+        //    página tiene otras imágenes base64 (logo, etc.), así que para no
+        //    agarrar el logo elegimos el QR por contexto (texto cercano que
+        //    mencione billetera/QR/escanear/etc.) y, si eso falla, por forma:
+        //    el QR es cuadrado, el logo suele ser un rectángulo ancho.
+        //    Además, AFIP declara mime `image/png` aunque el binario sea JPEG,
+        //    así que detectamos el tipo real desde la firma del base64.
         let qrPath = null;
         let qrNombre = null;
         if (medioPago && medioPago.id === 'pago_qr') {
             try {
                 console.log('  → [SCT] Buscando código QR en la vista...');
 
-                const predicadoQR = `() => {
-                    const imgs = Array.from(document.querySelectorAll('img'));
-                    return imgs.some(img => {
-                        if (!(img.src || '').startsWith('data:image')) return false;
-                        const cont = img.closest('div');
-                        return !!(cont && /billetera/i.test(cont.textContent || ''));
-                    });
+                // Devuelve el data URI del QR en ESTE document, o null.
+                const FN_FIND_QR = `() => {
+                    const imgs = Array.from(document.querySelectorAll('img'))
+                        .filter(img => (img.src || '').startsWith('data:image'));
+                    if (imgs.length === 0) return null;
+
+                    const KEYWORDS = /billetera|qr|escane|c[oó]digo|celular|tel[eé]fono|wallet/i;
+
+                    // 1) Por contexto: subir hasta 4 ancestros buscando texto QR.
+                    //    Limitamos el largo del texto para que el match sea
+                    //    "cercano" y no termine matcheando el <body> entero.
+                    for (const img of imgs) {
+                        let el = img;
+                        for (let i = 0; i < 4 && el; i++) {
+                            el = el.parentElement;
+                            const t = (el && el.textContent) || '';
+                            if (t.length < 600 && KEYWORDS.test(t)) return img.src;
+                        }
+                    }
+
+                    // 2) Por forma: la imagen más cuadrada y de tamaño razonable.
+                    const cuadradas = imgs
+                        .map(img => ({
+                            src: img.src,
+                            w: img.naturalWidth || img.width || 0,
+                            h: img.naturalHeight || img.height || 0
+                        }))
+                        .filter(c => c.w >= 80 && c.h >= 80 && c.w / c.h >= 0.8 && c.w / c.h <= 1.25);
+                    return cuadradas.length ? cuadradas[0].src : null;
                 }`;
 
-                let frameQR = null;
+                // Buscar en TODOS los frames (la vista del QR puede estar en otro).
+                let qrDataUrl = null;
                 const inicioQR = Date.now();
-                while (Date.now() - inicioQR < 10000) {
-                    frameQR = await frameConPredicado(page, predicadoQR);
-                    if (frameQR) break;
-                    await new Promise(r => setTimeout(r, 400));
+                while (Date.now() - inicioQR < 10000 && !qrDataUrl) {
+                    for (const f of page.frames()) {
+                        try {
+                            const src = await f.evaluate(`(${FN_FIND_QR})()`);
+                            if (src) { qrDataUrl = src; break; }
+                        } catch (_) { /* frame detached/cross-origin — saltar */ }
+                    }
+                    if (!qrDataUrl) await new Promise(r => setTimeout(r, 400));
                 }
 
-                if (!frameQR) {
-                    console.log('  ℹ️ [SCT] No se encontró imagen QR (contenedor "billeteras") en ningún frame');
-                } else {
-                    const qrDataUrl = await frameQR.evaluate(() => {
-                        const imgs = Array.from(document.querySelectorAll('img'));
-                        const imgQR = imgs.find(img => {
-                            if (!(img.src || '').startsWith('data:image')) return false;
-                            const cont = img.closest('div');
-                            return !!(cont && /billetera/i.test(cont.textContent || ''));
-                        });
-                        return imgQR ? imgQR.src : null;
-                    });
+                if (qrDataUrl) {
+                    // Separar header y payload base64. AFIP a veces deja un
+                    // espacio después de la coma — lo limpiamos.
+                    const idxComa = qrDataUrl.indexOf(',');
+                    const base64Data = qrDataUrl.slice(idxComa + 1).trim();
 
-                    if (qrDataUrl) {
-                        // Separar header y payload base64. AFIP a veces deja un
-                        // espacio después de la coma — lo limpiamos.
-                        const idxComa = qrDataUrl.indexOf(',');
-                        const base64Data = qrDataUrl.slice(idxComa + 1).trim();
-
-                        // Detectar el tipo real por la firma del base64 (los
-                        // primeros bytes decodificados): el header de AFIP miente.
-                        let extension = 'png';
-                        if (base64Data.startsWith('/9j/')) {
-                            extension = 'jpg';                    // JPEG (FF D8 FF)
-                        } else if (base64Data.startsWith('iVBOR')) {
-                            extension = 'png';                    // PNG (89 50 4E 47)
-                        } else if (base64Data.startsWith('R0lGOD')) {
-                            extension = 'gif';                    // GIF
-                        }
-
-                        qrNombre = nuevoNombre.replace(/\.pdf$/i, `.${extension}`);
-                        qrPath = path.join(destinoDir, qrNombre);
-                        await fs.writeFile(qrPath, base64Data, 'base64');
-                        console.log(`  ✅ [SCT] Código QR guardado: ${qrNombre}`);
-                    } else {
-                        console.log('  ℹ️ [SCT] Frame matcheado pero no se pudo extraer el data URI');
+                    // Detectar el tipo real por la firma del base64 (los
+                    // primeros bytes decodificados): el header de AFIP miente.
+                    let extension = 'png';
+                    if (base64Data.startsWith('/9j/')) {
+                        extension = 'jpg';                    // JPEG (FF D8 FF)
+                    } else if (base64Data.startsWith('iVBOR')) {
+                        extension = 'png';                    // PNG (89 50 4E 47)
+                    } else if (base64Data.startsWith('R0lGOD')) {
+                        extension = 'gif';                    // GIF
                     }
+
+                    qrNombre = nuevoNombre.replace(/\.pdf$/i, `.${extension}`);
+                    qrPath = path.join(destinoDir, qrNombre);
+                    await fs.writeFile(qrPath, base64Data, 'base64');
+                    console.log(`  ✅ [SCT] Código QR guardado: ${qrNombre}`);
+                } else {
+                    console.log('  ℹ️ [SCT] No se encontró imagen QR en ningún frame');
                 }
             } catch (errorQR) {
                 console.warn(`  ⚠️ [SCT] Error al guardar QR (continuando): ${errorQR.message}`);
