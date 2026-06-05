@@ -7,6 +7,7 @@ window.inicializarConsultaComprobantes = () => {
 
     const selectEmpresa   = document.getElementById('cc-select-empresa');
     const selectPdv       = document.getElementById('cc-select-pdv');
+    const selectTipo      = document.getElementById('cc-select-tipo');
     const btnRefrescarPdv = document.getElementById('cc-btn-refrescar-pdv');
     const pdvInfo         = document.getElementById('cc-pdv-info');
 
@@ -287,7 +288,11 @@ window.inicializarConsultaComprobantes = () => {
             nombreEmpresa: selectEmpresa.value,
             puntoDeVenta: selectPdv.value,
             fechaDesde: inputDesde.value.trim(),
-            fechaHasta: inputHasta.value.trim()
+            fechaHasta: inputHasta.value.trim(),
+            // Opcional: texto exacto del tipo de comprobante. Vacío = no filtrar
+            // (AFIP trae todos). La automatización matchea este texto contra las
+            // <option> reales del select de AFIP.
+            tipoComprobante: selectTipo.value
         };
 
         try {
@@ -361,13 +366,14 @@ window.inicializarConsultaComprobantes = () => {
         tablaBody.innerHTML = '';
         if (comprobantes.length === 0) {
             const tr = document.createElement('tr');
-            tr.innerHTML = '<td colspan="8" style="text-align:center; color:#7f8c8d; padding:20px;">No se encontraron comprobantes en el rango</td>';
+            tr.innerHTML = '<td colspan="9" style="text-align:center; color:#7f8c8d; padding:20px;">No se encontraron comprobantes en el rango</td>';
             tablaBody.appendChild(tr);
         } else {
             comprobantes.forEach((c, i) => {
                 const tr = document.createElement('tr');
                 const celdas = [
                     String(i + 1),
+                    c.tipoComprobante || '—',
                     c.puntoDeVenta || '—',
                     c.comprobanteNumero || '—',
                     c.periodoDesde || '—',
@@ -395,6 +401,7 @@ window.inicializarConsultaComprobantes = () => {
 
     function formatearMoneda(n) {
         if (typeof n !== 'number' || isNaN(n)) return '$0,00';
-        return '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const signo = n < 0 ? '-' : '';
+        return signo + '$' + Math.abs(n).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 };

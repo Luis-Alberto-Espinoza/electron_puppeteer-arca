@@ -36,7 +36,6 @@ const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 async function descargarPdfsDeTabla(pageTabla) {
     // 1. Carpeta temporal aislada
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'consulta-comprobantes-'));
-    console.log(`  → Carpeta temporal de descarga: ${tempDir}`);
 
     // 2. Habilitar descargas vía CDP en la página principal
     const client = await pageTabla.target().createCDPSession();
@@ -46,22 +45,17 @@ async function descargarPdfsDeTabla(pageTabla) {
     });
 
     // 3. Encontrar el frame que contiene los botones "Ver" y extraer IDs
-    const { ids, baseHref, frameUrl } = await encontrarComprobantesEnFrames(pageTabla);
+    const { ids, baseHref } = await encontrarComprobantesEnFrames(pageTabla);
 
-    console.log(`  → ${ids.length} comprobante(s) detectado(s).`);
     if (ids.length === 0) {
         return { tempDir, pdfPaths: [] };
     }
-    console.log(`  → Frame de origen: ${frameUrl}`);
-    console.log(`  → Base href para URL absoluta: ${baseHref}`);
 
     // 4. Descargar uno a uno
     const pdfPaths = [];
     for (let i = 0; i < ids.length; i++) {
         const id = ids[i];
         const url = construirUrlAbsoluta(baseHref, `imprimirComprobante.do?c=${id}`);
-
-        console.log(`  → Descargando PDF ${i + 1}/${ids.length} (c=${id})...`);
 
         // Snapshot antes
         const antes = new Set(await fs.readdir(tempDir));
@@ -81,15 +75,16 @@ async function descargarPdfsDeTabla(pageTabla) {
         const pdfNuevo = await esperarPdfNuevo(tempDir, antes, 60000);
         if (pdfNuevo) {
             pdfPaths.push(path.join(tempDir, pdfNuevo));
-            console.log(`     ✅ ${pdfNuevo}`);
         } else {
-            console.log(`     ⚠️  No apareció PDF para c=${id} (timeout 60s)`);
+            // Anomalía: vale la pena dejarla registrada.
+            console.warn(`  ⚠️  No apareció PDF para c=${id} (timeout 60s)`);
         }
 
         // Pequeño respiro entre descargas para no saturar
         await esperar(300);
     }
 
+    console.log(`  → ${pdfPaths.length}/${ids.length} PDF(s) descargado(s).`);
     return { tempDir, pdfPaths };
 }
 

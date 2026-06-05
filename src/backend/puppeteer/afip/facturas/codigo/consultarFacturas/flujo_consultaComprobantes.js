@@ -24,6 +24,14 @@ const { generarExcelComprobantes } = require('./generarExcelComprobantes.js');
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Una Nota de Crédito (A/B/C/E/FCE) anula o devuelve, así que en la sumatoria
+ * RESTA. Detectamos por el texto del tipo (cubre todas las variantes).
+ */
+function esNotaCredito(tipo) {
+    return /nota\s+de\s+cr[ée]dito/i.test(tipo || '');
+}
+
+/**
  * @param {import('puppeteer').Page} page - página ya logueada
  * @param {Object} datos - { consultaDesde, consultaHasta, idTipoComprobante, nombreEmpresa }
  * @param {Object} usuario - { cuit, nombre, apellido } (para nombre de archivo/carpeta)
@@ -78,11 +86,20 @@ async function ejecutarFlujoConsultaComprobantes(page, datos, usuario, basePath)
         for (let i = 0; i < pdfPaths.length; i++) {
             try {
                 const datosPdf = await parsearComprobantePdf(pdfPaths[i]);
+                // Si el parser no pudo leer el tipo del PDF pero el usuario filtró
+                // por uno, ese es el tipo seguro de toda la tanda.
+                if (!datosPdf.tipoComprobante && datos.tipoComprobante) {
+                    datosPdf.tipoComprobante = datos.tipoComprobante;
+                }
+                // Notas de Crédito en negativo: la suma da el neto real.
+                if (typeof datosPdf.importeTotal === 'number' && esNotaCredito(datosPdf.tipoComprobante)) {
+                    datosPdf.importeTotal = -Math.abs(datosPdf.importeTotal);
+                }
                 comprobantes.push(datosPdf);
-                console.log(`  ✅ ${i + 1}/${pdfPaths.length}: ${datosPdf.puntoDeVenta}-${datosPdf.comprobanteNumero} ${datosPdf.razonSocialReceptor || ''} $${datosPdf.importeTotal || 0}`);
             } catch (e) {
                 console.error(`  ❌ Error parseando ${pdfPaths[i]}:`, e.message);
                 comprobantes.push({
+                    tipoComprobante: datos.tipoComprobante || null,
                     puntoDeVenta: null,
                     comprobanteNumero: null,
                     periodoDesde: null,

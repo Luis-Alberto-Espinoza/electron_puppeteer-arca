@@ -268,6 +268,45 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                         };
                     }
 
+                    // IMPORTANTE: el manager NO lanza excepción cuando falla; atrapa
+                    // el error y devuelve { success:false }. Por eso hay que mirar
+                    // resultado.success en vez de asumir éxito por no haber throw.
+                    // (Si no, en un equipo donde la automatización falla —p. ej. el
+                    // .exe en Windows— se reportaba "factura realizada" sin serlo.)
+                    const detalle = resultado?.data?.resultados?.[0] || {};
+                    const pdfPath = detalle.pdfPath || resultado?.pdfPath || null;
+                    const exito = !!resultado && resultado.success === true;
+
+                    if (!exito) {
+                        const mensajeError = detalle.error
+                            || resultado?.message
+                            || 'La factura no se pudo generar (AFIP no confirmó el comprobante)';
+
+                        event.sender.send('facturaTipificada:progreso', {
+                            actual: indiceGlobal,
+                            total: totalComprobantes,
+                            numeroFactura: indiceGlobal,
+                            descripcion: descripcion,
+                            status: 'error',
+                            mensaje: mensajeError
+                        });
+
+                        console.warn(`[${indiceGlobal}/${totalComprobantes}] Comprobante NO generado: ${mensajeError}`);
+
+                        resultados.push({
+                            success: false,
+                            numeroFactura: indiceGlobal,
+                            message: mensajeError,
+                            error: mensajeError
+                        });
+
+                        // Pausa antes del siguiente, igual que en el caso exitoso.
+                        if (indiceGlobal < totalComprobantes) {
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        }
+                        continue;
+                    }
+
                     // Notificar exito
                     event.sender.send('facturaTipificada:progreso', {
                         actual: indiceGlobal,
@@ -276,7 +315,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                         descripcion: descripcion,
                         status: 'completada',
                         mensaje: resultado.message || 'Completada',
-                        pdfPath: resultado.pdfPath
+                        pdfPath: pdfPath
                     });
 
                     console.log(`[${indiceGlobal}/${totalComprobantes}] Comprobante generado exitosamente`);
@@ -285,7 +324,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                         success: true,
                         numeroFactura: indiceGlobal,
                         message: resultado.message,
-                        pdfPath: resultado.pdfPath
+                        pdfPath: pdfPath
                     });
 
                     // Pausa de 2 segundos entre comprobantes (excepto el ultimo)

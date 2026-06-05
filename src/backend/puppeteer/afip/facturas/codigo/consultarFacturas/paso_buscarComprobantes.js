@@ -8,16 +8,19 @@
  *      cae al fallback histórico (selectedIndex = 1).
  *
  * @param {import('puppeteer').Page} page - página del formulario de consulta.
- * @param {Object} datos - { consultaDesde, consultaHasta, idTipoComprobante, puntoDeVenta? }
+ * @param {Object} datos - { consultaDesde, consultaHasta, puntoDeVenta?, tipoComprobante? }
  *                          fechas en formato 'dd/mm/yyyy'.
+ *                          tipoComprobante: texto exacto del comprobante a filtrar
+ *                          (ej. "Factura B"). Vacío/null = no se toca el select y
+ *                          AFIP trae todos los comprobantes.
  * @returns {Promise<import('puppeteer').Page>} la nueva pestaña con la tabla de resultados.
  */
 async function buscarComprobantesYCapturarTabla(page, datos) {
     console.log('  → Esperando formulario de consulta...');
     await page.waitForSelector('#fed', { timeout: 120000 });
 
-    console.log(`  → Completando fechas y filtros (pdv solicitado=${datos.puntoDeVenta || '(fallback)'})...`);
-    await page.evaluate(async (d) => {
+    console.log(`  → Completando fechas y filtros (pdv solicitado=${datos.puntoDeVenta || '(fallback)'}, tipo=${datos.tipoComprobante || '(todos)'})...`);
+    const resultadoForm = await page.evaluate(async (d) => {
         const setVal = (sel, val) => {
             const el = document.querySelector(sel);
             if (el) {
@@ -27,7 +30,33 @@ async function buscarComprobantesYCapturarTabla(page, datos) {
         };
         setVal('#fed', d.consultaDesde);
         setVal('#feh', d.consultaHasta);
-        setVal("[name='idTipoComprobante']", d.idTipoComprobante);
+
+        // Tipo de comprobante: SOLO si el usuario eligió uno. Matcheamos por
+        // texto de la <option> (no por código interno) contra el texto pedido,
+        // ambos normalizados (sin acentos/comillas raras, espacios colapsados).
+        // Si no se eligió nada, no tocamos el select → AFIP trae todos.
+        const tipo = { solicitado: d.tipoComprobante || null, encontrado: false };
+        if (d.tipoComprobante) {
+            const norm = (s) => String(s)
+                .toLowerCase()
+                .normalize('NFD').replace(/[̀-ͯ]/g, '')  // saca acentos
+                .replace(/[“”«»]/g, '"')        // comillas dobles tipográficas
+                .replace(/[‘’]/g, "'")                    // comillas simples tipográficas
+                .replace(/\s+/g, ' ')
+                .trim();
+            const objetivo = norm(d.tipoComprobante);
+            const sel = document.querySelector("[name='idTipoComprobante']");
+            if (sel) {
+                for (const opt of sel.options) {
+                    if (norm(opt.textContent) === objetivo) {
+                        sel.value = opt.value;
+                        sel.dispatchEvent(new Event('change', { bubbles: true }));
+                        tipo.encontrado = true;
+                        break;
+                    }
+                }
+            }
+        }
 
         // Punto de venta: buscar la option cuyo value normalizado coincida
         // con d.puntoDeVenta ("00001"). Fallback: selectedIndex = 1.
@@ -53,7 +82,19 @@ async function buscarComprobantesYCapturarTabla(page, datos) {
             }
             pdv.dispatchEvent(new Event('change', { bubbles: true }));
         }
+
+        return { tipo };
     }, datos);
+
+    // Si el usuario pidió un tipo concreto y no lo encontramos en el select de
+    // AFIP, cortamos con error claro en vez de traer TODOS (que sería un
+    // resultado equivocado silencioso).
+    if (datos.tipoComprobante && !resultadoForm.tipo.encontrado) {
+        throw new Error(`No se encontró el tipo de comprobante "${datos.tipoComprobante}" en el select de AFIP. ¿Cambió el texto en la página?`);
+    }
+    if (datos.tipoComprobante) {
+        console.log(`  ✅ Tipo de comprobante seleccionado: "${datos.tipoComprobante}"`);
+    }
 
     // Pequeña espera para que el DOM termine de reaccionar a los change
     await new Promise(r => setTimeout(r, 800));

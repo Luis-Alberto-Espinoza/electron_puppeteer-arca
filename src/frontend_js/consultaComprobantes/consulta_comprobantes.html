@@ -44,6 +44,53 @@
                 <div id="cc-pdv-info" class="cc-pdv-info" style="display:none;"></div>
             </div>
 
+            <div class="cc-campo">
+                <label for="cc-select-tipo">
+                    Tipo de comprobante
+                    <small style="color:#7f8c8d; font-weight:normal;">(opcional — vacío trae todos)</small>
+                </label>
+                <!-- Opción "todos" con value="" → no se filtra. El resto NO lleva
+                     atributo value: así option.value devuelve el texto tal cual,
+                     y nos evitamos escapar las comillas de "Operación Sujeta a
+                     Retención". La automatización matchea ese texto contra las
+                     <option> reales de AFIP. -->
+                <select id="cc-select-tipo">
+                    <option value="">Todos los comprobantes (no filtrar)</option>
+                    <option>Factura A</option>
+                    <option>Nota de Débito A</option>
+                    <option>Nota de Crédito A</option>
+                    <option>Recibo A</option>
+                    <option>Factura B</option>
+                    <option>Nota de Débito B</option>
+                    <option>Nota de Crédito B</option>
+                    <option>Recibo B</option>
+                    <option>Factura C</option>
+                    <option>Nota de Débito C</option>
+                    <option>Nota de Crédito C</option>
+                    <option>Recibo C</option>
+                    <option>Factura de Exportación E</option>
+                    <option>Nota de Débito por Operaciones con el Exterior E</option>
+                    <option>Nota de Crédito por Operaciones con el Exterior E</option>
+                    <option>Comprobante de Compra de Bienes Usados</option>
+                    <option>Factura M / A con Leyenda "Operación Sujeta a Retención"</option>
+                    <option>Nota de Débito M / A con Leyenda "Operación Sujeta a Retención"</option>
+                    <option>Nota de Crédito M / A con Leyenda "Operación Sujeta a Retención"</option>
+                    <option>Recibo M / A con Leyenda "Operación Sujeta a Retención"</option>
+                    <option>Factura T</option>
+                    <option>Nota de Débito T</option>
+                    <option>Nota de Crédito T</option>
+                    <option>Factura de Crédito Electrónica MiPyMEs (FCE) A</option>
+                    <option>Nota de Débito Electrónica MiPyMEs (FCE) A</option>
+                    <option>Nota de Crédito Electrónica MiPyMEs (FCE) A</option>
+                    <option>Factura de Crédito Electrónica MiPyMEs (FCE) B</option>
+                    <option>Nota de Débito Electrónica MiPyMEs (FCE) B</option>
+                    <option>Nota de Crédito Electrónica MiPyMEs (FCE) B</option>
+                    <option>Factura de Crédito Electrónica MiPyMEs (FCE) C</option>
+                    <option>Nota de Débito Electrónica MiPyMEs (FCE) C</option>
+                    <option>Nota de Crédito Electrónica MiPyMEs (FCE) C</option>
+                </select>
+            </div>
+
             <div class="cc-fila-fechas">
                 <div class="cc-campo">
                     <label for="cc-fecha-desde">Fecha desde</label>
@@ -106,6 +153,7 @@
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>Tipo</th>
                             <th>Pto Vta</th>
                             <th>Comp. Nro</th>
                             <th>Período Desde</th>

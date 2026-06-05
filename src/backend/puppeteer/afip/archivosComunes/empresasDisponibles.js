@@ -10,6 +10,31 @@ async function wait(ms) {
 }
 
 /**
+ * Normaliza un nombre de empresa para comparar de forma tolerante entre SO.
+ * - NFC: unifica la forma Unicode (Windows/Linux guardan tildes distinto: NFC vs NFD).
+ * -   -> espacio: el "espacio duro" que .trim() no limpia.
+ * - colapsa espacios repetidos y recorta extremos.
+ */
+function normalizarNombre(s) {
+    return (s || '')
+        .normalize('NFC')
+        .replace(/ /g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Version "agresiva" para el fallback: ademas saca tildes y pasa a minusculas.
+ * Solo se usa si la comparacion exacta normalizada no encontro nada.
+ */
+function normalizarFuerte(s) {
+    return normalizarNombre(s)
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '') // saca diacriticos (tildes, dieresis)
+        .toLowerCase();
+}
+
+/**
  * Extrae los nombres de todas las empresas disponibles en la pagina de seleccion.
  * NO realiza ninguna accion de clic.
  * @param {import('puppeteer').Page} page La pagina de Puppeteer que muestra la lista de empresas.
@@ -61,24 +86,40 @@ async function seleccionarEmpresa(page, nombreEmpresa) {
         console.log('        [empresasDisponibles] -> Esperando selector .btn_empresa');
         await page.waitForSelector(selectorBotones, { timeout: 20000 });
 
-        console.log('        [empresasDisponibles] -> Buscando y haciendo clic...');
-        const resultado = await page.evaluate((selector, nombreBuscado) => {
-            const botones = document.querySelectorAll(selector);
-            let encontrado = false;
-            for (let i = 0; i < botones.length; i++) {
-                const texto = botones[i].value?.trim();
-                if (texto === nombreBuscado) {
-                    botones[i].click();
-                    encontrado = true;
-                    break;
-                }
-            }
-            return { encontrado };
-        }, selectorBotones, nombreEmpresa);
+        console.log('        [empresasDisponibles] -> Leyendo nombres de la lista...');
+        // 1) Extraer los nombres tal cual estan en el DOM (sin tocar nada).
+        const nombresDom = await page.evaluate((selector) => {
+            return Array.from(document.querySelectorAll(selector)).map(b => b.value || '');
+        }, selectorBotones);
 
-        if (!resultado.encontrado) {
-            throw new Error(`Empresa "${nombreEmpresa}" no encontrada en la lista`);
+        // 2) Matchear en Node, donde podemos normalizar de forma tolerante.
+        const objetivo = normalizarNombre(nombreEmpresa);
+        let indice = nombresDom.findIndex(n => normalizarNombre(n) === objetivo);
+
+        // 3) Fallback sin tildes / minusculas si la comparacion exacta fallo.
+        if (indice === -1) {
+            const objetivoFuerte = normalizarFuerte(nombreEmpresa);
+            indice = nombresDom.findIndex(n => normalizarFuerte(n) === objetivoFuerte);
+            if (indice !== -1) {
+                console.log('        [empresasDisponibles] -> Match por fallback (sin tildes/mayusculas).');
+            }
         }
+
+        if (indice === -1) {
+            // Error con diagnostico: muestra que se buscaba y que habia, asi se ve en la UI sin consola.
+            const disponibles = nombresDom.map(n => `"${n.trim()}"`).join(', ') || '(ninguna)';
+            throw new Error(
+                `Empresa "${nombreEmpresa}" no encontrada en la lista. ` +
+                `Empresas disponibles: ${disponibles}`
+            );
+        }
+
+        console.log(`        [empresasDisponibles] -> Match en indice ${indice}, haciendo clic...`);
+        await page.evaluate((selector, i) => {
+            const botones = document.querySelectorAll(selector);
+            botones[i].scrollIntoView({ block: 'center' });
+            botones[i].click();
+        }, selectorBotones, indice);
 
         console.log('        [empresasDisponibles] -> Clic realizado, esperando navegacion...');
         // Esperar navegacion pero no fallar si no ocurre (algunas paginas no navegan)

@@ -18,16 +18,22 @@
  *   - fechaEmision        (ej. "30/04/2026") — útil aunque no fue pedido
  */
 
-const path = require('path');
+const fs = require('fs/promises');
 
 async function parsearComprobantePdf(pdfPath) {
     const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = path.join(
-        process.cwd(),
-        'node_modules/pdfjs-dist/build/pdf.worker.js'
-    );
+    // require.resolve encuentra el worker tanto en dev (node_modules suelto)
+    // como empaquetado dentro de app.asar. NO usar process.cwd(): en el
+    // portable de Windows apunta a donde se lanzó el .exe, no a la app.
+    pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
 
-    const loadingTask = pdfjsLib.getDocument(pdfPath);
+    // Pasar los bytes en vez de la ruta: getDocument(string) trata el argumento
+    // como URL y una ruta Windows ("C:\...") rompe el parseo. Leyéndola nosotros
+    // funciona igual en Windows, Linux y empaquetado.
+    const data = new Uint8Array(await fs.readFile(pdfPath));
+    // verbosity: 0 (ERRORS) silencia los warnings de "fetchStandardFontData":
+    // pdfjs no encuentra las fuentes, pero para extraer TEXTO no las necesita.
+    const loadingTask = pdfjsLib.getDocument({ data, verbosity: 0 });
     const pdf = await loadingTask.promise;
 
     // Solo la primera página: ORIGINAL contiene todo. DUPLICADO/TRIPLICADO son copias.
@@ -65,6 +71,7 @@ async function parsearComprobantePdf(pdfPath) {
     const buscarValorEnFila = (fila, regex) => fila?.texto.match(regex)?.[1] || null;
 
     const datos = {
+        tipoComprobante: null,
         puntoDeVenta: null,
         comprobanteNumero: null,
         periodoDesde: null,
@@ -74,6 +81,49 @@ async function parsearComprobantePdf(pdfPath) {
         razonSocialReceptor: null,
         importeTotal: null
     };
+
+    // === Tipo de Comprobante ===
+    // AFIP imprime la CLASE de documento ("FACTURA", "NOTA DE CRÉDITO"...) y, en
+    // un recuadro central, la LETRA (A/B/C/E/M/T) con su "Cód. NN". Combinamos
+    // clase + letra → "Factura B", "Nota de Crédito C". Si no se reconoce la
+    // clase, caemos al "Cód. NN" como discriminador crudo.
+    //
+    // OJO: extracción best-effort (no validada contra un PDF de cada tipo). Si
+    // algún tipo sale mal, ajustar las frases/letra acá.
+    const textoCompleto = filas.map(f => f.texto).join('  ');
+
+    // Letra: primer item aislado de un solo carácter del set válido.
+    const letraComprobante = content.items
+        .map(it => (it.str || '').trim())
+        .find(s => /^[ABCEMT]$/.test(s)) || null;
+
+    // Clase de documento: de la frase MÁS LARGA a la más corta, para no cortar
+    // "FACTURA" dentro de "FACTURA DE CRÉDITO ELECTRÓNICA".
+    const CLASES = [
+        [/FACTURA\s+DE\s+CR[ÉE]DITO\s+ELECTR[ÓO]NICA/i, 'Factura de Crédito Electrónica MiPyMEs (FCE)'],
+        [/NOTA\s+DE\s+D[ÉE]BITO\s+ELECTR[ÓO]NICA/i,     'Nota de Débito Electrónica MiPyMEs (FCE)'],
+        [/NOTA\s+DE\s+CR[ÉE]DITO\s+ELECTR[ÓO]NICA/i,    'Nota de Crédito Electrónica MiPyMEs (FCE)'],
+        [/FACTURA\s+DE\s+EXPORTACI[ÓO]N/i,              'Factura de Exportación'],
+        [/NOTA\s+DE\s+D[ÉE]BITO\s+POR\s+OPERACIONES/i,  'Nota de Débito por Operaciones con el Exterior'],
+        [/NOTA\s+DE\s+CR[ÉE]DITO\s+POR\s+OPERACIONES/i, 'Nota de Crédito por Operaciones con el Exterior'],
+        [/COMPROBANTE\s+DE\s+COMPRA\s+DE\s+BIENES\s+USADOS/i, 'Comprobante de Compra de Bienes Usados'],
+        [/NOTA\s+DE\s+CR[ÉE]DITO/i,                     'Nota de Crédito'],
+        [/NOTA\s+DE\s+D[ÉE]BITO/i,                      'Nota de Débito'],
+        [/RECIBO/i,                                     'Recibo'],
+        [/FACTURA/i,                                    'Factura'],
+    ];
+    let claseDoc = null;
+    for (const [re, nombre] of CLASES) {
+        if (re.test(textoCompleto)) { claseDoc = nombre; break; }
+    }
+
+    if (claseDoc) {
+        // "Comprobante de Compra de Bienes Usados" no lleva letra.
+        datos.tipoComprobante = letraComprobante ? `${claseDoc} ${letraComprobante}` : claseDoc;
+    } else {
+        const cod = textoCompleto.match(/C[óo]d\.?\s*0*(\d{1,3})/i);
+        datos.tipoComprobante = cod ? `Cód. ${cod[1]}` : null;
+    }
 
     // === Punto de Venta y Comp. Nro (mismo renglón inline) ===
     const filaPtoVenta = buscarFila(/Punto\s+de\s+Venta:\s*\d+/i);

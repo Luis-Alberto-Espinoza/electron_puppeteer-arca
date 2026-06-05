@@ -16,7 +16,7 @@ function setupConsultaComprobantesHandlers(ipcMain, userStorage, app) {
         console.log('BACKEND: Recibida solicitud consultaComprobantes:consultar');
 
         try {
-            const { usuario, nombreEmpresa, puntoDeVenta, fechaDesde, fechaHasta } = datos || {};
+            const { usuario, nombreEmpresa, puntoDeVenta, fechaDesde, fechaHasta, tipoComprobante } = datos || {};
 
             if (!usuario || !usuario.id) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario.' };
@@ -46,9 +46,11 @@ function setupConsultaComprobantesHandlers(ipcMain, userStorage, app) {
             const datosManager = {
                 fechaDesde,
                 fechaHasta,
-                tipoContribuyente: usuarioCompleto.tipoContribuyente,
                 nombreEmpresa,
-                puntoDeVenta
+                puntoDeVenta,
+                // Opcional: si viene vacío/undefined, la automatización no toca el
+                // select de tipo y AFIP devuelve todos los comprobantes.
+                tipoComprobante: tipoComprobante || null
             };
 
             const usuarioParaArchivo = {
