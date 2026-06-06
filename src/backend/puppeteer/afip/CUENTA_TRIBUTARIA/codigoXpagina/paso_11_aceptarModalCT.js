@@ -121,7 +121,6 @@ async function frameConVistaComprobante(page) {
 
 async function ejecutar(page) {
     try {
-        console.log('  → [SCT] Aceptando modal de confirmación...');
 
         // Esperar a que el modal con su botón esté presente en algún frame.
         const frame = await esperarFrameConSelector(

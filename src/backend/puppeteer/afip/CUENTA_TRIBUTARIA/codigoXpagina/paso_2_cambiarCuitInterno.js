@@ -23,8 +23,6 @@ async function ejecutar(page, cuitObjetivo, options = {}) {
             return { success: true, cambiado: false, message: 'Sin CUIT objetivo (se saltea)' };
         }
 
-        console.log(`  → [SCT] Verificando selector de CUIT interno (objetivo ${cuitNorm})...`);
-
         let tieneSelect = false;
         try {
             await page.waitForSelector(SELECTOR_SELECT, { timeout: timeoutSelect });

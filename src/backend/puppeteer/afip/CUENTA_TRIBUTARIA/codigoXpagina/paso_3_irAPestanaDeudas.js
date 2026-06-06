@@ -66,8 +66,6 @@ async function intentarPaso3(page, options) {
         throw new Error(resultado.error);
     }
 
-    console.log(`  → [SCT] Click en <${resultado.tag.toLowerCase()}> "${resultado.texto}"`);
-
     // Esperar render del contenido del tab (todo dentro del mismo iframe).
     try {
         await frame.waitForFunction(() => {
@@ -86,7 +84,6 @@ async function intentarPaso3(page, options) {
 }
 
 async function ejecutar(page, options = {}) {
-    console.log('  → [SCT] Yendo a pestaña "Deudas"...');
 
     let ultimoError = null;
     for (let intento = 1; intento <= MAX_INTENTOS; intento++) {

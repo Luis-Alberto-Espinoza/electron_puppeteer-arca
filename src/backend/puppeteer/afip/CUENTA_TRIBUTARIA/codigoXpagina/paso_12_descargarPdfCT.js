@@ -232,7 +232,6 @@ function fechaHoy() {
 async function ejecutar(page, cliente, cuitAsociado, medioPago, downloadsPath) {
     let tempDir = null;
     try {
-        console.log('  → [SCT] Descargando PDF del VEP...');
 
         // 1. Tempdir + CDP setDownloadBehavior.
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sct-vep-pdf-'));
@@ -332,7 +331,6 @@ async function ejecutar(page, cliente, cuitAsociado, medioPago, downloadsPath) {
         let qrNombre = null;
         if (medioPago && medioPago.id === 'pago_qr') {
             try {
-                console.log('  → [SCT] Buscando código QR en la vista...');
 
                 // Devuelve el data URI del QR en ESTE document, o null.
                 const FN_FIND_QR = `() => {

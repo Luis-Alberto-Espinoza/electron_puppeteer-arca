@@ -114,7 +114,6 @@ async function extraerTotales(frame) {
 async function ejecutar(page, options = {}) {
     try {
         const { modo = 'completo' } = options;
-        console.log(`  → [SCT] Extrayendo tabla (modo=${modo})...`);
 
         const frame = await getSctFrame(page);
 

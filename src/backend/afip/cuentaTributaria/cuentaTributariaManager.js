@@ -68,7 +68,7 @@ async function iniciarProcesoCuentaTributaria(url, credenciales, payload, modo, 
             message: `Modo no reconocido: ${modo}`
         };
 
-    }, { headless: false, dejarAbiertoEnError: true, dejarAbiertoSiempre: true });
+    }, { headless: false, dejarAbiertoEnError: true, dejarAbiertoSiempre: false });
 }
 
 module.exports = {

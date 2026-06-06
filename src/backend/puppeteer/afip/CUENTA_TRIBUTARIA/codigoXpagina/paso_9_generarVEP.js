@@ -76,7 +76,6 @@ async function clickGenerarVEP(frame) {
 
 async function ejecutar(page) {
     try {
-        console.log('  → [SCT] Verificando vista de medios de pago...');
 
         // 1. Si ya hay medios de pago visibles, no hace falta clickear nada.
         const frameConMediosYa = await frameConMediosDePago(page);
@@ -91,7 +90,6 @@ async function ejecutar(page) {
             throw new Error('No se encontró el botón "GENERAR VEP" en ningún frame');
         }
 
-        console.log('  → [SCT] Click en "GENERAR VEP"...');
         const ok = await clickGenerarVEP(frameBoton);
         if (!ok) {
             throw new Error('No se pudo clickear el botón "GENERAR VEP"');

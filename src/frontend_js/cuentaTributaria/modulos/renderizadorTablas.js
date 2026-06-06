@@ -32,7 +32,12 @@ export const MEDIOS_PAGO = [
 
 export function mostrarSeccionResultados() {
     const sec = document.getElementById('seccion-resultados-ct');
-    if (sec) sec.style.display = 'block';
+    if (sec) {
+        sec.style.display = 'block';
+        // Llevar el foco visual al resultado recién aparecido. requestAnimationFrame
+        // para que el layout ya esté calculado tras el cambio de display.
+        requestAnimationFrame(() => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
 }
 
 export function ocultarSeccionResultados() {
@@ -144,8 +149,14 @@ export function renderizarGrupoRequierenSeleccion(items) {
                                 : ''}
                         </div>
                     </div>
-                    <div class="selector-medio-pago-grupo">
-                        <label>Medio de pago:</label>
+                </div>
+
+                <div class="tarjeta-body">
+                    ${renderizarTablaDeudas(deudas, cliente.id, cuitAsociado)}
+                    ${renderizarTotalesTabla(totales, deudas)}
+
+                    <div class="selector-medio-pago-grupo selector-medio-pago-pie">
+                        <label>💳 Medio de pago:</label>
                         <select class="select-medio-pago-grupo"
                                 data-cliente-id="${cliente.id}"
                                 data-cuit="${cuitAsociado}">
@@ -158,11 +169,6 @@ export function renderizarGrupoRequierenSeleccion(items) {
                             `).join('')}
                         </select>
                     </div>
-                </div>
-
-                <div class="tarjeta-body">
-                    ${renderizarTablaDeudas(deudas, cliente.id, cuitAsociado)}
-                    ${renderizarTotalesTabla(totales, deudas)}
                 </div>
             </div>
         `;

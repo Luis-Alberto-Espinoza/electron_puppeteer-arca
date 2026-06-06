@@ -33,7 +33,6 @@ async function esperarArchivo(tempDir, timeoutMs = 15000) {
 async function ejecutar(page, usuario, cuitAsociado, downloadsPath) {
     let tempDir = null;
     try {
-        console.log('  → [SCT] Exportando Excel de deudas...');
 
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'sct-xls-'));
 

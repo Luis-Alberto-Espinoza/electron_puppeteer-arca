@@ -151,7 +151,6 @@ async function ejecutarModoMatch(frame, deudasABuscar) {
 async function ejecutar(page, opciones = {}) {
     try {
         const { modo, idsSeleccionadas, deudasABuscar } = opciones;
-        console.log(`  → [SCT] Seleccionando filas (modo=${modo})...`);
 
         const frame = await getSctFrame(page);
 

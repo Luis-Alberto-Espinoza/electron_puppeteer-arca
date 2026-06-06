@@ -367,6 +367,29 @@
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+/* Medio de pago al pie de la tarjeta — resaltado para que no se pase por alto.
+   Antes vivía arriba a la derecha del header y se omitía sin querer. */
+.contenedor-principal-ct .selector-medio-pago-pie {
+    margin-top: 16px;
+    padding: 14px 16px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-left: 4px solid #667eea;
+    border-radius: 8px;
+    gap: 12px;
+}
+
+.contenedor-principal-ct .selector-medio-pago-pie label {
+    font-size: 13px;
+    color: #4338ca;
+}
+
+.contenedor-principal-ct .selector-medio-pago-pie .select-medio-pago-grupo {
+    flex: 1;
+    max-width: 280px;
+    font-weight: 600;
+}
+
 /* ========================================
    BODY DE TARJETA
    ======================================== */

@@ -20,7 +20,12 @@ let delegacionInicializada = false;
 
 export function mostrarSeccionArchivos() {
     const sec = document.getElementById(ID_SECCION);
-    if (sec) sec.style.display = 'block';
+    if (sec) {
+        sec.style.display = 'block';
+        // Llevar el foco visual a los archivos recién descargados. requestAnimationFrame
+        // para que el layout ya esté calculado tras el cambio de display.
+        requestAnimationFrame(() => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
 }
 
 export function ocultarSeccionArchivos() {

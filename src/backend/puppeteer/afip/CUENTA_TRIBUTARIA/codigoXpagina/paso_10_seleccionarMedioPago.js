@@ -65,8 +65,6 @@ async function ejecutar(page, medioPago) {
             throw new Error(`Medio de pago no válido: ${medioPago.id}`);
         }
 
-        console.log(`  → [SCT] Seleccionando medio de pago: ${medioPago.nombre} (id=${medioId})...`);
-
         // Buscar en cualquier frame el medio de pago elegido (UI nueva o vieja).
         const frame = await esperarFrameConSelector(page, selectorMedio(medioId), { timeout: 15000 });
 

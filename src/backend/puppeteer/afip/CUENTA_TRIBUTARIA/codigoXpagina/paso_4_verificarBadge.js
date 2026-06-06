@@ -69,7 +69,6 @@ async function leerEstado(frame) {
 
 async function ejecutar(page) {
     try {
-        console.log('  → [SCT] Leyendo badge de Deudas...');
 
         const frame = await getSctFrame(page);
 

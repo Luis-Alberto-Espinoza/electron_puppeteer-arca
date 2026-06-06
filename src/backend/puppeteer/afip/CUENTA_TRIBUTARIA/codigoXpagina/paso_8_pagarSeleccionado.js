@@ -59,7 +59,6 @@ async function vistaGenerarVepVisible(frame) {
 
 async function ejecutar(page) {
     try {
-        console.log('  → [SCT] Click en "Pagar seleccionado"...');
 
         let frame = await getSctFrame(page);
 

@@ -16,7 +16,6 @@ const FRAGMENTO_LOGIN_INTERMEDIO = 'auth.afip.gob.ar/contribuyente_/login.xhtml'
 async function ejecutar(page, credenciales, options = {}) {
     try {
         const { timeoutNuevaPestana = 15000, timeoutPortal = 25000 } = options;
-        console.log('  → [SCT] Abriendo Sistema de Cuenta Tributaria (buscando "sct")...');
 
         const newPage = await buscarEnAfip(page, 'sct', {
             esperarNuevaPestana: true,
