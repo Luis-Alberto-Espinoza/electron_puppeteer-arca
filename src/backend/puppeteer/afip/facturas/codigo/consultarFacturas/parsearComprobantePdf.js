@@ -79,6 +79,14 @@ async function parsearComprobantePdf(pdfPath) {
         fechaEmision: null,
         cuitReceptor: null,
         razonSocialReceptor: null,
+        netoGravado: null,
+        iva0: null,
+        iva25: null,
+        iva5: null,
+        iva105: null,
+        iva21: null,
+        iva27: null,
+        otrosTributos: null,
         importeTotal: null
     };
 
@@ -237,6 +245,28 @@ async function parsearComprobantePdf(pdfPath) {
             datos.importeTotal = parseMoneda(matches[matches.length - 1]);
         }
     }
+
+    // === Desglose impositivo (puede o no aparecer según el comprobante) ===
+    // Cada concepto es su propia fila: "Importe Neto Gravado: $ 95.000,00",
+    // "IVA 21%: $ 19.950,00", etc. Si la fila no existe (ej. Factura B/C no
+    // discrimina IVA), el campo queda null y en el Excel sale vacío.
+    // Las regex de IVA son específicas por alícuota para no confundir
+    // "IVA 5%" con "IVA 2.5%" / "IVA 10.5%" / "IVA 21%".
+    const montoPorLabel = (regex) => {
+        const fila = buscarFila(regex);
+        if (!fila) return null;
+        const nums = fila.texto.match(/[\d.]+,\d{2}/g);
+        return nums && nums.length ? parseMoneda(nums[nums.length - 1]) : null;
+    };
+
+    datos.netoGravado   = montoPorLabel(/Importe\s+Neto\s+Gravado/i);
+    datos.iva0          = montoPorLabel(/IVA\s*0\s*%/i);
+    datos.iva25         = montoPorLabel(/IVA\s*2[.,]5\s*%/i);
+    datos.iva5          = montoPorLabel(/IVA\s*5\s*%/i);
+    datos.iva105        = montoPorLabel(/IVA\s*10[.,]5\s*%/i);
+    datos.iva21         = montoPorLabel(/IVA\s*21\s*%/i);
+    datos.iva27         = montoPorLabel(/IVA\s*27\s*%/i);
+    datos.otrosTributos = montoPorLabel(/Importe\s+Otros\s+Tributos/i);
 
     return datos;
 }

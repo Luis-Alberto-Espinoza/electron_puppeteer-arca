@@ -10,7 +10,13 @@
  *   - Fecha de Emisión
  *   - CUIT
  *   - Apellido / Razón Social
+ *   - Importe Neto Gravado
+ *   - IVA 0% / 2.5% / 5% / 10.5% / 21% / 27%
+ *   - Importe Otros Tributos
  *   - Total
+ *
+ * Las columnas de desglose (neto, IVAs, otros tributos) pueden venir vacías:
+ * el parser solo las completa si el comprobante las trae.
  */
 
 const path = require('path');
@@ -27,7 +33,15 @@ function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde,
         'Fecha de Emisión':          c.fechaEmision || '',
         'CUIT':                      c.cuitReceptor || '',
         'Apellido / Razón Social':   c.razonSocialReceptor || '',
-        'Total':                     typeof c.importeTotal === 'number' ? c.importeTotal : ''
+        'Importe Neto Gravado':      typeof c.netoGravado   === 'number' ? c.netoGravado   : '',
+        'IVA 0%':                    typeof c.iva0          === 'number' ? c.iva0          : '',
+        'IVA 2.5%':                  typeof c.iva25         === 'number' ? c.iva25         : '',
+        'IVA 5%':                    typeof c.iva5          === 'number' ? c.iva5          : '',
+        'IVA 10.5%':                 typeof c.iva105        === 'number' ? c.iva105        : '',
+        'IVA 21%':                   typeof c.iva21         === 'number' ? c.iva21         : '',
+        'IVA 27%':                   typeof c.iva27         === 'number' ? c.iva27         : '',
+        'Importe Otros Tributos':    typeof c.otrosTributos === 'number' ? c.otrosTributos : '',
+        'Total':                     typeof c.importeTotal  === 'number' ? c.importeTotal  : ''
     }));
 
     // Fila total al final (solo si hay datos)
@@ -42,20 +56,31 @@ function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde,
             'Fecha de Emisión': '',
             'CUIT': '',
             'Apellido / Razón Social': 'TOTAL',
+            'Importe Neto Gravado': '',
+            'IVA 0%': '',
+            'IVA 2.5%': '',
+            'IVA 5%': '',
+            'IVA 10.5%': '',
+            'IVA 21%': '',
+            'IVA 27%': '',
+            'Importe Otros Tributos': '',
             'Total': sumaTotal
         });
     }
 
     const hoja = XLSX.utils.json_to_sheet(filas);
 
-    // Formato $ con 2 decimales para la columna Total (ahora índice 8, porque
-    // "Tipo de Comprobante" entró como primera columna).
+    // Formato de número con 2 decimales (SIN $) para todas las columnas
+    // monetarias: van del índice 8 (Importe Neto Gravado) al 16 (Total).
+    const COL_MONTO_DESDE = 8;
+    const COL_MONTO_HASTA = 16;
     const rango = XLSX.utils.decode_range(hoja['!ref']);
     for (let r = rango.s.r + 1; r <= rango.e.r; r++) {
-        const dir = XLSX.utils.encode_cell({ r, c: 8 });
-        const celda = hoja[dir];
-        if (celda && typeof celda.v === 'number') {
-            celda.z = '#,##0.00';
+        for (let c = COL_MONTO_DESDE; c <= COL_MONTO_HASTA; c++) {
+            const celda = hoja[XLSX.utils.encode_cell({ r, c })];
+            if (celda && typeof celda.v === 'number') {
+                celda.z = '#,##0.00';
+            }
         }
     }
 
@@ -69,6 +94,14 @@ function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde,
         { wch: 16 }, // Fecha de Emisión
         { wch: 14 }, // CUIT
         { wch: 32 }, // Razón Social
+        { wch: 20 }, // Importe Neto Gravado
+        { wch: 12 }, // IVA 0%
+        { wch: 12 }, // IVA 2.5%
+        { wch: 12 }, // IVA 5%
+        { wch: 12 }, // IVA 10.5%
+        { wch: 12 }, // IVA 21%
+        { wch: 12 }, // IVA 27%
+        { wch: 20 }, // Importe Otros Tributos
         { wch: 14 }  // Total
     ];
 

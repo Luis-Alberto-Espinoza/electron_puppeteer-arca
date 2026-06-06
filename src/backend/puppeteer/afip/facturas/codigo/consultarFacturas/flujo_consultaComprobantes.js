@@ -31,6 +31,9 @@ function esNotaCredito(tipo) {
     return /nota\s+de\s+cr[ée]dito/i.test(tipo || '');
 }
 
+// Todos los campos monetarios del comprobante (para firmar en negativo las NC).
+const CAMPOS_MONTO = ['netoGravado', 'iva0', 'iva25', 'iva5', 'iva105', 'iva21', 'iva27', 'otrosTributos', 'importeTotal'];
+
 /**
  * @param {import('puppeteer').Page} page - página ya logueada
  * @param {Object} datos - { consultaDesde, consultaHasta, idTipoComprobante, nombreEmpresa }
@@ -91,9 +94,15 @@ async function ejecutarFlujoConsultaComprobantes(page, datos, usuario, basePath)
                 if (!datosPdf.tipoComprobante && datos.tipoComprobante) {
                     datosPdf.tipoComprobante = datos.tipoComprobante;
                 }
-                // Notas de Crédito en negativo: la suma da el neto real.
-                if (typeof datosPdf.importeTotal === 'number' && esNotaCredito(datosPdf.tipoComprobante)) {
-                    datosPdf.importeTotal = -Math.abs(datosPdf.importeTotal);
+                // Notas de Crédito en negativo: toda la fila (neto, IVAs, otros
+                // tributos y total) va con signo negativo para que cada columna
+                // sume al neto real.
+                if (esNotaCredito(datosPdf.tipoComprobante)) {
+                    for (const campo of CAMPOS_MONTO) {
+                        if (typeof datosPdf[campo] === 'number') {
+                            datosPdf[campo] = -Math.abs(datosPdf[campo]);
+                        }
+                    }
                 }
                 comprobantes.push(datosPdf);
             } catch (e) {
@@ -107,6 +116,14 @@ async function ejecutarFlujoConsultaComprobantes(page, datos, usuario, basePath)
                     fechaEmision: null,
                     cuitReceptor: null,
                     razonSocialReceptor: null,
+                    netoGravado: null,
+                    iva0: null,
+                    iva25: null,
+                    iva5: null,
+                    iva105: null,
+                    iva21: null,
+                    iva27: null,
+                    otrosTributos: null,
                     importeTotal: null,
                     errorParser: e.message
                 });
