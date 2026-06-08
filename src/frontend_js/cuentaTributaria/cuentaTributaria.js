@@ -344,6 +344,10 @@ function expandirItemsB(usuariosSeleccionados) {
 function cambiarFlujo(flujo) {
     flujoActivo = flujo;
 
+    // El cuadro de archivos es compartido por ambos flujos; al cambiar de tab
+    // lo ocultamos para no mostrar los resultados de un flujo bajo el otro.
+    ocultarSeccionArchivos();
+
     const tabA = document.getElementById('tab-consulta-seleccion');
     const tabB = document.getElementById('tab-generar-directo');
     const modA = document.getElementById('modulo-consulta-seleccion');
@@ -558,7 +562,9 @@ function manejarRespuestaGenerarDirecto(respuesta) {
     const exitosos = resultados.filter(r => r && r.status === 'success');
     const conProblemas = resultados.filter(r => r && r.status && r.status !== 'success');
 
-    renderizarArchivosDescargados(resultados);
+    // Flujo B no tiene 1ra pasada (no descarga Excels): incluirExcels:false evita
+    // arrastrar Excels viejos que hubiera dejado una consulta previa de Flujo A.
+    renderizarArchivosDescargados(resultados, { incluirExcels: false });
 
     const partes = [];
     partes.push(`${exitosos.length} VEP(s) generado(s)`);

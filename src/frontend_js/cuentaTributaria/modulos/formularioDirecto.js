@@ -400,17 +400,6 @@ function renderGrupo(groupKey, g) {
                     <span class="card-grupo-cliente">${capitalizarTexto((g.cliente && g.cliente.nombre) || '')}</span>
                     <span class="card-grupo-cuit">${formatearCUIT(g.cuitAsociado)}</span>
                 </div>
-                <div class="card-grupo-medio">
-                    <label>Medio de pago:</label>
-                    <select class="select-medio-pago-directo" data-group-key="${escapeAttr(groupKey)}">
-                        <option value="">— Elegir —</option>
-                        ${MEDIOS_PAGO.map(m => `
-                            <option value="${m.id}" ${g.medioPagoId === m.id ? 'selected' : ''}>
-                                ${m.nombre}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
             </div>
 
             <div class="card-grupo-body">
@@ -429,6 +418,23 @@ function renderGrupo(groupKey, g) {
                 <button class="btn-agregar-entrada" data-group-key="${escapeAttr(groupKey)}">
                     + Agregar deuda
                 </button>
+
+                <!-- Medio de pago al pie, igual que en "Consulta con selección":
+                     mismas clases (.selector-medio-pago-pie / .select-medio-pago-grupo)
+                     para heredar el estilo resaltado y que no se omita sin querer.
+                     Conserva .select-medio-pago-directo para el handler de este módulo. -->
+                <div class="selector-medio-pago-grupo selector-medio-pago-pie">
+                    <label>💳 Medio de pago:</label>
+                    <select class="select-medio-pago-grupo select-medio-pago-directo"
+                            data-group-key="${escapeAttr(groupKey)}">
+                        <option value="">— Elegir —</option>
+                        ${MEDIOS_PAGO.map(m => `
+                            <option value="${m.id}" ${g.medioPagoId === m.id ? 'selected' : ''}>
+                                ${m.nombre}
+                            </option>
+                        `).join('')}
+                    </select>
+                </div>
             </div>
         </div>
     `;

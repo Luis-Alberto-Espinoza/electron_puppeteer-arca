@@ -983,28 +983,6 @@
     border-radius: 4px;
 }
 
-.contenedor-principal-ct .card-grupo-medio {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.contenedor-principal-ct .card-grupo-medio label {
-    font-size: 12px;
-    color: #6b7280;
-    font-weight: 600;
-}
-
-.contenedor-principal-ct .card-grupo-medio select {
-    padding: 6px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 13px;
-    background: white;
-    color: #1f2937;
-    cursor: pointer;
-}
-
 .contenedor-principal-ct .tabla-entradas-directo {
     width: 100%;
     border-collapse: collapse;
@@ -1061,7 +1039,6 @@
 }
 
 .contenedor-principal-ct .select-impuesto-directo option,
-.contenedor-principal-ct .card-grupo-medio select option,
 .contenedor-principal-ct .select-medio-pago-grupo option {
     background: white;
     color: #1f2937;

@@ -102,24 +102,6 @@
                     </button>
                 </div>
             </div>
-
-            <!-- Sección de archivos descargados (PDFs de VEP de la 2da pasada) -->
-            <div id="seccion-archivos-descargados-ct" class="seccion-archivos-descargados" style="display: none;">
-                <div class="archivos-header">
-                    <h2>✅ Archivos descargados</h2>
-                    <p class="archivos-descripcion">Excels de deuda y/o VEPs generados</p>
-                </div>
-
-                <div id="lista-archivos-descargados-ct" class="lista-archivos">
-                    <!-- Los archivos se renderizarán dinámicamente aquí -->
-                </div>
-
-                <div class="archivos-acciones">
-                    <button id="btn-nuevo-proceso-ct" class="btn-nuevo-proceso">
-                        ← Nueva consulta
-                    </button>
-                </div>
-            </div>
         </div>
         <!-- FIN MÓDULO: CONSULTA CON SELECCIÓN -->
 
@@ -141,6 +123,27 @@
             </button>
         </div>
         <!-- FIN MÓDULO: GENERAR VEP DIRECTO -->
+
+        <!-- Sección de archivos descargados (Excels 1ra pasada / VEPs 2da pasada).
+             Compartida por ambos flujos: vive fuera de los dos módulos para que
+             tanto "Consulta con selección" como "Generar VEP directo" puedan
+             mostrar el cuadro de resultados con el path del archivo. -->
+        <div id="seccion-archivos-descargados-ct" class="seccion-archivos-descargados" style="display: none;">
+            <div class="archivos-header">
+                <h2>✅ Archivos descargados</h2>
+                <p class="archivos-descripcion">Excels de deuda y/o VEPs generados</p>
+            </div>
+
+            <div id="lista-archivos-descargados-ct" class="lista-archivos">
+                <!-- Los archivos se renderizarán dinámicamente aquí -->
+            </div>
+
+            <div class="archivos-acciones">
+                <button id="btn-nuevo-proceso-ct" class="btn-nuevo-proceso">
+                    ← Nuevo proceso
+                </button>
+            </div>
+        </div>
 
         <!-- Modal de progreso -->
         <div id="modal-progreso-ct" class="modal-progreso" style="display: none;">

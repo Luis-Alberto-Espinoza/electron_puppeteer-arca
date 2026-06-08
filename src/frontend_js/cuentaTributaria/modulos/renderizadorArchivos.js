@@ -48,8 +48,10 @@ export function limpiarArchivos() {
  *
  * @param {Array} resultadosSegundaPasada Items de la respuesta de la 2da pasada
  *        (cada uno con cliente, cuitAsociado, status, pdfDescargado?, error?).
+ * @param {{ incluirExcels?: boolean }} [opciones] incluirExcels:false para Flujo B
+ *        (Generar VEP directo), que no tiene 1ra pasada con Excels.
  */
-export function renderizarArchivosDescargados(resultadosSegundaPasada = []) {
+export function renderizarArchivosDescargados(resultadosSegundaPasada = [], { incluirExcels = true } = {}) {
     const lista = document.getElementById(ID_LISTA);
     if (!lista) {
         console.error('❌ No se encontró #' + ID_LISTA);
@@ -60,15 +62,17 @@ export function renderizarArchivosDescargados(resultadosSegundaPasada = []) {
 
     const bloques = [];
 
-    // Excels de la 1ra pasada (los que tengan path).
-    const excels = (EstadoCT.requierenSeleccion || [])
-        .filter(g => g.excelDescargado && g.excelDescargado.path)
-        .map(g => ({
-            tipo: 'excel',
-            cliente: g.cliente,
-            cuitAsociado: g.cuitAsociado,
-            archivo: g.excelDescargado
-        }));
+    // Excels de la 1ra pasada (los que tengan path). Solo Flujo A.
+    const excels = incluirExcels
+        ? (EstadoCT.requierenSeleccion || [])
+            .filter(g => g.excelDescargado && g.excelDescargado.path)
+            .map(g => ({
+                tipo: 'excel',
+                cliente: g.cliente,
+                cuitAsociado: g.cuitAsociado,
+                archivo: g.excelDescargado
+            }))
+        : [];
     if (excels.length > 0) {
         bloques.push(renderBloque('📑 Excels descargados', excels.map(renderItemExcel).join('')));
     }
