@@ -87,7 +87,12 @@ async function parsearComprobantePdf(pdfPath) {
         iva21: null,
         iva27: null,
         otrosTributos: null,
-        importeTotal: null
+        importeTotal: null,
+        fechaVtoPago: null,
+        condicionIvaEmisor: null,
+        condicionIvaReceptor: null,
+        condicionVenta: null,
+        descripciones: []
     };
 
     // === Tipo de Comprobante ===
@@ -268,7 +273,87 @@ async function parsearComprobantePdf(pdfPath) {
     datos.iva27         = montoPorLabel(/IVA\s*27\s*%/i);
     datos.otrosTributos = montoPorLabel(/Importe\s+Otros\s+Tributos/i);
 
+    // === Fecha de Vto. para el pago ===
+    // OJO: NO confundir con "Fecha de Vto. de CAE" (al pie). El sufijo
+    // "para el pago" la distingue.
+    const filaVtoPago = buscarFila(/Fecha\s+de\s+Vto\.?\s+para\s+el\s+pago:/i);
+    if (filaVtoPago) {
+        datos.fechaVtoPago = buscarValorEnFila(filaVtoPago, /para\s+el\s+pago:\s*(\d{2}\/\d{2}\/\d{4})/i);
+    }
+
+    // === Condición frente al IVA (emisor y receptor) ===
+    // La etiqueta aparece DOS veces: primero la del EMISOR (más arriba) y
+    // luego la del RECEPTOR. Las tomamos en orden vertical (arriba → abajo).
+    // Cortamos el valor antes de la etiqueta que le sigue en el mismo renglón.
+    const valorCondIva = (texto) =>
+        texto.match(/Condici[oó]n\s+frente\s+al\s+IVA:\s*(.+?)(?:\s+Fecha\s+de\s+Inicio|\s+Domicilio|$)/i)?.[1]?.trim() || null;
+    const filasCondIva = filas.filter(f => /Condici[oó]n\s+frente\s+al\s+IVA:/i.test(f.texto));
+    if (filasCondIva[0]) datos.condicionIvaEmisor = valorCondIva(filasCondIva[0].texto);
+    if (filasCondIva[1]) datos.condicionIvaReceptor = valorCondIva(filasCondIva[1].texto);
+
+    // === Condición de venta ===
+    // Puede venir seguida del comprobante asociado ("... Contado NC A: 00006-00000002"
+    // / "... Contado Fac. A: 00006-00000045"); cortamos antes de ese token.
+    const filaCondVenta = buscarFila(/Condici[oó]n\s+de\s+venta:/i);
+    if (filaCondVenta) {
+        datos.condicionVenta = filaCondVenta.texto
+            .match(/Condici[oó]n\s+de\s+venta:\s*(.+?)(?:\s+(?:NC|ND|Fac\.)\s+[A-Z]:|$)/i)?.[1]?.trim() || null;
+    }
+
+    // === Descripciones de la tabla de ítems (posicional) ===
+    // La columna "Producto / Servicio" va entre el header de ese nombre y el de
+    // "Cantidad". Filtramos por X para no arrastrar el código del ítem (a la
+    // izquierda) ni la unidad/precios (a la derecha, que a veces parten "otras
+    // unidades" en dos renglones). Cada renglón visual = una descripción.
+    datos.descripciones = extraerDescripciones(content.items);
+
     return datos;
+}
+
+/**
+ * Extrae las descripciones de la tabla de ítems usando coordenadas X.
+ *
+ * La columna "Producto / Servicio" queda entre el header de su nombre y el de
+ * "Cantidad". Tomar el texto que cae en esa banda X evita arrastrar el código
+ * del ítem (columna izquierda) y la unidad/precios (columnas derechas, que a
+ * veces parten "otras unidades" en dos renglones). Devuelve un array: un
+ * elemento por renglón visual de la tabla (uno o varios ítems por comprobante).
+ *
+ * @param {Array} items - content.items crudos de pdfjs (con transform).
+ * @returns {string[]}
+ */
+function extraerDescripciones(items) {
+    const norm = items
+        .map(it => ({ s: (it.str || '').trim(), x: it.transform[4], y: it.transform[5] }))
+        .filter(it => it.s);
+
+    const prod = norm.find(it => /Producto\s*\/\s*Servicio/i.test(it.s) || /^Producto$/i.test(it.s));
+    if (!prod) return [];
+    const cant = norm.find(it => /Cantidad/i.test(it.s) && Math.abs(it.y - prod.y) <= 4);
+    const headerY = prod.y;
+    const xIni = prod.x - 12;
+    const xFin = (cant ? cant.x : prod.x + 150) - 8;
+
+    // Inicio del bloque de totales: corta la zona de ítems por abajo para no
+    // confundir descripciones con "Subtotal:" / "Importe Neto...".
+    const totalesY = norm
+        .filter(it => it.y < headerY && /^(Subtotal:|Importe\s+(Neto|Otros|Total))/i.test(it.s))
+        .reduce((max, it) => Math.max(max, it.y), -Infinity);
+
+    const filasMap = new Map();
+    norm
+        .filter(it => it.y < headerY - 3 && it.y > totalesY + 3 && it.x >= xIni && it.x < xFin)
+        .forEach(it => {
+            const k = [...filasMap.keys()].find(k => Math.abs(it.y - k) <= 3);
+            const key = k !== undefined ? k : it.y;
+            if (!filasMap.has(key)) filasMap.set(key, []);
+            filasMap.get(key).push(it);
+        });
+
+    return [...filasMap.entries()]
+        .sort((a, b) => b[0] - a[0])
+        .map(([, its]) => its.sort((a, b) => a.x - b.x).map(i => i.s).join(' ').replace(/\s+/g, ' ').trim())
+        .filter(s => s.length);
 }
 
 /**

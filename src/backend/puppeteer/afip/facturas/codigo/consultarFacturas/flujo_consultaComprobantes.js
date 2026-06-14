@@ -125,6 +125,11 @@ async function ejecutarFlujoConsultaComprobantes(page, datos, usuario, basePath)
                     iva27: null,
                     otrosTributos: null,
                     importeTotal: null,
+                    fechaVtoPago: null,
+                    condicionIvaEmisor: null,
+                    condicionIvaReceptor: null,
+                    condicionVenta: null,
+                    descripciones: [],
                     errorParser: e.message
                 });
             }
