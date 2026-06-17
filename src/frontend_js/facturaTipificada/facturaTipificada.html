@@ -35,7 +35,7 @@
                 <div class="seccion-form">
                     <h3>1. Datos Básicos</h3>
                     <div class="form-row">
-                        <div class="form-group">
+                        <div class="form-group" id="grupoTipoActividad">
                             <label for="tipoActividad">Tipo de Actividad *</label>
                             <select id="tipoActividad" name="tipoActividad" required>
                                 <option value="">Seleccionar...</option>
@@ -54,6 +54,15 @@
                     </div>
 
                     <div class="form-row">
+                        <div class="form-group" id="grupoTipoComprobante">
+                            <label for="tipoComprobante">Tipo de Comprobante *</label>
+                            <select id="tipoComprobante" name="tipoComprobante" required>
+                                <!-- Opciones cargadas por JS según el tipo de emisor (B/C) -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row" id="filaPuntoVenta">
                         <div class="form-group">
                             <label for="puntoDeVentaSelect">Punto de Venta *</label>
                             <div class="pdv-fila" style="display:flex; gap:8px; align-items:center;">
@@ -70,7 +79,7 @@
                         </div>
                     </div>
 
-                    <div class="form-row">
+                    <div class="form-row" id="filaTipoContribuyente">
                         <div class="form-group">
                             <label for="tipoContribuyenteInfo">Tipo de Contribuyente</label>
                             <input type="text" id="tipoContribuyenteInfo" name="tipoContribuyenteInfo" readonly disabled>
@@ -84,6 +93,29 @@
                                    placeholder="DD/MM/YYYY" required>
                         </div>
                     </div>
+                </div>
+
+                <!-- SECCIÓN NOTAS: picker de Excel (solo en modo Nota de Crédito/Débito).
+                     Reemplaza la carga manual: las facturas a las que se les hace nota
+                     salen del Excel de Consulta de Comprobantes. -->
+                <div class="seccion-form" id="seccionNotasPicker" style="display: none;">
+                    <h3>📄 Facturas para la nota</h3>
+                    <p class="info-text" id="notasPickerMensaje">
+                        Elegí un Excel de consulta y tocá "Extraer data" para ver las facturas a las que querés hacerle nota.
+                    </p>
+
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="notasExcelSelect">Excel de consulta del emisor</label>
+                            <select id="notasExcelSelect" name="notasExcelSelect"></select>
+                        </div>
+                        <div class="form-group" style="align-self: flex-end;">
+                            <button type="button" id="btnExtraerData" class="btn-secundario">📤 Extraer data</button>
+                        </div>
+                    </div>
+
+                    <div id="notasTablaContainer" class="notas-tabla-container"></div>
+                    <p class="info-text" id="notasSeleccionInfo" style="display: none;"></p>
                 </div>
 
                 <!-- SECCIÓN 2: FECHAS DE SERVICIO (solo si es Servicio) -->
@@ -113,7 +145,7 @@
                 </div>
 
                 <!-- SECCIÓN 3: DATOS DEL RECEPTOR -->
-                <div class="seccion-form">
+                <div class="seccion-form" id="seccionReceptor">
                     <h3>3. Datos del Cliente/Receptor</h3>
 
                     <div class="form-row">
@@ -197,7 +229,7 @@
                 </div>
 
                 <!-- SECCIÓN 4: FACTURAS A GENERAR -->
-                <div class="seccion-form">
+                <div class="seccion-form" id="seccionFacturasGenerar">
                     <h3>4. Facturas a Generar</h3>
                     <p class="info-text">Puede agregar múltiples facturas. Los datos básicos se compartirán entre todas.</p>
 
@@ -210,26 +242,8 @@
                     </button>
                 </div>
 
-                <!-- SECCIÓN 5: OPCIONES ADICIONALES -->
-                <div class="seccion-form">
-                    <h3>5. Opciones Adicionales</h3>
-
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" id="usarCarpetaPersonalizada" name="usarCarpetaPersonalizada">
-                            Usar carpeta personalizada para el PDF
-                        </label>
-                    </div>
-
-                    <div class="form-group" id="grupoCarpetaPDF" style="display: none;">
-                        <label for="carpetaPDF">Ruta de Carpeta</label>
-                        <input type="text" id="carpetaPDF" name="carpetaPDF"
-                               placeholder="/ruta/a/carpeta">
-                    </div>
-                </div>
-
                 <!-- SECCIÓN 6: AGREGAR FACTURA DISTINTA (OTRO CABEZAL) -->
-                <div class="seccion-form seccion-factura-distinta">
+                <div class="seccion-form seccion-factura-distinta" id="seccionFacturaDistinta">
                     <button type="button" id="btnAgregarFacturaDistinta" class="btn-secundario btn-factura-distinta">
                         ➕ Agregar factura distinta (otro cabezal)
                     </button>

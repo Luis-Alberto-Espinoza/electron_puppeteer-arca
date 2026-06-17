@@ -6,6 +6,344 @@
 let contadorFacturas = 0;
 let contadoresLineasPorFactura = {}; // { facturaId: contadorLineas }
 
+// --- Estado del modo Nota de Crédito/Débito (picker de Excel) ---
+// modoNotaActivo: false (factura normal) | 'credito' | 'debito'.
+let modoNotaActivo = false;
+// Últimas facturas leídas del Excel elegido.
+let facturasDelExcel = [];
+// Facturas tildadas para hacerles nota: key `PV||Nro` → { factura, montoOverride }.
+let notasSeleccionadas = new Map();
+
+/**
+ * Opciones del select #universocomprobante de AFIP, separadas por tipo de EMISOR.
+ *
+ * Ojo: el `value` debe coincidir EXACTO con el value del <option> que AFIP usa
+ * para ese emisor, porque es lo que seteamos en Puppeteer (paso_0). AFIP muestra
+ * un select distinto según el emisor:
+ *   - B (Responsable Inscripto): universo A / B / T.
+ *   - C (Monotributista): universo C (Factura/NC/ND C), con OTROS values.
+ * Ambos sets fueron tomados del HTML real del select de AFIP.
+ */
+const OPCIONES_COMPROBANTE = {
+    B: [
+        { value: '10',  label: 'Factura A' },
+        { value: '11',  label: 'Nota de Débito A' },
+        { value: '12',  label: 'Nota de Crédito A' },
+        { value: '13',  label: 'Recibo A' },
+        { value: '19',  label: 'Factura B' },
+        { value: '21',  label: 'Nota de Débito B' },
+        { value: '23',  label: 'Nota de Crédito B' },
+        { value: '25',  label: 'Recibo B' },
+        { value: '111', label: 'Factura T' },
+        { value: '112', label: 'Nota de Débito T' },
+        { value: '113', label: 'Nota de Crédito T' },
+        { value: '114', label: 'Factura de Crédito Electrónica MiPyMEs (FCE) A' },
+        { value: '115', label: 'Nota de Débito Electrónica MiPyMEs (FCE) A' },
+        { value: '116', label: 'Nota de Crédito Electrónica MiPyMEs (FCE) A' },
+        { value: '117', label: 'Factura de Crédito Electrónica MiPyMEs (FCE) B' },
+        { value: '118', label: 'Nota de Débito Electrónica MiPyMEs (FCE) B' },
+        { value: '119', label: 'Nota de Crédito Electrónica MiPyMEs (FCE) B' },
+    ],
+    C: [
+        { value: '2',   label: 'Factura C' },
+        { value: '3',   label: 'Nota de Débito C' },
+        { value: '4',   label: 'Nota de Crédito C' },
+        { value: '5',   label: 'Recibo C' },
+        { value: '120', label: 'Factura de Crédito Electrónica MiPyMEs (FCE) C' },
+        { value: '121', label: 'Nota de Débito Electrónica MiPyMEs (FCE) C' },
+        { value: '122', label: 'Nota de Crédito Electrónica MiPyMEs (FCE) C' },
+    ],
+};
+
+// Opción seleccionada por defecto = "Factura" del tipo del emisor (igual que el
+// hardcodeo histórico: B -> Factura B (19), C -> Factura C (2)).
+const DEFAULT_COMPROBANTE = { B: '19', C: '2' };
+
+/**
+ * Puebla el select de tipo de comprobante según el tipo de emisor (B/C) y marca
+ * la opción por defecto. Si no hay opciones para ese emisor, oculta el grupo y
+ * deja que el backend use el default de AFIP.
+ */
+function poblarSelectTipoComprobante() {
+    const select = document.getElementById('tipoComprobante');
+    const grupo = document.getElementById('grupoTipoComprobante');
+    if (!select) return;
+
+    const tipo = window.usuarioSeleccionado?.tipoContribuyente;
+    const opciones = OPCIONES_COMPROBANTE[tipo] || [];
+
+    if (opciones.length === 0) {
+        if (grupo) grupo.style.display = 'none';
+        select.innerHTML = '';
+        select.required = false; // sin opciones no puede ser required (bloquearía el submit)
+        return;
+    }
+
+    if (grupo) grupo.style.display = '';
+    select.required = true;
+    select.innerHTML = '';
+
+    // Facturas/Recibos: van con su value real de AFIP (lo usa paso_0 directo).
+    // Las NOTAS del catálogo (con letra) se colapsan a dos opciones sin letra:
+    // el usuario solo elige Crédito/Débito; la letra real la deriva el backend
+    // por fila del Excel (ver docs/AFIP_DOC/notaCreditoDebito.md).
+    opciones
+        .filter(o => !o.label.startsWith('Nota de'))
+        .forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.label;
+            if (o.value === DEFAULT_COMPROBANTE[tipo]) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+    [{ value: VALOR_NOTA_CREDITO, label: 'Nota de Crédito' },
+     { value: VALOR_NOTA_DEBITO, label: 'Nota de Débito' }].forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        select.appendChild(opt);
+    });
+}
+
+// Values sentinela para las notas en el select (no son values de AFIP: la NC/ND
+// real se arma por fila en el backend).
+const VALOR_NOTA_CREDITO = 'nota_credito';
+const VALOR_NOTA_DEBITO = 'nota_debito';
+
+/** value del select → 'credito' | 'debito' | null (si es factura/recibo). */
+function tipoNotaDeValue(value) {
+    if (value === VALOR_NOTA_CREDITO) return 'credito';
+    if (value === VALOR_NOTA_DEBITO) return 'debito';
+    return null;
+}
+
+// ==========================================================================
+// MODO NOTA DE CRÉDITO/DÉBITO (picker de Excel)
+// ==========================================================================
+
+/** Listener del select de tipo de comprobante: enchufa el modo nota o normal. */
+function onCambioTipoComprobante() {
+    const select = document.getElementById('tipoComprobante');
+    if (!select) return;
+    aplicarModoNota(tipoNotaDeValue(select.value));
+}
+
+/**
+ * Activa/desactiva el modo nota: en modo nota se oculta la carga manual
+ * (receptor, fechas de servicio, facturas a generar, factura distinta) y se
+ * muestra el picker de Excel, que es de donde salen las facturas a anular/ajustar.
+ */
+function aplicarModoNota(tipoNota) {
+    modoNotaActivo = tipoNota || false;
+    const esNota = !!tipoNota;
+
+    // En modo nota mostramos solo Empresa + Tipo de Comprobante + Fecha (cabezal
+    // mínimo que la nota necesita); todo lo demás sale del Excel. Tipo Actividad,
+    // PV y Tipo Contribuyente se ocultan (paso_0 ignora el PV; el resto es info o
+    // sale derivado).
+    ['seccionFechasServicio', 'seccionReceptor', 'seccionFacturasGenerar', 'seccionFacturaDistinta',
+     'grupoTipoActividad', 'filaPuntoVenta', 'filaTipoContribuyente']
+        .forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = esNota ? 'none' : '';
+        });
+
+    const picker = document.getElementById('seccionNotasPicker');
+    if (picker) picker.style.display = esNota ? 'block' : 'none';
+
+    // Etiqueta del botón Generar según el modo.
+    const btnGenerar = document.getElementById('btnGenerar');
+    if (btnGenerar) {
+        if (esNota) {
+            btnGenerar.innerHTML = '🧾 Generar Nota(s)';
+        } else {
+            btnGenerar.innerHTML = '🧾 Generar <span id="contadorFacturas">1</span> Factura(s)';
+        }
+    }
+
+    if (esNota) {
+        cargarExcelsParaNotas();
+    } else {
+        facturasDelExcel = [];
+        notasSeleccionadas.clear();
+        limpiarTablaNotas();
+        // Restaurar la visibilidad de fechas de servicio según el tipo de actividad.
+        const tipoActividad = document.getElementById('tipoActividad');
+        const seccionFechas = document.getElementById('seccionFechasServicio');
+        if (seccionFechas && tipoActividad) {
+            seccionFechas.style.display = tipoActividad.value === 'Servicio' ? 'block' : 'none';
+        }
+        actualizarContadorFacturas();
+    }
+}
+
+/** Pide al backend los Excels de consulta del emisor y puebla el select. */
+async function cargarExcelsParaNotas() {
+    const select = document.getElementById('notasExcelSelect');
+    const mensaje = document.getElementById('notasPickerMensaje');
+    const btnExtraer = document.getElementById('btnExtraerData');
+    if (!select) return;
+
+    select.innerHTML = '<option>Cargando...</option>';
+    select.disabled = true;
+    if (btnExtraer) btnExtraer.disabled = true;
+    limpiarTablaNotas();
+
+    try {
+        const resp = await window.electronAPI.notaCreditoDebito.listarExcels({ usuario: window.usuarioSeleccionado });
+        if (!resp || !resp.success) throw new Error((resp && resp.message) || 'No se pudieron listar los Excels.');
+
+        const excels = resp.excels || [];
+        if (excels.length === 0) {
+            select.innerHTML = '';
+            select.disabled = true;
+            if (mensaje) {
+                mensaje.textContent = '⚠️ No hay Excel de consulta para este emisor. Primero generá una Consulta de Comprobantes para poder hacer notas.';
+                mensaje.style.color = '#b9770e';
+            }
+            return;
+        }
+
+        select.innerHTML = '';
+        excels.forEach(x => {
+            const opt = document.createElement('option');
+            opt.value = x.ruta;
+            opt.textContent = `${x.nombre}  (${x.fechaLegible})`;
+            select.appendChild(opt);
+        });
+        select.disabled = false;
+        if (btnExtraer) btnExtraer.disabled = false;
+        if (mensaje) {
+            mensaje.textContent = 'Elegí un Excel y tocá "Extraer data" para ver las facturas.';
+            mensaje.style.color = '';
+        }
+    } catch (e) {
+        select.innerHTML = '';
+        if (mensaje) { mensaje.textContent = '❌ ' + e.message; mensaje.style.color = '#c0392b'; }
+    }
+}
+
+/** Lee el Excel elegido y renderiza la tabla de facturas. */
+async function extraerDataNotas() {
+    const select = document.getElementById('notasExcelSelect');
+    const btnExtraer = document.getElementById('btnExtraerData');
+    if (!select || !select.value) return;
+
+    if (btnExtraer) { btnExtraer.disabled = true; btnExtraer.textContent = 'Leyendo...'; }
+    try {
+        const resp = await window.electronAPI.notaCreditoDebito.leerExcel({ ruta: select.value });
+        if (!resp || !resp.success) throw new Error((resp && resp.message) || 'No se pudo leer el Excel.');
+        facturasDelExcel = resp.facturas || [];
+        notasSeleccionadas.clear();
+        renderTablaNotas(facturasDelExcel);
+    } catch (e) {
+        facturasDelExcel = [];
+        notasSeleccionadas.clear();
+        const cont = document.getElementById('notasTablaContainer');
+        if (cont) cont.innerHTML = `<p class="info-text" style="color:#c0392b;">❌ ${_escaparHtml(e.message)}</p>`;
+        actualizarSeleccionInfo();
+    } finally {
+        if (btnExtraer) { btnExtraer.disabled = false; btnExtraer.textContent = '📤 Extraer data'; }
+    }
+}
+
+function limpiarTablaNotas() {
+    const cont = document.getElementById('notasTablaContainer');
+    if (cont) cont.innerHTML = '';
+    actualizarSeleccionInfo();
+}
+
+const _fmtMonto = (n) => (typeof n === 'number')
+    ? n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : '';
+
+/** Renderiza la tabla del picker (una fila por factura). */
+function renderTablaNotas(facturas) {
+    const cont = document.getElementById('notasTablaContainer');
+    if (!cont) return;
+
+    if (!facturas.length) {
+        cont.innerHTML = '<p class="info-text">El Excel no tiene facturas para hacerles nota.</p>';
+        actualizarSeleccionInfo();
+        return;
+    }
+
+    const prefijo = modoNotaActivo === 'debito' ? 'ND' : 'NC';
+    const filas = facturas.map(f => {
+        const key = `${f.puntoVenta}||${f.comprobanteNumero}`;
+        const totalAttr = (typeof f.total === 'number') ? f.total : '';
+        return `<tr data-key="${_escaparHtml(key)}">
+            <td class="col-check"><input type="checkbox" class="nota-check" data-key="${_escaparHtml(key)}"></td>
+            <td>${_escaparHtml(f.puntoVenta)}</td>
+            <td>${_escaparHtml(f.comprobanteNumero)}</td>
+            <td>${_escaparHtml(f.fechaEmision)}</td>
+            <td class="num">${_fmtMonto(f.total)}</td>
+            <td>${_escaparHtml(f.cuitReceptor)}</td>
+            <td>${_escaparHtml(f.razonSocialReceptor)}</td>
+            <td class="col-item" title="${_escaparHtml((f.descripciones || []).join(' | '))}">${_escaparHtml(f.primerItem || '')}</td>
+            <td><span class="nota-letra-badge">${prefijo} ${_escaparHtml(f.letra)}</span></td>
+            <td><input type="number" step="0.01" min="0" class="nota-monto" data-key="${_escaparHtml(key)}" value="${totalAttr}" disabled></td>
+        </tr>`;
+    }).join('');
+
+    cont.innerHTML = `
+        <table class="notas-tabla">
+            <thead>
+                <tr>
+                    <th class="col-check"><input type="checkbox" id="notaCheckAll" title="Seleccionar todas"></th>
+                    <th>P. Venta</th><th>N°</th><th>Fecha</th><th>Total</th><th>CUIT</th>
+                    <th>Receptor</th><th>1er ítem</th><th>Nota</th><th>Monto nota</th>
+                </tr>
+            </thead>
+            <tbody>${filas}</tbody>
+        </table>`;
+    actualizarSeleccionInfo();
+}
+
+/** Tilda/destilda una fila: actualiza el estado y habilita su monto editable. */
+function toggleNota(key, checked) {
+    const f = facturasDelExcel.find(x => `${x.puntoVenta}||${x.comprobanteNumero}` === key);
+    if (!f) return;
+    const montoInput = document.querySelector(`.nota-monto[data-key="${key}"]`);
+    if (checked) {
+        notasSeleccionadas.set(key, { factura: f, montoOverride: (typeof f.total === 'number') ? f.total : null });
+        if (montoInput) montoInput.disabled = false;
+    } else {
+        notasSeleccionadas.delete(key);
+        if (montoInput) {
+            montoInput.disabled = true;
+            montoInput.value = (typeof f.total === 'number') ? f.total : '';
+        }
+    }
+    actualizarSeleccionInfo();
+}
+
+function toggleTodasNotas(checked) {
+    document.querySelectorAll('.nota-check').forEach(chk => {
+        chk.checked = checked;
+        toggleNota(chk.dataset.key, checked);
+    });
+}
+
+function actualizarMontoNota(key, value) {
+    const sel = notasSeleccionadas.get(key);
+    if (sel) sel.montoOverride = (value === '' ? null : Number(value));
+}
+
+function actualizarSeleccionInfo() {
+    const info = document.getElementById('notasSeleccionInfo');
+    if (!info) return;
+    const n = notasSeleccionadas.size;
+    info.style.display = 'block';
+    if (n === 0) {
+        info.textContent = 'Ninguna factura seleccionada.';
+    } else {
+        const tipo = modoNotaActivo === 'debito' ? 'notas de débito' : 'notas de crédito';
+        info.textContent = `${n} factura(s) seleccionada(s) para generar ${tipo}.`;
+    }
+}
+
 // Lista de "facturas distintas": cada elemento es un cabezal propio + sus comprobantes.
 // Forma: { datos: { datosComunes, facturas }, snapshot: {...} }
 //   - datos:    lo que se manda al backend
@@ -47,8 +385,14 @@ async function inicializarFacturasTipificadas() {
         // Establecer tipo de contribuyente (readonly)
         establecerTipoContribuyente();
 
+        // Poblar el select de tipo de comprobante según el emisor (B/C)
+        poblarSelectTipoComprobante();
+
         // Inicializar event listeners del formulario
         inicializarEventListeners();
+
+        // Sincronizar modo nota/factura según el valor inicial del select.
+        onCambioTipoComprobante();
 
         // Inicializar datepickers (ya incluye establecer fechas por defecto)
         inicializarDatePickers();
@@ -439,13 +783,29 @@ function inicializarEventListeners() {
         }
     }
 
-    // Checkbox de carpeta personalizada
-    const checkboxCarpeta = document.getElementById('usarCarpetaPersonalizada');
-    if (checkboxCarpeta) {
-        checkboxCarpeta.addEventListener('change', (e) => {
-            const grupoCarpeta = document.getElementById('grupoCarpetaPDF');
-            if (grupoCarpeta) {
-                grupoCarpeta.style.display = e.target.checked ? 'block' : 'none';
+    // Select de tipo de comprobante: enchufa modo nota (picker) o factura normal.
+    const selectTipoComprobante = document.getElementById('tipoComprobante');
+    if (selectTipoComprobante) {
+        selectTipoComprobante.addEventListener('change', onCambioTipoComprobante);
+    }
+
+    // Picker de notas: botón "Extraer data" + delegación de la tabla.
+    const btnExtraer = document.getElementById('btnExtraerData');
+    if (btnExtraer) {
+        btnExtraer.addEventListener('click', extraerDataNotas);
+    }
+    const notasCont = document.getElementById('notasTablaContainer');
+    if (notasCont) {
+        notasCont.addEventListener('change', (e) => {
+            if (e.target.id === 'notaCheckAll') {
+                toggleTodasNotas(e.target.checked);
+            } else if (e.target.classList.contains('nota-check')) {
+                toggleNota(e.target.dataset.key, e.target.checked);
+            }
+        });
+        notasCont.addEventListener('input', (e) => {
+            if (e.target.classList.contains('nota-monto')) {
+                actualizarMontoNota(e.target.dataset.key, e.target.value);
             }
         });
     }
@@ -814,6 +1174,10 @@ function limpiarFormulario() {
     // Re-inicializar selector de empresas y tipo contribuyente
     inicializarSelectorEmpresas();
     establecerTipoContribuyente();
+
+    // form.reset() volvió el select a la 1ra opción: re-poblar para el default correcto
+    poblarSelectTipoComprobante();
+    onCambioTipoComprobante(); // re-sincroniza modo nota/factura (default = factura)
 }
 
 /**
@@ -834,6 +1198,12 @@ function cancelarFormulario() {
 async function manejarGenerar() {
     if (!window.usuarioSeleccionado) {
         mostrarError('No hay un usuario seleccionado');
+        return;
+    }
+
+    // En modo nota, la generación sale del picker (no del formulario manual).
+    if (modoNotaActivo) {
+        await generarNotasDesdePicker();
         return;
     }
 
@@ -909,6 +1279,87 @@ async function manejarGenerar() {
 }
 
 /**
+ * Genera las notas (NC/ND) seleccionadas en el picker. Arma el lote con las
+ * facturas tildadas + su monto (default total, editable), valida monto ≤ total y
+ * lo manda al backend, que arma cada nota desde el Excel y la genera. Reusa la
+ * misma UI de progreso/resultados que la generación de facturas.
+ */
+async function generarNotasDesdePicker() {
+    if (notasSeleccionadas.size === 0) {
+        mostrarError('No seleccionaste ninguna factura para hacerle nota.');
+        return;
+    }
+
+    // Empresa elegida (igual criterio que recopilarDatosFormulario).
+    const usuario = window.usuarioSeleccionado;
+    const indiceEmpresa = parseInt(document.getElementById('empresaPuntoVenta')?.value, 10);
+    const empresaElegida = Number.isInteger(indiceEmpresa) ? (usuario?.empresas || [])[indiceEmpresa] : null;
+    const nombreEmpresa = empresaElegida?.razonSocial || '';
+    if (!nombreEmpresa) {
+        mostrarError('Elegí la empresa / razón social.');
+        return;
+    }
+
+    const fechaComprobante = document.getElementById('fechaComprobanteTipificada')?.value || '';
+    const modoTest = document.getElementById('modoPrueba')?.checked || false;
+
+    // Construir y validar el lote (monto > 0 y ≤ total original).
+    const notas = [];
+    for (const { factura, montoOverride } of notasSeleccionadas.values()) {
+        const total = (typeof factura.total === 'number') ? factura.total : null;
+        let monto = (montoOverride === '' ? null : montoOverride);
+        if (monto != null) {
+            monto = Number(monto);
+            if (!(monto > 0)) {
+                mostrarError(`Monto inválido en ${factura.puntoVenta}-${factura.comprobanteNumero}.`);
+                return;
+            }
+            if (total != null && monto > total + 0.01) {
+                mostrarError(`El monto de ${factura.puntoVenta}-${factura.comprobanteNumero} ($${monto}) no puede superar el total original ($${total}).`);
+                return;
+            }
+        }
+        notas.push({ factura, montoOverride: (monto != null ? monto : null) });
+    }
+
+    const payload = { usuario, nombreEmpresa, tipoNota: modoNotaActivo, fechaComprobante, modoTest, notas };
+
+    const btnGenerar = document.getElementById('btnGenerar');
+    try {
+        btnGenerar.disabled = true;
+        btnGenerar.innerHTML = '<span class="loading-spinner"></span> Generando...';
+
+        mostrarAreaProgreso(notas.length);
+        notas.forEach((n, i) => {
+            const f = n.factura;
+            const cliente = (f.razonSocialReceptor || '').trim() || f.cuitReceptor || 'Cliente';
+            agregarItemProgreso(i + 1, `${cliente} — ${f.tipoComprobante} ${f.puntoVenta}-${f.comprobanteNumero}`);
+        });
+
+        const resultado = await window.electronAPI.notaCreditoDebito.generarNotas(payload);
+        console.log('📥 Resultado notas:', resultado);
+
+        if (resultado && resultado.success) {
+            if (resultado.modoTest) {
+                mostrarResultadoModoPrueba(resultado);
+            } else if (resultado.resultados) {
+                mostrarResumenFinal(resultado.resultados);
+            } else {
+                mostrarExito(resultado);
+            }
+        } else {
+            mostrarError((resultado && resultado.message) || 'Error al generar las notas');
+        }
+    } catch (error) {
+        console.error('❌ Error al generar notas:', error);
+        mostrarError('Error: ' + error.message);
+    } finally {
+        btnGenerar.disabled = false;
+        btnGenerar.innerHTML = '🧾 Generar Nota(s)';
+    }
+}
+
+/**
  * Clona en profundidad un objeto serializable (mismos datos que viajan por IPC).
  */
 function clonar(obj) {
@@ -943,6 +1394,9 @@ function recopilarDatosFormulario() {
     const datosComunes = {
         tipoActividad: formData.get('tipoActividad'),
         tipoContribuyente: usuario.tipoContribuyente,
+        // Tipo de comprobante elegido por el usuario (value del select de AFIP).
+        // Si el grupo está oculto (emisor sin opciones), viaja '' y el backend usa el default.
+        tipoComprobante: formData.get('tipoComprobante') || '',
         fechaComprobante: formData.get('fechaComprobante'),
         puntoVenta: puntoVenta,
         nombreEmpresa: nombreEmpresa,
@@ -961,13 +1415,12 @@ function recopilarDatosFormulario() {
             nombreCliente: formData.get('nombreCliente') || ''
         },
 
-        // Opciones adicionales
-        carpetaPDF: formData.get('usarCarpetaPersonalizada') === 'on'
-            ? formData.get('carpetaPDF')
-            : null,
-
         // Modo prueba (solo procesa 1ra factura sin confirmar)
         modoTest: document.getElementById('modoPrueba')?.checked || false,
+
+        // Las facturas normales no llevan comprobante asociado; las NC/ND se generan
+        // por el picker de notas (otro flujo), no por este formulario.
+        comprobanteAsociado: null,
 
         // Datos del usuario seleccionado
         usuarioSeleccionado: usuario
@@ -1105,6 +1558,9 @@ function precargarCamposComunes(snap) {
         selTipo.dispatchEvent(new Event('change'));
     }
 
+    // Tipo de comprobante (arrastrar el elegido en la factura anterior).
+    _setVal('tipoComprobante', c.tipoComprobante);
+
     // Fechas (comprobante + servicio).
     _setFecha('fechaComprobanteTipificada', c.fechaComprobante);
     _setFecha('fechaDesde', c.fechaDesde);
@@ -1135,6 +1591,7 @@ function capturarSnapshotFormulario() {
 
     const cabezal = {
         tipoActividad: fd.get('tipoActividad') || '',
+        tipoComprobante: fd.get('tipoComprobante') || '',
         empresaIndex: fd.get('empresaPuntoVenta') || '',
         puntoVenta: fd.get('puntoDeVenta') || '',
         fechaComprobante: fd.get('fechaComprobante') || '',
@@ -1145,9 +1602,7 @@ function capturarSnapshotFormulario() {
         numeroDocumento: fd.get('numeroDocumento') || '',
         condicionIVA: fd.get('condicionIVA') || '',
         nombreCliente: fd.get('nombreCliente') || '',
-        condicionesVenta: obtenerCondicionesVentaSeleccionadas(),
-        usarCarpetaPersonalizada: fd.get('usarCarpetaPersonalizada') === 'on',
-        carpetaPDF: fd.get('carpetaPDF') || ''
+        condicionesVenta: obtenerCondicionesVentaSeleccionadas()
     };
 
     const comprobantes = [];
@@ -1185,6 +1640,9 @@ async function restaurarSnapshotFormulario(snap) {
         selTipo.dispatchEvent(new Event('change'));
     }
 
+    // Tipo de comprobante (el select ya fue repoblado por limpiarFormulario).
+    _setVal('tipoComprobante', c.tipoComprobante);
+
     // Empresa + PDV: poblar desde caché, sin disparar scraping.
     const selEmpresa = document.getElementById('empresaPuntoVenta');
     if (selEmpresa && c.empresaIndex !== '') {
@@ -1209,14 +1667,6 @@ async function restaurarSnapshotFormulario(snap) {
     document.querySelectorAll('input[name="condicionVenta"]').forEach((cb) => {
         cb.checked = (c.condicionesVenta || []).includes(cb.value);
     });
-
-    // Carpeta personalizada.
-    const chkCarpeta = document.getElementById('usarCarpetaPersonalizada');
-    if (chkCarpeta) {
-        chkCarpeta.checked = !!c.usarCarpetaPersonalizada;
-        chkCarpeta.dispatchEvent(new Event('change'));
-    }
-    _setVal('carpetaPDF', c.carpetaPDF);
 
     // Reconstruir comprobantes y líneas. limpiarFormulario ya dejó el #1 con 1 línea.
     const comprobantes = snap.comprobantes || [];

@@ -32,15 +32,49 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
                 esperarElementoEnDOM("#puntodeventa")
                     .then((elemento) => {
                         const listaPuntosDeVentas = elemento
-                        listaPuntosDeVentas.selectedIndex = 1
-                        listaPuntosDeVentas.onchange(1)
-                        let tipoDeComprobante = document.querySelector("#universocomprobante")
-                        if (datos.tipoContribuyente === "B") {
-                            setTimeout(function () {
-                                tipoDeComprobante.value = 19
-                            }, 500);
+
+                        // Elegir el punto de venta. Para NOTAS conviene emitir desde el MISMO
+                        // PV que la factura original (viene en datos.puntoVenta, ej. "00008").
+                        // Comparamos por número (sin ceros a la izquierda) contra el value y el
+                        // texto de cada opción. Si no vino o no matchea, caemos al comportamiento
+                        // histórico: primer PV real (índice 1).
+                        const objetivoPv = String(datos.puntoVenta || '').replace(/\D/g, '').replace(/^0+/, '')
+                        let indicePv = 1
+                        let encontradoPv = false
+                        if (objetivoPv) {
+                            for (let i = 0; i < listaPuntosDeVentas.options.length; i++) {
+                                const op = listaPuntosDeVentas.options[i]
+                                const valNum = String(op.value || '').replace(/\D/g, '').replace(/^0+/, '')
+                                const txtNum = (String(op.text || '').match(/\d+/) || [''])[0].replace(/^0+/, '')
+                                if (valNum === objetivoPv || txtNum === objetivoPv) {
+                                    indicePv = i
+                                    encontradoPv = true
+                                    break
+                                }
+                            }
+                            if (!encontradoPv) {
+                                console.warn('[paso_0] No encontré el PV ' + datos.puntoVenta + ' en la lista; uso el primero. Opciones:',
+                                    Array.from(listaPuntosDeVentas.options).map(function (o) { return o.value + '|' + o.text }))
+                            }
                         }
-                        tipoDeComprobante.onchange()
+                        listaPuntosDeVentas.selectedIndex = indicePv
+                        listaPuntosDeVentas.onchange(indicePv)
+                        let tipoDeComprobante = document.querySelector("#universocomprobante")
+
+                        // Valor elegido por el usuario en el frontend (value del <option>
+                        // de AFIP). Si no vino (datos viejos), caemos al hardcodeo histórico:
+                        // B -> Factura B (19); C -> default de AFIP (Factura C).
+                        let valorComprobante = datos.tipoComprobante
+                        if (!valorComprobante && datos.tipoContribuyente === "B") {
+                            valorComprobante = "19"
+                        }
+
+                        setTimeout(function () {
+                            if (valorComprobante) {
+                                tipoDeComprobante.value = valorComprobante
+                            }
+                            tipoDeComprobante.onchange()
+                        }, 500);
 
                         let btnContinuar = document.querySelector("#contenido > form > input[type=button]:nth-child(4)")
                         setTimeout(function () {

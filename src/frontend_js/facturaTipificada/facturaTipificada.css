@@ -810,3 +810,70 @@
 .btn-factura-distinta {
     width: 100%;
 }
+
+/* === Picker de notas (Excel de consulta) === */
+.notas-tabla-container {
+    margin-top: 12px;
+    max-height: 420px;
+    overflow: auto;
+}
+
+.notas-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+}
+
+.notas-tabla th,
+.notas-tabla td {
+    border: 1px solid #e2e8f0;
+    padding: 6px 8px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.notas-tabla thead th {
+    position: sticky;
+    top: 0;
+    background: #f1f5f9;
+    color: #1f2937;
+    z-index: 1;
+}
+
+.notas-tabla tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+.notas-tabla td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.notas-tabla .col-check {
+    text-align: center;
+    width: 36px;
+}
+
+/* La columna del 1er ítem puede ser larga: la acotamos con elipsis (el texto
+   completo queda en el title del td). */
+.notas-tabla .col-item {
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.notas-tabla .nota-monto {
+    width: 110px;
+    padding: 3px 6px;
+    text-align: right;
+}
+
+.nota-letra-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #fef3c7;
+    color: #92400e;
+    font-weight: 600;
+    font-size: 0.9em;
+}

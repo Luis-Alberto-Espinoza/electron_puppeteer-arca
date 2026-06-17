@@ -130,6 +130,7 @@ async function ejecutarFlujoConsultaComprobantes(page, datos, usuario, basePath)
                     condicionIvaReceptor: null,
                     condicionVenta: null,
                     descripciones: [],
+                    items: [],
                     errorParser: e.message
                 });
             }

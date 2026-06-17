@@ -23,6 +23,7 @@ const setupFacturaHandlers = require('../afip/factura/handlers.js');
 const setupVepHandlers = require('../afip/vep/handlers.js');
 const setupConsultaDeudaHandlers = require('../afip/consultaDeuda/handlers.js');
 const setupConsultaComprobantesHandlers = require('../afip/consultaComprobantes/handlers.js');
+const setupNotaCreditoDebitoHandlers = require('../afip/notaCreditoDebito/handlers.js');
 const setupEmpresaHandlers              = require('../afip/empresa/handlers.js');
 const setupCuentaTributariaHandlers = require('../afip/cuentaTributaria/handlers.js');
 const setupLibroIvaHandlers = require('../afip/libroIVA/handlers.js');
@@ -351,6 +352,7 @@ app.whenReady().then(async () => {
         setupVepHandlers(ipcMain, userStorage, mainWindow, app);
         setupConsultaDeudaHandlers(ipcMain, userStorage, app);
         setupConsultaComprobantesHandlers(ipcMain, userStorage, app);
+        setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app);
         setupEmpresaHandlers(ipcMain, userStorage);
         setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app);
         setupLibroIvaHandlers(ipcMain);

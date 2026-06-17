@@ -34,6 +34,12 @@ function procesarFacturaIndividual(data) {
         // Datos básicos (igual que factura normal)
         tipoActividad: data.tipoActividad, // "Producto" o "Servicio"
         tipoContribuyente: data.tipoContribuyente, // "B" o "C"
+        // Value del select #universocomprobante de AFIP elegido por el usuario.
+        // Si viene '' (datos viejos o emisor sin opciones), paso_0 usa el default histórico.
+        tipoComprobante: data.tipoComprobante || '',
+        // Comprobante asociado (solo NC/ND): { tipo, puntoVenta, numero, fecha }.
+        // null para facturas normales; paso_2 (receptor) lo usa si está presente.
+        comprobanteAsociado: data.comprobanteAsociado || null,
         fechaComprobante: data.fechaComprobante, // Formato: DD/MM/YYYY
 
         // Datos de emisión (Paso 1)

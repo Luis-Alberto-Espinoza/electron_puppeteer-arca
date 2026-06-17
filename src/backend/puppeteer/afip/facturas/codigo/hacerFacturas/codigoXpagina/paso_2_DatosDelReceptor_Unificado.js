@@ -62,14 +62,22 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
       await sleep(1500);
 
       // --- Tipo de documento ---
+      // Según el comprobante, #idtipodocreceptor puede ser un <select> (factura
+      // común: se elige CUIT/DNI/etc.) o un <input hidden> fijo (p. ej. Nota de
+      // Crédito A: siempre CUIT). El hidden NO tiene `.options`, así que hacer
+      // Array.from(.options) rompía con "undefined is not iterable". Solo recorremos
+      // opciones si realmente es un select; si es hidden, AFIP ya lo dejó fijo.
       const selectTipoDoc = document.getElementById('idtipodocreceptor');
       if (selectTipoDoc) {
         const targetDoc = String(receptor.tipoDocumento);
-        if (Array.from(selectTipoDoc.options).some(o => o.value === targetDoc)) {
-          selectTipoDoc.value = targetDoc;
-          selectTipoDoc.dispatchEvent(new Event('change', { bubbles: true }));
-          await sleep(1500);
+        if (selectTipoDoc.options) {
+          if (Array.from(selectTipoDoc.options).some(o => o.value === targetDoc)) {
+            selectTipoDoc.value = targetDoc;
+            selectTipoDoc.dispatchEvent(new Event('change', { bubbles: true }));
+            await sleep(1500);
+          }
         }
+        // input hidden: el tipo de documento ya viene fijado por AFIP, no se toca.
       }
 
       // --- Número de documento (solo si existe) ---
@@ -121,6 +129,51 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
             }
           }
         });
+      }
+
+      // --- Comprobante asociado (solo NC/ND) ---
+      // Para una Nota de Crédito/Débito, AFIP muestra en esta misma pantalla un
+      // bloque para referenciar la factura original. Lo completamos con los datos
+      // que el usuario cargó a mano en el frontend.
+      const ca = datos.comprobanteAsociado;
+      if (ca) {
+        const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+        // Tipo del comprobante asociado: se matchea por TEXTO (no por value), porque
+        // los values de #cmp_asoc_tipo no son estables/conocidos. Buscamos la opción
+        // cuyo texto coincida (o contenga) el tipo elegido (ej. "Factura B").
+        const selectTipoAsoc = document.getElementById('cmp_asoc_tipo');
+        if (selectTipoAsoc && ca.tipo) {
+          const objetivo = norm(ca.tipo);
+          const opcion = Array.from(selectTipoAsoc.options).find(
+            o => norm(o.text) === objetivo || norm(o.text).includes(objetivo)
+          );
+          if (opcion) {
+            selectTipoAsoc.value = opcion.value;
+            selectTipoAsoc.dispatchEvent(new Event('change', { bubbles: true }));
+            await sleep(800);
+          }
+        }
+
+        const inputPtoVta = document.querySelector('input[name="cmpAsociadoPtoVta"]');
+        if (inputPtoVta && ca.puntoVenta) {
+          inputPtoVta.value = ca.puntoVenta;
+          inputPtoVta.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const inputNro = document.querySelector('input[name="cmpAsociadoNro"]');
+        if (inputNro && ca.numero) {
+          inputNro.value = ca.numero;
+          inputNro.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        const inputFecha = document.querySelector('input[name="cmpAsociadoFechaEmision"]');
+        if (inputFecha && ca.fecha) {
+          inputFecha.value = ca.fecha;
+          inputFecha.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        await sleep(500);
       }
 
       // Validar campos después de un delay

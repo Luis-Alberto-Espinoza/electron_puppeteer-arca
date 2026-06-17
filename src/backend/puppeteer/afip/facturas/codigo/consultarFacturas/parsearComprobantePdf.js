@@ -300,14 +300,122 @@ async function parsearComprobantePdf(pdfPath) {
             .match(/Condici[oó]n\s+de\s+venta:\s*(.+?)(?:\s+(?:NC|ND|Fac\.)\s+[A-Z]:|$)/i)?.[1]?.trim() || null;
     }
 
-    // === Descripciones de la tabla de ítems (posicional) ===
-    // La columna "Producto / Servicio" va entre el header de ese nombre y el de
-    // "Cantidad". Filtramos por X para no arrastrar el código del ítem (a la
-    // izquierda) ni la unidad/precios (a la derecha, que a veces parten "otras
-    // unidades" en dos renglones). Cada renglón visual = una descripción.
-    datos.descripciones = extraerDescripciones(content.items);
+    // === Ítems de la tabla (descripción + subtotal por ítem, posicional) ===
+    // Cada ítem = su descripción (que puede wrapear en varias filas) + su subtotal
+    // (columna "Subtotal"). Lo usa la generación de Notas para emitir una línea por
+    // ítem con su importe real. `descripciones` (texto plano por ítem) se deriva de
+    // acá; si no se detectan ítems, cae al extractor viejo por renglón visual.
+    datos.items = extraerItems(content.items);
+    datos.descripciones = datos.items.length
+        ? datos.items.map(i => i.descripcion)
+        : extraerDescripciones(content.items);
 
     return datos;
+}
+
+/**
+ * Extrae los ítems de la tabla de detalle con su importe (subtotal) por ítem.
+ *
+ * Layout de AFIP (comprobante impreso): headers "Producto / Servicio | Cantidad |
+ * ... | Precio Unit. | ... | Subtotal". Los números de cada ítem (cantidad,
+ * precio, subtotal) aparecen en UNA fila cerca del TOPE del ítem (apenas debajo
+ * de su primera línea de descripción), y la descripción sigue wrapeando hacia
+ * abajo. Por eso:
+ *   - "anchor" de un ítem = fila con un monto en la banda X de "Subtotal".
+ *   - su descripción = las líneas de la banda "Producto/Servicio" que caen entre
+ *     el inicio de este ítem (línea justo encima del anchor) y el del siguiente.
+ *
+ * @param {Array} items - content.items crudos de pdfjs (con transform).
+ * @returns {Array<{descripcion: string, importe: number|null, precioUnitario: number|null}>}
+ */
+function extraerItems(items) {
+    const norm = items
+        .map(it => ({ s: (it.str || '').trim(), x: it.transform[4], y: it.transform[5] }))
+        .filter(it => it.s);
+
+    const prod = norm.find(it => /Producto\s*\/\s*Servicio/i.test(it.s) || /^Producto$/i.test(it.s));
+    if (!prod) return [];
+    const headerY = prod.y;
+
+    // X de cada header (en el mismo renglón del header de Producto).
+    const xDe = (re, fallback) => {
+        const h = norm.find(it => Math.abs(it.y - headerY) <= 4 && re.test(it.s));
+        return h ? h.x : fallback;
+    };
+    const xCantidad = xDe(/Cantidad/i, prod.x + 150);
+    const xSubtotal = xDe(/Subtotal/i, prod.x + 460);
+    const xPrecio = xDe(/Precio/i, null);
+    const xBonif = xDe(/Bonif/i, null);
+
+    const xIniDesc = prod.x - 8;
+    const xFinDesc = xCantidad - 8;
+    // Banda de "Subtotal" acotada por ambos lados: en Factura A hay columnas a la
+    // derecha (Importe IVA, Subtotal c/IVA) que NO queremos agarrar.
+    const xSubMin = xSubtotal - 25;
+    const xSubMax = xSubtotal + 60;
+
+    // Límite inferior: bloque de totales (mismo criterio que extraerDescripciones).
+    const totalesY = norm
+        .filter(it => it.y < headerY && /^(Subtotal:|Importe\s+(Neto|Otros|Total))/i.test(it.s))
+        .reduce((max, it) => Math.max(max, it.y), -Infinity);
+
+    const enZona = it => it.y < headerY - 3 && it.y > totalesY + 3;
+    const money = /^-?\$?\s*[\d.]+,\d{2}$/;
+    const parse = s => parseMoneda(String(s).replace(/\$/g, '').trim());
+
+    // Anchors: un monto por fila en la banda de "Subtotal" (el más cercano al
+    // header, por si hay más de un número a la derecha).
+    const porFila = new Map();
+    norm.filter(it => enZona(it) && it.x >= xSubMin && it.x <= xSubMax && money.test(it.s))
+        .forEach(it => {
+            const k = [...porFila.keys()].find(k => Math.abs(it.y - k) <= 3);
+            const key = k !== undefined ? k : it.y;
+            const prev = porFila.get(key);
+            if (!prev || Math.abs(it.x - xSubtotal) < Math.abs(prev.x - xSubtotal)) porFila.set(key, it);
+        });
+    const anchors = [...porFila.values()]
+        .map(it => ({ y: it.y, importe: parse(it.s), precioUnitario: null, startY: it.y }))
+        .sort((a, b) => b.y - a.y);
+    if (!anchors.length) return [];
+
+    // Precio unitario por anchor (monto en la banda de "Precio Unit.").
+    if (xPrecio != null && xBonif != null) {
+        anchors.forEach(a => {
+            const p = norm.find(it =>
+                Math.abs(it.y - a.y) <= 3 && it.x >= xPrecio - 15 && it.x < xBonif - 5 && money.test(it.s));
+            if (p) a.precioUnitario = parse(p.s);
+        });
+    }
+
+    // Líneas de descripción (banda "Producto/Servicio").
+    const descLines = norm
+        .filter(it => enZona(it) && it.x >= xIniDesc && it.x < xFinDesc)
+        .sort((a, b) => b.y - a.y);
+
+    // Inicio de cada ítem = línea de descripción justo por encima de su anchor.
+    anchors.forEach(a => {
+        const start = descLines.find(d => d.y >= a.y - 1 && d.y <= a.y + 7);
+        a.startY = start ? start.y : a.y;
+    });
+    const startsDesc = anchors.map(a => a.startY); // descendente
+
+    // Asignar cada línea al ítem cuyo rango [startY siguiente, startY] la contiene.
+    const buckets = anchors.map(() => []);
+    descLines.forEach(d => {
+        let idx = 0;
+        for (let i = 0; i < startsDesc.length; i++) {
+            if (d.y <= startsDesc[i] + 0.5) idx = i; else break;
+        }
+        buckets[idx].push(d);
+    });
+
+    return anchors
+        .map((a, i) => ({
+            descripcion: buckets[i].sort((x, y) => y.y - x.y).map(d => d.s).join(' ').replace(/\s+/g, ' ').trim(),
+            importe: a.importe,
+            precioUnitario: a.precioUnitario
+        }))
+        .filter(it => it.descripcion || it.importe != null);
 }
 
 /**

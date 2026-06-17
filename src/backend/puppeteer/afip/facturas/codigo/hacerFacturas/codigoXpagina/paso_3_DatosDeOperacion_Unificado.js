@@ -76,15 +76,20 @@ async function paso_3_DatosDeOperacion_Unificado(newPage, datos, iterador) {
                             console.error(`No se encontró #detalle_descripcion${numeroLinea}`);
                         }
 
-                        // Unidad de medida (buscar por texto para mayor robustez)
+                        // Unidad de medida: acepta texto ("unidades") o número/value (7).
+                        // Antes asumía string y hacía .toLowerCase(); si venía un número
+                        // (caso de las notas, default 7) tiraba "toLowerCase is not a
+                        // function" y abortaba el resto del llenado (precio/alícuota).
                         const unidadMedida = document.querySelector(`#detalle_medida${numeroLinea}`);
                         if (unidadMedida) {
-                            if (linea.unidadMedida !== undefined) {
-                                // Buscar la opción por texto
+                            if (linea.unidadMedida !== undefined && linea.unidadMedida !== null) {
+                                const buscado = String(linea.unidadMedida).trim().toLowerCase();
                                 const opciones = unidadMedida.querySelectorAll('option');
                                 let encontrada = false;
                                 for (const opcion of opciones) {
-                                    if (opcion.textContent.trim().toLowerCase() === linea.unidadMedida.toLowerCase()) {
+                                    const txt = opcion.textContent.trim().toLowerCase();
+                                    const val = String(opcion.value).trim().toLowerCase();
+                                    if (txt === buscado || val === buscado) {
                                         opcion.selected = true;
                                         encontrada = true;
                                         break;

@@ -124,6 +124,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
         consultar: (datos) => ipcRenderer.invoke('consultaComprobantes:consultar', datos)
     },
 
+    // APIs para Notas de Crédito/Débito (listar/leer Excels + generar el lote de notas)
+    notaCreditoDebito: {
+        listarExcels: (datos) => ipcRenderer.invoke('notaCreditoDebito:listarExcels', datos),
+        leerExcel: (datos) => ipcRenderer.invoke('notaCreditoDebito:leerExcel', datos),
+        generarNotas: (datos) => ipcRenderer.invoke('notaCreditoDebito:generarNotas', datos)
+    },
+
     // APIs para operaciones sobre Empresa (lectura on-demand desde AFIP)
     empresa: {
         descubrirPuntosDeVenta: (datos) => ipcRenderer.invoke('empresa:descubrirPuntosDeVenta', datos),
