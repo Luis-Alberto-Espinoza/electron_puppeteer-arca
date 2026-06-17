@@ -58,10 +58,13 @@ async function buscarComprobantesYCapturarTabla(page, datos) {
             }
         }
 
-        // Punto de venta: buscar la option cuyo value normalizado coincida
-        // con d.puntoDeVenta ("00001"). Fallback: selectedIndex = 1.
+        // Punto de venta: si el usuario eligió uno, buscamos la option cuyo
+        // value normalizado coincida con d.puntoDeVenta ("00001"). Si NO eligió
+        // (o no la encontramos), dejamos "Todos" → AFIP trae los comprobantes
+        // de todos los puntos de venta. "Todos" es la opción de texto "Todos"
+        // o, en su defecto, la primera (index 0).
         const pdv = document.querySelector('#puntodeventa');
-        if (pdv && pdv.options.length > 1) {
+        if (pdv && pdv.options.length > 0) {
             let elegido = null;
             if (d.puntoDeVenta) {
                 const target = String(d.puntoDeVenta).trim();
@@ -78,7 +81,9 @@ async function buscarComprobantesYCapturarTabla(page, datos) {
             if (elegido !== null) {
                 pdv.value = elegido;
             } else {
-                pdv.selectedIndex = 1;
+                // "Todos": preferimos matchear por texto; si no, primera option.
+                const todos = Array.from(pdv.options).find(o => /todos/i.test(o.textContent || ''));
+                pdv.selectedIndex = todos ? todos.index : 0;
             }
             pdv.dispatchEvent(new Event('change', { bubbles: true }));
         }

@@ -22,13 +22,15 @@ import {
     ocultarSeccionArchivos
 } from './modulos/renderizadorArchivos.js';
 
-// Definición de medios de pago
+// Definición de medios de pago.
+// `img`: la imagen que se muestra al lado del <select> cuando el medio queda
+// elegido. Ojo el mapeo id→archivo: 'pago_mis_cuentas' usa 'mis_cuentas.gif'.
 const MEDIOS_PAGO = [
-    { id: 'pago_qr', nombre: 'Pago QR' },
-    { id: 'pagar_link', nombre: 'Pagar Link' },
-    { id: 'pago_mis_cuentas', nombre: 'Pago Mis Cuentas' },
-    { id: 'interbanking', nombre: 'Interbanking' },
-    { id: 'xn_group', nombre: 'XN Group' }
+    { id: 'pago_qr', nombre: 'Pago QR', img: '../generar_VEP/assets/pago_qr.gif' },
+    { id: 'pagar_link', nombre: 'Pagar Link', img: '../generar_VEP/assets/pagar_link.gif' },
+    { id: 'pago_mis_cuentas', nombre: 'Pago Mis Cuentas', img: '../generar_VEP/assets/mis_cuentas.gif' },
+    { id: 'interbanking', nombre: 'Interbanking', img: '../generar_VEP/assets/interbanking.gif' },
+    { id: 'xn_group', nombre: 'XN Group', img: '../generar_VEP/assets/xn_group.gif' }
 ];
 
 // Estado local (solo UI del selector)
@@ -90,11 +92,7 @@ function inicializarVEP() {
         renderizarColumnasExtras: renderizarColumnasMediosPago,
         headersColumnasExtras: [
             'CUIT a Usar',
-            '<img src="../generar_VEP/assets/pago_qr.gif" alt="QR" class="img-medio-pago" /><br>QR',
-            '<img src="../generar_VEP/assets/pagar_link.gif" alt="Link" class="img-medio-pago" /><br>Link',
-            '<img src="../generar_VEP/assets/mis_cuentas.gif" alt="Cuentas" class="img-medio-pago" /><br>Cuentas',
-            '<img src="../generar_VEP/assets/interbanking.gif" alt="Inter" class="img-medio-pago" /><br>Inter',
-            '<img src="../generar_VEP/assets/xn_group.gif" alt="XN" class="img-medio-pago" /><br>XN'
+            'Medio de pago'
         ]
     });
 
@@ -153,31 +151,32 @@ function renderizarColumnasMediosPago(usuario) {
         `;
     }
 
-    // COLUMNAS 2-6: Medios de pago
+    // COLUMNA 2: Medio de pago → un <select> (texto) + la imagen del medio
+    // elegido al lado. El <select> nativo no puede mostrar imágenes dentro de
+    // las <option> (limitación del navegador), por eso la imagen va aparte y se
+    // actualiza al elegir.
     const tieneCuitRequerido = !tieneCuitsAsociados || cuitsSeleccionados[usuario.id];
+    const disabled = !tieneCuitRequerido ? 'disabled' : '';
 
-    MEDIOS_PAGO.forEach(medio => {
-        const name = `medio-pago-${usuario.id}`;
-        const id = `${medio.id}-${usuario.id}`;
-        const estaSeleccionado = mediosPagoSeleccionados[usuario.id]?.id === medio.id;
-        const disabled = !tieneCuitRequerido ? 'disabled' : '';
+    const medioSel = mediosPagoSeleccionados[usuario.id] || null;
+    const opciones = MEDIOS_PAGO.map(medio => `
+        <option value="${medio.id}" ${medioSel && medioSel.id === medio.id ? 'selected' : ''}>${medio.nombre}</option>
+    `).join('');
 
-        columnasHTML += `
-            <td class="medio-pago-cell">
-                <input
-                    type="radio"
-                    name="${name}"
-                    id="${id}"
-                    value="${medio.id}"
-                    class="medio-pago-radio"
-                    data-usuario-id="${usuario.id}"
-                    data-medio-id="${medio.id}"
-                    ${estaSeleccionado ? 'checked' : ''}
-                    ${disabled}
-                />
-            </td>
-        `;
-    });
+    columnasHTML += `
+        <td class="medio-pago-cell">
+            <div class="medio-pago-selector">
+                <select class="select-medio-pago" data-usuario-id="${usuario.id}" ${disabled}>
+                    <option value="">— Elegir medio —</option>
+                    ${opciones}
+                </select>
+                <img class="img-medio-pago-seleccionado ${medioSel ? '' : 'oculto'}"
+                     data-usuario-id="${usuario.id}"
+                     src="${medioSel ? medioSel.img : ''}"
+                     alt="${medioSel ? medioSel.nombre : ''}" />
+            </div>
+        </td>
+    `;
 
     return columnasHTML;
 }
@@ -216,10 +215,10 @@ function configurarEventListeners() {
                 // Habilitar medios de pago para este usuario sin re-renderizar todo
                 const filaUsuario = document.querySelector(`.tabla-seleccionados tbody tr[data-usuario-id="${usuarioId}"]`);
                 if (filaUsuario) {
-                    const radiosMedioPago = filaUsuario.querySelectorAll('.medio-pago-radio');
-                    radiosMedioPago.forEach(radio => {
-                        radio.disabled = false;
-                    });
+                    const selectMedioPago = filaUsuario.querySelector('.select-medio-pago');
+                    if (selectMedioPago) {
+                        selectMedioPago.disabled = false;
+                    }
                 }
 
                 // Actualizar estado
@@ -227,12 +226,32 @@ function configurarEventListeners() {
                 actualizarEstadoGeneracion(usuariosSeleccionados);
             }
 
-            // Event listener para selección de medio de pago
-            if (e.target.classList.contains('medio-pago-radio')) {
+            // Event listener para selección de medio de pago (select)
+            if (e.target.classList.contains('select-medio-pago')) {
                 const usuarioId = e.target.dataset.usuarioId;
-                const medioId = e.target.dataset.medioId;
-                const medio = MEDIOS_PAGO.find(m => m.id === medioId);
-                mediosPagoSeleccionados[usuarioId] = medio;
+                const medioId = e.target.value;
+                const medio = MEDIOS_PAGO.find(m => m.id === medioId) || null;
+
+                if (medio) {
+                    mediosPagoSeleccionados[usuarioId] = medio;
+                } else {
+                    // Volvió a "— Elegir medio —": limpiar la selección.
+                    delete mediosPagoSeleccionados[usuarioId];
+                }
+
+                // Actualizar la imagen del medio elegido al lado del select.
+                const img = e.target.parentElement.querySelector('.img-medio-pago-seleccionado');
+                if (img) {
+                    if (medio) {
+                        img.src = medio.img;
+                        img.alt = medio.nombre;
+                        img.classList.remove('oculto');
+                    } else {
+                        img.removeAttribute('src');
+                        img.alt = '';
+                        img.classList.add('oculto');
+                    }
+                }
 
                 const usuariosSeleccionados = selectorUsuarios.obtenerSeleccionados();
                 actualizarEstadoGeneracion(usuariosSeleccionados);

@@ -208,16 +208,57 @@ th br {
     margin: 0;
 }
 
-/* Centrar radio buttons de medios de pago */
+/* Celda del medio de pago (select + imagen del elegido) */
 .medio-pago-cell {
     text-align: center !important;
     vertical-align: middle !important;
     padding: 8px 4px !important;
 }
 
-.medio-pago-radio {
-    margin: 0 auto !important;
-    display: block !important;
+/* Contenedor del <select> + imagen del medio elegido, en línea */
+.medio-pago-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.select-medio-pago {
+    padding: 5px 8px;
+    font-size: 13px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    /* Color explícito: el select hereda el texto blanco de la tabla y, con
+       fondo blanco, quedaba invisible (blanco sobre blanco). */
+    color: #1f2937;
+    cursor: pointer;
+    min-width: 150px;
+}
+
+/* Las <option> también: en algunos navegadores heredan el color del contexto. */
+.select-medio-pago option {
+    color: #1f2937;
+    background: #fff;
+}
+
+.select-medio-pago:disabled {
+    background: #f1f5f9;
+    color: #94a3b8;
+    cursor: not-allowed;
+}
+
+/* Imagen del medio elegido, al lado del select. Reservamos su espacio con
+   visibility (no display:none) para que la fila no salte al elegir/limpiar. */
+.img-medio-pago-seleccionado {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.img-medio-pago-seleccionado.oculto {
+    visibility: hidden;
 }
 
 /* Alinear columna de Usuario a la izquierda */

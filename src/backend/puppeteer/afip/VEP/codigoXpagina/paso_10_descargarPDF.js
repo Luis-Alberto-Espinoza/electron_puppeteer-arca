@@ -3,132 +3,47 @@
  *
  * Descarga el volante electrónico de pago, extrae datos relevantes y lo guarda
  * con formato: VEP-{nroVep}_{cuit}_{medioPagoId}_{periodo}_{fechaDescarga}.pdf
+ *
+ * La extracción de metadatos y el nombrado/movido viven en _pdfComun.js (los
+ * comparte con paso_10b, la variante para XN Group).
  */
 
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
-const { getDownloadPath, moverArchivo } = require('../../../../utils/fileManager.js');
+const { construirNombreYMover } = require('./_pdfComun.js');
+const paso_10b_descargarXNGroup = require('./paso_10b_descargarXNGroup.js');
 
-async function extraerDatosDelPDF(pdfPath) {
-    try {
-        const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-        // require.resolve ubica el worker tanto en dev como empaquetado en
-        // app.asar. NO usar process.cwd(): en el portable de Windows apunta a
-        // donde se lanzó el .exe, no a la app.
-        pdfjsLib.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist/legacy/build/pdf.worker.js');
-
-        // Pasar los bytes (no la ruta): getDocument(string) trata el argumento
-        // como URL y una ruta Windows ("C:\...") rompe el parseo. verbosity:0
-        // silencia los warnings de fuentes (no hacen falta para extraer texto).
-        const data = new Uint8Array(await fs.readFile(pdfPath));
-        const loadingTask = pdfjsLib.getDocument({ data, verbosity: 0 });
-        const pdf = await loadingTask.promise;
-
-        let allFilas = [];
-        for (let numPagina = 1; numPagina <= pdf.numPages; numPagina++) {
-            const page = await pdf.getPage(numPagina);
-            const content = await page.getTextContent();
-
-            const filasMap = new Map();
-            content.items.forEach(item => {
-                const y = item.transform[5];
-                const yExistente = [...filasMap.keys()].find(key => Math.abs(y - key) <= 5);
-                if (yExistente) {
-                    filasMap.get(yExistente).push(item);
-                } else {
-                    filasMap.set(y, [item]);
-                }
-            });
-
-            const filasDePagina = [...filasMap.entries()]
-                .sort((a, b) => b[0] - a[0])
-                .map(([y, filaItems]) => ({
-                    y,
-                    items: filaItems.sort((a, b) => a.transform[4] - b.transform[4])
-                }));
-
-            allFilas.push(...filasDePagina);
-        }
-
-        // Extraer Nro. VEP, Período y CUIT
-        let nroVep = null;
-        let periodo = null;
-        let cuit = null;
-        // Un VEP que agrupa varios períodos es "consolidado": no trae línea
-        // "Período:" sino "Concepto: VEP CONSOLIDADO" / "Nro. VEP Consolidado:".
-        let esConsolidado = false;
-
-        for (const fila of allFilas) {
-            for (let i = 0; i < fila.items.length; i++) {
-                const item = fila.items[i];
-                const texto = item.str.trim();
-
-                // Detectar si el VEP es consolidado (varios períodos)
-                if (!esConsolidado && /consolidado/i.test(texto)) {
-                    esConsolidado = true;
-                }
-
-                // Buscar Nro. VEP (cubre "Nro. VEP:" y "Nro. VEP Consolidado:")
-                if (!nroVep && (texto.includes('Nro. VEP') || texto.includes('Nro.VEP'))) {
-                    // Caso A: el número viene en el mismo item ("...: 1633556137")
-                    const mismoItem = texto.match(/(\d{6,})\s*$/);
-                    if (mismoItem) {
-                        nroVep = mismoItem[1];
-                    } else {
-                        // Caso B: el número viene en items siguientes de la misma fila
-                        for (let j = i + 1; j < fila.items.length; j++) {
-                            const valor = fila.items[j].str.trim();
-                            if (valor && /^\d+$/.test(valor)) {
-                                nroVep = valor;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                // Buscar Período (solo existe en VEPs de un único período)
-                if (!periodo && (texto.includes('Período:') || texto.includes('Periodo:'))) {
-                    for (let j = i + 1; j < fila.items.length; j++) {
-                        const valor = fila.items[j].str.trim();
-                        if (valor && /^\d{4}-\d{2}$/.test(valor)) {
-                            periodo = valor;
-                            break;
-                        }
-                    }
-                }
-
-                // Buscar CUIT
-                if (!cuit && texto.toUpperCase() === 'CUIT:') {
-                    for (let j = i + 1; j < fila.items.length; j++) {
-                        const valor = fila.items[j].str.trim();
-                        const cuitMatch = valor.match(/\d{2}-?\d{8}-?\d/);
-                        if (cuitMatch) {
-                            cuit = cuitMatch[0].replace(/-/g, '');
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Si ya encontramos todo lo de un VEP simple, salir
-            if (nroVep && periodo && cuit) break;
-        }
-
-        // Si es consolidado y no hubo línea de período, usamos "consolidado"
-        if (!periodo && esConsolidado) {
-            periodo = 'consolidado';
-        }
-
-        return { nroVep, periodo, cuit };
-
-    } catch (error) {
-        console.error(`  ❌ Error al extraer datos del PDF:`, error);
-        return { nroVep: null, periodo: null, cuit: null };
+/**
+ * Espera a que la descarga termine en `tempDir` y devuelve el nombre del
+ * archivo listo. Chrome baja primero un parcial `.crdownload`; con un setTimeout
+ * fijo (lo que había antes) en máquinas lentas o con VEPs consolidados (más
+ * pesados) el archivo todavía no estaba o se agarraba el parcial → "se cuelga /
+ * no guarda". Acá hacemos polling hasta que aparezca un archivo SIN extensión
+ * temporal, con timeout real.
+ */
+async function esperarArchivoListo(tempDir, timeoutMs = 30000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        try {
+            const items = await fs.readdir(tempDir);
+            const listos = items.filter(n => !n.endsWith('.crdownload') && !n.endsWith('.tmp'));
+            if (listos.length > 0) return listos[0];
+        } catch (_) {}
+        await new Promise(r => setTimeout(r, 500));
     }
+    return null;
 }
 
 async function ejecutar(page, usuario, medioPago, downloadsPath) {
+    // XN Group: AFIP genera el PDF de "Descargar VEP" SIN las barras del código
+    // de barras (sólo los números) — es un bug de AFIP. La vista "Ver Detalle"
+    // sí las dibuja, así que para ese medio descargamos por otra vía (paso_10b)
+    // y salimos.
+    if (medioPago && medioPago.id === 'xn_group') {
+        return await paso_10b_descargarXNGroup.ejecutar(page, usuario, medioPago, downloadsPath);
+    }
+
     let tempDir = null;
 
     try {
@@ -169,39 +84,24 @@ async function ejecutar(page, usuario, medioPago, downloadsPath) {
             throw new Error('No se encontró el botón de descarga PDF ("Descargar VEP")');
         }
 
-        // 4. Esperar descarga
-        await new Promise(resolve => setTimeout(resolve, 5000));
-
-        // 5. Buscar archivo descargado
-        const archivos = await fs.readdir(tempDir);
-
-        if (archivos.length === 0) {
-            throw new Error('No se descargó ningún archivo PDF');
+        // 4. Esperar a que la descarga termine (polling, no setTimeout fijo).
+        const pdfDescargado = await esperarArchivoListo(tempDir, 30000);
+        if (!pdfDescargado) {
+            throw new Error('La descarga del PDF no se completó en el tiempo esperado');
         }
 
-        const pdfDescargado = archivos[0];
         const pdfPath = path.join(tempDir, pdfDescargado);
 
-        // 6. Extraer datos del PDF
-        const { nroVep, periodo, cuit } = await extraerDatosDelPDF(pdfPath);
-
-        // 7. Generar nombre y mover archivo
-        const fechaDescarga = new Date().toISOString().slice(0, 10);
-        const nuevoNombre = `VEP-${nroVep || 'SinNumero'}_${cuit || usuario.cuit}_${medioPago.id}_${periodo || 'SinPeriodo'}_${fechaDescarga}.pdf`;
-
-        const destinoDir = getDownloadPath(downloadsPath, {
-            cuit: usuario.cuit,
-            nombre: usuario.nombre,
-            apellido: usuario.apellido
-        }, 'archivos_afip');
-        const destinoPath = path.join(destinoDir, nuevoNombre);
-
-        await moverArchivo(pdfPath, destinoPath);
+        // 5. Extraer metadatos, armar nombre estandarizado y mover a
+        //    archivos_afip/<cliente>/ (lógica compartida con paso_10b).
+        const { nuevoNombre, destinoPath, destinoDir, datos } =
+            await construirNombreYMover(pdfPath, { usuario, medioPago, downloadsPath });
+        const { nroVep, periodo, cuit } = datos;
 
         console.log(`  ✅ PDF descargado: ${nuevoNombre}`);
         console.log(`     Nro. VEP: ${nroVep || 'N/A'} | Período: ${periodo || 'N/A'} | CUIT: ${cuit || 'N/A'}`);
 
-        // 8. Detectar y descargar código QR (si existe)
+        // 6. Detectar y descargar código QR (si existe)
         let qrPath = null;
         let qrNombre = null;
 
