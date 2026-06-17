@@ -24,9 +24,8 @@ function setupConsultaComprobantesHandlers(ipcMain, userStorage, app) {
             if (!nombreEmpresa) {
                 return { success: false, error: 'MISSING_EMPRESA', message: 'Falta la empresa.' };
             }
-            if (!puntoDeVenta) {
-                return { success: false, error: 'MISSING_PDV', message: 'Falta el punto de venta.' };
-            }
+            // Punto de venta OPCIONAL: si no viene, la automatización deja el
+            // select en "Todos" y AFIP devuelve los comprobantes de todos los pdv.
             if (!fechaDesde || !fechaHasta) {
                 return { success: false, error: 'MISSING_FECHAS', message: 'Faltan fechas desde/hasta.' };
             }

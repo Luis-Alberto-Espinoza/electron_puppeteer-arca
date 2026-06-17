@@ -28,7 +28,17 @@ window.inicializarConsultaComprobantes = () => {
     // del componente SelectorUsuarios). null si no hay ninguno seleccionado.
     let clienteSeleccionado = null;
 
+    // dd/mm/aaaa de hoy, para preestablecer "Fecha hasta" y ahorrar clicks.
+    function hoyDDMMYYYY() {
+        const d = new Date();
+        const dia = String(d.getDate()).padStart(2, '0');
+        const mes = String(d.getMonth() + 1).padStart(2, '0');
+        return `${dia}/${mes}/${d.getFullYear()}`;
+    }
+
     // ===== Flatpickr para fechas (si está disponible) =====
+    // "Fecha hasta" arranca en el día de hoy: es el caso más común y evita
+    // que el usuario tenga que abrir el calendario y tipear la fecha.
     if (typeof flatpickr === 'function') {
         const cfg = {
             dateFormat: 'd/m/Y',
@@ -36,7 +46,10 @@ window.inicializarConsultaComprobantes = () => {
             locale: (typeof flatpickr.l10ns !== 'undefined' && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined
         };
         flatpickr(inputDesde, cfg);
-        flatpickr(inputHasta, cfg);
+        flatpickr(inputHasta, { ...cfg, defaultDate: new Date() });
+    } else {
+        // Sin flatpickr igual dejamos la fecha de hoy escrita en el input.
+        inputHasta.value = hoyDDMMYYYY();
     }
 
     // ===== Buscador de clientes (componente compartido SelectorUsuarios) =====
@@ -262,9 +275,11 @@ window.inicializarConsultaComprobantes = () => {
     });
 
     function actualizarEstadoBoton() {
+        // El punto de venta es OPCIONAL: si no se elige, AFIP trae los
+        // comprobantes de todos los puntos de venta. Solo exigimos cliente,
+        // empresa y rango de fechas.
         const ok = clienteSeleccionado
             && selectEmpresa.value
-            && selectPdv.value
             && inputDesde.value
             && inputHasta.value;
         btnConsultar.disabled = !ok;
