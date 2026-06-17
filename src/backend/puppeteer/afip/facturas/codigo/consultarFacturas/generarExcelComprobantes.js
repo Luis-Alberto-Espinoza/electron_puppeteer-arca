@@ -127,22 +127,35 @@ function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde,
     // hoja: la clave (Punto de Venta + Comprobante Nro, porque el Nro se repite
     // entre puntos de venta) figura en el primer renglón del comprobante y las
     // descripciones siguientes quedan debajo con la clave en blanco.
+    // Una fila por ítem, con su Importe (subtotal). El Importe por ítem lo usa la
+    // generación de Notas para emitir una línea por ítem con su monto real.
+    // Compat: si el comprobante no trae `items` (parseo viejo), cae a descripciones
+    // sueltas sin importe.
     const filasDesc = [];
     comprobantes.forEach(c => {
-        const descs = (Array.isArray(c.descripciones) && c.descripciones.length)
-            ? c.descripciones
-            : [''];
-        descs.forEach((d, i) => {
+        let items = Array.isArray(c.items) && c.items.length ? c.items : null;
+        if (!items) {
+            const descs = (Array.isArray(c.descripciones) && c.descripciones.length) ? c.descripciones : [''];
+            items = descs.map(d => ({ descripcion: d, importe: null }));
+        }
+        items.forEach((item, i) => {
             filasDesc.push({
                 'Punto de Venta':  i === 0 ? (c.puntoDeVenta || '') : '',
                 'Comprobante Nro': i === 0 ? (c.comprobanteNumero || '') : '',
-                'Descripción':     d
+                'Descripción':     item.descripcion || '',
+                'Importe':         typeof item.importe === 'number' ? item.importe : ''
             });
         });
     });
     if (filasDesc.length > 0) {
         const hojaDesc = XLSX.utils.json_to_sheet(filasDesc);
-        hojaDesc['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 60 }];
+        hojaDesc['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 70 }, { wch: 16 }];
+        // Formato 2 decimales a la columna Importe (índice 3).
+        const rangoD = XLSX.utils.decode_range(hojaDesc['!ref']);
+        for (let r = rangoD.s.r + 1; r <= rangoD.e.r; r++) {
+            const celda = hojaDesc[XLSX.utils.encode_cell({ r, c: 3 })];
+            if (celda && typeof celda.v === 'number') celda.z = '#,##0.00';
+        }
         XLSX.utils.book_append_sheet(wb, hojaDesc, 'Descripciones');
     }
 
