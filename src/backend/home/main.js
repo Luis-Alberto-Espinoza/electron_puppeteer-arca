@@ -27,6 +27,7 @@ const setupNotaCreditoDebitoHandlers = require('../afip/notaCreditoDebito/handle
 const setupEmpresaHandlers              = require('../afip/empresa/handlers.js');
 const setupCuentaTributariaHandlers = require('../afip/cuentaTributaria/handlers.js');
 const setupLibroIvaHandlers = require('../afip/libroIVA/handlers.js');
+const setupSesionAfipHandlers = require('../afip/sesion/handlers.js');
 
 // Importar handlers de ATM por servicio
 const setupConstanciaFiscalHandlers = require('../atm/constanciaFiscal/handlers.js');
@@ -34,6 +35,7 @@ const setupPlanDePagoHandlers = require('../atm/planDePago/handlers.js');
 const setupRetencionesHandlers = require('../atm/retenciones/handlers.js');
 const setupTasaCeroHandlers = require('../atm/tasaCero/handlers.js');
 const setupListasATMHandlers = require('../atm/listas/handlers.js');
+const setupSesionAtmHandlers = require('../atm/sesion/handlers.js');
 
 // Importar handlers de Planes de Pago AFIP
 const setupPlanesDePagoHandlers = require('../afip/planesDePago/handlers.js');
