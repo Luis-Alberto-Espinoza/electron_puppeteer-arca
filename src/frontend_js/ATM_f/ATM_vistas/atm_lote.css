@@ -5,6 +5,14 @@
     padding: 20px;
 }
 
+.lote-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
 .lote-container h2 {
     color: #f6e05e; /* Acento amarillo para títulos */
     border-bottom: 1px solid #4a5568;

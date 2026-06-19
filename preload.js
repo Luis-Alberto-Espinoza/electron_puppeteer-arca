@@ -138,11 +138,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
         analizarEmpresa: (datos) => ipcRenderer.invoke('empresa:analizarEmpresa', datos)
     },
 
+    // Lanzador de sesión: elige un cliente y abre el navegador ya logueado (AFIP/ATM).
+    sesion: {
+        afip: (clienteId) => ipcRenderer.invoke('afip:abrirSesion', clienteId),
+        atm:  (clienteId) => ipcRenderer.invoke('atm:abrirSesion',  clienteId)
+    },
+
     // APIs para Cuenta Tributaria (SCT)
     // modos: 'consultarA' | 'pagarA' | 'pagarDirectoB'
     cuentaTributaria: {
         procesar: (datos) => ipcRenderer.invoke('cuentaTributaria:procesar', datos),
         onUpdate: (callback) => ipcRenderer.on('cuentaTributaria:update', (_event, datos) => callback(datos))
+    },
+
+    // Servicio Declaración Jurada (carga de DDJJ desde Excel en Mis Aplicaciones Web).
+    declaracionJurada: {
+        probarAcceso: (datos) => ipcRenderer.invoke('declaracionJurada:probarAcceso', datos),
+        cargar: (datos) => ipcRenderer.invoke('declaracionJurada:cargar', datos),
+        elegirExcel: () => ipcRenderer.invoke('declaracionJurada:elegirExcel'),
+        parsearHoja: (datos) => ipcRenderer.invoke('declaracionJurada:parsearHoja', datos),
+        elegirTxt: (datos) => ipcRenderer.invoke('declaracionJurada:elegirTxt', datos),
+        sugerirRetenciones: (datos) => ipcRenderer.invoke('declaracionJurada:sugerirRetenciones', datos)
     },
 
     // APIs para Facturas Tipificadas

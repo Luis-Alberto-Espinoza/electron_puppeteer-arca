@@ -3,6 +3,17 @@
  * Configura los event listeners para los botones de servicios
  */
 function inicializarHomeAfip() {
+    const btnLanzadorAfip = document.getElementById('btnLanzadorAfip');
+    if (btnLanzadorAfip) {
+        btnLanzadorAfip.addEventListener('click', () => {
+            if (window.abrirLanzadorSesion) {
+                window.abrirLanzadorSesion('afip');
+            } else {
+                console.error('window.abrirLanzadorSesion no está disponible');
+            }
+        });
+    }
+
     const btnGenerarVEP = document.getElementById('btnGenerarVEP');
     const btnGenerarFactura = document.getElementById('btnGenerarFactura');
 
@@ -41,6 +52,14 @@ function inicializarHomeAfip() {
         btnConsultaComprobantes.addEventListener('click', () => {
             console.log('Cargando módulo Consulta de Comprobantes...');
             document.dispatchEvent(new CustomEvent('cargarModuloConsultaComprobantes'));
+        });
+    }
+
+    const btnDeclaracionJurada = document.getElementById('btnDeclaracionJurada');
+    if (btnDeclaracionJurada) {
+        btnDeclaracionJurada.addEventListener('click', () => {
+            console.log('Cargando módulo Declaración Jurada...');
+            document.dispatchEvent(new CustomEvent('cargarModuloDeclaracionJurada'));
         });
     }
 }

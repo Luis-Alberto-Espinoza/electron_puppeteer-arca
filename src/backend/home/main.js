@@ -158,8 +158,8 @@ function createImageWindow(imagePath) {
         width: 300,
         height: 400,
         webPreferences: {
-            nodeIntegration: true,
-            contextIsolation: false
+            nodeIntegration: false,
+            contextIsolation: true
         }
     });
 
@@ -355,7 +355,9 @@ app.whenReady().then(async () => {
         setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app);
         setupEmpresaHandlers(ipcMain, userStorage);
         setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app);
+        setupDeclaracionJuradaHandlers(ipcMain, userStorage, app);
         setupLibroIvaHandlers(ipcMain);
+        setupSesionAfipHandlers(ipcMain, userStorage);
 
         // Handlers de ATM por servicio
         setupConstanciaFiscalHandlers(ipcMain, mainWindow, app);
@@ -363,6 +365,7 @@ app.whenReady().then(async () => {
         setupRetencionesHandlers(ipcMain, mainWindow, app);
         setupTasaCeroHandlers(ipcMain, mainWindow, app);
         setupListasATMHandlers(ipcMain);
+        setupSesionAtmHandlers(ipcMain, userStorage);
 
         // Handlers de Planes de Pago AFIP
         setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app);

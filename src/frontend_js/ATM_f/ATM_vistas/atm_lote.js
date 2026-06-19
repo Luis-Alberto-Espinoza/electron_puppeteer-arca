@@ -63,6 +63,18 @@ window.inicializarModuloLoteATM = () => {
     procesandoContainer.style.display  = 'none';
     finalizadosContainer.style.display = 'none';
 
+    // Lanzador de sesión ATM (abrir navegador logueado para operar a mano)
+    const btnLanzadorAtm = document.getElementById('btnLanzadorAtm');
+    if (btnLanzadorAtm) {
+        btnLanzadorAtm.addEventListener('click', () => {
+            if (window.abrirLanzadorSesion) {
+                window.abrirLanzadorSesion('atm');
+            } else {
+                console.error('window.abrirLanzadorSesion no está disponible');
+            }
+        });
+    }
+
     // =========================================================================
     // HELPERS
     // =========================================================================
