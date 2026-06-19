@@ -127,9 +127,16 @@ async function launchBrowser({ headless = true, args = [] } = {}) { // <-- permi
   }
 }
 
+// Viewport por defecto para todas las pestañas que abrimos.
+const DEFAULT_VIEWPORT = { width: 1366, height: 768 };
+
 async function launchBrowserAndPage({ headless = true } = {}) {
   const browser = await launchBrowser({ headless });
-  const page = await browser.newPage();
+  // Chrome ya abre con una pestaña inicial (about:blank): la reusamos en vez de
+  // crear otra con newPage(), así no queda una pestaña en blanco de más.
+  const paginas = await browser.pages();
+  const page = paginas.length ? paginas[0] : await browser.newPage();
+  await page.setViewport(DEFAULT_VIEWPORT);
   return { browser, page };
 }
 

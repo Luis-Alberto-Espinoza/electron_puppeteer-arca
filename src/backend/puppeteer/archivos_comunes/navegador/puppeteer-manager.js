@@ -1,4 +1,4 @@
-const { launchBrowser } = require('./browserLauncher');
+const { launchBrowserAndPage } = require('./browserLauncher');
 
 /**
  * Ejecuta una tarea con navegador gestionado automaticamente.
@@ -22,10 +22,11 @@ async function ejecutar(callback, opciones = {}) {
 
     try {
         console.log('[PuppeteerManager] Iniciando navegador...');
-        browser = await launchBrowser({ headless });
-
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1366, height: 768 });
+        // Único punto de arranque: launchBrowserAndPage centraliza config + pestaña
+        // (reusa la about:blank y aplica el viewport por defecto).
+        const lanzado = await launchBrowserAndPage({ headless });
+        browser = lanzado.browser;
+        const page = lanzado.page;
 
         // Ejecutar la logica de negocio (manager -> flujo)
         const resultado = await callback(browser, page);

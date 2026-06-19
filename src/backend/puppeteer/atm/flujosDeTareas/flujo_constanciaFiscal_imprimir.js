@@ -2,7 +2,7 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarAConstanciaFiscal } = require('../codigoXpagina/oficina_constanciaFiscal.js');
 const { gestionarConstanciaFiscal } = require('../codigoXpagina/constanciaFiscal.js');
-const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
+const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
 
 async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso) {
@@ -10,8 +10,9 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: true });
-        const page = await browser.newPage();
+        const lanzado = await launchBrowserAndPage({ headless: true });
+        browser = lanzado.browser;
+        const page = lanzado.page;
 
         const urlATM = 'https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp';
         await page.goto(urlATM);

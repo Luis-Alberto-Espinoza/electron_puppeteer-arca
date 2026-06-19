@@ -2,7 +2,7 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarARetenciones } = require('../codigoXpagina/oficina_retenciones.js');
 const { descargarRetencionGenerico } = require('../codigoXpagina/retenciones_generico.js');
-const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js');
 
 /**
  * Flujo completo para descargar retenciones desde ATM
@@ -38,8 +38,11 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: false }); // Modo visible para debugging
-        const page = await browser.newPage();
+        // Modo visible para debugging. launchBrowserAndPage reusa la pestaña inicial
+        // (sin about:blank de más) y aplica el viewport por defecto.
+        const lanzado = await launchBrowserAndPage({ headless: false });
+        browser = lanzado.browser;
+        const page = lanzado.page;
 
         // PASO 1: Navegar a la URL de login de ATM
         const urlATM = 'https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp';

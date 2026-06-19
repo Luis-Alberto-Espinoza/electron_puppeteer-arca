@@ -10,7 +10,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
-const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js');
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { navegarATasaCero } = require('../codigoXpagina/aplicativos-tasaCero.js');
 const {
@@ -112,24 +112,15 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // PASO 1: Iniciar navegador
         // ========================================================================
         enviarProgreso('info', 'Iniciando navegador...');
-        navegador = await launchBrowser({
-            headless: false // Modo visible para debugging
-        });
+        // launchBrowserAndPage reusa la pestaña inicial (about:blank) y aplica el viewport.
+        // El navegador ya arranca con un perfil temporal nuevo por lanzamiento (ver
+        // browserLauncher), así que NO hace falta un contexto incógnito extra para aislar
+        // la sesión: cada cliente corre en su propio navegador efímero.
+        const lanzado = await launchBrowserAndPage({ headless: false }); // Modo visible para debugging
+        navegador = lanzado.browser;
+        paginaLogin = lanzado.page;
 
-        // Usar createBrowserContext (compatible con todas las versiones)
-        const contextoIncognito = await navegador.createBrowserContext();
-
-        // Crear la página dentro del nuevo contexto
-        paginaLogin = await contextoIncognito.newPage();
-
-        console.log(`[Flujo Tasa Cero - ${nombreCliente}] Navegador iniciado con contexto aislado`);
-
-        // AHORA sí cerrar la página en blanco inicial que crea Puppeteer
-        const paginasIniciales = await navegador.pages();
-        if (paginasIniciales.length > 0 && paginasIniciales[0].url() === 'about:blank') {
-            await paginasIniciales[0].close(); // Cerrar "about:blank"
-            console.log(`[Flujo Tasa Cero - ${nombreCliente}] Página en blanco inicial cerrada`);
-        }
+        console.log(`[Flujo Tasa Cero - ${nombreCliente}] Navegador iniciado`);
 
         // ========================================================================
         // PASO 2: Login en ATM

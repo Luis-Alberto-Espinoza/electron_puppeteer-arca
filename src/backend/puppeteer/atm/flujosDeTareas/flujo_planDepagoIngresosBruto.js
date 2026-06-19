@@ -7,7 +7,7 @@ const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.j
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
 const { prepararTablaIngresosBrutos, descargarFilaVigentePorIndice, contarFilasVigentes } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
 const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
-const { launchBrowser } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
+const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 
 // --- Helper para encontrar la fecha de vencimiento en los datos del PDF ---
 function encontrarFechaVencimiento(datosPdf) {
@@ -53,8 +53,9 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        browser = await launchBrowser({ headless: true });
-        const page = await browser.newPage();
+        const lanzado = await launchBrowserAndPage({ headless: true });
+        browser = lanzado.browser;
+        const page = lanzado.page;
 
         enviarProgreso('info', 'Navegando a la página de login de ATM...');
         await page.goto('https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp');
