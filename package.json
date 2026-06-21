@@ -29,6 +29,7 @@
     "appId": "com.tuorganizacion.afipelectron",
     "productName": "Servie C P",
     "asar": true,
+    "npmRebuild": false,
     "directories": {
       "output": "dist"
     },

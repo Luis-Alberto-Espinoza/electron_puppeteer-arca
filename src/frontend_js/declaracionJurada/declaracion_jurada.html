@@ -1,0 +1,114 @@
+<link rel="stylesheet" href="../declaracionJurada/declaracion_jurada.css">
+
+<div class="ddjj-container">
+    <div class="ddjj-header">
+        <button id="ddjj-btn-volver" class="ddjj-btn-volver">← Volver</button>
+        <h2>📄 Declaración Jurada</h2>
+        <p class="ddjj-subtitulo">Alta y recuperación de DDJJ en "Mis Aplicaciones Web" (ATM Mendoza · F.5111)</p>
+    </div>
+
+    <div class="ddjj-panel">
+        <label class="ddjj-label">Cliente</label>
+        <div id="ddjj-selector-usuarios"></div>
+    </div>
+
+    <!-- Configuración de la DDJJ: aparece al elegir cliente -->
+    <div id="ddjj-config" class="ddjj-panel" style="display:none;">
+        <div class="ddjj-grid">
+            <div class="ddjj-campo">
+                <label class="ddjj-label" for="ddjj-empresa">Empresa</label>
+                <select id="ddjj-empresa" class="ddjj-select"></select>
+                <p class="ddjj-hint">Razón social a presentar (el CUIT lo resuelve el portal).</p>
+            </div>
+
+            <div class="ddjj-campo">
+                <label class="ddjj-label" for="ddjj-organismo">Organismo</label>
+                <select id="ddjj-organismo" class="ddjj-select">
+                    <option value="A.T.M. PROVINCIA DE MENDOZA" selected>A.T.M. PROVINCIA DE MENDOZA</option>
+                    <option value="ARCA">ARCA</option>
+                    <option value="OFICINA ANTICORRUPCION">OFICINA ANTICORRUPCION</option>
+                    <option value="A.T.E.R. PROVINCIA DE ENTRE RIOS">A.T.E.R. PROVINCIA DE ENTRE RIOS</option>
+                    <option value="D.G.R. PROVINCIA DE SALTA">D.G.R. PROVINCIA DE SALTA</option>
+                    <option value="D.P.R. PROVINCIA DE JUJUY">D.P.R. PROVINCIA DE JUJUY</option>
+                    <option value="ASIP - PROVINCIA DE SANTA CRUZ">ASIP - PROVINCIA DE SANTA CRUZ</option>
+                </select>
+            </div>
+
+            <div class="ddjj-campo">
+                <label class="ddjj-label" for="ddjj-formulario">Formulario</label>
+                <input id="ddjj-formulario" class="ddjj-select" type="text" value="F.5111 - DIU Mendoza" />
+                <p class="ddjj-hint">Texto a buscar en el combo (ej. "F.5111").</p>
+            </div>
+
+            <div class="ddjj-campo">
+                <label class="ddjj-label" for="ddjj-periodo">Período Fiscal</label>
+                <input id="ddjj-periodo" class="ddjj-select" type="text" maxlength="6" placeholder="AAAAMM" />
+                <p class="ddjj-hint">Formato AAAAMM (ej. 202605).</p>
+            </div>
+
+            <div class="ddjj-campo">
+                <label class="ddjj-label" for="ddjj-fecha-pago">Fecha de Pago</label>
+                <input id="ddjj-fecha-pago" class="ddjj-select" type="date" />
+                <p class="ddjj-hint">Requerida. Se carga en la solapa Liquidación (DD/MM/AAAA).</p>
+            </div>
+        </div>
+
+        <div class="ddjj-excel">
+            <label class="ddjj-label">📊 Excel de liquidación</label>
+            <div class="ddjj-excel-fila">
+                <button id="ddjj-btn-excel" class="ddjj-btn-sec" type="button">📂 Elegir Excel…</button>
+                <span id="ddjj-excel-nombre" class="ddjj-hint">Ningún archivo elegido</span>
+            </div>
+            <div id="ddjj-hoja-wrap" style="display:none; margin-top:10px;">
+                <label class="ddjj-label" for="ddjj-hoja">Hoja (cliente)</label>
+                <select id="ddjj-hoja" class="ddjj-select"></select>
+            </div>
+            <div id="ddjj-preview" class="ddjj-preview" style="display:none;"></div>
+        </div>
+
+        <div class="ddjj-retenciones">
+            <div class="ddjj-ret-head">
+                <label class="ddjj-label">🧾 Retenciones / Percepciones (opcional)</label>
+                <button id="ddjj-btn-autodetectar" class="ddjj-btn-sec" type="button">✨ Auto-detectar</button>
+            </div>
+            <p class="ddjj-hint">"Auto-detectar" busca los <strong>.txt</strong> del período en la carpeta del cliente y los asigna solo. Podés agregar/quitar a mano. Una fila admite varios archivos (ej. SIRCREB + SIRCUPA).</p>
+            <div id="ddjj-retenciones-lista"></div>
+        </div>
+
+        <label class="ddjj-check">
+            <input type="checkbox" id="ddjj-grabar" />
+            💾 Grabar borrador al finalizar — <strong>persiste</strong> en AFIP. Sin tildar = simulación (carga todo pero no graba).
+        </label>
+
+        <button id="ddjj-btn-cargar" class="ddjj-btn-probar" disabled>
+            🧪 Simular carga (sin grabar)
+        </button>
+
+        <div class="ddjj-excel-fila" style="margin-top:8px;">
+            <button id="ddjj-btn-buscar" class="ddjj-btn-sec" type="button" disabled>
+                🔎 Buscar borrador existente
+            </button>
+            <label class="ddjj-hint" for="ddjj-accion">Si hay 1, acción:</label>
+            <select id="ddjj-accion" class="ddjj-select" style="width:auto;">
+                <option value="editar" selected>Editar (recuperar)</option>
+                <option value="ver">Ver (solo lectura)</option>
+                <option value="borrar">Borrar</option>
+            </select>
+        </div>
+        <p class="ddjj-nota">
+            Login → "Mis Aplicaciones Web" → "Nuevo" → Empresa / Organismo / Formulario / Período →
+            carga base (Excel) + retenciones. <strong>Sin "Grabar"</strong> = simulación (no persiste, "Aceptar" solo
+            no deja borrador); <strong>con "Grabar"</strong> = guarda el borrador en AFIP. El navegador queda abierto.
+        </p>
+    </div>
+
+    <div id="ddjj-estado" class="ddjj-estado" style="display:none;"></div>
+
+    <div id="ddjj-resultado" class="ddjj-resultado" style="display:none;">
+        <div class="ddjj-resultado-head">
+            <h3>Resultado</h3>
+            <button id="ddjj-resultado-toggle" type="button" class="ddjj-btn-sec">➕ Expandir</button>
+        </div>
+        <pre id="ddjj-resultado-pre" class="colapsado"></pre>
+    </div>
+</div>

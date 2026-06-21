@@ -65,7 +65,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -123,6 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('cargarModuloConsultaComprobantes', () => {
         cargarModuloConsultaComprobantes();
+    });
+
+    document.addEventListener('cargarModuloDeclaracionJurada', () => {
+        cargarModuloDeclaracionJurada();
     });
 });
 
@@ -756,6 +760,88 @@ async function cargarModuloCuentaTributaria() {
     } catch (error) {
         console.error('❌ Error cargando módulo Cuenta Tributaria:', error);
         ctDiv.innerHTML = '<div style="color:red;">Error cargando el módulo Cuenta Tributaria.</div>';
+    }
+}
+
+/**
+ * Carga el módulo de Declaración Jurada.
+ * Primer slice (modo prueba): <select> simple de usuario + botón "Probar acceso".
+ * No usa SelectorUsuarios ni ES modules — JS plano con window.inicializarDeclaracionJurada.
+ */
+async function cargarModuloDeclaracionJurada() {
+    console.log('🟢 cargarModuloDeclaracionJurada() - Iniciando...');
+    mostrarSoloModulo('declaracionJuradaDiv');
+    const div = document.getElementById('declaracionJuradaDiv');
+    if (!div) {
+        console.error('❌ No se encontró declaracionJuradaDiv');
+        return;
+    }
+    div.innerHTML = '';
+
+    try {
+        const htmlPath = '../declaracionJurada/declaracion_jurada.html';
+        const cssPath = '../declaracionJurada/declaracion_jurada.css';
+        const jsPath = '../declaracionJurada/declaracion_jurada.js';
+
+        // 1. HTML
+        const response = await fetch(htmlPath);
+        if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+        const html = await response.text();
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        tempDiv.querySelectorAll('link[rel="stylesheet"]').forEach(l => l.remove());
+        div.innerHTML = tempDiv.innerHTML;
+
+        const selectorCssPath = '../componentes/selectorUsuarios/selectorUsuarios.css';
+        const selectorJsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+
+        // 2. CSS componente SelectorUsuarios (mismo que usa Factura)
+        if (!document.head.querySelector(`link[href="${selectorCssPath}"]`)) {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = selectorCssPath;
+            document.head.appendChild(l);
+        }
+
+        // 3. CSS específico DDJJ
+        if (!document.head.querySelector(`link[href="${cssPath}"]`)) {
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = cssPath;
+            document.head.appendChild(l);
+        }
+
+        // 4. JS componente SelectorUsuarios (asegurar carga antes del módulo)
+        await new Promise((resolve, reject) => {
+            if (typeof SelectorUsuarios !== 'undefined') return resolve();
+            const old = document.head.querySelector(`script[src="${selectorJsPath}"]`);
+            if (old) old.remove();
+            const s = document.createElement('script');
+            s.src = selectorJsPath;
+            s.defer = true;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Error cargando selectorUsuarios.js'));
+            document.head.appendChild(s);
+        });
+
+        // 5. JS del módulo DDJJ (re-cargar siempre para que la inicialización corra cada vez)
+        const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+        if (oldScript) oldScript.remove();
+        const script = document.createElement('script');
+        script.src = jsPath;
+        script.defer = true;
+        script.onload = () => {
+            if (typeof window.inicializarDeclaracionJurada === 'function') {
+                window.inicializarDeclaracionJurada();
+            } else {
+                console.error('❌ window.inicializarDeclaracionJurada no está definida');
+            }
+        };
+        document.head.appendChild(script);
+
+    } catch (error) {
+        console.error('❌ Error cargando módulo Declaración Jurada:', error);
+        div.innerHTML = '<div style="color:red;">Error cargando el módulo Declaración Jurada.</div>';
     }
 }
 

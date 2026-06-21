@@ -26,6 +26,7 @@ const setupConsultaComprobantesHandlers = require('../afip/consultaComprobantes/
 const setupNotaCreditoDebitoHandlers = require('../afip/notaCreditoDebito/handlers.js');
 const setupEmpresaHandlers              = require('../afip/empresa/handlers.js');
 const setupCuentaTributariaHandlers = require('../afip/cuentaTributaria/handlers.js');
+const setupDeclaracionJuradaHandlers = require('../afip/declaracionJurada/handlers.js');
 const setupLibroIvaHandlers = require('../afip/libroIVA/handlers.js');
 const setupSesionAfipHandlers = require('../afip/sesion/handlers.js');
 

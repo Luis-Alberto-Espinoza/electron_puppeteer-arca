@@ -158,7 +158,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         elegirExcel: () => ipcRenderer.invoke('declaracionJurada:elegirExcel'),
         parsearHoja: (datos) => ipcRenderer.invoke('declaracionJurada:parsearHoja', datos),
         elegirTxt: (datos) => ipcRenderer.invoke('declaracionJurada:elegirTxt', datos),
-        sugerirRetenciones: (datos) => ipcRenderer.invoke('declaracionJurada:sugerirRetenciones', datos)
+        sugerirRetenciones: (datos) => ipcRenderer.invoke('declaracionJurada:sugerirRetenciones', datos),
+        buscar: (datos) => ipcRenderer.invoke('declaracionJurada:buscar', datos)
     },
 
     // APIs para Facturas Tipificadas
