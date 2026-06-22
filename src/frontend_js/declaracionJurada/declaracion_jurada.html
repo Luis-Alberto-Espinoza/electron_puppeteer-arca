@@ -69,9 +69,11 @@
         <div class="ddjj-retenciones">
             <div class="ddjj-ret-head">
                 <label class="ddjj-label">🧾 Retenciones / Percepciones (opcional)</label>
+                <button id="ddjj-btn-carpeta-ret" class="ddjj-btn-sec" type="button">📁 Carpeta…</button>
                 <button id="ddjj-btn-autodetectar" class="ddjj-btn-sec" type="button">✨ Auto-detectar</button>
             </div>
-            <p class="ddjj-hint">"Auto-detectar" busca los <strong>.txt</strong> del período en la carpeta del cliente y los asigna solo. Podés agregar/quitar a mano. Una fila admite varios archivos (ej. SIRCREB + SIRCUPA).</p>
+            <p class="ddjj-hint" id="ddjj-carpeta-ret-info" style="display:none;"></p>
+            <p class="ddjj-hint">"Auto-detectar" busca los <strong>.txt</strong> del período en la carpeta del cliente (o en la que elijas con "📁 Carpeta…") y los asigna solo. Podés agregar/quitar a mano. Una fila admite varios archivos (ej. SIRCREB + SIRCUPA).</p>
             <div id="ddjj-retenciones-lista"></div>
         </div>
 
@@ -84,25 +86,36 @@
             🧪 Simular carga (sin grabar)
         </button>
 
-        <div class="ddjj-excel-fila" style="margin-top:8px;">
-            <button id="ddjj-btn-buscar" class="ddjj-btn-sec" type="button" disabled>
-                🔎 Buscar borrador existente
-            </button>
-            <label class="ddjj-hint" for="ddjj-accion">Si hay 1, acción:</label>
-            <select id="ddjj-accion" class="ddjj-select" style="width:auto;">
-                <option value="editar" selected>Editar (recuperar)</option>
-                <option value="ver">Ver (solo lectura)</option>
-                <option value="borrar">Borrar</option>
-            </select>
-        </div>
         <p class="ddjj-nota">
             Login → "Mis Aplicaciones Web" → "Nuevo" → Empresa / Organismo / Formulario / Período →
             carga base (Excel) + retenciones. <strong>Sin "Grabar"</strong> = simulación (no persiste, "Aceptar" solo
             no deja borrador); <strong>con "Grabar"</strong> = guarda el borrador en AFIP. El navegador queda abierto.
         </p>
+
+        <!-- Recuperar un borrador ya cargado: sección aparte, no es el alta -->
+        <div class="ddjj-buscar">
+            <label class="ddjj-label">🔎 ¿Ya existe un borrador?</label>
+            <p class="ddjj-hint">Recuperá, mirá o borrá una DDJJ que ya esté cargada en AFIP para este período.</p>
+            <div class="ddjj-buscar-fila">
+                <button id="ddjj-btn-buscar" class="ddjj-btn-buscar" type="button" disabled>
+                    🔎 Buscar borrador existente
+                </button>
+                <span class="ddjj-buscar-accion">
+                    <label class="ddjj-hint" for="ddjj-accion">Si encuentra 1:</label>
+                    <select id="ddjj-accion" class="ddjj-select">
+                        <option value="editar" selected>Editar (recuperar)</option>
+                        <option value="ver">Ver (solo lectura)</option>
+                        <option value="borrar">Borrar</option>
+                    </select>
+                </span>
+            </div>
+        </div>
     </div>
 
     <div id="ddjj-estado" class="ddjj-estado" style="display:none;"></div>
+
+    <!-- Totales que AFIP calculó por deducción (se llena al terminar la carga) -->
+    <div id="ddjj-deducciones" class="ddjj-deducciones" style="display:none;"></div>
 
     <div id="ddjj-resultado" class="ddjj-resultado" style="display:none;">
         <div class="ddjj-resultado-head">

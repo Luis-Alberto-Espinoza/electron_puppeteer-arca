@@ -158,7 +158,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         elegirExcel: () => ipcRenderer.invoke('declaracionJurada:elegirExcel'),
         parsearHoja: (datos) => ipcRenderer.invoke('declaracionJurada:parsearHoja', datos),
         elegirTxt: (datos) => ipcRenderer.invoke('declaracionJurada:elegirTxt', datos),
+        elegirCarpetaRetenciones: (datos) => ipcRenderer.invoke('declaracionJurada:elegirCarpetaRetenciones', datos),
         sugerirRetenciones: (datos) => ipcRenderer.invoke('declaracionJurada:sugerirRetenciones', datos),
+        escribirDeducciones: (datos) => ipcRenderer.invoke('declaracionJurada:escribirDeducciones', datos),
         buscar: (datos) => ipcRenderer.invoke('declaracionJurada:buscar', datos)
     },
 

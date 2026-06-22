@@ -22,6 +22,8 @@ const TIPOS_RETENCION = [
     'Otros Créditos'
 ];
 let retencionesArchivos = {};      // { [etiqueta]: rutaTxt }
+let carpetaRetenciones = null;     // carpeta elegida a mano (pisa la del cliente en el auto-detect)
+let ultimaCarga = null;            // datos de la última carga (para escribir los totales de AFIP al Excel)
 
 window.inicializarDeclaracionJurada = inicializarDeclaracionJurada;
 
@@ -37,7 +39,9 @@ function inicializarDeclaracionJurada() {
     clienteSeleccionado = null;
     archivoExcel = null;
     retencionesArchivos = {};
+    carpetaRetenciones = null;
     montarRetenciones();
+    pintarCarpetaRetenciones();
 
     const btnCargar = document.getElementById('ddjj-btn-cargar');
     const btnVolver = document.getElementById('ddjj-btn-volver');
@@ -65,6 +69,14 @@ function inicializarDeclaracionJurada() {
     if (inputPeriodo && !inputPeriodo.value) inputPeriodo.value = periodoMesAnterior();
     if (inputPeriodo) inputPeriodo.addEventListener('input', previsualizarHoja);
 
+    // Fecha de pago: por defecto HOY y no se puede elegir una fecha anterior (min = hoy).
+    const inputFechaPago = document.getElementById('ddjj-fecha-pago');
+    if (inputFechaPago) {
+        const hoyISO = new Date().toLocaleDateString('en-CA');   // AAAA-MM-DD en hora local
+        inputFechaPago.min = hoyISO;
+        if (!inputFechaPago.value) inputFechaPago.value = hoyISO;
+    }
+
     // Excel: elegir archivo + cambio de hoja → preview.
     const btnExcel = document.getElementById('ddjj-btn-excel');
     if (btnExcel) btnExcel.addEventListener('click', elegirExcel);
@@ -73,6 +85,8 @@ function inicializarDeclaracionJurada() {
 
     const btnAuto = document.getElementById('ddjj-btn-autodetectar');
     if (btnAuto) btnAuto.addEventListener('click', () => autodetectarRetenciones(false));
+    const btnCarpeta = document.getElementById('ddjj-btn-carpeta-ret');
+    if (btnCarpeta) btnCarpeta.addEventListener('click', elegirCarpetaRetenciones);
 
     const btnToggleLog = document.getElementById('ddjj-resultado-toggle');
     if (btnToggleLog) btnToggleLog.addEventListener('click', toggleLog);
@@ -218,6 +232,12 @@ async function elegirTxtRetencion(etiqueta) {
         if (!r.success) { setEstado('error', `❌ ${r.message || 'No se pudo abrir el archivo'}`); return; }
         (retencionesArchivos[etiqueta] = retencionesArchivos[etiqueta] || []).push(r.archivo);
         pintarRetencion(etiqueta);
+        // Aviso temprano si el .txt elegido es de otro CUIT (igual lo frena la red de seguridad al cargar).
+        const ajeno = (r.archivo.split(/[\\/]/).pop().match(/(\d{11})/) || [])[1];
+        const cuitCli = String((clienteParaRuta() || {}).cuit || '').replace(/\D/g, '');
+        if (cuitCli && ajeno && ajeno !== cuitCli) {
+            setEstado('error', `🚨 ¡Ojo! Ese archivo es del CUIT ${ajeno}, distinto al del cliente. No vas a poder avanzar hasta quitarlo.`);
+        }
     } catch (err) {
         console.error('❌ Error eligiendo .txt:', err);
         setEstado('error', `❌ ${err?.message || err}`);
@@ -246,7 +266,50 @@ function pintarRetencion(etiqueta) {
         b.addEventListener('click', () => quitarTxtRetencion(b.getAttribute('data-ret'), Number(b.getAttribute('data-idx')))));
 }
 
-/** Escanea la carpeta del cliente y pre-asigna los .txt del período (auto-sugerir + confirmar). */
+/** Devuelve los .txt asignados cuyo CUIT (en el nombre) NO es el del cliente actual. */
+function retencionesDeOtroCuit() {
+    const cuitCli = String((clienteParaRuta() || {}).cuit || '').replace(/\D/g, '');
+    if (!cuitCli) return [];   // sin CUIT de referencia no podemos validar → no bloqueamos
+    const ajenos = [];
+    for (const rutas of Object.values(retencionesArchivos)) {
+        for (const ruta of rutas) {
+            const nombre = ruta.split(/[\\/]/).pop();
+            const cuitArch = (nombre.match(/(\d{11})/) || [])[1] || null;
+            if (cuitArch && cuitArch !== cuitCli) ajenos.push({ nombre, cuit: cuitArch });
+        }
+    }
+    return ajenos;
+}
+
+/** Elegir una carpeta DISTINTA con los .txt (cuando no están en la del cliente). */
+async function elegirCarpetaRetenciones() {
+    try {
+        const r = await window.electronAPI.declaracionJurada.elegirCarpetaRetenciones({ cliente: clienteParaRuta() });
+        if (!r || r.canceled) return;
+        if (!r.success) { setEstado('error', `❌ ${r.message || 'No se pudo elegir la carpeta'}`); return; }
+        carpetaRetenciones = r.carpeta;
+        pintarCarpetaRetenciones();
+        // Re-escanear ya con la carpeta nueva (rescan limpio, como el botón Auto-detectar).
+        autodetectarRetenciones(false);
+    } catch (err) {
+        console.error('❌ Error eligiendo carpeta:', err);
+        setEstado('error', `❌ ${err?.message || err}`);
+    }
+}
+
+function pintarCarpetaRetenciones() {
+    const info = document.getElementById('ddjj-carpeta-ret-info');
+    if (!info) return;
+    if (carpetaRetenciones) {
+        info.textContent = `📁 Carpeta elegida: ${carpetaRetenciones}`;
+        info.style.display = '';
+    } else {
+        info.textContent = '';
+        info.style.display = 'none';
+    }
+}
+
+/** Escanea la carpeta del cliente (o la elegida a mano) y pre-asigna los .txt del período. */
 async function autodetectarRetenciones(auto = false) {
     if (!clienteSeleccionado) return;
     const periodo = ((document.getElementById('ddjj-periodo') || {}).value || '').trim();
@@ -255,7 +318,9 @@ async function autodetectarRetenciones(auto = false) {
         return;
     }
     try {
-        const r = await window.electronAPI.declaracionJurada.sugerirRetenciones({ cliente: clienteParaRuta(), periodo });
+        const r = await window.electronAPI.declaracionJurada.sugerirRetenciones({
+            cliente: clienteParaRuta(), periodo, carpeta: carpetaRetenciones || undefined
+        });
         if (!r || !r.success) {
             if (!auto) setEstado('error', `❌ ${r?.message || 'No se pudo auto-detectar'}`);
             return;
@@ -267,13 +332,21 @@ async function autodetectarRetenciones(auto = false) {
         for (const [etiqueta, rutas] of Object.entries(sug)) retencionesArchivos[etiqueta] = [...rutas];
         TIPOS_RETENCION.forEach(pintarRetencion);
 
+        // ALARMA: la carpeta tiene .txt del período pero de OTRO cliente (CUIT distinto).
+        const ajenos = r.ajenos || [];
+        if (ajenos.length) {
+            const cuits = [...new Set(ajenos.map(a => a.cuit))].join(', ');
+            setEstado('error', `🚨 ¡Ojo! La carpeta tiene ${ajenos.length} archivo(s) de OTRO CUIT (${cuits}), distinto al del cliente. No los asigné. Revisá que sea la carpeta correcta.`);
+            return;   // no pisar la alarma con el mensaje de éxito
+        }
+
         const total = Object.values(sug).reduce((a, b) => a + b.length, 0);
         if (total) {
             let msg = `✨ Auto-detectados ${total} archivo(s) para ${periodo}.`;
             if (r.sinMapear && r.sinMapear.length) msg += ` ⚠️ ${r.sinMapear.length} sin mapear (revisalos a mano).`;
             setEstado('ok', msg);
         } else if (!auto) {
-            setEstado('error', `No encontré .txt de ${periodo} en la carpeta del cliente.`);
+            setEstado('error', `No encontré .txt de ${periodo} en ${carpetaRetenciones ? 'la carpeta elegida' : 'la carpeta del cliente'}.`);
         }
     } catch (err) {
         console.error('❌ Error auto-detectando:', err);
@@ -408,7 +481,21 @@ async function cargarDDJJ(btnCargar) {
         setEstado('error', '❌ La fecha de pago es requerida (elegila en el calendario).');
         return;
     }
+    // No se puede pagar con fecha anterior a hoy (por si tipearon una fecha vieja a mano).
+    const hoyISO = new Date().toLocaleDateString('en-CA');
+    if (fechaPagoISO < hoyISO) {
+        setEstado('error', '❌ La fecha de pago no puede ser anterior a hoy.');
+        return;
+    }
     const fechaPago = isoADDMMAAAA(fechaPagoISO);   // 2026-04-15 → 15/04/2026
+
+    // Red de seguridad: ningún .txt asignado puede ser de OTRO cliente (CUIT en el nombre).
+    // Cubre tanto el auto-detect por carpeta como los agregados a mano. Si hay uno ajeno, NO avanza.
+    const ajenos = retencionesDeOtroCuit();
+    if (ajenos.length) {
+        setEstado('error', `🚨 No puedo avanzar: hay ${ajenos.length} archivo(s) de retención de OTRO CUIT (${ajenos.map(a => a.nombre).join(', ')}). Quitalos o elegí la carpeta del cliente correcto.`);
+        return;
+    }
 
     const cliente = {
         id: clienteSeleccionado.id,
@@ -450,7 +537,16 @@ async function cargarDDJJ(btnCargar) {
             setEstado('ok', `🧪 DDJJ simulada (cargada, sin grabar — no persiste). ${r.url || ''}`);
             simulacionOk = true;
         }
+        // Guardar lo necesario para escribir los totales de AFIP al Excel (botón en la caja).
+        ultimaCarga = {
+            archivo: archivoExcel || null,
+            hoja: hojaExcel || null,
+            periodo,
+            deducciones: r.deducciones || null,
+            retenciones: { ...retencionesArchivos }
+        };
         mostrarResultado(r.resumen || JSON.stringify(r, null, 2));
+        mostrarDeducciones(r.deducciones);
         if (simulacionOk) mostrarPopupNavegador('Simulación terminada');
 
     } catch (err) {
@@ -568,6 +664,84 @@ function mostrarResultado(texto) {
 function ocultarResultado() {
     const cont = document.getElementById('ddjj-resultado');
     if (cont) cont.style.display = 'none';
+    const ded = document.getElementById('ddjj-deducciones');
+    if (ded) ded.style.display = 'none';
+}
+
+/** Muestra los importes que AFIP calculó por deducción (Total de Deducciones destacado). */
+function mostrarDeducciones(deducciones) {
+    const cont = document.getElementById('ddjj-deducciones');
+    if (!cont) return;
+    if (!deducciones || !Object.keys(deducciones).length) {
+        cont.style.display = 'none';
+        return;
+    }
+    const fmt = (n) => Number(n || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const entradas = Object.entries(deducciones);
+    // El Total se muestra SIEMPRE (aunque dé 0); las demás filas en 0 son ruido → se ocultan.
+    const totalEntry = entradas.find(([et]) => /total/i.test(et));
+    const filasConImporte = entradas.filter(([et, v]) => !/total/i.test(et) && Number(v || 0) !== 0);
+
+    const filas = filasConImporte.map(([etiqueta, valor]) =>
+        `<div class="ddjj-ded-fila"><span>${etiqueta}</span><span>$ ${fmt(valor)}</span></div>`
+    ).join('');
+    const filaTotal = totalEntry
+        ? `<div class="ddjj-ded-fila ddjj-ded-total"><span>${totalEntry[0]}</span><span>$ ${fmt(totalEntry[1])}</span></div>`
+        : '';
+    // Si no hubo ninguna deducción con importe, avisamos que los archivos igual se procesaron.
+    const aviso = filasConImporte.length
+        ? 'Estos números los calculó AFIP a partir de los .txt importados (fuente de verdad).'
+        : '⚠️ Los archivos se procesaron, pero AFIP no arrojó deducciones con importe (Total = 0).';
+
+    // Botón para volcar estos totales al Excel (solo si la carga usó un Excel).
+    const hayExcel = ultimaCarga && ultimaCarga.archivo;
+    const btnExcel = hayExcel
+        ? `<button type="button" id="ddjj-btn-escribir-excel" class="ddjj-btn-sec">📝 Escribir Excel con estos datos</button>`
+        : '';
+
+    cont.innerHTML = `
+        <div class="ddjj-ded-head">🧮 Totales calculados por AFIP</div>
+        ${filas}
+        ${filaTotal}
+        <p class="ddjj-hint">${aviso}</p>
+        ${btnExcel}`;
+    cont.style.display = 'block';
+    const b = document.getElementById('ddjj-btn-escribir-excel');
+    if (b) b.addEventListener('click', () => escribirExcelConDeducciones(b));
+    cont.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+/** Escribe los totales que AFIP calculó en el mismo Excel que leímos (paso 2, opción del usuario). */
+async function escribirExcelConDeducciones(btn) {
+    if (!ultimaCarga || !ultimaCarga.archivo) {
+        setEstado('error', '❌ No hay Excel asociado a esta carga.');
+        return;
+    }
+    if (btn) btn.disabled = true;
+    setEstado('cargando', '⏳ Escribiendo los totales de AFIP en el Excel…');
+    try {
+        const r = await window.electronAPI.declaracionJurada.escribirDeducciones(ultimaCarga);
+        if (!r || !r.success) {
+            setEstado('error', `❌ ${r?.message || 'No se pudo escribir el Excel'}`);
+            return;
+        }
+        const nEsc = (r.escritos || []).length;
+        const nOmit = (r.omitidos || []).length;
+        if (nEsc) {
+            let msg = `✅ Escribí ${nEsc} total(es) en el Excel (${r.formato}).`;
+            if (nOmit) msg += ` ⚠️ ${nOmit} omitido(s) — mirá el detalle abajo.`;
+            if (r.backup) msg += ` Backup: ${r.backup.split(/[\\/]/).pop()}`;
+            setEstado('ok', msg);
+        } else {
+            setEstado('error', `⚠️ No escribí nada. ${nOmit ? 'Revisá el detalle abajo.' : ''}`);
+        }
+        if (r.resumen) mostrarResultado(r.resumen);
+    } catch (err) {
+        console.error('❌ Error escribiendo Excel:', err);
+        setEstado('error', `❌ ${err?.message || err}`);
+    } finally {
+        if (btn) btn.disabled = false;
+    }
 }
 
 /** Minimiza/expande la caja del log (a veces no se quiere ver todo). */

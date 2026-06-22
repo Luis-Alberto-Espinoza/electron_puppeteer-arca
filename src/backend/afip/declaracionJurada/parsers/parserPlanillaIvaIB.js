@@ -198,4 +198,7 @@ function parsearPlanillaIvaIB(archivo, hoja, periodo) {
     };
 }
 
-module.exports = { parsearPlanillaIvaIB, esPlanillaIvaIB, listarHojas, parseNumero };
+module.exports = {
+    parsearPlanillaIvaIB, esPlanillaIvaIB, listarHojas, parseNumero,
+    ubicarBloque, parsePeriodoCelda, norm, MESES
+};

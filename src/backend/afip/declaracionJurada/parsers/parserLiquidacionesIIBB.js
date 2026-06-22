@@ -135,4 +135,4 @@ function parsearLiquidacionIIBB(archivo, hoja, periodo) {
     };
 }
 
-module.exports = { parsearLiquidacionIIBB, listarHojas, parseNumero, MESES };
+module.exports = { parsearLiquidacionIIBB, listarHojas, parseNumero, MESES, MAPA_COLUMNAS, norm };

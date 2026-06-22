@@ -11,6 +11,7 @@ const path = require('path');
 const { dialog } = require('electron');
 const declaracionJuradaManager = require('./declaracionJuradaManager.js');
 const parsers = require('./parsers/index.js');   // despachador: auto-detecta formato 1 o 2
+const escribirDeducciones = require('./escribirDeducciones.js');
 const { getDownloadPath } = require('../../utils/fileManager.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
@@ -201,18 +202,58 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
         }
     });
 
-    // Auto-detectar los .txt de retención del cliente para un período: escanea su carpeta
-    // archivos_atm/RetencionesYPercepciones, filtra por período y mapea cada archivo a su
-    // fila de AFIP por el régimen del nombre. Devuelve { [etiqueta]: [rutas] } (sugerencia).
+    // Elegir una carpeta DISTINTA donde el usuario tiene los .txt de retención/percepción
+    // (caso: no están en archivos_atm/RetencionesYPercepciones del cliente). Devuelve la ruta;
+    // el frontend la guarda y se la pasa a sugerirRetenciones para escanear ahí.
+    ipcMain.handle('declaracionJurada:elegirCarpetaRetenciones', async (event, datos) => {
+        try {
+            const cli = (datos && datos.cliente) || {};
+            let defaultPath;
+            if (cli.cuit || cli.nombre) {
+                try {
+                    const baseAtm = getDownloadPath(app.getPath('downloads'),
+                        { cuit: cli.cuit, nombre: cli.nombre, apellido: cli.apellido }, 'archivos_atm');
+                    const retDir = path.join(baseAtm, 'RetencionesYPercepciones');
+                    defaultPath = fs.existsSync(retDir) ? retDir : baseAtm;
+                } catch (_) { /* si falla el armado de ruta, abre donde Electron quiera */ }
+            }
+            const r = await dialog.showOpenDialog({
+                title: 'Elegí la carpeta con los .txt de retenciones/percepciones',
+                defaultPath,
+                properties: ['openDirectory']
+            });
+            if (r.canceled || !r.filePaths || !r.filePaths.length) {
+                return { success: false, canceled: true };
+            }
+            return { success: true, carpeta: r.filePaths[0] };
+        } catch (error) {
+            console.error('[DeclaracionJurada] Error en elegirCarpetaRetenciones:', error);
+            return { success: false, error: 'DIALOG_ERROR', message: error.message };
+        }
+    });
+
+    // Auto-detectar los .txt de retención del cliente para un período: escanea una carpeta,
+    // filtra por período y mapea cada archivo a su fila de AFIP por el régimen del nombre.
+    // La carpeta es la del cliente (archivos_atm/RetencionesYPercepciones) por defecto, o la
+    // que el usuario eligió a mano (datos.carpeta) si los archivos están en otro lado.
+    // Devuelve { [etiqueta]: [rutas] } (sugerencia).
     ipcMain.handle('declaracionJurada:sugerirRetenciones', async (event, datos) => {
         try {
-            const { cliente, periodo } = datos || {};
-            if (!cliente || !/^\d{6}$/.test(String(periodo || ''))) {
-                return { success: false, error: 'BAD_ARGS', message: 'Falta cliente o período válido.' };
+            const { cliente, periodo, carpeta } = datos || {};
+            if (!/^\d{6}$/.test(String(periodo || ''))) {
+                return { success: false, error: 'BAD_ARGS', message: 'Falta período válido.' };
             }
-            const baseAtm = getDownloadPath(app.getPath('downloads'),
-                { cuit: cliente.cuit, nombre: cliente.nombre, apellido: cliente.apellido }, 'archivos_atm');
-            const dir = path.join(baseAtm, 'RetencionesYPercepciones');
+            let dir;
+            if (carpeta && fs.existsSync(carpeta)) {
+                dir = carpeta;                       // carpeta elegida a mano pisa el default
+            } else {
+                if (!cliente) {
+                    return { success: false, error: 'BAD_ARGS', message: 'Falta cliente o carpeta.' };
+                }
+                const baseAtm = getDownloadPath(app.getPath('downloads'),
+                    { cuit: cliente.cuit, nombre: cliente.nombre, apellido: cliente.apellido }, 'archivos_atm');
+                dir = path.join(baseAtm, 'RetencionesYPercepciones');
+            }
             if (!fs.existsSync(dir)) return { success: true, sugerencias: {}, carpeta: dir };
 
             const periodoGuion = `${periodo.slice(0, 4)}-${periodo.slice(4, 6)}`; // 202605 → 2026-05
@@ -228,20 +269,41 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
                 return null;
             };
 
+            // CUIT del cliente (solo dígitos) para detectar archivos de OTRO cliente en la carpeta.
+            const cuitCliente = String((cliente && (cliente.cuit || cliente.cuil)) || '').replace(/\D/g, '');
+            const cuitDe = (nombre) => (nombre.match(/(\d{11})/) || [])[1] || null; // CUIT al inicio del nombre
+
             const sugerencias = {};
             const sinMapear = [];
+            const ajenos = [];   // .txt del período pero con CUIT de otro cliente → ALARMA, no se asignan
             for (const f of archivos) {
                 // El período es el AAAA-MM que va ANTES de la fecha de descarga (AAAA-MM-DD).
                 const m = f.match(/_(\d{4}-\d{2})_\d{4}-\d{2}-\d{2}/);
                 if (!m || m[1] !== periodoGuion) continue;      // de otro período → ignorar
+                const cuitArch = cuitDe(f);
+                if (cuitCliente && cuitArch && cuitArch !== cuitCliente) {
+                    ajenos.push({ archivo: f, cuit: cuitArch });
+                    continue;                                   // de otro cliente → no asignar
+                }
                 const fila = filaDe(f);
                 if (!fila) { sinMapear.push(f); continue; }
                 (sugerencias[fila] = sugerencias[fila] || []).push(path.join(dir, f));
             }
-            return { success: true, sugerencias, sinMapear, carpeta: dir };
+            return { success: true, sugerencias, sinMapear, ajenos, carpeta: dir };
         } catch (error) {
             console.error('[DeclaracionJurada] Error en sugerirRetenciones:', error);
             return { success: false, error: 'SCAN_ERROR', message: error.message };
+        }
+    });
+
+    // Escribir los totales que AFIP calculó en el MISMO Excel (paso 2). Opción del usuario (botón).
+    // payload: { archivo, hoja, periodo, deducciones, retenciones, sobrescribir? }
+    ipcMain.handle('declaracionJurada:escribirDeducciones', async (event, datos) => {
+        try {
+            return await escribirDeducciones.escribir(datos || {});
+        } catch (error) {
+            console.error('[DeclaracionJurada] Error en escribirDeducciones:', error);
+            return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
         }
     });
 

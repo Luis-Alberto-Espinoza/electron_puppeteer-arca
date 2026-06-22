@@ -21,6 +21,7 @@ const paso13 = require('../codigoXpagina/paso_13_completarTotales.js');
 const paso14 = require('../codigoXpagina/paso_14_siguiente.js');
 const paso18 = require('../codigoXpagina/paso_18_cargarRetenciones.js');
 const pasoLiq = require('../codigoXpagina/paso_completarLiquidacion.js');
+const pasoLeerDed = require('../codigoXpagina/paso_leerDeducciones.js');
 const paso17 = require('../codigoXpagina/paso_17_siguiente.js');
 const paso19 = require('../codigoXpagina/paso_19_grabar.js');
 // Pasos exploratorios (NO en el flujo, se corren a mano para relevar):
@@ -86,6 +87,7 @@ async function ejecutar(page, payload, credenciales) {
         let resSiguiente = null;
         let resRetenciones = null;
         let resLiquidacion = null;
+        let resDeducciones = null;
         let resSiguiente2 = null;
         let resGrabar = null;
         {
@@ -126,6 +128,8 @@ async function ejecutar(page, payload, credenciales) {
                         fechaPago,
                         saldoAFavorAnterior: modelo ? modelo.safAnterior : 0
                     });
+                    // Leer (read-only) los importes que AFIP calculó por deducción, antes de avanzar.
+                    resDeducciones = await pasoLeerDed.ejecutar(fenixPage);
                     resSiguiente2 = await paso17.ejecutar(fenixPage);         // → Consistencia IVA
                     // Grabar el BORRADOR solo si el usuario lo pidió (persiste en AFIP).
                     if (grabar) resGrabar = await paso19.ejecutar(fenixPage);
@@ -152,6 +156,7 @@ async function ejecutar(page, payload, credenciales) {
             resSiguiente ? '\n' + resSiguiente.resumen : '',
             resRetenciones ? '\n' + resRetenciones.resumen : '',
             resLiquidacion ? '\n' + resLiquidacion.resumen : '',
+            resDeducciones ? '\n' + resDeducciones.resumen : '',
             resSiguiente2 ? '\n' + resSiguiente2.resumen : '',
             resGrabar ? '\n' + resGrabar.resumen : ''
         ].join('\n');
@@ -172,6 +177,7 @@ async function ejecutar(page, payload, credenciales) {
             siguiente: resSiguiente,
             retenciones: resRetenciones,
             liquidacion: resLiquidacion,
+            deducciones: resDeducciones ? resDeducciones.deducciones : null,
             siguiente2: resSiguiente2,
             grabar: resGrabar,
             resumen
