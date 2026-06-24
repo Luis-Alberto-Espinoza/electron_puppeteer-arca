@@ -86,12 +86,8 @@ function inicializarCuentaTributaria() {
 
 function montarSelectorUsuariosA() {
     selectorUsuariosCT = new SelectorUsuarios('selector-usuarios-ct', {
-        campoCredencial: 'claveAFIP',
-        campoEstado: 'estado_afip',
-        campoError: 'errorAfip',
-        permitirInvalidos: false,
-        permitirSinValidar: false,
-        mensajeSinValidar: 'Debe validar las credenciales AFIP en Gestión de Clientes',
+        fuente: 'contribuyentes',   // modelo plano: El Papi/LANDES aparecen vía su representante
+        servicio: 'afip',
         mostrarColumnaCUIT: false,
 
         onCambioSeleccion: (seleccionados) => {
@@ -122,12 +118,8 @@ function montarSelectorUsuariosA() {
 
 function montarSelectorUsuariosB() {
     selectorUsuariosCT_B = new SelectorUsuarios('selector-usuarios-ct-b', {
-        campoCredencial: 'claveAFIP',
-        campoEstado: 'estado_afip',
-        campoError: 'errorAfip',
-        permitirInvalidos: false,
-        permitirSinValidar: false,
-        mensajeSinValidar: 'Debe validar las credenciales AFIP en Gestión de Clientes',
+        fuente: 'contribuyentes',   // modelo plano
+        servicio: 'afip',
         mostrarColumnaCUIT: false,
 
         onCambioSeleccion: (seleccionados) => {

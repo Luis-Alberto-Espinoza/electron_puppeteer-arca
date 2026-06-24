@@ -12,11 +12,8 @@
 (function () {
     const TITULOS = { afip: 'Abrir sesión AFIP', atm: 'Abrir sesión ATM' };
 
-    // Campos que usa SelectorUsuarios para filtrar validados (igual que el resto del front).
-    const CONFIG = {
-        afip: { campoCredencial: 'claveAFIP', campoEstado: 'estado_afip', campoError: 'errorAfip' },
-        atm:  { campoCredencial: 'claveATM',  campoEstado: 'estado_atm',  campoError: 'errorAtm' }
-    };
+    // Servicios válidos (también son el 'servicio' que entiende contribuyente.listar).
+    const SERVICIOS = ['afip', 'atm'];
 
     // Rutas relativas a home/index.html (igual que controlador.js).
     const SELECTOR_CSS = '../componentes/selectorUsuarios/selectorUsuarios.css';
@@ -48,7 +45,7 @@
     }
 
     async function abrirLanzadorSesion(servicio) {
-        if (!CONFIG[servicio]) {
+        if (!SERVICIOS.includes(servicio)) {
             console.error('[Lanzador] Servicio inválido:', servicio);
             return;
         }
@@ -88,11 +85,9 @@
             return;
         }
 
-        const cfg = CONFIG[servicio];
         new SelectorUsuarios('lanzador-selector', {
-            campoCredencial: cfg.campoCredencial,
-            campoEstado: cfg.campoEstado,
-            campoError: cfg.campoError,
+            fuente: 'contribuyentes',   // modelo plano
+            servicio: servicio,         // 'afip' | 'atm' → computa puedeOperar
             seleccionUnica: true,
             mostrarTablaSeleccionados: false,
             onCambioSeleccion: (sel) => {
@@ -109,9 +104,12 @@
             estado.textContent = '⏳ Abriendo navegador e iniciando sesión…';
             estado.className = 'lanzador-estado cargando';
             try {
-                const r = await window.electronAPI.sesion[servicio](clienteSel.id);
+                const r = await window.electronAPI.sesion[servicio](clienteSel.cuit);
                 if (r && r.success) {
-                    estado.textContent = '✅ Navegador abierto y sesión iniciada. Podés operar a mano (cerralo cuando termines).';
+                    const extra = r.requiereElegirEmpresa
+                        ? ' Entrás como su representante: elegí la empresa en la pantalla de AFIP.'
+                        : '';
+                    estado.textContent = '✅ Navegador abierto y sesión iniciada. Podés operar a mano (cerralo cuando termines).' + extra;
                     estado.className = 'lanzador-estado ok';
                 } else {
                     estado.textContent = '❌ ' + ((r && r.message) || 'No se pudo iniciar sesión');

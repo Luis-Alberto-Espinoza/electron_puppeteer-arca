@@ -68,13 +68,10 @@ function inicializarVEP() {
 
     // Crear selector de usuarios
     selectorUsuarios = new SelectorUsuarios('selector-usuarios-vep', {
-        // ====== VALIDACIÓN Y FILTRADO DE CREDENCIALES AFIP ======
-        campoCredencial: 'claveAFIP',
-        campoEstado: 'estado_afip',
-        campoError: 'errorAfip',
-        permitirInvalidos: false,
-        permitirSinValidar: false,
-        mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
+        // Modelo plano: El Papi aparece operable (vía su representante). El backend
+        // ya computó puedeOperar; no se usan campoCredencial/campoEstado.
+        fuente: 'contribuyentes',
+        servicio: 'afip',
 
         // Ocultar columna CUIT por defecto (usaremos "CUIT a Usar")
         mostrarColumnaCUIT: false,
@@ -109,54 +106,20 @@ function renderizarColumnasMediosPago(usuario) {
 
     let columnasHTML = '';
 
-    // COLUMNA 1: CUIT a Usar (muestra el CUIT que se usará para generar el VEP)
-    const cuitAsociados = usuario.cuitAsociados || [];
-    const tieneCuitsAsociados = cuitAsociados.length > 1;
-
-    if (tieneCuitsAsociados) {
-        // Usuario con múltiples CUITs: mostrar selector de radio buttons
-        const cuitSeleccionado = cuitsSeleccionados[usuario.id];
-        const opciones = cuitAsociados.map(cuit => {
-            const esElPrincipal = cuit === usuario.cuit;
-            const checked = cuitSeleccionado === cuit ? 'checked' : '';
-
-            return `
-                <label class="cuit-radio-label" style="display: block; margin: 2px 0; font-size: 11px;">
-                    <input
-                        type="radio"
-                        name="cuit-${usuario.id}"
-                        value="${cuit}"
-                        class="cuit-radio"
-                        data-usuario-id="${usuario.id}"
-                        ${checked}
-                        style="margin-right: 4px;"
-                    />
-                    ${cuit}
-                </label>
-            `;
-        }).join('');
-
-        columnasHTML += `
-            <td class="cuit-selector-cell" style="text-align: center; padding: 4px 8px; vertical-align: top;">
-                ${opciones}
-            </td>
-        `;
-    } else {
-        // Usuario con un solo CUIT: simplemente mostrarlo
-        const cuitAMostrar = usuario.cuit || usuario.cuil || 'N/A';
-        columnasHTML += `
-            <td class="cuit-selector-cell" style="text-align: center; padding: 8px; font-family: monospace; font-size: 12px;">
-                ${cuitAMostrar}
-            </td>
-        `;
-    }
+    // COLUMNA 1: CUIT. En el modelo plano cada contribuyente es UN solo CUIT
+    // (la vieja maquinaria de cuitAsociados / radios quedó obsoleta).
+    const cuitAMostrar = usuario.cuit || 'N/A';
+    columnasHTML += `
+        <td class="cuit-selector-cell" style="text-align: center; padding: 8px; font-family: monospace; font-size: 12px;">
+            ${cuitAMostrar}
+        </td>
+    `;
 
     // COLUMNA 2: Medio de pago → un <select> (texto) + la imagen del medio
     // elegido al lado. El <select> nativo no puede mostrar imágenes dentro de
     // las <option> (limitación del navegador), por eso la imagen va aparte y se
     // actualiza al elegir.
-    const tieneCuitRequerido = !tieneCuitsAsociados || cuitsSeleccionados[usuario.id];
-    const disabled = !tieneCuitRequerido ? 'disabled' : '';
+    const disabled = '';
 
     const medioSel = mediosPagoSeleccionados[usuario.id] || null;
     const opciones = MEDIOS_PAGO.map(medio => `
@@ -308,24 +271,7 @@ async function generarVEP() {
         return;
     }
 
-    // VALIDACIÓN 1: Verificar que usuarios con múltiples CUITs tengan uno seleccionado
-    const usuariosSinCuit = usuariosSeleccionados.filter(u => {
-        const cuitAsociados = u.cuitAsociados || [];
-        const tieneCuitsAsociados = cuitAsociados.length > 1;
-        return tieneCuitsAsociados && !cuitsSeleccionados[u.id];
-    });
-
-    if (usuariosSinCuit.length > 0) {
-        const nombresUsuarios = usuariosSinCuit.map(u => formatearNombreCompleto(u)).join(', ');
-        mostrarMensaje('error',
-            `⚠️ Debe seleccionar un CUIT para continuar.\n\n` +
-            `Usuario(s) sin CUIT seleccionado: ${nombresUsuarios}\n\n` +
-            `Por favor, seleccione un CUIT en la columna "CUIT a Usar" de la tabla de usuarios seleccionados.`
-        );
-        return;
-    }
-
-    // VALIDACIÓN 2: Verificar que todos tengan medio de pago
+    // VALIDACIÓN: Verificar que todos tengan medio de pago
     const faltantesMedio = usuariosSeleccionados.filter(u => !mediosPagoSeleccionados[u.id]);
     if (faltantesMedio.length > 0) {
         const nombresUsuarios = faltantesMedio.map(u => formatearNombreCompleto(u)).join(', ');
@@ -345,24 +291,14 @@ async function generarVEP() {
 
     // Preparar datos
     const payload = {
-        usuarios: usuariosSeleccionados.map(u => {
-            const cuitAsociados = u.cuitAsociados || [];
-            const tieneCuitsAsociados = cuitAsociados.length > 1;
-
-            // Usar CUIT seleccionado si existe, sino usar el CUIT principal
-            const cuitAUsar = tieneCuitsAsociados && cuitsSeleccionados[u.id]
-                ? cuitsSeleccionados[u.id]
-                : (u.cuit || u.cuil);
-
-            return {
-                usuario: {
-                    id: u.id,
-                    nombre: u.nombre,
-                    cuit: cuitAUsar  // ← CUIT seleccionado por el usuario
-                },
-                medioPago: mediosPagoSeleccionados[u.id]
-            };
-        }),
+        usuarios: usuariosSeleccionados.map(u => ({
+            usuario: {
+                id: u.id,
+                nombre: u.nombre,
+                cuit: u.cuit   // el backend resuelve login/objetivo a partir de este cuit
+            },
+            medioPago: mediosPagoSeleccionados[u.id]
+        })),
         periodosSeleccionados: EstadoVEP.periodosSeleccionados.length > 0
             ? EstadoVEP.periodosSeleccionados
             : null
@@ -1242,8 +1178,7 @@ async function ejecutarConsultaDeuda() {
             usuario: {
                 id: u.id,
                 nombre: u.nombre,
-                cuit: cuitAUsar,
-                clave: u.claveAFIP
+                cuit: cuitAUsar   // el backend resuelve login/objetivo desde el cuit
             },
             periodoDesde: convertirPeriodo(inputDesde ? inputDesde.value.trim() : ''),
             periodoHasta: convertirPeriodo(inputHasta ? inputHasta.value.trim() : ''),

@@ -1095,9 +1095,71 @@ function resetCreateForm() {
 
 // ========== FIN FUNCIONES DE NAVEGACIÓN ==========
 
+// Escapes mínimos para inyectar texto/valores en el editor de empresas.
+function _escHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function _escAttr(s) {
+    return _escHtml(s).replace(/"/g, '&quot;');
+}
+
+/**
+ * Renderiza el editor de empresas representadas dentro del form de edición.
+ * Una fila por empresa: razón social (label) + CUIT + clave ATM editables.
+ * Los PDV no se tocan acá (los preserva el backend al fusionar).
+ */
+function renderEditorEmpresas(empresas) {
+    const cont = document.getElementById('editEmpresasEditor');
+    if (!cont) return;
+    const lista = Array.isArray(empresas) ? empresas : [];
+
+    if (lista.length === 0) {
+        cont.innerHTML = `<div style="padding:10px 12px;background:#fff8e1;border:1px solid #f0ad4e;border-radius:6px;color:#b26a00;font-size:13px;">
+            ⏳ Este cliente no tiene empresas cargadas. Apretá <em>"Analizar Cliente"</em> para traerlas desde AFIP, y después cargales el CUIT y la clave ATM.
+        </div>`;
+        return;
+    }
+
+    const filas = lista.map(e => {
+        const rs = (e && e.razonSocial) || '';
+        const cuit = (e && e.cuit) || '';
+        const claveATM = (e && e.claveATM) || '';
+        return `
+        <div class="empresa-edit-row" data-razon="${_escAttr(rs)}" style="display:grid;grid-template-columns:1fr 160px 1fr;gap:10px;align-items:end;padding:8px 10px;border-bottom:1px solid #e3ecf6;">
+            <div style="font-weight:600;color:#1f3a5f;align-self:center;">${_escHtml(rs)}</div>
+            <label style="font-size:12px;color:#555;">CUIT empresa
+                <input type="text" class="emp-cuit" maxlength="11" value="${_escAttr(cuit)}" placeholder="11 dígitos" style="width:100%;margin-top:2px;">
+            </label>
+            <label style="font-size:12px;color:#555;">Clave ATM
+                <input type="text" class="emp-claveatm" value="${_escAttr(claveATM)}" placeholder="Clave ATM de la empresa" style="width:100%;margin-top:2px;">
+            </label>
+        </div>`;
+    }).join('');
+
+    cont.innerHTML = `
+        <div style="font-weight:700;color:#1f3a5f;margin-bottom:2px;">🏢 Empresas representadas</div>
+        <div style="font-size:12px;color:#555;margin-bottom:8px;">El CUIT y la clave ATM son <strong>de la empresa</strong>: ATM entra con el CUIT de la empresa, no con el del representante.</div>
+        <div style="background:#f3f7fc;border:1px solid #c9dbef;border-radius:8px;overflow:hidden;">${filas}</div>`;
+}
+
+/**
+ * Junta lo cargado en el editor de empresas. Devuelve `undefined` si no hay
+ * editor renderizado (así el backend no toca las empresas existentes).
+ */
+function collectEmpresasDelEditor() {
+    const rows = document.querySelectorAll('#editEmpresasEditor .empresa-edit-row');
+    if (rows.length === 0) return undefined;
+    return Array.from(rows).map(row => ({
+        razonSocial: row.getAttribute('data-razon') || '',
+        cuit: (row.querySelector('.emp-cuit')?.value || '').trim(),
+        claveATM: (row.querySelector('.emp-claveatm')?.value || '').trim()
+    }));
+}
+
 // Editar usuario
-window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido, analizadoAfip) {
-    window.currentEditingUser = { id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido, analizado_afip: analizadoAfip === true };
+window.editUser = async function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido, analizadoAfip) {
+    window.currentEditingUser = { id, nombre, claveAFIP, claveATM, cuit, cuil, tipoContribuyente, apellido, analizado_afip: analizadoAfip === true, empresas: [] };
 
     document.getElementById('editNombre').value = nombre;
     document.getElementById('editClaveAFIP').value = claveAFIP;
@@ -1108,6 +1170,17 @@ window.editUser = function (id, nombre, claveAFIP, claveATM, cuit, cuil, tipoCon
     document.getElementById('editApellido').value = apellido;
 
     actualizarEstadoAnalisisEnEdicion();
+
+    // Traer el cliente completo para tener empresas[] (el onclick solo manda escalares).
+    try {
+        const resp = await window.electronAPI.user.getById(id);
+        if (resp && resp.success && resp.user && Array.isArray(resp.user.empresas)) {
+            window.currentEditingUser.empresas = resp.user.empresas;
+        }
+    } catch (err) {
+        console.error('[editUser] no se pudieron traer las empresas:', err);
+    }
+    renderEditorEmpresas(window.currentEditingUser.empresas);
 
     // ✨ Ocultar la sección de usuarios mientras se edita
     const usersSection = document.querySelector('.users-section');
@@ -1162,6 +1235,16 @@ window.analizarCliente = async function () {
             const { totalEmpresas, empresasExitosas, resultados } = response.data || {};
             window.currentEditingUser.analizado_afip = true;
             actualizarEstadoAnalisisEnEdicion();
+
+            // Refrescar el editor con las empresas recién traídas para cargarles
+            // CUIT/clave ATM sin tener que reabrir la edición.
+            try {
+                const resp = await window.electronAPI.user.getById(window.currentEditingUser.id);
+                if (resp && resp.success && resp.user && Array.isArray(resp.user.empresas)) {
+                    window.currentEditingUser.empresas = resp.user.empresas;
+                    renderEditorEmpresas(window.currentEditingUser.empresas);
+                }
+            } catch (_) { /* no crítico */ }
 
             const detalles = (resultados || []).map(r =>
                 r.success
@@ -1266,7 +1349,9 @@ window.updateUser = async function() {
             cuit,
             cuil,
             tipoContribuyente,
-            apellido
+            apellido,
+            // CUIT + clave ATM por empresa. undefined si no hay editor → backend no toca empresas.
+            empresas: collectEmpresasDelEditor()
         };
 
         // Siempre usar el handler 'update' que ya existe en el backend
@@ -1304,6 +1389,8 @@ window.cancelEdit = function() {
     document.getElementById('editNombre').value = '';
     document.getElementById('editClaveAFIP').value = '';
     document.getElementById('editClaveATM').value = '';
+    const editorEmpresas = document.getElementById('editEmpresasEditor');
+    if (editorEmpresas) editorEmpresas.innerHTML = '';
 
     // ✨ Mostrar nuevamente la sección de usuarios al cancelar
     const usersSection = document.querySelector('.users-section');

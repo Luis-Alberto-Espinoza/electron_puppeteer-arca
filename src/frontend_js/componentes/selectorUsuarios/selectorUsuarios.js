@@ -74,6 +74,14 @@ class SelectorUsuarios {
             // API de Electron (pasada desde el contexto que tiene acceso)
             api: null,
 
+            // ====== MODELO PLANO (opt-in) ======
+            // 'usuarios' (default, legacy: user.getAll) | 'contribuyentes' (nuevo: contribuyente.listar)
+            // En modo 'contribuyentes' el backend ya computó puedeOperar/motivoNoOpera,
+            // así que NO se usan campoCredencial/campoEstado/requiereAnalisis.
+            fuente: 'usuarios',
+            // Servicio para computar operabilidad en modo contribuyentes: 'facturacion'|'afip'|'atm'
+            servicio: null,
+
             ...opciones
         };
 
@@ -101,6 +109,13 @@ class SelectorUsuarios {
      * @returns {Object} { estado: 'validado'|'invalido'|'sin_validar'|'sin_analizar', mensaje: string, esSeleccionable: boolean }
      */
     obtenerEstadoValidacion(usuario) {
+        // Modo contribuyentes: el backend ya decidió (puedeOperar/motivoNoOpera).
+        if (usuario && usuario._fuenteContribuyentes) {
+            return usuario.puedeOperar
+                ? { estado: 'validado', mensaje: null, esSeleccionable: true }
+                : { estado: 'invalido', mensaje: usuario.motivoNoOpera || 'No puede operar en este servicio', esSeleccionable: false };
+        }
+
         // Si no hay configuración de validación, todos son válidos
         if (!this.opciones.campoEstado) {
             return {
@@ -160,6 +175,10 @@ class SelectorUsuarios {
     }
 
     async cargarUsuarios() {
+        // Modo opt-in: leer del modelo plano (contribuyente.listar) en vez de user.getAll.
+        if (this.opciones.fuente === 'contribuyentes') {
+            return this.cargarContribuyentes();
+        }
         try {
             // Usar window.electronAPI (como ATM) o la API pasada en opciones
             const api = this.opciones.api || window.electronAPI || window.api;
@@ -239,6 +258,60 @@ class SelectorUsuarios {
             }
         } catch (error) {
             console.error('❌ Error en cargarUsuarios:', error);
+            this.todosLosUsuarios = [];
+            this.usuariosFiltrados = [];
+        }
+    }
+
+    /**
+     * Carga desde el modelo plano (contribuyente.listar). Los items ya vienen con
+     * puedeOperar/motivoNoOpera computados por el backend y SIN claves. Se adaptan
+     * al shape interno que usa el render (nombre/cuit/id) marcándolos con
+     * `_fuenteContribuyentes` para que obtenerEstadoValidacion sepa el origen.
+     */
+    async cargarContribuyentes() {
+        try {
+            const api = this.opciones.api || window.electronAPI || window.api;
+            if (!api || !api.contribuyente || !api.contribuyente.listar) {
+                console.error('❌ API contribuyente.listar no disponible');
+                this.todosLosUsuarios = [];
+                this.usuariosFiltrados = [];
+                return;
+            }
+
+            const resp = await api.contribuyente.listar({ servicio: this.opciones.servicio });
+            if (!resp || !resp.success || !Array.isArray(resp.items)) {
+                console.error('❌ contribuyente.listar falló:', resp && resp.error);
+                this.todosLosUsuarios = [];
+                this.usuariosFiltrados = [];
+                return;
+            }
+
+            let items = resp.items.map(it => ({
+                id: it.id,
+                cuit: it.cuit,
+                cuil: null,
+                nombre: it.nombreMostrado,
+                apellido: '',
+                razonSocial: it.nombreMostrado,
+                puedeOperar: it.puedeOperar,
+                motivoNoOpera: it.motivoNoOpera,
+                esRepresentado: it.esRepresentado,
+                _fuenteContribuyentes: true
+            }));
+
+            // Por default ocultamos a los que no pueden operar (igual que el legacy).
+            // Si el consumidor permite inválidos/sin validar, se muestran con su mensaje.
+            if (!this.opciones.permitirInvalidos && !this.opciones.permitirSinValidar) {
+                items = items.filter(i => i.puedeOperar);
+            }
+
+            this.todosLosUsuarios = items.sort((a, b) =>
+                (a.nombre || '').localeCompare(b.nombre || ''));
+            this.usuariosFiltrados = [...this.todosLosUsuarios];
+            console.log(`✅ ${this.todosLosUsuarios.length} contribuyentes cargados (servicio=${this.opciones.servicio})`);
+        } catch (error) {
+            console.error('❌ Error en cargarContribuyentes:', error);
             this.todosLosUsuarios = [];
             this.usuariosFiltrados = [];
         }

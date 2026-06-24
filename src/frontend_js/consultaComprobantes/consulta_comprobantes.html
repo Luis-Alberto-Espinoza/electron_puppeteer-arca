@@ -22,7 +22,9 @@
                 <div id="cc-selector-cliente"></div>
             </div>
 
-            <div class="cc-campo">
+            <!-- Empresa/Razón social: en el modelo plano el contribuyente YA es la
+                 empresa. Se deja oculto para no romper referencias del JS. -->
+            <div class="cc-campo" style="display:none;">
                 <label for="cc-select-empresa">Empresa / Razón social</label>
                 <select id="cc-select-empresa" disabled>
                     <option value="">Seleccione primero un cliente</option>

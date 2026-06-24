@@ -65,10 +65,8 @@ window.inicializarConsultaComprobantes = () => {
             return;
         }
         new SelectorUsuarios('cc-selector-cliente', {
-            campoCredencial: 'claveAFIP',
-            campoEstado: 'estado_afip',
-            campoError: 'errorAfip',
-            requiereAnalisis: true,
+            fuente: 'contribuyentes',     // modelo plano: El Papi aparece como fila propia
+            servicio: 'facturacion',      // operable = acceso AFIP validado + tiene PDV
             seleccionUnica: true,
             mostrarTablaSeleccionados: false,
             mostrarColumnaCUIT: false,
@@ -76,39 +74,36 @@ window.inicializarConsultaComprobantes = () => {
         });
     }
 
-    // ===== Cambio de cliente → poblar empresas =====
-    function onClienteSeleccionado(cliente) {
-        clienteSeleccionado = cliente;
-        selectEmpresa.innerHTML = '';
-        selectEmpresa.disabled = true;
-        resetPdv('Seleccione primero una empresa');
+    // ===== Cambio de contribuyente → poblar puntos de venta (cacheados) =====
+    // En el modelo plano el contribuyente YA es la "empresa": no hay cascada
+    // cliente→empresa. Cargamos directo sus PDV cacheados (los trajo la migración).
+    async function onClienteSeleccionado(contribuyente) {
+        clienteSeleccionado = contribuyente;
+        resetPdv('Seleccione primero un cliente');
 
-        if (!cliente) {
-            selectEmpresa.innerHTML = '<option value="">Seleccione primero un cliente</option>';
+        if (!contribuyente) {
             actualizarEstadoBoton();
             return;
         }
 
-        const empresas = Array.isArray(cliente.empresas) ? cliente.empresas : [];
-
-        if (empresas.length === 0) {
-            selectEmpresa.innerHTML = '<option value="">El cliente no tiene empresas registradas</option>';
-            actualizarEstadoBoton();
-            return;
+        mostrarPdvInfo('Cargando puntos de venta…', 'loading');
+        try {
+            const res = await window.electronAPI.contribuyente.puntosDeVenta(contribuyente.cuit);
+            if (res && res.success) {
+                popularPdv(res.puntosDeVenta);
+                if (Array.isArray(res.puntosDeVenta) && res.puntosDeVenta.length > 0) {
+                    mostrarPdvInfo(`${res.puntosDeVenta.length} punto(s) de venta`, 'idle');
+                }
+            } else {
+                resetPdv('No se pudieron cargar los puntos de venta');
+                mostrarPdvInfo(res?.error || 'Error al cargar puntos de venta', 'error');
+            }
+        } catch (e) {
+            resetPdv('Error al cargar puntos de venta');
+            mostrarPdvInfo(e.message || 'Error inesperado', 'error');
         }
-
-        selectEmpresa.innerHTML = '<option value="">Seleccione una empresa</option>';
-        empresas.forEach(emp => {
-            const nombre = typeof emp === 'string'
-                ? emp
-                : (emp?.razonSocial || emp?.nombre || '');
-            if (!nombre) return;
-            const opt = document.createElement('option');
-            opt.value = nombre;
-            opt.textContent = nombre;
-            selectEmpresa.appendChild(opt);
-        });
-        selectEmpresa.disabled = false;
+        // Redescubrir PDV desde AFIP queda para un sub-paso siguiente.
+        mostrarBtnRefrescar(false);
         actualizarEstadoBoton();
     }
 
@@ -276,10 +271,10 @@ window.inicializarConsultaComprobantes = () => {
 
     function actualizarEstadoBoton() {
         // El punto de venta es OPCIONAL: si no se elige, AFIP trae los
-        // comprobantes de todos los puntos de venta. Solo exigimos cliente,
-        // empresa y rango de fechas.
+        // comprobantes de todos los puntos de venta. Exigimos contribuyente
+        // y rango de fechas.
         const ok = clienteSeleccionado
-            && selectEmpresa.value
+            && clienteSeleccionado.cuit
             && inputDesde.value
             && inputHasta.value;
         btnConsultar.disabled = !ok;
@@ -299,8 +294,7 @@ window.inicializarConsultaComprobantes = () => {
         btnConsultar.disabled = true;
 
         const datos = {
-            usuario: { id: clienteSeleccionado.id },
-            nombreEmpresa: selectEmpresa.value,
+            cuit: clienteSeleccionado.cuit,
             puntoDeVenta: selectPdv.value,
             fechaDesde: inputDesde.value.trim(),
             fechaHasta: inputHasta.value.trim(),
