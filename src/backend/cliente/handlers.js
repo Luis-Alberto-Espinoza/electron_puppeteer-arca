@@ -1,4 +1,4 @@
-const { crearEmpresa, normalizarCliente } = require('./model.js');
+const { crearEmpresa, fusionarEmpresas, normalizarCliente } = require('./model.js');
 
 module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, dialog) {
     ipcMain.handle('user:create', async (event, userData) => {
@@ -123,6 +123,11 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 claveATM: updatedUser.claveATM,
                 fechaModificacion: new Date().toISOString()
             };
+
+            // Empresas: merge (no rebuild) para no perder los PDV scrapeados.
+            // El form manda cuit/claveATM por empresa; preservamos puntosDeVenta.
+            // Si el form no manda empresas, fusionarEmpresas devuelve las actuales.
+            userToUpdate.empresas = fusionarEmpresas(originalUser.empresas, updatedUser.empresas);
 
             // Si la clave AFIP cambió, resetear su estado de validación
             if (updatedUser.claveAFIP !== originalUser.claveAFIP) {

@@ -22,11 +22,22 @@
  * @property {string|null} cuit                       CUIT de la empresa (lo llena el scraping ABM)
  * @property {string} razonSocial                     razón social tal como aparece en AFIP
  * @property {'B'|'C'|null} tipoContribuyente         tipo DE LA EMPRESA (puede diferir del cliente)
- * @property {string|null} claveATM                   PARCHE: clave ATM propia de la empresa (ATM
- *   Mendoza es por empresa, no por representante). Se carga manualmente por ahora.
- *   Deuda técnica conocida: cuando llegue el modelo BD (Contribuyente + Credencial),
- *   esto se reemplaza por una fila en `credenciales(servicio='atm_mendoza')`.
- *   Ver docs/analisis/baseDeDatos/2_idea.md §1.2.
+ * @property {string|null} claveATM                   clave ATM propia de la empresa (ATM Mendoza es
+ *   por empresa, no por representante). Deuda técnica conocida: cuando llegue el modelo BD
+ *   (Contribuyente + Credencial), esto + el estado de abajo se reemplazan por una fila en
+ *   `credenciales(servicio='atm_mendoza')`. Ver docs/analisis/baseDeDatos/2_idea.md §1.2.
+ *
+ *   ── Estado de la credencial ATM de ESTA empresa ───────────────────────────
+ *   El estado de validación es POR CREDENCIAL, no por cliente (2_idea.md §0): la
+ *   empresa tiene su propia clave ATM, así que su validación vive acá, no en el
+ *   representante. Espeja los flags ATM que el cliente ya tiene a nivel raíz.
+ * @property {string|null} estado_atm                 'no_aplica'|'pendiente'|'validado'|'invalido'|'requiere_actualizacion'
+ * @property {boolean|null} claveAtmValida
+ * @property {boolean|null} claveAtmRequiereActualizacion
+ * @property {boolean|null} claveAtmInvalida
+ * @property {string|null} errorAtm                   mensaje del último intento fallido
+ * @property {string|null} fechaVerificacionAtm       ISO timestamp de la última verificación ATM
+ *
  * @property {PuntoDeVenta[]} puntosDeVenta           lista de pdv numéricos habilitados
  * @property {string|null} puntosDeVentaActualizados  ISO timestamp; null si nunca se trajeron
  */
@@ -64,11 +75,20 @@ function normalizarNumeroPdv(n) {
  * @returns {Empresa}
  */
 function crearEmpresa(parcial = {}) {
+    // Booleano si vino booleano, null si no se sabe (no forzar false: null = "nunca se verificó").
+    const bool3 = v => (typeof v === 'boolean' ? v : null);
     return {
         cuit: parcial.cuit != null ? String(parcial.cuit) : null,
         razonSocial: String(parcial.razonSocial || '').trim(),
         tipoContribuyente: parcial.tipoContribuyente || null,
         claveATM: parcial.claveATM ? String(parcial.claveATM) : null,
+        // Estado de la credencial ATM de esta empresa (espeja los flags del cliente).
+        estado_atm: parcial.estado_atm || null,
+        claveAtmValida: bool3(parcial.claveAtmValida),
+        claveAtmRequiereActualizacion: bool3(parcial.claveAtmRequiereActualizacion),
+        claveAtmInvalida: bool3(parcial.claveAtmInvalida),
+        errorAtm: parcial.errorAtm || null,
+        fechaVerificacionAtm: parcial.fechaVerificacionAtm || null,
         puntosDeVenta: Array.isArray(parcial.puntosDeVenta)
             ? parcial.puntosDeVenta.map(normalizarPuntoDeVenta).filter(Boolean)
             : [],
@@ -217,6 +237,81 @@ function normalizarCliente(raw) {
 }
 
 /**
+ * Fusiona las empresas que vienen del form de edición con las ya guardadas,
+ * matcheando por `razonSocial` (case-insensitive, trim).
+ *
+ * Contrato: **el form es autoritativo sobre los campos que muestra**
+ * (`cuit`, `claveATM`, `tipoContribuyente`) y el **storage es autoritativo sobre
+ * lo que el form no toca** (`puntosDeVenta`, `puntosDeVentaActualizados`). Así se
+ * cumple la regla del informe (`docs/modelo_cliente/...`): persistir con merge,
+ * NO rebuild — nunca se pierden los PDV scrapeados al editar.
+ *
+ * - Empresa entrante que matchea una existente → merge (pisa cuit/claveATM/tipo,
+ *   conserva PDV de la existente).
+ * - Empresa entrante nueva → se agrega.
+ * - Empresa existente NO mencionada en el form → se conserva tal cual.
+ * - `entrantes` undefined/no-array → devuelve las existentes sin tocar (los
+ *   callers viejos que no mandan empresas no rompen nada).
+ *
+ * `cuit` se preserva si el form lo manda vacío (no se borra por accidente).
+ * `claveATM` sí se puede vaciar (mandar '' borra la clave).
+ *
+ * @param {Empresa[]} existentes
+ * @param {Array<Empresa|string>} entrantes
+ * @returns {Empresa[]}
+ */
+function fusionarEmpresas(existentes, entrantes) {
+    const previas = (Array.isArray(existentes) ? existentes : [])
+        .filter(esEmpresaObjeto)
+        .map(crearEmpresa);
+    const porRazon = new Map(previas.map(e => [e.razonSocial.trim().toLowerCase(), e]));
+
+    if (!Array.isArray(entrantes)) return Array.from(porRazon.values());
+
+    for (const raw of entrantes) {
+        const obj = typeof raw === 'string' ? { razonSocial: raw } : (raw || {});
+        const razonSocial = String(obj.razonSocial || '').trim();
+        if (!razonSocial) continue;
+        const key = razonSocial.toLowerCase();
+        const previa = porRazon.get(key) || null;
+
+        // Clave ATM resultante (form autoritativo: '' borra; ausente conserva).
+        const claveATMnueva = obj.claveATM !== undefined
+            ? (obj.claveATM ? String(obj.claveATM) : null)
+            : (previa ? previa.claveATM : null);
+        // Si la clave cambió respecto de la guardada, la validación vieja ya no
+        // aplica → se resetea (espeja lo que hace user:update a nivel cliente).
+        const claveCambio = previa && claveATMnueva !== previa.claveATM;
+
+        porRazon.set(key, crearEmpresa({
+            razonSocial,
+            // Form autoritativo (lo que muestra). cuit se preserva si viene vacío.
+            cuit: (obj.cuit != null && String(obj.cuit).trim() !== '')
+                ? obj.cuit
+                : (previa && previa.cuit),
+            claveATM: claveATMnueva,
+            tipoContribuyente: obj.tipoContribuyente || (previa && previa.tipoContribuyente),
+            // Estado ATM: lo maneja el storage, no el form. Preservar salvo que cambie la clave.
+            estado_atm: claveCambio
+                ? (claveATMnueva ? 'pendiente' : 'no_aplica')
+                : (previa && previa.estado_atm),
+            claveAtmValida: claveCambio ? null : (previa && previa.claveAtmValida),
+            claveAtmRequiereActualizacion: claveCambio ? null : (previa && previa.claveAtmRequiereActualizacion),
+            claveAtmInvalida: claveCambio ? null : (previa && previa.claveAtmInvalida),
+            errorAtm: claveCambio ? null : (previa && previa.errorAtm),
+            fechaVerificacionAtm: claveCambio ? null : (previa && previa.fechaVerificacionAtm),
+            // Storage autoritativo (lo que el form no toca): preservar PDV.
+            puntosDeVenta: previa ? previa.puntosDeVenta : obj.puntosDeVenta,
+            puntosDeVentaActualizados: previa
+                ? previa.puntosDeVentaActualizados
+                : obj.puntosDeVentaActualizados
+        }));
+    }
+
+    return Array.from(porRazon.values());
+}
+
+/**
  * Devuelve la empresa por razón social. Match case-insensitive y trim.
  * @param {Cliente} cliente
  * @param {string} razonSocial
@@ -242,6 +337,7 @@ function listarRazonesSociales(cliente) {
 
 module.exports = {
     crearEmpresa,
+    fusionarEmpresas,
     normalizarCliente,
     normalizarPuntoDeVenta,
     normalizarNumeroPdv,
