@@ -7,6 +7,7 @@ const fsSync = require('fs');
 const os = require('os');
 const path = require('path');
 const { getDownloadPath, moverArchivo } = require('../../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 const { getSctFrame } = require('./_helpers.js');
 
 function fechaHoy() {
@@ -143,11 +144,9 @@ async function ejecutar(page, usuario, cuitAsociado, downloadsPath) {
         const ext = path.extname(originalName) || '.xlsx';
 
         // 4) Mover a archivos_afip/<cliente>/ con nombre estandarizado.
-        const destinoDir = getDownloadPath(downloadsPath, {
-            cuit: usuario.cuit || cuitAsociado,
-            nombre: usuario.nombre,
-            apellido: usuario.apellido
-        }, 'archivos_afip');
+        // Carpeta por el OBJETIVO (cuitAsociado) con nombre canónico del repo →
+        // cruza con el resto de flujos. (antes: usuario.cuit = login-first, bug)
+        const destinoDir = await getDownloadPathContribuyente(downloadsPath, cuitAsociado || usuario.cuit, usuario.nombre, 'archivos_afip');
         const nuevoNombre = `DeudaCT_${cuitAsociado || usuario.cuit}_${fechaHoy()}${ext}`;
         const destinoPath = path.join(destinoDir, nuevoNombre);
         await moverArchivo(srcPath, destinoPath);

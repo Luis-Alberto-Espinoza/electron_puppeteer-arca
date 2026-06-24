@@ -12,19 +12,18 @@
 // payload.items: [{ cliente: {id, nombre, cuitLogin}, cuitAsociado, medioPago?, deudasABuscar? }, ...]
 
 const cuentaTributariaManager = require('./cuentaTributariaManager.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
-function obtenerCredenciales(userStorage, cliente) {
-    const dataBD = userStorage.loadData();
-    const u = dataBD.users.find(x => String(x.id) === String(cliente.id));
-    if (!u) {
-        throw new Error(`No se pudieron obtener las credenciales del cliente ${cliente.nombre || cliente.id}`);
+async function obtenerCredenciales(repo, cuitAsociado) {
+    // Modelo plano: el login sale del resolver (representante si el contribuyente
+    // no tiene clave propia). Después paso_1/seleccionaCuit opera sobre cuitAsociado.
+    const acceso = await repo.resolverAcceso(String(cuitAsociado), 'afip');
+    if (!acceso) {
+        throw new Error(`El contribuyente ${cuitAsociado} no tiene acceso AFIP (ni clave propia ni representante)`);
     }
-    return {
-        usuario: u.cuit || cliente.cuitLogin || cliente.cuit,
-        contrasena: u.claveAFIP || u.clave
-    };
+    return { usuario: acceso.loginCuit, contrasena: acceso.loginClave };
 }
 
 /**
@@ -64,6 +63,7 @@ function claveItem(item) {
 }
 
 function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
+    const repo = getContribuyenteRepo();
 
     ipcMain.handle('cuentaTributaria:procesar', async (event, datos) => {
         console.log('[CuentaTributaria] Solicitud recibida. modo=', datos && datos.modo);
@@ -101,7 +101,7 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
                     });
 
                     try {
-                        const credenciales = obtenerCredenciales(userStorage, cliente);
+                        const credenciales = await obtenerCredenciales(repo, cuitAsociado);
                         const r = await cuentaTributariaManager.iniciarProceso(
                             url,
                             credenciales,
@@ -207,7 +207,7 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
                     }
 
                     try {
-                        const credenciales = obtenerCredenciales(userStorage, cliente);
+                        const credenciales = await obtenerCredenciales(repo, cuitAsociado);
                         const r = await cuentaTributariaManager.iniciarProceso(
                             url,
                             credenciales,
@@ -301,7 +301,7 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
                     }
 
                     try {
-                        const credenciales = obtenerCredenciales(userStorage, cliente);
+                        const credenciales = await obtenerCredenciales(repo, cuitAsociado);
                         const r = await cuentaTributariaManager.iniciarProceso(
                             url,
                             credenciales,

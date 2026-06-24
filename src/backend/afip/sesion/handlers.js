@@ -1,36 +1,39 @@
 // afip/sesion/handlers.js
 // Handler IPC del lanzador de sesión AFIP.
 //
-//   afip:abrirSesion  payload: clienteId (string)
-//     → busca el cliente en storage, arma credenciales AFIP y abre el navegador logueado.
+//   afip:abrirSesion  payload: cuit (string)
+//     → resuelve el acceso (propio o por representante) y abre el navegador logueado.
+//
+// Usa el modelo plano: resolverAcceso(cuit, 'afip') devuelve con qué CUIT/clave
+// entrar. Para un representado (ej. El Papi) entra con la clave del representante
+// (Debora) y avisa que hay que elegir empresa en AFIP. Las claves nunca salen del
+// main process.
 
 const sesionAfipManager = require('./sesionAfipManager.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 
-/**
- * Arma las credenciales AFIP del cliente desde el storage.
- * Mismo criterio que afip/cuentaTributaria/handlers.js (obtenerCredenciales).
- */
-function obtenerCredencialesAfip(userStorage, clienteId) {
-    const data = userStorage.loadData();
-    const u = data.users.find(x => String(x.id) === String(clienteId));
-    if (!u) {
-        throw new Error(`No se encontró el cliente ${clienteId}`);
-    }
-    if (!u.claveAFIP) {
-        throw new Error(`El cliente ${u.nombre || clienteId} no tiene clave AFIP cargada`);
-    }
-    return {
-        usuario: u.cuit,
-        contrasena: u.claveAFIP
-    };
-}
+function setupSesionAfipHandlers(ipcMain) {
+    const repo = getContribuyenteRepo();
 
-function setupSesionAfipHandlers(ipcMain, userStorage) {
-    ipcMain.handle('afip:abrirSesion', async (event, clienteId) => {
-        console.log('[SesionAFIP] Solicitud de apertura para cliente:', clienteId);
+    ipcMain.handle('afip:abrirSesion', async (event, cuit) => {
+        console.log('[SesionAFIP] Solicitud de apertura para CUIT:', cuit);
         try {
-            const credenciales = obtenerCredencialesAfip(userStorage, clienteId);
-            return await sesionAfipManager.abrirSesion(credenciales);
+            const acceso = await repo.resolverAcceso(String(cuit), 'afip');
+            if (!acceso) {
+                return {
+                    success: false,
+                    error: 'SIN_ACCESO',
+                    message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).'
+                };
+            }
+            const credenciales = { usuario: acceso.loginCuit, contrasena: acceso.loginClave };
+            const r = await sesionAfipManager.abrirSesion(credenciales);
+            // Le pasamos al front si tiene que elegir empresa (caso representado).
+            return {
+                ...r,
+                requiereElegirEmpresa: acceso.requiereElegirEmpresa,
+                objetivoNombre: acceso.objetivoNombre
+            };
         } catch (error) {
             console.error('[SesionAFIP] Error:', error.message);
             return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };

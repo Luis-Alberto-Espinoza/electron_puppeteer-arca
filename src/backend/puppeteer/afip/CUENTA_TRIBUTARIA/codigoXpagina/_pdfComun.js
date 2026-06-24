@@ -13,6 +13,7 @@
 const fs = require('fs/promises');
 const path = require('path');
 const { getDownloadPath, moverArchivo } = require('../../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 
 // ============================================================
 // EXTRACCIÓN DE METADATOS DEL PDF (copiado/adaptado del módulo VEP)
@@ -211,16 +212,10 @@ async function construirNombreYMover(srcPath, { cliente, cuitAsociado, medioPago
     const medioPagoId = (medioPago && medioPago.id) || 'sinMedio';
     const nuevoNombre = `VEP-CT_${nroVepFinal}_${cuitFinal}_${medioPagoId}_${periodoFinal}_${fecha}.pdf`;
 
-    // Pasar el objeto cliente con CUIT para que la carpeta sea canónica
-    // (ver fileManager.nombreCarpetaCliente). En SCT el `cliente` viene
-    // como `{id, nombre, cuitLogin}` desde el flujo, así que mapeamos
-    // `cuitLogin` → `cuit` y caemos a `cuitAsociado` si falta.
-    const clienteParaCarpeta = {
-        cuit: (cliente && cliente.cuitLogin) || cuitAsociado,
-        nombre: cliente && cliente.nombre,
-        apellido: cliente && cliente.apellido
-    };
-    const destinoDir = getDownloadPath(downloadsPath, clienteParaCarpeta, 'archivos_afip');
+    // Carpeta por el OBJETIVO (cuitAsociado) con nombre canónico del repo →
+    // cruza con el resto de flujos. (antes: cuitLogin = login-first, bug)
+    const destinoDir = await getDownloadPathContribuyente(
+        downloadsPath, cuitAsociado || (cliente && cliente.cuitLogin), cliente && cliente.nombre, 'archivos_afip');
     const destinoPath = path.join(destinoDir, nuevoNombre);
 
     await moverArchivo(srcPath, destinoPath);

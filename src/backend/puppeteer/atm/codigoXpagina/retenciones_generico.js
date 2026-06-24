@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs').promises;
 const { getDownloadPath, getFilenameRetenciones } = require('../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
 
 /**
  * Descarga retenciones/percepciones de forma genérica para cualquier sub-servicio de ATM
@@ -289,7 +290,7 @@ async function descargarRetencionGenerico(config) {
         console.log(`[${nombre}]    ✓ ${cantidad} registro(s) encontrado(s)`);
 
         // Preparar descarga
-        const downloadDir = getDownloadPath(downloadsPath, { cuit, nombre: nombreUsuario }, 'archivos_atm/RetencionesYPercepciones');
+        const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuit, nombreUsuario, 'archivos_atm/RetencionesYPercepciones');
         const archivosAntesDeDescarga = await fs.readdir(downloadDir);
 
         // Configurar CDP session para descargas

@@ -18,6 +18,7 @@ const {
     ejecutarFlujoReimpresion
 } = require('../codigoXpagina/tasaCero-formulario.js');
 const { getDownloadPath, moverArchivo } = require('../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
 
 /**
  * Extrae el mes en español abreviado de un periodo en formato MM/YYYY
@@ -105,7 +106,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // ========================================================================
         // PASO 0: Construir ruta de destino final
         // ========================================================================
-        const carpetaDestino = getDownloadPath(downloadsPath, { cuit: credenciales.cuit, nombre: nombreUsuario }, 'archivos_atm/tasa_cero');
+        const carpetaDestino = await getDownloadPathContribuyente(downloadsPath, credenciales.cuit, nombreUsuario, 'archivos_atm/tasa_cero');
         console.log(`[Flujo Tasa Cero] Carpeta de destino: ${carpetaDestino}`);
 
         // ========================================================================

@@ -16,6 +16,7 @@ let userStorage;
 
 // Importar los handlers de usuario modularizados
 const setupUserHandlers = require('../cliente/handlers.js');
+const setupContribuyenteHandlers = require('../cliente/contribuyenteHandlers.js');
 const setupMercadoPagoHandlers = require('../afip/extraerDemercadoPago/handlers.js');
 
 // Importar handlers de AFIP por dominio
@@ -350,6 +351,7 @@ app.whenReady().then(async () => {
 
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
+        setupContribuyenteHandlers(ipcMain); // modelo plano (listar, sin claves)
         setupMercadoPagoHandlers(ipcMain, mainWindow, dialog);
         setupFacturaHandlers(ipcMain, userStorage, mainWindow);
         setupVepHandlers(ipcMain, userStorage, mainWindow, app);
@@ -360,7 +362,7 @@ app.whenReady().then(async () => {
         setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app);
         setupDeclaracionJuradaHandlers(ipcMain, userStorage, app);
         setupLibroIvaHandlers(ipcMain);
-        setupSesionAfipHandlers(ipcMain, userStorage);
+        setupSesionAfipHandlers(ipcMain); // usa contribuyenteRepo (resolverAcceso)
 
         // Handlers de ATM por servicio
         setupConstanciaFiscalHandlers(ipcMain, mainWindow, app);
@@ -368,7 +370,7 @@ app.whenReady().then(async () => {
         setupRetencionesHandlers(ipcMain, mainWindow, app);
         setupTasaCeroHandlers(ipcMain, mainWindow, app);
         setupListasATMHandlers(ipcMain);
-        setupSesionAtmHandlers(ipcMain, userStorage);
+        setupSesionAtmHandlers(ipcMain); // usa contribuyenteRepo (resolverAcceso)
 
         // Handlers de Planes de Pago AFIP
         setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app);

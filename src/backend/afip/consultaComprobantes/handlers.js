@@ -2,27 +2,26 @@
 // IPC handler para Consulta de Comprobantes Emitidos
 
 const consultaComprobantesManager = require('./consultaComprobantesManager.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
  * @param {Electron.IpcMain} ipcMain
- * @param {Object} userStorage
+ * @param {Object} userStorage  (legacy, ya no se usa acá)
  * @param {Electron.App} app
  */
 function setupConsultaComprobantesHandlers(ipcMain, userStorage, app) {
+    const repo = getContribuyenteRepo();
 
     ipcMain.handle('consultaComprobantes:consultar', async (event, datos) => {
         console.log('BACKEND: Recibida solicitud consultaComprobantes:consultar');
 
         try {
-            const { usuario, nombreEmpresa, puntoDeVenta, fechaDesde, fechaHasta, tipoComprobante } = datos || {};
+            const { cuit, puntoDeVenta, fechaDesde, fechaHasta, tipoComprobante } = datos || {};
 
-            if (!usuario || !usuario.id) {
-                return { success: false, error: 'MISSING_USER', message: 'Falta el usuario.' };
-            }
-            if (!nombreEmpresa) {
-                return { success: false, error: 'MISSING_EMPRESA', message: 'Falta la empresa.' };
+            if (!cuit) {
+                return { success: false, error: 'MISSING_CUIT', message: 'Falta el contribuyente.' };
             }
             // Punto de venta OPCIONAL: si no viene, la automatización deja el
             // select en "Todos" y AFIP devuelve los comprobantes de todos los pdv.
@@ -30,32 +29,34 @@ function setupConsultaComprobantesHandlers(ipcMain, userStorage, app) {
                 return { success: false, error: 'MISSING_FECHAS', message: 'Faltan fechas desde/hasta.' };
             }
 
-            const dataBD = userStorage.loadData();
-            const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
-            if (!usuarioCompleto) {
-                return { success: false, error: 'USER_NOT_FOUND', message: 'No se encontró el usuario en la base.' };
+            // Modelo plano: el resolver da con qué loguear (representante si aplica)
+            // y de quién es el trámite (objetivo → empresa a elegir + carpeta).
+            const acceso = await repo.resolverAcceso(String(cuit), 'afip');
+            if (!acceso) {
+                return { success: false, error: 'SIN_ACCESO', message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
             }
 
             const credenciales = {
-                usuario: usuarioCompleto.cuit,
-                contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave,
-                nombreEmpresa
+                usuario: acceso.loginCuit,
+                contrasena: acceso.loginClave,
+                nombreEmpresa: acceso.objetivoNombre   // razón social a elegir en AFIP
             };
 
             const datosManager = {
                 fechaDesde,
                 fechaHasta,
-                nombreEmpresa,
+                nombreEmpresa: acceso.objetivoNombre,
                 puntoDeVenta,
                 // Opcional: si viene vacío/undefined, la automatización no toca el
                 // select de tipo y AFIP devuelve todos los comprobantes.
                 tipoComprobante: tipoComprobante || null
             };
 
+            // Carpeta por el OBJETIVO (El Papi), no por el login (Debora). Acá se
+            // mata el bug histórico de carpeta login-first.
             const usuarioParaArchivo = {
-                cuit: usuarioCompleto.cuit,
-                nombre: usuarioCompleto.nombre,
-                apellido: usuarioCompleto.apellido
+                cuit: acceso.objetivoCuit,
+                nombre: acceso.objetivoNombre
             };
 
             const downloadsPath = app.getPath('downloads');

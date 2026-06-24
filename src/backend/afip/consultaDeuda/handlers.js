@@ -2,14 +2,16 @@
 // Handlers IPC para el dominio de Consulta de Deuda AFIP
 
 const consultaDeudaManager = require('./consultaDeudaManager.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 
 /**
  * Configura los handlers IPC para el dominio de Consulta de Deuda
  * @param {Electron.IpcMain} ipcMain - Instancia de ipcMain
- * @param {Object} userStorage - Storage de usuarios
+ * @param {Object} userStorage - Storage de usuarios (legacy, ya no se usa acá)
  * @param {Electron.App} app - Instancia de la app
  */
 function setupConsultaDeudaHandlers(ipcMain, userStorage, app) {
+    const repo = getContribuyenteRepo();
 
     // ========================================
     // HANDLER: consultaDeuda:consultar
@@ -37,17 +39,18 @@ function setupConsultaDeudaHandlers(ipcMain, userStorage, app) {
                 console.log(`\n[${i + 1}/${consultasData.length}] Consultando ${usuario.nombre} (${usuario.cuit})`);
 
                 try {
-                    // Obtener credenciales del usuario desde el storage
-                    const dataBD = userStorage.loadData();
-                    const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
-
-                    if (!usuarioCompleto) {
-                        throw new Error(`No se pudieron obtener las credenciales del usuario`);
+                    // Modelo plano: el resolver da el login (representante si aplica)
+                    // y el objetivo. El objetivo se enhebra como `usuario` →
+                    // seleccionaCuit (paso_1b en el flujo) opera sobre él y la
+                    // carpeta queda en el objetivo (no en el login).
+                    const acceso = await repo.resolverAcceso(String(usuario.cuit), 'afip');
+                    if (!acceso) {
+                        throw new Error('El contribuyente no tiene acceso AFIP (ni clave propia ni representante)');
                     }
 
                     const credenciales = {
-                        usuario: usuarioCompleto.cuit || usuario.cuit,
-                        contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
+                        usuario: acceso.loginCuit,
+                        contrasena: acceso.loginClave
                     };
 
                     // Llamar al Consulta Deuda Manager
@@ -55,8 +58,9 @@ function setupConsultaDeudaHandlers(ipcMain, userStorage, app) {
                     const consultaData = {
                         usuario: {
                             id: usuario.id,
-                            nombre: usuario.nombre,
-                            cuit: usuario.cuit
+                            nombre: acceso.objetivoNombre,
+                            cuit: acceso.objetivoCuit,
+                            apellido: ''
                         },
                         periodoDesde,
                         periodoHasta,

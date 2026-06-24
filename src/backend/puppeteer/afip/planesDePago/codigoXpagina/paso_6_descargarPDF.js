@@ -9,6 +9,7 @@
 
 const path = require('path');
 const { getDownloadPath } = require('../../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 const { launchBrowser } = require('../../../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
 async function ejecutar(datosTabla, infoPlan, usuario, cuitConsulta, downloadsPath) {
@@ -18,11 +19,10 @@ async function ejecutar(datosTabla, infoPlan, usuario, cuitConsulta, downloadsPa
         const numeroPlan = infoPlan.numero || 'SinNumero';
         console.log(`  → Paso 6: Generando PDF del plan #${numeroPlan}...`);
 
-        const downloadDir = getDownloadPath(downloadsPath, {
-            cuit: usuario.cuit || cuitConsulta,
-            nombre: usuario.nombre,
-            apellido: usuario.apellido
-        }, 'archivos_afip');
+        // Carpeta por el OBJETIVO (el cuit consultado / asociado), no por el
+        // representante que loguea. Nombre canónico vía el repo → cruza con el
+        // resto de los flujos. (antes: usuario.cuit = login-first, bug de carpeta)
+        const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuitConsulta, '', 'archivos_afip');
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         const fechaDescarga = new Date().toISOString().slice(0, 10);
         const finalFilename = `PlanDePago_${cuitLimpio}_Plan${numeroPlan}_${fechaDescarga}.pdf`;

@@ -4,6 +4,7 @@ const {
     getFilename,
     waitForFile
 } = require('../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
 
 /**
  * Gestiona la descarga de la constancia fiscal desde la página de ATM.
@@ -16,7 +17,7 @@ const {
 async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPath) {
   try {
     // 1. Obtener la ruta de descarga y configurar el comportamiento de descarga
-    const downloadDir = getDownloadPath(downloadsPath, { cuit, nombre: nombreUsuario }, 'archivos_atm');
+    const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuit, nombreUsuario, 'archivos_atm');
     const client = await page.target().createCDPSession();
     await client.send('Page.setDownloadBehavior', {
       behavior: 'allow',

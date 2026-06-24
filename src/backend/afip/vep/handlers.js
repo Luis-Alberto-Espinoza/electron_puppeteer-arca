@@ -2,15 +2,17 @@
 // Handlers IPC para el dominio de VEP (Volante Electronico de Pago)
 
 const vepManager = require('./vepManager.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 
 /**
  * Configura los handlers IPC para el dominio de VEP
  * @param {Electron.IpcMain} ipcMain - Instancia de ipcMain
- * @param {Object} userStorage - Storage de usuarios
+ * @param {Object} userStorage - Storage de usuarios (legacy, ya no se usa acá)
  * @param {Electron.BrowserWindow} mainWindow - Ventana principal
  * @param {Electron.App} app - Instancia de la app
  */
 function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
+    const repo = getContribuyenteRepo();
 
     // ========================================
     // HANDLER: vep:generar
@@ -49,25 +51,23 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                     console.log(`\n[${i + 1}/${usuarios.length}] Procesando ${usuario.nombre} (${usuario.cuit})`);
 
                     try {
-                        // Obtener credenciales
-                        const dataBD = userStorage.loadData();
-                        const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
-
-                        if (!usuarioCompleto) {
-                            throw new Error(`No se pudieron obtener las credenciales`);
+                        // Modelo plano: el resolver da el login (representante si aplica)
+                        // y el objetivo. El objetivo se enhebra como `usuario` →
+                        // paso_1b selecciona ese CUIT en AFIP (seleccionaCuit) y la
+                        // carpeta queda en el objetivo (no en el login).
+                        const acceso = await repo.resolverAcceso(String(usuario.cuit), 'afip');
+                        if (!acceso) {
+                            throw new Error('El contribuyente no tiene acceso AFIP (ni clave propia ni representante)');
                         }
 
                         const credenciales = {
-                            usuario: usuarioCompleto.cuit || usuario.cuit,
-                            contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
+                            usuario: acceso.loginCuit,
+                            contrasena: acceso.loginClave
                         };
 
-                        // Enriquecer el usuario con apellido (el frontend pasa solo
-                        // {id, nombre, cuit}). El paso_10 lo necesita para armar la
-                        // carpeta canónica `${cuit}_${nombre}_${apellido}` igual que el SCT.
                         const itemEnriquecido = {
                             ...item,
-                            usuario: { ...usuario, apellido: usuario.apellido || usuarioCompleto.apellido }
+                            usuario: { ...usuario, cuit: acceso.objetivoCuit, nombre: acceso.objetivoNombre, apellido: '' }
                         };
 
                         // Llamar al VEP Manager SIN periodos seleccionados
@@ -181,19 +181,19 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                 console.log(`\nProcesando ${usuario.nombre} con ${periodosCliente.length} periodo(s)`);
 
                 try {
-                    const dataBD = userStorage.loadData();
-                    const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
+                    const acceso = await repo.resolverAcceso(String(usuario.cuit), 'afip');
+                    if (!acceso) {
+                        throw new Error('El contribuyente no tiene acceso AFIP (ni clave propia ni representante)');
+                    }
 
                     const credenciales = {
-                        usuario: usuarioCompleto.cuit || usuario.cuit,
-                        contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
+                        usuario: acceso.loginCuit,
+                        contrasena: acceso.loginClave
                     };
 
-                    // Enriquecer el usuario con apellido (mismo motivo que en la
-                    // primera pasada — el frontend manda recortado).
                     const itemEnriquecido = {
                         ...item,
-                        usuario: { ...usuario, apellido: usuario.apellido || (usuarioCompleto && usuarioCompleto.apellido) }
+                        usuario: { ...usuario, cuit: acceso.objetivoCuit, nombre: acceso.objetivoNombre, apellido: '' }
                     };
 
                     // Llamar con los periodos seleccionados

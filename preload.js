@@ -138,10 +138,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
         analizarEmpresa: (datos) => ipcRenderer.invoke('empresa:analizarEmpresa', datos)
     },
 
-    // Lanzador de sesión: elige un cliente y abre el navegador ya logueado (AFIP/ATM).
+    // Modelo plano de contribuyente (Tareas 3-7). `listar` NO devuelve claves.
+    contribuyente: {
+        listar: (opts) => ipcRenderer.invoke('contribuyente:listar', opts),
+        puntosDeVenta: (cuit) => ipcRenderer.invoke('contribuyente:puntosDeVenta', cuit)
+    },
+
+    // Lanzador de sesión: elige un contribuyente y abre el navegador ya logueado.
+    // Ahora recibe el CUIT (el backend resuelve el acceso con resolverAcceso).
     sesion: {
-        afip: (clienteId) => ipcRenderer.invoke('afip:abrirSesion', clienteId),
-        atm:  (clienteId) => ipcRenderer.invoke('atm:abrirSesion',  clienteId)
+        afip: (cuit) => ipcRenderer.invoke('afip:abrirSesion', cuit),
+        atm:  (cuit) => ipcRenderer.invoke('atm:abrirSesion',  cuit)
     },
 
     // APIs para Cuenta Tributaria (SCT)
