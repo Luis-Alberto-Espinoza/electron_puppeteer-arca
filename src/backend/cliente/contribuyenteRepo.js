@@ -160,6 +160,12 @@ function crearContribuyenteRepo(store) {
             return cargarNormalizado().find(c => c.cuit === objetivo) || null;
         },
 
+        // Lista COMPLETA normalizada (con claves) — backend-only. La usa el CRUD
+        // para proyectar users.json (puente write-side). NUNCA cruza al renderer.
+        async obtenerTodos() {
+            return cargarNormalizado();
+        },
+
         async getById(id) {
             return cargarNormalizado().find(c => String(c.id) === String(id)) || null;
         },

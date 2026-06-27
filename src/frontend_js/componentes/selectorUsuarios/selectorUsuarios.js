@@ -294,6 +294,8 @@ class SelectorUsuarios {
                 nombre: it.nombreMostrado,
                 apellido: '',
                 razonSocial: it.nombreMostrado,
+                tipo: it.tipo,
+                tipoContribuyente: it.tipoContribuyente,
                 puedeOperar: it.puedeOperar,
                 motivoNoOpera: it.motivoNoOpera,
                 esRepresentado: it.esRepresentado,

@@ -22,6 +22,40 @@ window.usuariosCargaMasiva = [];
 // const confirmed = await showConfirmModal({ message: '...' });
 
 // Función para mostrar alertas
+// ===== Modelo plano: helpers de CRUD =====
+
+// Tipo por prefijo de CUIT (30/33/34 = jurídica) — misma regla que la migración.
+function inferirTipoPorCuit(cuit, cuil) {
+    const base = String(cuit || cuil || '');
+    return ['30', '33', '34'].includes(base.slice(0, 2)) ? 'juridica' : 'fisica';
+}
+
+// Llena un <select> de "Representante AFIP" con los contribuyentes que tienen
+// clave AFIP propia (los únicos que pueden representar). Excluye al propio cuit.
+async function cargarOpcionesRepresentante(selectId, selectedCuit, excludeCuit) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    let candidatos = [];
+    try {
+        const r = await window.electronAPI.user.listCrud();
+        if (r && r.success) {
+            candidatos = (r.contribuyentes || [])
+                .filter(c => c.tieneClaveAFIP && String(c.cuit) !== String(excludeCuit || ''));
+        }
+    } catch (e) {
+        console.error('[representante] no se pudo cargar la lista:', e);
+    }
+    candidatos.sort((a, b) => (a.razonSocial || '').localeCompare(b.razonSocial || ''));
+    sel.innerHTML = '<option value="">— Opera solo (sin representante) —</option>';
+    for (const c of candidatos) {
+        const opt = document.createElement('option');
+        opt.value = c.cuit;
+        opt.textContent = `${c.razonSocial || c.nombre || c.cuit} (${c.cuit})`;
+        if (selectedCuit && String(selectedCuit) === String(c.cuit)) opt.selected = true;
+        sel.appendChild(opt);
+    }
+}
+
 function showAlert(message, type = 'success') {
     const alert = document.getElementById('alert');
     const alertMessage = document.getElementById('alertMessage');
@@ -723,18 +757,26 @@ async function createUser() {
             return;
         }
 
+        // Modelo plano: armar la fila del contribuyente.
+        const razonSocialInput = document.getElementById('razonSocial').value.trim();
+        const representanteAfipCuit = document.getElementById('representanteAfip').value || null;
+        const tipo = inferirTipoPorCuit(cuit, cuil);
+        // razonSocial siempre presente; en física la derivamos del nombre si está vacía.
+        const razonSocial = razonSocialInput || [apellido, nombre].filter(Boolean).join(' ').trim() || nombre;
+
         const result = await window.electronAPI.user.create({
+            tipo,
+            razonSocial,
             nombre,
-            claveAFIP,
-            claveATM,
+            apellido,
             cuit,
             cuil,
             tipoContribuyente,
-            apellido,
-            empresas: window.empresasCliente || [],
-            cuitAsociados: window.cuitAsociados || [],
-            verificadoAFIP: window.verificacionRealizada.afip,  // ✅ Pasar flag de verificación
-            verificadoATM: window.verificacionRealizada.atm     // ✅ Pasar flag de verificación
+            claveAFIP,
+            claveATM,
+            representanteAfipCuit,
+            verificadoAFIP: window.verificacionRealizada.afip,  // flag de verificación
+            verificadoATM: window.verificacionRealizada.atm     // flag de verificación
         });
 
         if (result.success) {
@@ -746,6 +788,8 @@ async function createUser() {
             document.getElementById('cuil').value = '';
             document.getElementById('tipoContribuyente').value = '';
             document.getElementById('apellido').value = '';
+            document.getElementById('razonSocial').value = '';
+            document.getElementById('representanteAfip').value = '';
 
             // Resetear flags de verificación después de crear
             window.verificacionRealizada.afip = false;
@@ -774,6 +818,8 @@ async function loadUsers() {
             window.allUsers = result.users || [];
             displayUsers(window.allUsers);
             updateSearchCount(window.allUsers.length, window.allUsers.length);
+            // Mantener fresca la lista de representantes del form de alta.
+            cargarOpcionesRepresentante('representanteAfip', null, null);
         } else {
             showAlert(result.error || 'Error al cargar clientes', 'error');
         }
@@ -1171,16 +1217,25 @@ window.editUser = async function (id, nombre, claveAFIP, claveATM, cuit, cuil, t
 
     actualizarEstadoAnalisisEnEdicion();
 
-    // Traer el cliente completo para tener empresas[] (el onclick solo manda escalares).
+    // Modelo plano: traer el contribuyente completo para razón social + representante.
+    let razonSocial = '';
+    let representanteAfipCuit = null;
     try {
         const resp = await window.electronAPI.user.getById(id);
-        if (resp && resp.success && resp.user && Array.isArray(resp.user.empresas)) {
-            window.currentEditingUser.empresas = resp.user.empresas;
+        if (resp && resp.success && resp.user) {
+            razonSocial = resp.user.razonSocial || '';
+            representanteAfipCuit = resp.user.representanteAfipCuit || null;
         }
     } catch (err) {
-        console.error('[editUser] no se pudieron traer las empresas:', err);
+        console.error('[editUser] no se pudo traer el contribuyente:', err);
     }
-    renderEditorEmpresas(window.currentEditingUser.empresas);
+    document.getElementById('editRazonSocial').value = razonSocial;
+    await cargarOpcionesRepresentante('editRepresentanteAfip', representanteAfipCuit, cuit);
+
+    // El editor de empresas embebido se jubiló: la representación ahora es el
+    // dropdown "Representante AFIP". Limpiamos el contenedor por si quedó algo.
+    const editorEmp = document.getElementById('editEmpresasEditor');
+    if (editorEmp) editorEmp.innerHTML = '';
 
     // ✨ Ocultar la sección de usuarios mientras se edita
     const usersSection = document.querySelector('.users-section');
@@ -1227,35 +1282,17 @@ window.analizarCliente = async function () {
     }
 
     try {
-        const response = await window.electronAPI.empresa.analizarCliente({
-            usuarioId: window.currentEditingUser.id
+        // Modelo plano: analiza ESTE contribuyente (login por resolverAcceso) y
+        // guarda sus PDV en contribuyentes.json.
+        const response = await window.electronAPI.empresa.analizarContribuyente({
+            cuit: window.currentEditingUser.cuit
         });
 
         if (response.success) {
-            const { totalEmpresas, empresasExitosas, resultados } = response.data || {};
+            const pdvs = (response.data && response.data.puntosDeVenta) || [];
             window.currentEditingUser.analizado_afip = true;
             actualizarEstadoAnalisisEnEdicion();
-
-            // Refrescar el editor con las empresas recién traídas para cargarles
-            // CUIT/clave ATM sin tener que reabrir la edición.
-            try {
-                const resp = await window.electronAPI.user.getById(window.currentEditingUser.id);
-                if (resp && resp.success && resp.user && Array.isArray(resp.user.empresas)) {
-                    window.currentEditingUser.empresas = resp.user.empresas;
-                    renderEditorEmpresas(window.currentEditingUser.empresas);
-                }
-            } catch (_) { /* no crítico */ }
-
-            const detalles = (resultados || []).map(r =>
-                r.success
-                    ? `  ✅ ${r.razonSocial}: ${r.count} PDV`
-                    : `  ❌ ${r.razonSocial}: ${r.error}`
-            ).join('\n');
-            showAlert(
-                `✅ Análisis completado. ${empresasExitosas}/${totalEmpresas} empresa(s) OK.\n${detalles}`,
-                'success'
-            );
-
+            showAlert(`✅ Análisis completado: ${pdvs.length} punto(s) de venta para ${response.data.razonSocial}.`, 'success');
             if (typeof loadUsers === 'function') await loadUsers();
         } else {
             showAlert(`❌ Análisis falló: ${response.message || response.error || 'error desconocido'}`, 'error');
@@ -1341,17 +1378,23 @@ window.updateUser = async function() {
     try {
         setLoading('updateLoading', true);
 
+        // Modelo plano: fila del contribuyente. cuit es la PK (no se edita acá).
+        const razonSocialInput = document.getElementById('editRazonSocial').value.trim();
+        const representanteAfipCuit = document.getElementById('editRepresentanteAfip').value || null;
+        const razonSocial = razonSocialInput || [apellido, nombre].filter(Boolean).join(' ').trim() || nombre;
+
         const userData = {
             id: window.currentEditingUser.id,
+            tipo: inferirTipoPorCuit(cuit, cuil),
+            razonSocial,
             nombre,
-            claveAFIP,
-            claveATM,
+            apellido,
             cuit,
             cuil,
             tipoContribuyente,
-            apellido,
-            // CUIT + clave ATM por empresa. undefined si no hay editor → backend no toca empresas.
-            empresas: collectEmpresasDelEditor()
+            claveAFIP,
+            claveATM,
+            representanteAfipCuit
         };
 
         // Siempre usar el handler 'update' que ya existe en el backend
@@ -2064,15 +2107,20 @@ function mostrarModalProgreso(total) {
  */
 window.analizarClienteDesdeListado = async function (userId, nombre) {
     const display = nombre || `cliente ${userId}`;
+    // Modelo plano: analizar por CUIT. El cuit está en la fila ya cargada.
+    const u = (window.allUsers || []).find(x => String(x.id) === String(userId));
+    const cuit = u && u.cuit;
+    if (!cuit) { showAlert(`No se encontró el CUIT de ${display}.`, 'error'); return; }
+
     const progreso = mostrarModalProgreso(1);
     progreso.actualizar(1, display, { exitosos: 0, fallidos: 0 });
 
     try {
-        const response = await window.electronAPI.empresa.analizarCliente({ usuarioId: userId });
+        const response = await window.electronAPI.empresa.analizarContribuyente({ cuit });
         progreso.cerrar();
         if (response.success) {
-            const { empresasExitosas, totalEmpresas } = response.data || {};
-            showAlert(`✅ ${display}: ${empresasExitosas}/${totalEmpresas} empresa(s) OK.`, 'success');
+            const pdvs = (response.data && response.data.puntosDeVenta) || [];
+            showAlert(`✅ ${display}: ${pdvs.length} punto(s) de venta.`, 'success');
         } else {
             showAlert(`❌ ${display}: ${response.message || response.error || 'falló'}`, 'error');
         }
@@ -2117,10 +2165,11 @@ async function procesarLoteAnalisis(clientes, opciones) {
         progreso.actualizar(i + 1, display, { exitosos, fallidos });
 
         try {
-            const resp = await window.electronAPI.empresa.analizarCliente({ usuarioId: cli.id });
+            const resp = await window.electronAPI.empresa.analizarContribuyente({ cuit: cli.cuit });
             if (resp.success) {
                 exitosos++;
-                resumen.push(`✅ ${display}: ${resp.data.empresasExitosas}/${resp.data.totalEmpresas} empresa(s) OK`);
+                const pdvs = (resp.data && resp.data.puntosDeVenta) || [];
+                resumen.push(`✅ ${display}: ${pdvs.length} PDV`);
             } else {
                 fallidos++;
                 resumen.push(`❌ ${display}: ${resp.message || resp.error || 'falló'}`);

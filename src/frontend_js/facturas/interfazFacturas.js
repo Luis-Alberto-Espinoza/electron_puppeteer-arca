@@ -248,78 +248,54 @@ function configurarUsuarioEnFacturas() {
     }
 }
 
-function configurarEmpresasDisponibles() {
+async function configurarEmpresasDisponibles() {
     const selectEmpresaDisponible = document.getElementById('selectEmpresaDisponible');
-    const usuarioSeleccionado = window.usuarioSeleccionado;
+    const usuario = window.usuarioSeleccionado;
 
-    if (!selectEmpresaDisponible || !usuarioSeleccionado) return;
+    if (!selectEmpresaDisponible || !usuario) return;
 
-    // Limpiar opciones previas
+    // Modelo plano: el contribuyente ES la empresa. No hay cascada empresa→PDV;
+    // hay UNA sola "empresa" = la razón social del contribuyente seleccionado.
+    const razonSocial = usuario.razonSocial || usuario.nombre || '';
+
     selectEmpresaDisponible.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = razonSocial;
+    option.textContent = razonSocial || 'Sin razón social';
+    selectEmpresaDisponible.appendChild(option);
+    selectEmpresaDisponible.disabled = true;   // nada que elegir: es el contribuyente
+    window.empresaElegida = razonSocial;
 
-    const empresasObjetos = Array.isArray(usuarioSeleccionado?.empresas)
-        ? usuarioSeleccionado.empresas
-        : [];
-    const razonesSociales = empresasObjetos.map(e => e.razonSocial).filter(Boolean);
-
-    if (razonesSociales.length === 0) {
-        // Si no hay empresas, mostrar opción vacía
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = 'Sin empresas disponibles';
-        selectEmpresaDisponible.appendChild(option);
-        selectEmpresaDisponible.disabled = true;
-        window.empresaElegida = '';
-        popularPuntosDeVentaFactura(-1);
-        return;
-    }
-
-    razonesSociales.forEach((razon, idx) => {
-        const option = document.createElement('option');
-        option.value = razon;
-        option.textContent = razon;
-        selectEmpresaDisponible.appendChild(option);
-    });
-
-    selectEmpresaDisponible.disabled = razonesSociales.length === 1;
-    // Si solo hay una empresa, seleccionarla por defecto
-    if (razonesSociales.length === 1) {
-        selectEmpresaDisponible.selectedIndex = 0;
-        window.empresaElegida = selectEmpresaDisponible.value;
-    } else if (selectEmpresaDisponible.selectedIndex < 0) {
-        selectEmpresaDisponible.selectedIndex = 0;
-        window.empresaElegida = selectEmpresaDisponible.value;
-    }
-
-    // Listener: cuando cambia la empresa, refrescar los PDV.
-    // Clonamos para limpiar listeners previos en re-inicializaciones.
-    const clonado = selectEmpresaDisponible.cloneNode(true);
-    selectEmpresaDisponible.replaceWith(clonado);
-    clonado.addEventListener('change', () => {
-        window.empresaElegida = clonado.value;
-        popularPuntosDeVentaFactura(clonado.selectedIndex);
-    });
-
-    // Poblar PDV de la empresa inicialmente seleccionada
-    popularPuntosDeVentaFactura(clonado.selectedIndex);
+    // Los PDV salen del contribuyente (cacheados, sin claves) vía IPC.
+    await popularPuntosDeVentaFactura(usuario.cuit);
 }
 
 /**
- * Pobla el <select id="selectPuntoDeVentaFactura"> con los PDV cacheados
- * de la empresa en el índice dado. Si no hay empresa válida o PDV, deshabilita.
- * Como el cliente llega ya analizado (Fase 5 garantiza eso), no hay fetch lazy.
+ * Pobla el <select id="selectPuntoDeVentaFactura"> con los PDV cacheados del
+ * contribuyente (modelo plano), pedidos por CUIT al backend
+ * (contribuyente:puntosDeVenta — sin claves). Si no hay PDV, deshabilita.
  */
-function popularPuntosDeVentaFactura(indiceEmpresa) {
+async function popularPuntosDeVentaFactura(cuit) {
     const selectPdv = document.getElementById('selectPuntoDeVentaFactura');
     if (!selectPdv) return;
-    const usuario = window.usuarioSeleccionado;
-    const empresa = (usuario?.empresas || [])[indiceEmpresa] || null;
+
+    selectPdv.innerHTML = '<option value="">Cargando puntos de venta…</option>';
+    selectPdv.disabled = true;
+
+    let pdvs = [];
+    try {
+        const resp = await window.electronAPI.contribuyente.puntosDeVenta(cuit);
+        pdvs = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
+    } catch (e) {
+        console.error('Error obteniendo puntos de venta:', e);
+    }
+
     // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser
     // "Factura en Linea - Responsable Inscripto". Sin requisito de `activo`
     // (la columna "Usado" del ABM no es bloqueante — un PDV puede estar
     // habilitado sin haber emitido todavía).
     const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    const pdvs = (empresa?.puntosDeVenta || []).filter(p => {
+    pdvs = pdvs.filter(p => {
         if (!p || !p.numero) return false;
         if (p.sistema) {
             return normSistema(p.sistema) === 'factura en linea - responsable inscripto';
@@ -332,7 +308,7 @@ function popularPuntosDeVentaFactura(indiceEmpresa) {
     if (pdvs.length === 0) {
         const opt = document.createElement('option');
         opt.value = '';
-        opt.textContent = empresa ? '— sin puntos de venta —' : '— elegí una empresa —';
+        opt.textContent = '— sin puntos de venta —';
         selectPdv.appendChild(opt);
         selectPdv.disabled = true;
         return;

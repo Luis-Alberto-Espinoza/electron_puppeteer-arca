@@ -416,41 +416,19 @@ function inicializarUsuarioEmpresaActividadMP() {
         usuarioMP.style.fontWeight = 'bold';
     }
 
-    // Empresas disponibles
+    // Empresas disponibles — modelo plano: el contribuyente ES la empresa.
+    // Una sola opción = su razón social (no hay cascada empresa→PDV).
     const selectEmpresaMP = document.getElementById('selectEmpresaDisponibleMP');
     if (selectEmpresaMP && usuario) {
+        const razonSocial = usuario.razonSocial || usuario.nombre || '';
         selectEmpresaMP.innerHTML = '';
-        const razonesSociales = Array.isArray(usuario?.empresas)
-            ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
-            : [];
-        if (razonesSociales.length === 0) {
-            const option = document.createElement('option');
-            option.value = '';
-            option.textContent = 'Sin empresas disponibles';
-            selectEmpresaMP.appendChild(option);
-            selectEmpresaMP.disabled = true;
-            window.empresaElegidaMP = '';
-            window.puntoVentaElegidoMP = '';
-            popularPuntosDeVentaMP(-1);
-        } else {
-            razonesSociales.forEach(razon => {
-                const option = document.createElement('option');
-                option.value = razon;
-                option.textContent = razon;
-                selectEmpresaMP.appendChild(option);
-            });
-            selectEmpresaMP.disabled = razonesSociales.length === 1;
-            if (razonesSociales.length === 1 || selectEmpresaMP.selectedIndex < 0) {
-                selectEmpresaMP.selectedIndex = 0;
-                window.empresaElegidaMP = selectEmpresaMP.value;
-            }
-            popularPuntosDeVentaMP(selectEmpresaMP.selectedIndex);
-        }
-        // Guardar la empresa elegida al cambiar + refrescar PDV
-        selectEmpresaMP.addEventListener('change', () => {
-            window.empresaElegidaMP = selectEmpresaMP.value;
-            popularPuntosDeVentaMP(selectEmpresaMP.selectedIndex);
-        });
+        const option = document.createElement('option');
+        option.value = razonSocial;
+        option.textContent = razonSocial || 'Sin razón social';
+        selectEmpresaMP.appendChild(option);
+        selectEmpresaMP.disabled = true;   // nada que elegir: es el contribuyente
+        window.empresaElegidaMP = razonSocial;
+        popularPuntosDeVentaMP(usuario.cuit);
     }
 
     // Tipo de actividad
@@ -490,16 +468,26 @@ window.configurarUsuarioMercadoPago = inicializarUsuarioEmpresaActividadMP;
  * Pobla el <select id="selectPuntoDeVentaMP"> con los PDV cacheados de la empresa
  * en el índice dado. Cliente llega ya analizado (Fase 5), así que sin fetch lazy.
  */
-function popularPuntosDeVentaMP(indiceEmpresa) {
+async function popularPuntosDeVentaMP(cuit) {
     const selectPdv = document.getElementById('selectPuntoDeVentaMP');
     if (!selectPdv) return;
-    const usuario = window.usuarioSeleccionado;
-    const empresa = (usuario?.empresas || [])[indiceEmpresa] || null;
+
+    selectPdv.innerHTML = '<option value="">Cargando puntos de venta…</option>';
+    selectPdv.disabled = true;
+
+    let pdvs = [];
+    try {
+        const resp = await window.electronAPI.contribuyente.puntosDeVenta(cuit);
+        pdvs = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
+    } catch (e) {
+        console.error('Error obteniendo puntos de venta MP:', e);
+    }
+
     // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser
     // "Factura en Linea - Responsable Inscripto". Sin requisito de `activo`
     // (la columna "Usado" del ABM no es bloqueante).
     const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    const pdvs = (empresa?.puntosDeVenta || []).filter(p => {
+    pdvs = pdvs.filter(p => {
         if (!p || !p.numero) return false;
         if (p.sistema) {
             return normSistema(p.sistema) === 'factura en linea - responsable inscripto';
@@ -512,7 +500,7 @@ function popularPuntosDeVentaMP(indiceEmpresa) {
     if (pdvs.length === 0) {
         const opt = document.createElement('option');
         opt.value = '';
-        opt.textContent = empresa ? '— sin puntos de venta —' : '— elegí una empresa —';
+        opt.textContent = '— sin puntos de venta —';
         selectPdv.appendChild(opt);
         selectPdv.disabled = true;
         window.puntoVentaElegidoMP = '';

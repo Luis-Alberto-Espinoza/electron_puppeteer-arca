@@ -461,10 +461,63 @@ async function analizarEmpresa(userStorage, usuarioId, razonSocial) {
     }, { headless: false });
 }
 
+/**
+ * Modelo plano: analiza UN contribuyente y guarda sus PDV en `contribuyentes.json`
+ * vía el repo. El login lo resuelve `resolverAcceso` (representante si aplica) y se
+ * scrapea la empresa OBJETIVO (su razón social canónica). Reemplaza, para el CRUD
+ * plano, al viejo analizarCliente/analizarEmpresa que escribían `users.json`.
+ *
+ * @param {Object} repo  contribuyenteRepo (resolverAcceso + actualizar)
+ * @param {string} cuit  CUIT del contribuyente a analizar
+ */
+async function analizarContribuyente(repo, cuit) {
+    const acceso = await repo.resolverAcceso(String(cuit), 'afip');
+    if (!acceso) {
+        return { success: false, error: 'NO_ACCESO', message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
+    }
+
+    const credenciales = { usuario: acceso.loginCuit, contrasena: acceso.loginClave };
+
+    return await puppeteerManager.ejecutar(async (browser, page) => {
+        console.log('🔵 [EmpresaManager] analizarContribuyente: login AFIP...');
+        const loginResult = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
+        if (!loginResult.success) {
+            return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
+        }
+
+        // Mismo flujo ABM que analizarEmpresa: navegar a "Administración de PDV"
+        // y scrapear la empresa objetivo (o la única, si el login no tiene selector).
+        const { page: pageLista, modo } = await abrirAbmPuntosVenta(page);
+        const r = modo === 'lista'
+            ? await procesarEmpresaEnAbm(pageLista, acceso.objetivoNombre)
+            : await procesarEnAbmSinSelector(pageLista, modo);
+
+        const pdvsNormalizados = (r.pdvs || []).map(p => normalizarPuntoDeVenta(p)).filter(Boolean);
+        const ahora = new Date().toISOString();
+
+        await repo.actualizar(String(cuit), {
+            puntosDeVenta: pdvsNormalizados,
+            puntosDeVentaActualizados: ahora
+        });
+
+        console.log(`✅ [EmpresaManager] ${pdvsNormalizados.length} PDV guardado(s) en el plano para ${acceso.objetivoNombre} (${cuit}).`);
+        return {
+            success: true,
+            data: {
+                razonSocial: acceso.objetivoNombre,
+                cuit: String(cuit),
+                puntosDeVenta: pdvsNormalizados,
+                puntosDeVentaActualizados: ahora
+            }
+        };
+    }, { headless: false });
+}
+
 module.exports = {
     descubrirPuntosDeVenta,
     analizarCliente,
     analizarEmpresa,
+    analizarContribuyente,
     // Exportados para tests:
     parsearOpcionPdv
 };

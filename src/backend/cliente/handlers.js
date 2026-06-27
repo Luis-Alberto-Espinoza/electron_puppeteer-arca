@@ -1,100 +1,89 @@
-const { crearEmpresa, fusionarEmpresas, normalizarCliente } = require('./model.js');
+const { proyectarUsersJson } = require('./proyeccionUsersJson.js');
+const { getContribuyenteRepo } = require('./contribuyenteStore.js');
 
 module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, dialog) {
+    const repo = getContribuyenteRepo();
+
+    // PUENTE (write-side, plan C1): el CRUD escribe el modelo plano vía el repo;
+    // tras cada cambio regeneramos users.json (proyección) para que los 4 flujos
+    // aún no migrados (SCT/Planes/NC/empresa ABM) sigan leyendo datos frescos.
+    async function sincronizarUsersJson() {
+        userStorage.saveData(proyectarUsersJson(await repo.obtenerTodos()));
+    }
+
+    // Estado nuevo (enum) a partir de si hay clave + si ya se verificó al crear.
+    function estadoInicial(clave, verificado) {
+        if (!clave) return 'no_aplica';
+        return verificado === true ? 'validado' : 'pendiente';
+    }
+
+    // DTO para la TABLA del CRUD: identidad + estados + representante, SIN claves.
+    // La edición trae las claves por user:get-by-id (único endpoint con claves).
+    function aFilaCrud(c) {
+        return {
+            id: c.id, cuit: c.cuit, tipo: c.tipo,
+            razonSocial: c.razonSocial, nombre: c.nombre, apellido: c.apellido,
+            tipoContribuyente: c.tipoContribuyente,
+            tieneClaveAFIP: !!c.claveAFIP, estado_afip: c.estado_afip,
+            tieneClaveATM: !!c.claveATM, estado_atm: c.estado_atm,
+            representanteAfipCuit: c.representanteAfipCuit,
+            cantidadPdv: Array.isArray(c.puntosDeVenta) ? c.puntosDeVenta.length : 0
+        };
+    }
+
     ipcMain.handle('user:create', async (event, userData) => {
         try {
-            const data = userStorage.loadData();
-            const existingUser = data.users.find(user =>
-                (user.cuit && user.cuit === userData.cuit && user.cuit !== null && user.cuit !== '') ||
-                (user.cuil && user.cuil === userData.cuil && user.cuil !== null && user.cuil !== '')
-            );
-            if (existingUser) {
-                return { success: false, error: 'Ya existe un usuario con ese CUIT o CUIL' };
-            }
-
-            // Determinar estado de verificación AFIP
-            let estadoAFIP = 'no_aplica';
-            if (userData.claveAFIP) {
-                // Si fue verificado previamente, usar estado 'validado'
-                if (userData.verificadoAFIP === true) {
-                    estadoAFIP = 'validado';
-                } else {
-                    estadoAFIP = 'pendiente';
-                }
-            }
-
-            // Determinar estado de verificación ATM
-            let estadoATM = 'no_aplica';
-            if (userData.claveATM) {
-                // Si fue verificado previamente, usar estado 'validado'
-                if (userData.verificadoATM === true) {
-                    estadoATM = 'validado';
-                } else {
-                    estadoATM = 'pendiente';
-                }
-            }
-
-            // empresas[] viene del frontend. Aceptamos:
-            //   - array de objetos Empresa (modelo nuevo)
-            //   - array de strings (razones sociales) → se construyen con crearEmpresa
-            //   - fallback al legacy userData.empresasDisponible (strings) si el
-            //     frontend todavía no migró.
-            let empresasInput;
-            if (Array.isArray(userData.empresas) && userData.empresas.length > 0) {
-                empresasInput = userData.empresas;
-            } else if (Array.isArray(userData.empresasDisponible)) {
-                empresasInput = userData.empresasDisponible;
-            } else {
-                empresasInput = [];
-            }
-            const empresas = empresasInput
-                .map(e => typeof e === 'string' ? crearEmpresa({ razonSocial: e }) : crearEmpresa(e))
-                .filter(e => e.razonSocial);
-
-            const newUser = normalizarCliente({
-                id: userStorage.generateId(),
+            const c = await repo.crear({
+                cuit: userData.cuit,
+                tipo: userData.tipo || null,                 // null → normalizar infiere por nombre/apellido
+                razonSocial: userData.razonSocial,
                 nombre: userData.nombre || null,
                 apellido: userData.apellido || null,
-                cuit: userData.cuit || null,
                 cuil: userData.cuil || null,
                 tipoContribuyente: userData.tipoContribuyente || null,
-                claveAFIP: userData.claveAFIP,
-                claveATM: userData.claveATM,
-                empresas,
-                cuitAsociados: userData.cuitAsociados || [],
-                fechaCreacion: new Date().toISOString(),
-                estado_afip: estadoAFIP,
-                estado_atm: estadoATM,
-                fechaVerificacion: (userData.verificadoAFIP || userData.verificadoATM) ? new Date().toISOString() : null
+                claveAFIP: userData.claveAFIP || null,
+                estado_afip: estadoInicial(userData.claveAFIP, userData.verificadoAFIP),
+                claveATM: userData.claveATM || null,
+                estado_atm: estadoInicial(userData.claveATM, userData.verificadoATM),
+                representanteAfipCuit: userData.representanteAfipCuit || null
             });
-
-            data.users.push(newUser);
-            return userStorage.saveData(data)
-                ? { success: true, user: newUser }
-                : { success: false, error: 'Error al guardar' };
+            await sincronizarUsersJson();
+            return { success: true, user: c };
         } catch (error) {
-            return { success: false, error: error.message };
+            const msg = error.code === 'CUIT_DUPLICADO' ? 'Ya existe un contribuyente con ese CUIT'
+                : error.code === 'CUIT_INVALIDO' ? 'El CUIT debe tener 11 dígitos'
+                : error.message;
+            return { success: false, error: msg };
         }
     });
 
     ipcMain.handle('user:getAll', async () => {
         try {
-            const data = userStorage.loadData();
-            return { success: true, users: data.users };
+            // Shape LEGACY (proyección embed, con claveAFIP/empresas) para los
+            // consumidores aún no migrados (selector legacy de Planes, etc.).
+            // El CRUD nuevo usa user:listCrud (fila plana sin claves).
+            return { success: true, users: proyectarUsersJson(await repo.obtenerTodos()).users };
         } catch (error) {
-            return { success: false, error: error.message };
+            return { success: false, error: error.message, users: [] };
+        }
+    });
+
+    // Tabla del CRUD nuevo (modelo plano): fila DTO sin claves.
+    ipcMain.handle('user:listCrud', async () => {
+        try {
+            const todos = await repo.obtenerTodos();
+            return { success: true, contribuyentes: todos.map(aFilaCrud) };
+        } catch (error) {
+            return { success: false, error: error.message, contribuyentes: [] };
         }
     });
 
     ipcMain.handle('user:get-by-id', async (event, userId) => {
         try {
-            const data = userStorage.loadData();
-            const user = data.users.find(u => String(u.id) === String(userId));
-            if (user) {
-                return { success: true, user };
-            } else {
-                return { success: false, error: 'Usuario no encontrado' };
-            }
+            // Único endpoint que devuelve el contribuyente COMPLETO (con claves):
+            // es el editor de admin, donde se ven/editan las claves.
+            const c = await repo.getById(userId);
+            return c ? { success: true, user: c } : { success: false, error: 'Usuario no encontrado' };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -102,50 +91,25 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
     ipcMain.handle('user:update', async (event, updatedUser) => {
         try {
-            const data = userStorage.loadData();
-            const index = data.users.findIndex(user => String(user.id) === String(updatedUser.id));
-            
-            if (index === -1) {
-                return { success: false, error: 'Usuario no encontrado' };
-            }
+            // El front edita por id (transición); el repo actualiza por cuit (PK).
+            const actual = await repo.getById(updatedUser.id);
+            if (!actual) return { success: false, error: 'Usuario no encontrado' };
 
-            const originalUser = data.users[index];
-
-            // Mantener los datos existentes y sobreescribir con los nuevos
-            const userToUpdate = {
-                ...originalUser,
-                nombre: updatedUser.nombre,
-                apellido: updatedUser.apellido,
-                cuit: updatedUser.cuit,
-                cuil: updatedUser.cuil,
-                tipoContribuyente: updatedUser.tipoContribuyente,
-                claveAFIP: updatedUser.claveAFIP,
-                claveATM: updatedUser.claveATM,
-                fechaModificacion: new Date().toISOString()
-            };
-
-            // Empresas: merge (no rebuild) para no perder los PDV scrapeados.
-            // El form manda cuit/claveATM por empresa; preservamos puntosDeVenta.
-            // Si el form no manda empresas, fusionarEmpresas devuelve las actuales.
-            userToUpdate.empresas = fusionarEmpresas(originalUser.empresas, updatedUser.empresas);
-
-            // Si la clave AFIP cambió, resetear su estado de validación
-            if (updatedUser.claveAFIP !== originalUser.claveAFIP) {
-                userToUpdate.estado_afip = updatedUser.claveAFIP ? 'pendiente' : 'no_aplica';
-            }
-
-            // Si la clave ATM cambió, resetear su estado de validación
-            if (updatedUser.claveATM !== originalUser.claveATM) {
-                userToUpdate.estado_atm = updatedUser.claveATM ? 'pendiente' : 'no_aplica';
-            }
-
-            data.users[index] = userToUpdate;
-
-            const saveResult = userStorage.saveData(data);
-
-            return saveResult
-                ? { success: true, user: data.users[index] }
-                : { success: false, error: 'Error al guardar' };
+            // cuit es la PK: no se cambia por edición (si hace falta, es baja+alta).
+            // repo.actualizar resetea estado_afip/atm si la clave correspondiente cambió.
+            const c = await repo.actualizar(actual.cuit, {
+                tipo: updatedUser.tipo || actual.tipo,
+                razonSocial: updatedUser.razonSocial,
+                nombre: updatedUser.nombre || null,
+                apellido: updatedUser.apellido || null,
+                cuil: updatedUser.cuil || null,
+                tipoContribuyente: updatedUser.tipoContribuyente || null,
+                claveAFIP: updatedUser.claveAFIP || null,
+                claveATM: updatedUser.claveATM || null,
+                representanteAfipCuit: updatedUser.representanteAfipCuit || null
+            });
+            await sincronizarUsersJson();
+            return { success: true, user: c };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -153,19 +117,16 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
     ipcMain.handle('user:delete', async (event, userId) => {
         try {
-            const data = userStorage.loadData();
-            const index = data.users.findIndex(user => String(user.id) === String(userId));
+            const actual = await repo.getById(userId);
+            if (!actual) return { success: false, error: 'Usuario no encontrado' };
 
-            if (index === -1) {
-                return { success: false, error: 'Usuario no encontrado' };
+            const r = await repo.borrar(actual.cuit);
+            // El repo NO borra si el contribuyente representa a otros (integridad FK).
+            if (r && r.ok === false) {
+                return { success: false, error: `No se puede borrar: es representante de ${r.dependientes.join(', ')}` };
             }
-
-            const deletedUser = data.users.splice(index, 1)[0];
-            const saveResult = userStorage.saveData(data);
-
-            return saveResult
-                ? { success: true, user: deletedUser }
-                : { success: false, error: 'Error al guardar' };
+            await sincronizarUsersJson();
+            return { success: true, user: actual };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -474,6 +435,28 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 data.users[userIndex] = usuario;
                 updatedUsers.push(usuario);
 
+                // Persistir los estados al modelo plano (source of truth). Solo los
+                // servicios verificados, para no pisar el otro con un estado vacío.
+                // El scraping de empresas/PDV que hace gestionarValidacion se
+                // persistirá al plano en C3 (Analizar); acá va solo la validación.
+                const cambiosEstado = {};
+                if (servicesToVerify.includes('afip')) {
+                    cambiosEstado.estado_afip = usuario.estado_afip;
+                    cambiosEstado.errorAfip = usuario.errorAfip || null;
+                    cambiosEstado.fechaVerificacionAfip = usuario.fechaVerificacion;
+                }
+                if (servicesToVerify.includes('atm')) {
+                    cambiosEstado.estado_atm = ['validado', 'requiere_actualizacion', 'invalido'].includes(usuario.estado_atm)
+                        ? usuario.estado_atm : 'invalido';
+                    cambiosEstado.errorAtm = usuario.errorAtm || null;
+                    cambiosEstado.fechaVerificacionAtm = usuario.fechaVerificacion;
+                }
+                try {
+                    if (usuario.cuit) await repo.actualizar(String(usuario.cuit), cambiosEstado);
+                } catch (e) {
+                    console.error('[verify-credentials] no se pudo persistir estado de', usuario.cuit, e.message);
+                }
+
                 // Actualizar estadísticas
                 if (userSuccess) {
                     stats.validados++;
@@ -507,7 +490,9 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 });
             }
 
-            userStorage.saveData(data);
+            // No guardamos `data` (es la proyección): persistimos al plano (arriba)
+            // y reproyectamos users.json desde el repo.
+            await sincronizarUsersJson();
             return { success: true, stats, updatedUsers };
 
         } catch (error) {

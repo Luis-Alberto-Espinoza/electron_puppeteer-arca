@@ -2,12 +2,35 @@
 // IPC handlers para operaciones de Empresa (datos del cliente).
 
 const empresaManager = require('./empresaManager.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { proyectarUsersJson } = require('../../cliente/proyeccionUsersJson.js');
 
 /**
  * @param {Electron.IpcMain} ipcMain
  * @param {Object} userStorage
  */
 function setupEmpresaHandlers(ipcMain, userStorage) {
+
+    // Modelo plano: analiza UN contribuyente y guarda sus PDV en contribuyentes.json
+    // (login por resolverAcceso). Reemplaza a analizarCliente/analizarEmpresa para
+    // el CRUD plano. Reproyecta users.json para los flujos aún no migrados.
+    ipcMain.handle('empresa:analizarContribuyente', async (event, datos) => {
+        console.log('BACKEND: empresa:analizarContribuyente recibido');
+        try {
+            const { cuit } = datos || {};
+            if (!cuit) return { success: false, error: 'MISSING_CUIT', message: 'Falta el CUIT del contribuyente.' };
+
+            const repo = getContribuyenteRepo();
+            const res = await empresaManager.analizarContribuyente(repo, cuit);
+            if (res && res.success) {
+                try { userStorage.saveData(proyectarUsersJson(await repo.obtenerTodos())); } catch (_) { /* puente best-effort */ }
+            }
+            return res;
+        } catch (error) {
+            console.error('BACKEND: Error en empresa:analizarContribuyente:', error);
+            return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
+        }
+    });
 
     ipcMain.handle('empresa:descubrirPuntosDeVenta', async (event, datos) => {
         console.log('BACKEND: empresa:descubrirPuntosDeVenta recibido');
