@@ -15,7 +15,7 @@
 
 const fs = require('fs/promises');
 const path = require('path');
-const { getDownloadPath } = require('../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
 
 // Prefijo con el que `generarExcelComprobantes` nombra sus archivos. Si ese
 // naming cambia, actualizar acá también.
@@ -28,9 +28,10 @@ const PREFIJO_CONSULTA = 'consulta_comprobantes_';
  *          Excels del emisor, más reciente primero. Vacío si no hay ninguno.
  */
 async function listarExcelsConsulta(basePath, cliente) {
-    // getDownloadPath crea la carpeta si no existe, así que siempre podemos
-    // readdir sin reventar (devuelve [] la primera vez).
-    const dir = getDownloadPath(basePath, cliente, 'archivos_afip');
+    // Carpeta CANÓNICA por contribuyente (razón social por CUIT): los Excel de
+    // Consulta de Comprobantes (flujo ya migrado) caen ahí. Usar getDownloadPath
+    // viejo (cuit_Nombre_Apellido) miraba otra carpeta y devolvía vacío.
+    const dir = await getDownloadPathContribuyente(basePath, cliente.cuit, cliente.nombre, 'archivos_afip');
 
     const nombres = await fs.readdir(dir);
 

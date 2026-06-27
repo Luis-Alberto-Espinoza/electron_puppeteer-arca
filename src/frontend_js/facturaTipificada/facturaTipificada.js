@@ -248,6 +248,45 @@ async function extraerDataNotas() {
     }
 }
 
+/**
+ * Abre el buscador de archivos del SO para elegir un Excel de consulta a mano.
+ * Es la vía robusta cuando la lista automática no lo encuentra. El archivo
+ * elegido se inserta como opción seleccionada del select, así `extraerDataNotas`
+ * (que lee `select.value` como ruta) lo procesa sin cambios.
+ */
+async function elegirExcelManual() {
+    const select = document.getElementById('notasExcelSelect');
+    const mensaje = document.getElementById('notasPickerMensaje');
+    const btnExtraer = document.getElementById('btnExtraerData');
+    if (!select) return;
+
+    const usuario = window.usuarioSeleccionado || {};
+    const resp = await window.electronAPI.notaCreditoDebito.elegirExcel({
+        cuit: usuario.cuit,
+        nombre: usuario.razonSocial || usuario.nombre
+    });
+
+    if (!resp || !resp.success) {
+        if (resp && resp.canceled) return;   // el usuario canceló: sin ruido
+        if (mensaje) { mensaje.textContent = '❌ ' + ((resp && resp.message) || 'No se pudo abrir el archivo.'); mensaje.style.color = '#c0392b'; }
+        return;
+    }
+
+    const ruta = resp.archivo;
+    const nombreArchivo = ruta.split(/[\\/]/).pop();
+    let opt = Array.from(select.options).find(o => o.value === ruta);
+    if (!opt) {
+        opt = document.createElement('option');
+        opt.value = ruta;
+        opt.textContent = `📂 ${nombreArchivo} (elegido a mano)`;
+        select.insertBefore(opt, select.firstChild);
+    }
+    select.value = ruta;
+    select.disabled = false;
+    if (btnExtraer) btnExtraer.disabled = false;
+    if (mensaje) { mensaje.textContent = 'Archivo elegido. Tocá "Extraer data" para ver las facturas.'; mensaje.style.color = ''; }
+}
+
 function limpiarTablaNotas() {
     const cont = document.getElementById('notasTablaContainer');
     if (cont) cont.innerHTML = '';
@@ -470,153 +509,53 @@ function inicializarSelectorEmpresas() {
     });
 
     const selectEmpresa = document.getElementById('empresaPuntoVenta');
-    const selectPdv = document.getElementById('puntoDeVentaSelect');
-    const btnRefrescar = document.getElementById('btnRefrescarPdv');
     if (!selectEmpresa) return;
 
     const usuario = window.usuarioSeleccionado;
-    const empresas = Array.isArray(usuario?.empresas)
-        ? usuario.empresas.map(e => e.razonSocial).filter(Boolean)
-        : [];
+    // Modelo plano: el contribuyente ES la empresa. No hay cascada empresa→PDV;
+    // hay UNA sola "empresa" = la razón social del contribuyente seleccionado.
+    const razonSocial = usuario.razonSocial || usuario.nombre || '';
 
-    if (empresas.length === 0) {
-        console.warn('⚠ No hay empresas disponibles para el cliente');
-        selectEmpresa.innerHTML = '<option value="">No hay empresas disponibles</option>';
-        resetPdvSelect('Sin empresa');
-        return;
-    }
+    selectEmpresa.innerHTML = '';
+    const opt = document.createElement('option');
+    opt.value = razonSocial;
+    opt.textContent = razonSocial || 'Sin razón social';
+    selectEmpresa.appendChild(opt);
+    selectEmpresa.disabled = true;   // nada que elegir: es el contribuyente
 
-    selectEmpresa.innerHTML = '<option value="">Seleccionar...</option>';
-    empresas.forEach((razonSocial, index) => {
-        const opt = document.createElement('option');
-        opt.value = index;
-        opt.textContent = razonSocial;
-        if (index === 0) opt.selected = true;
-        selectEmpresa.appendChild(opt);
-    });
+    // El botón Refrescar hacía re-scrape de PDV en el modelo embed
+    // (analizarEmpresa escribía a users.json). En el plano los PDV salen del
+    // contribuyente cacheado; el refresh a nivel contribuyente queda pendiente
+    // (ver plan). Lo ocultamos.
+    mostrarBtnRefrescarPdv(false);
 
-    // Listener de empresa: cambio manual del usuario → auto-fetch si no hay cache.
-    selectEmpresa.addEventListener('change', () => manejarCambioEmpresa({ desdeUsuario: true }));
-
-    // Listener de refrescar.
-    if (btnRefrescar) {
-        btnRefrescar.addEventListener('click', async () => {
-            const indice = parseInt(selectEmpresa.value, 10);
-            const empresa = (usuario.empresas || [])[indice];
-            if (!empresa) return;
-            await descubrirYPopularPdv(usuario.id, empresa.razonSocial, indice);
-        });
-    }
-
-    // Disparar inicialización con la empresa preseleccionada — sin auto-fetch
-    // para no costar 20-40s de Puppeteer en cada apertura del formulario.
+    // Poblar PDV del contribuyente.
     manejarCambioEmpresa({ desdeUsuario: false });
 
-    console.log('✅ Selector de empresas inicializado con', empresas.length, 'empresa(s)');
+    console.log('✅ Selector de empresas inicializado (modelo plano):', razonSocial);
 }
 
 /**
- * Maneja un cambio del select de empresa.
- * - Si hay PDV cacheados: poblar selector al instante.
- * - Si NO hay cache y el cambio vino del usuario: disparar scraping lazy.
- * - Si NO hay cache y es el init: dejar el botón Refrescar visible y avisar.
+ * Puebla el selector de PDV con los del contribuyente (modelo plano), pedidos
+ * por CUIT al backend (contribuyente:puntosDeVenta — sin claves). Se conserva la
+ * firma `{ desdeUsuario }` porque `restaurarSnapshotFormulario` la reusa para
+ * repoblar el selector tras restaurar un snapshot.
  */
-async function manejarCambioEmpresa({ desdeUsuario }) {
-    const selectEmpresa = document.getElementById('empresaPuntoVenta');
+async function manejarCambioEmpresa({ desdeUsuario } = {}) {  // eslint-disable-line no-unused-vars
     const usuario = window.usuarioSeleccionado;
-    if (!selectEmpresa || !usuario) return;
+    if (!usuario) return;
 
-    const indice = parseInt(selectEmpresa.value, 10);
-    const empresa = Number.isInteger(indice) ? (usuario.empresas || [])[indice] : null;
+    resetPdvSelect('Cargando puntos de venta…');
 
-    if (!empresa) {
-        resetPdvSelect('Seleccione una empresa');
-        mostrarBtnRefrescarPdv(false);
-        ocultarPdvInfo();
-        return;
-    }
-
-    const tieneCache = Array.isArray(empresa.puntosDeVenta)
-        && empresa.puntosDeVenta.length > 0
-        && empresa.puntosDeVentaActualizados;
-
-    if (tieneCache) {
-        popularPdvSelect(empresa.puntosDeVenta, true);
-        mostrarBtnRefrescarPdv(true);
-        mostrarPdvInfo(
-            `Cargados desde caché — ${empresa.puntosDeVenta.length} PDV (actualizado ${formatearFechaPdv(empresa.puntosDeVentaActualizados)})`,
-            'idle'
-        );
-        return;
-    }
-
-    if (desdeUsuario) {
-        // Mismo patrón que consulta_comprobantes: cache miss en cambio manual → scrape.
-        await descubrirYPopularPdv(usuario.id, empresa.razonSocial, indice);
-        return;
-    }
-
-    // Init sin cache: no auto-scrape, dejarle al usuario el botón Refrescar.
-    resetPdvSelect('Sin PDV cacheados — haga clic en Refrescar');
-    mostrarBtnRefrescarPdv(true);
-    mostrarPdvInfo('Esta empresa no tiene PDV cacheados. Use 🔄 Refrescar para descubrirlos desde AFIP.', 'loading');
-}
-
-/**
- * Llama al backend para descubrir PDV vía Puppeteer y los cachea en el modelo en memoria.
- * @param {number|string} usuarioId
- * @param {string} razonSocial
- * @param {number} indiceEmpresa  índice de la empresa dentro de usuario.empresas[]
- */
-async function descubrirYPopularPdv(usuarioId, razonSocial, indiceEmpresa) {
-    const selectPdv = document.getElementById('puntoDeVentaSelect');
-    const btnRefrescar = document.getElementById('btnRefrescarPdv');
-    const usuario = window.usuarioSeleccionado;
-
-    if (selectPdv) {
-        selectPdv.innerHTML = '<option value="">Descubriendo puntos de venta…</option>';
-        selectPdv.disabled = true;
-    }
-    if (btnRefrescar) btnRefrescar.disabled = true;
-    mostrarBtnRefrescarPdv(true);
-    mostrarPdvInfo('Conectando a AFIP para leer los puntos de venta — puede demorar 20–40s', 'loading');
-
+    let pdvs = [];
     try {
-        // Usamos el flujo ABM unificado (analizarEmpresa) en vez del viejo
-        // descubrirPuntosDeVenta. Mismo backend que analizarCliente: una sola
-        // fuente de verdad para los PDV operables (Factura en Línea + check).
-        const res = await window.electronAPI.empresa.analizarEmpresa({
-            usuarioId,
-            razonSocial
-        });
-
-        if (!res || !res.success) {
-            resetPdvSelect('Error al descubrir PDV');
-            mostrarPdvInfo(res?.message || 'Error al descubrir puntos de venta', 'error');
-            if (btnRefrescar) btnRefrescar.disabled = false;
-            return;
-        }
-
-        // Refrescar cache local en el usuario en memoria.
-        const empresa = (usuario?.empresas || [])[indiceEmpresa];
-        if (empresa) {
-            empresa.puntosDeVenta = res.data.puntosDeVenta;
-            empresa.puntosDeVentaActualizados = res.data.puntosDeVentaActualizados;
-        }
-
-        const pdvs = Array.isArray(res.data.puntosDeVenta) ? res.data.puntosDeVenta : [];
-        popularPdvSelect(pdvs, true);
-
-        if (pdvs.length > 0) {
-            mostrarPdvInfo(`Actualizado ahora — ${pdvs.length} PDV encontrado(s)`, 'idle');
-        }
-        if (btnRefrescar) btnRefrescar.disabled = false;
+        const resp = await window.electronAPI.contribuyente.puntosDeVenta(usuario.cuit);
+        pdvs = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
     } catch (e) {
-        console.error('❌ Error descubriendo PDV:', e);
-        resetPdvSelect('Error al descubrir PDV');
-        mostrarPdvInfo(e.message || 'Error inesperado', 'error');
-        if (btnRefrescar) btnRefrescar.disabled = false;
+        console.error('❌ Error obteniendo PDV:', e);
     }
+
+    popularPdvSelect(pdvs, true);
 }
 
 /**
@@ -793,6 +732,10 @@ function inicializarEventListeners() {
     const btnExtraer = document.getElementById('btnExtraerData');
     if (btnExtraer) {
         btnExtraer.addEventListener('click', extraerDataNotas);
+    }
+    const btnBuscar = document.getElementById('btnBuscarExcelNota');
+    if (btnBuscar) {
+        btnBuscar.addEventListener('click', elegirExcelManual);
     }
     const notasCont = document.getElementById('notasTablaContainer');
     if (notasCont) {
@@ -1290,11 +1233,9 @@ async function generarNotasDesdePicker() {
         return;
     }
 
-    // Empresa elegida (igual criterio que recopilarDatosFormulario).
+    // Modelo plano: el contribuyente ES la empresa → su razón social.
     const usuario = window.usuarioSeleccionado;
-    const indiceEmpresa = parseInt(document.getElementById('empresaPuntoVenta')?.value, 10);
-    const empresaElegida = Number.isInteger(indiceEmpresa) ? (usuario?.empresas || [])[indiceEmpresa] : null;
-    const nombreEmpresa = empresaElegida?.razonSocial || '';
+    const nombreEmpresa = usuario.razonSocial || usuario.nombre || '';
     if (!nombreEmpresa) {
         mostrarError('Elegí la empresa / razón social.');
         return;
@@ -1377,12 +1318,8 @@ function recopilarDatosFormulario() {
     // Obtener usuario seleccionado
     const usuario = window.usuarioSeleccionado;
 
-    // Empresa elegida (índice) → razón social
-    const indiceEmpresaSeleccionada = parseInt(formData.get('empresaPuntoVenta'), 10);
-    const empresaElegida = Number.isInteger(indiceEmpresaSeleccionada)
-        ? (usuario?.empresas || [])[indiceEmpresaSeleccionada]
-        : null;
-    const nombreEmpresa = empresaElegida?.razonSocial || '';
+    // Modelo plano: el contribuyente ES la empresa → su razón social.
+    const nombreEmpresa = usuario.razonSocial || usuario.nombre || '';
 
     // PDV elegido (numero como "00006")
     const puntoVenta = formData.get('puntoDeVenta') || '';
