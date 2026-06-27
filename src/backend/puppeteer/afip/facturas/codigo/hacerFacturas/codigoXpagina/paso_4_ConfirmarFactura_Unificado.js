@@ -16,6 +16,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const { fork } = require('child_process');
 const { getDownloadPath } = require('../../../../../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../../../../../cliente/carpetaContribuyente.js');
 
 async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSeleccionado = null, downloadsPath = null) {
     console.log("Ejecutando paso_4_ConfirmarFactura_Unificado...");
@@ -33,7 +34,7 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
         // El subdirectorio "facturas" lo agregamos como sufijo de serviceType.
         // ==========================================
         if (!modoTest && usuarioSeleccionado && downloadsPath) {
-            const baseDir = getDownloadPath(downloadsPath, usuarioSeleccionado, 'archivos_afip');
+            const baseDir = await getDownloadPathContribuyente(downloadsPath, usuarioSeleccionado.cuit, usuarioSeleccionado.nombre, 'archivos_afip');
             downloadDir = path.join(baseDir, 'facturas');
             await fs.mkdir(downloadDir, { recursive: true });
 
@@ -59,7 +60,11 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
             await newPage.screenshot({ path: screenshotPath, fullPage: true });
             console.log('Captura guardada en:', screenshotPath);
 
-            //return { success: true, message: "Modo test: captura realizada" };
+            // En modo test NO se confirma la factura → salimos acá. Si seguimos,
+            // el código de abajo (que sí confirma) cae igual en un waitForNavigation
+            // esperando una navegación que nunca ocurre (no se clickeó confirmar) →
+            // el frame se desprende y tira "Navigating frame was detached".
+            return { success: true, message: "Modo test: captura realizada", pdfPath: null };
         }
 
         // ==========================================

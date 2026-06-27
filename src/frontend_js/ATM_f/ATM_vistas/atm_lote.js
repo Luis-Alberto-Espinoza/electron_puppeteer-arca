@@ -118,18 +118,15 @@ window.inicializarModuloLoteATM = () => {
     }
 
     selectorUsuarios = new SelectorUsuarios('selector-usuarios-atm', {
-        campoCredencial:  'claveATM',
-        campoEstado:      'estado_atm',
-        campoError:       'errorAtm',
-        permitirInvalidos:   false,
-        permitirSinValidar:  false,
-        mensajeSinValidar:   'Debe validar las credenciales ATM primero',
+        // Modelo plano: el backend ya computó puedeOperar para 'atm' (clave ATM
+        // propia validada). Los que no pueden operar no se listan; ya no usamos
+        // campoCredencial/campoEstado del objeto gordo.
+        fuente: 'contribuyentes',
+        servicio: 'atm',
         renderizarColumnasExtras: (usuario) => {
-            let badge = '';
-            let cssClass = '';
-            if (usuario.estado_atm === 'validado')      { badge = '✅ Validado';   cssClass = 'badge-validado'; }
-            else if (usuario.estado_atm === 'invalido') { badge = '❌ Inválido';   cssClass = 'badge-invalido'; }
-            else                                         { badge = '⚠️ Sin validar'; cssClass = 'badge-sin-validar'; }
+            const operable = usuario.puedeOperar !== false;
+            const badge = operable ? '✅ Operable' : (usuario.motivoNoOpera || 'No operable');
+            const cssClass = operable ? 'badge-validado' : 'badge-invalido';
             return `<td class="estado-cell"><span class="badge ${cssClass}">${badge}</span></td>`;
         },
         headersColumnasExtras: ['Estado'],

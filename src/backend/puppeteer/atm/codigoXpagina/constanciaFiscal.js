@@ -32,11 +32,16 @@ async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPat
     }
 
     const clickButtonInFrame = async (text) => {
-      await frame.waitForSelector('.z-button', { timeout: 10000 });
+      // Espera a que el botón con ese texto exista Y esté habilitado.
+      // En ATM los botones arrancan disabled hasta que se selecciona la fila de la tabla.
+      await frame.waitForFunction((buttonText) =>
+        Array.from(document.querySelectorAll('.z-button')).some(
+          b => b.innerText.trim() === buttonText && !b.disabled
+        ), { timeout: 10000 }, text);
       const clicked = await frame.evaluate((buttonText) => {
         const buttons = document.querySelectorAll(".z-button");
         for (const button of buttons) {
-          if (button.innerText.trim() === buttonText) {
+          if (button.innerText.trim() === buttonText && !button.disabled) {
             button.click();
             return true;
           }
@@ -44,6 +49,10 @@ async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPat
         return false;
       }, text);
       if (!clicked) {
+        const textosEncontrados = await frame.evaluate(() =>
+          Array.from(document.querySelectorAll('.z-button')).map(b => JSON.stringify(b.innerText))
+        );
+        console.log(`[constancia][DEBUG] No se encontró '${text}'. Botones .z-button presentes:`, textosEncontrados);
         throw new Error(`No se encontró el botón '${text}' en el iframe.`);
       }
     };
@@ -58,7 +67,17 @@ async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPat
       });
     });
 
-    await clickButtonInFrame("Imprimir Constancia");
+    // 2b. Seleccionar la fila de la tabla. ATM deja los botones disabled
+    // hasta que hay una fila seleccionada (aria-selected="true").
+    await frame.waitForSelector('.z-listitem', { timeout: 10000 });
+    await frame.evaluate(() => {
+      const fila = document.querySelector('.z-listitem');
+      // ZK escucha el click del DOM; un clic en la celda selecciona la fila.
+      const celda = fila && (fila.querySelector('.z-listcell') || fila);
+      if (celda) celda.click();
+    });
+
+    await clickButtonInFrame("Imprimir Constancia de Inscripción");
 
     try {
         // INTENTA encontrar y procesar el diálogo de deuda (escenario CON deuda)

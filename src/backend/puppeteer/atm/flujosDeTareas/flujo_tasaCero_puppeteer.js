@@ -28,13 +28,19 @@ const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContri
 function obtenerMesDePeriodo(periodo) {
     const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-    // Extraer el mes del periodo "12/2025" → "12"
-    const partes = periodo.split('/');
-    if (partes.length === 2) {
-        const mesNumero = parseInt(partes[0], 10); // "12" → 12
-        if (mesNumero >= 1 && mesNumero <= 12) {
-            return meses[mesNumero - 1]; // 12 → índice 11 → "dic"
+    // Acepta los dos formatos que circulan en el flujo:
+    //   "MM/YYYY" (ej "06/2026") → el mes es la parte antes de "/"
+    //   "YYYY-MM" (ej "2026-06") → el mes es la parte después de "-"
+    let mesNumero = NaN;
+    if (typeof periodo === 'string') {
+        if (periodo.includes('/')) {
+            mesNumero = parseInt(periodo.split('/')[0], 10);
+        } else if (periodo.includes('-')) {
+            mesNumero = parseInt(periodo.split('-')[1], 10);
         }
+    }
+    if (mesNumero >= 1 && mesNumero <= 12) {
+        return meses[mesNumero - 1];
     }
 
     // Fallback: mes actual si el formato es inválido

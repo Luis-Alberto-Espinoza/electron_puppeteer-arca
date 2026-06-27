@@ -10,7 +10,7 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        const lanzado = await launchBrowserAndPage({ headless: true });
+        const lanzado = await launchBrowserAndPage({ headless: false }); // TEMP debug: visible para ver el iframe
         browser = lanzado.browser;
         const page = lanzado.page;
 

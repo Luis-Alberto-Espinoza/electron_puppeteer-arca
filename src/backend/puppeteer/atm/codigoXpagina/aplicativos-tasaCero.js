@@ -69,10 +69,8 @@ async function navegarATasaCero(pagina, navegador) {
         await botonAplicativos.click();
         console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] [navegarATasaCero] Clic en Aplicativos completado`);
 
-        // Esperar un momento para que el menú se despliegue
-        console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] ⏳ [navegarATasaCero] Esperando que se despliegue el menú...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] [navegarATasaCero] Menú desplegado`);
+        // No dormimos a ciegas: el waitForSelector de "Tasa Cero" (abajo) ya espera a que
+        // el menú se despliegue y la opción sea visible. El sleep de 2s era redundante.
 
         // Paso 2: Hacer clic en la opción "Tasa Cero"
         console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] [navegarATasaCero] Buscando opción "Tasa Cero"...`);
@@ -134,10 +132,23 @@ async function navegarATasaCero(pagina, navegador) {
             )
         ]);
 
-        console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] [navegarATasaCero] Nueva pestaña detectada. Esperando que frames se carguen...`);
+        console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] [navegarATasaCero] Nueva pestaña detectada. Esperando frame "listado"...`);
 
-        // La página ya está abierta. Solo esperar a que los frames se inicialicen
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // En vez de dormir 2s a ciegas, sondeamos hasta que el frame "listado" no solo
+        // EXISTA sino que tenga su contenido cargado (el <select> del periodo). Esperar
+        // solo a que el frame exista devolvía demasiado pronto y el Paso 0.5 del
+        // formulario se comía un timeout de 5s buscando el select. Tope de 8s.
+        const TOPE_FRAME = 8000;
+        const inicioEsperaFrame = Date.now();
+        while (Date.now() - inicioEsperaFrame <= TOPE_FRAME) {
+            const frameListado = nuevaPaginaTasaCero.frames().find(f => f.name() === 'listado');
+            if (frameListado) {
+                const tieneContenido = await frameListado.$('select').then(h => !!h).catch(() => false);
+                if (tieneContenido) break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] [navegarATasaCero] Frame "listado" con contenido tras ${Date.now() - inicioEsperaFrame}ms de espera`);
 
         const urlNuevaPagina = nuevaPaginaTasaCero.url();
         console.log(`⏱️ [+${Date.now() - tiempoInicio}ms] ✅ [navegarATasaCero] Navegación exitosa a Tasa Cero. URL: ${urlNuevaPagina}`);

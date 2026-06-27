@@ -29,13 +29,19 @@ const os = require('os');
 function obtenerMesDePeriodo(periodo) {
     const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-    // Extraer el mes del periodo "12/2025" → "12"
-    const partes = periodo.split('/');
-    if (partes.length === 2) {
-        const mesNumero = parseInt(partes[0], 10); // "12" → 12
-        if (mesNumero >= 1 && mesNumero <= 12) {
-            return meses[mesNumero - 1]; // 12 → índice 11 → "dic"
+    // Acepta los dos formatos que circulan en el flujo:
+    //   "MM/YYYY" (ej "06/2026") → el mes es la parte antes de "/"
+    //   "YYYY-MM" (ej "2026-06") → el mes es la parte después de "-"
+    let mesNumero = NaN;
+    if (typeof periodo === 'string') {
+        if (periodo.includes('/')) {
+            mesNumero = parseInt(periodo.split('/')[0], 10);
+        } else if (periodo.includes('-')) {
+            mesNumero = parseInt(periodo.split('-')[1], 10);
         }
+    }
+    if (mesNumero >= 1 && mesNumero <= 12) {
+        return meses[mesNumero - 1];
     }
 
     // Fallback: mes actual si el formato es inválido
@@ -894,21 +900,41 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
         console.log('[Reimpresión] ✅ Elemento encontrado. Haciendo clic...');
         await tdEstadoSolicitudes.click();
 
-        // Esperar a que se cargue el JSP
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
         // ====================================================================
-        // PASO 2: Acceder al frame "listado" actualizado
+        // PASO 2: Esperar el frame "listado" con la tabla cargada (id=Gx1)
         // ====================================================================
-        console.log('[Reimpresión] Accediendo al frame "listado"...');
+        // En vez de dormir 3.5s a ciegas (cargar JSP + cargar contenido), sondeamos
+        // hasta que el frame "listado" exista Y tenga la primera celda Gx1. Apenas
+        // está, seguimos. Tope de 8s por si la carga falla.
+        console.log('[Reimpresión] Esperando frame "listado" con tabla (id=Gx1)...');
 
-        const frameListado = paginaTasaCero.frames().find(frame => frame.name() === 'listado');
-        if (!frameListado) {
-            throw new Error('No se encontró el frame "listado" después de navegar a Estado Solicitudes');
+        // OJO: no alcanza con que #Gx1 exista en el DOM; abajo llamamos el.onclick()
+        // para abrir el PDF, así que necesitamos que su handler onclick ya esté
+        // enganchado (la página termina de cablear su JS un instante después de
+        // pintar la tabla). Esperar solo a que exista hacía que onclick() no abriera nada.
+        // OJO 2: el frame "listado" YA existe de antes con la URL inscripcion_lista.jsp,
+        // y esa página vieja también tiene un #Gx1. Si solo esperamos "frame llamado
+        // listado + Gx1", lo encontramos al instante (el viejo) y hacemos clic en la
+        // fila equivocada. Por eso exigimos que la URL haya navegado a solicitud_consultar.jsp.
+        let frameListado = null;
+        const TOPE_TABLA = 8000;
+        const inicioTabla = Date.now();
+        while (Date.now() - inicioTabla < TOPE_TABLA) {
+            frameListado = paginaTasaCero.frames().find(frame => frame.name() === 'listado');
+            if (frameListado && frameListado.url().includes('solicitud_consultar')) {
+                const gx1Listo = await frameListado.evaluate(() => {
+                    const el = document.getElementById('Gx1');
+                    return !!(el && typeof el.onclick === 'function');
+                }).catch(() => false);
+                if (gx1Listo) break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
 
-        // Esperar a que se cargue el contenido del frame
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        if (!frameListado || !frameListado.url().includes('solicitud_consultar')) {
+            throw new Error(`El frame "listado" no navegó a Estado Solicitudes (URL actual: ${frameListado ? frameListado.url() : 'sin frame'})`);
+        }
+        console.log(`[Reimpresión] Frame "listado" listo tras ${Date.now() - inicioTabla}ms`);
 
         // ====================================================================
         // PASO 3: Hacer clic en la primera celda (id="Gx1")
@@ -933,8 +959,20 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
         // Ejecutar el onclick (abre nueva ventana con PDF)
         await primeraCelda.evaluate(el => el.onclick());
 
-        // Esperar a que se abra la nueva ventana
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // Esperar a que aparezca la nueva ventana Y a que su URL deje de estar en blanco
+        // (si leyéramos url() apenas se crea la pestaña, sería "about:blank" y el flujo
+        // se iría a la rama de descarga manual). Sondeamos en vez de dormir 3s fijos.
+        const TOPE_VENTANA = 8000;
+        const inicioVentana = Date.now();
+        while (Date.now() - inicioVentana <= TOPE_VENTANA) {
+            const paginas = await navegador.pages();
+            if (paginas.length > paginasAntes.length) {
+                const urlUltima = paginas[paginas.length - 1].url();
+                if (urlUltima && urlUltima !== 'about:blank') break;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        console.log(`[Reimpresión] Nueva ventana lista tras ${Date.now() - inicioVentana}ms`);
 
         // ====================================================================
         // PASO 4: Obtener la nueva ventana con el PDF

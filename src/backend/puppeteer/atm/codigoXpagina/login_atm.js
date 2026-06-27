@@ -7,12 +7,10 @@ async function manejarModalActualizacionEmail(page) {
     try {
         console.log('[manejarModalActualizacionEmail] Verificando si existe modal de email...');
 
-        // Esperar un momento para que la página se estabilice y el modal tenga chance de aparecer
-        console.log('[manejarModalActualizacionEmail] Esperando 3 segundos para que la página se estabilice...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-
-        // Esperar a que el modal esté visible (el modal tiene id="divMisTramitesConfirmarEmails")
-        const TIMEOUT_MODAL = 7000; // 7 segundos
+        // No dormimos a ciegas: el login ya navegó con networkidle2, así que si el modal
+        // va a aparecer, aparece enseguida. waitForFunction sondea solo (cada ~100ms) y
+        // corta apenas lo ve. Si no aparece, el timeout corto es el único costo.
+        const TIMEOUT_MODAL = 2500; // antes 3000ms fijos + 7000ms de timeout
         let btnPostergar = null;
 
         try {
@@ -148,21 +146,21 @@ async function loginATM(page, credencialesATM) {
         await page.waitForSelector('#cuit', { visible: true });
         console.log(`[loginATM] Iniciando login para CUIT: ${cuit}`);
 
-        // Esperar un momento adicional para que la página esté completamente lista
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // El waitForSelector({visible:true}) ya garantiza que el campo está listo
+        // para interactuar; el sleep de 500ms era redundante.
 
         // Limpiar y enfocar el campo CUIT antes de escribir
         await page.click('#cuit', { clickCount: 3 }); // Triple clic para seleccionar todo
         await page.keyboard.press('Backspace'); // Limpiar cualquier contenido previo
 
-        // Escribir CUIT
-        await page.type('#cuit', String(cuit), { delay: 100 }); // Delay aumentado a 100ms
+        // Escribir CUIT (delay bajo: el form no valida tecla por tecla)
+        await page.type('#cuit', String(cuit), { delay: 20 });
         console.log(`[loginATM] CUIT ingresado: ${cuit}`);
 
         // Limpiar y escribir contraseña
         await page.click('#password', { clickCount: 3 });
         await page.keyboard.press('Backspace');
-        await page.type('#password', String(clave), { delay: 100 });
+        await page.type('#password', String(clave), { delay: 20 });
         console.log(`[loginATM] Contraseña ingresada`);
 
         // Preparamos la "carrera" de promesas
