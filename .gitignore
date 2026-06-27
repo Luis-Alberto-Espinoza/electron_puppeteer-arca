@@ -1,3 +1,6 @@
+# Reportes de pruebas (artefactos generados, no código)
+pruebas/reportes/
+
 # Logs
 *.log
 npm-debug.log*
