@@ -4,6 +4,13 @@
 const { procesarDatosFactura: comunicacionConFactura } = require('./service/procesarFactura.js');
 const facturaManagerUnificado = require('./facturaManagerUnificado.js');
 const { listarRazonesSociales } = require('../../cliente/model.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
+
+// En facturas el CUIT puede venir como `cuit` o `cuil`; normalizamos acá.
+const clienteFactura = (u) => historialRepo.clienteDesdeUsuario(
+    u ? { id: u.id, nombre: u.nombre, cuit: u.cuit || u.cuil } : null
+);
 
 // Variables de estado (antes globales en main.js)
 // Usadas por el flujo antiguo de facturacion
@@ -19,6 +26,7 @@ let ultimaEmpresaElegida = null;
  * @param {Electron.BrowserWindow} mainWindow - Ventana principal
  */
 function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
+    const repo = getContribuyenteRepo();
 
     // ========================================
     // FLUJO ANTIGUO DE FACTURACION
@@ -52,11 +60,27 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             if (!data.credenciales.nombreEmpresa && ultimaEmpresaElegida) {
                 data.credenciales.nombreEmpresa = ultimaEmpresaElegida;
             }
+
+            // Modelo plano: el LOGIN lo resuelve el backend con resolverAcceso (no
+            // se confía en la clave que mandó el frontend → además deja de viajar
+            // por el renderer). Para un representado entra por su representante.
+            const cuitObjetivo = (usuarioSeleccionado && usuarioSeleccionado.cuit) || data.credenciales.usuario;
+            const acceso = await repo.resolverAcceso(String(cuitObjetivo), 'afip');
+            if (!acceso) {
+                event.reply('login-automatizado', { success: false, error: `El contribuyente ${cuitObjetivo} no tiene acceso AFIP (ni clave propia ni representante)` });
+                return;
+            }
+            const credenciales = {
+                usuario: acceso.loginCuit,
+                contrasena: acceso.loginClave,
+                nombreEmpresa: data.credenciales.nombreEmpresa
+            };
+
             // Usamos el manager unificado con resultadoCodigo ya procesado
             // Nota: resultadoCodigo ya viene procesado, el unificado lo detectará como 'simple'
             const resultado = await facturaManagerUnificado.iniciarProceso(
                 data.url,
-                data.credenciales,
+                credenciales,
                 resultadoCodigo,  // datos ya procesados
                 data.test,
                 usuarioSeleccionado,
@@ -93,20 +117,20 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
         }
 
         try {
-            // Preparar credenciales
-            const credenciales = {
-                usuario: usuarioSeleccionado.cuit || usuarioSeleccionado.cuil,
-                contrasena: usuarioSeleccionado.claveAFIP,
-                nombreEmpresa: listarRazonesSociales(usuarioSeleccionado)[0] || ''
-            };
-
-            // Validar credenciales
-            if (!credenciales.usuario || !credenciales.contrasena) {
+            // Modelo plano: el login lo resuelve el backend (representante si aplica).
+            // No se confía en la claveAFIP del frontend.
+            const acceso = await repo.resolverAcceso(String(usuarioSeleccionado.cuit || usuarioSeleccionado.cuil), 'afip');
+            if (!acceso) {
                 return {
                     success: false,
-                    message: 'Faltan credenciales del usuario (CUIT/CUIL o clave AFIP)'
+                    message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante)'
                 };
             }
+            const credenciales = {
+                usuario: acceso.loginCuit,
+                contrasena: acceso.loginClave,
+                nombreEmpresa: acceso.objetivoNombre   // razón social del contribuyente
+            };
 
             console.log(`Generando factura para: ${usuarioSeleccionado.nombre} (${credenciales.usuario})`);
 
@@ -128,10 +152,22 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
 
             console.log('Resultado de facturacion:', resultado);
 
+            historialRepo.registrar({
+                dominio: 'factura', accion: 'generar', estado: resultado?.success ? 'exito' : 'error',
+                cliente: clienteFactura(usuarioSeleccionado),
+                resumen: resultado?.success ? 'Factura tipificada generada' : 'Fallo al generar factura',
+                error: resultado?.success ? null : (resultado?.message || null)
+            });
+
             return resultado;
 
         } catch (error) {
             console.error('BACKEND: Error al generar factura tipificada:', error);
+            historialRepo.registrar({
+                dominio: 'factura', accion: 'generar', estado: 'error',
+                cliente: clienteFactura(usuarioSeleccionado),
+                resumen: 'Fallo al generar factura', error: error.message
+            });
             return {
                 success: false,
                 message: `Error al generar factura: ${error.message}`,
@@ -192,19 +228,19 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             const datosComunes = grupo.datosComunes;
             const facturas = grupo.facturas || [];
 
-            // Credenciales por grupo (mismo usuario, pero la empresa puede variar).
-            const credenciales = {
-                usuario: datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil,
-                contrasena: datosComunes.usuarioSeleccionado.claveAFIP,
-                nombreEmpresa: datosComunes.nombreEmpresa || listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || ''
-            };
-
-            if (!credenciales.usuario || !credenciales.contrasena) {
+            // Credenciales por grupo: el login lo resuelve el backend (modelo plano).
+            const accesoGrupo = await repo.resolverAcceso(String(datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil), 'afip');
+            if (!accesoGrupo) {
                 return {
                     success: false,
-                    message: 'Faltan credenciales del usuario (CUIT/CUIL o clave AFIP)'
+                    message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante)'
                 };
             }
+            const credenciales = {
+                usuario: accesoGrupo.loginCuit,
+                contrasena: accesoGrupo.loginClave,
+                nombreEmpresa: datosComunes.nombreEmpresa || accesoGrupo.objetivoNombre
+            };
 
             for (let i = 0; i < facturas.length; i++) {
                 indiceGlobal++;
@@ -367,6 +403,15 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
         console.log(`   Exitosas: ${exitosas}`);
         console.log(`   Fallidas: ${fallidas}\n`);
 
+        // Una sola entrada-resumen por lote (no una por comprobante: sería ruido).
+        const estadoLote = fallidas === 0 ? 'exito' : (exitosas === 0 ? 'error' : 'parcial');
+        historialRepo.registrar({
+            dominio: 'factura', accion: 'generarLote', estado: estadoLote,
+            cliente: clienteFactura(usuario),
+            resumen: `Lote de facturas: ${exitosas} ok, ${fallidas} fallida/s`,
+            detalle: { total: resultados.length, exitosas, fallidas }
+        });
+
         return {
             success: true,
             message: `Lote procesado: ${exitosas} exitosas, ${fallidas} fallidas`,
@@ -399,20 +444,19 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             };
         }
 
-        // Preparar credenciales
-        const credenciales = {
-            usuario: usuarioSeleccionado.cuit || usuarioSeleccionado.cuil,
-            contrasena: usuarioSeleccionado.claveAFIP,
-            nombreEmpresa: listarRazonesSociales(usuarioSeleccionado)[0] || ''
-        };
-
-        // Validar credenciales
-        if (!credenciales.usuario || !credenciales.contrasena) {
+        // Modelo plano: el login lo resuelve el backend (representante si aplica).
+        const acceso = await repo.resolverAcceso(String(usuarioSeleccionado.cuit || usuarioSeleccionado.cuil), 'afip');
+        if (!acceso) {
             return {
                 success: false,
-                message: 'Faltan credenciales del usuario (CUIT/CUIL o clave AFIP)'
+                message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante)'
             };
         }
+        const credenciales = {
+            usuario: acceso.loginCuit,
+            contrasena: acceso.loginClave,
+            nombreEmpresa: acceso.objetivoNombre
+        };
 
         try {
             // Funcion callback para enviar progreso
@@ -449,6 +493,13 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
                 event.sender.send('facturaCliente:resultado', resultado);
             }
 
+            historialRepo.registrar({
+                dominio: 'factura', accion: 'generarCliente', estado: resultado?.success ? 'exito' : 'error',
+                cliente: clienteFactura(usuarioSeleccionado),
+                resumen: resultado?.success ? 'Factura(s) de cliente generada(s)' : 'Fallo al generar factura de cliente',
+                error: resultado?.success ? null : (resultado?.message || null)
+            });
+
             return resultado;
 
         } catch (error) {
@@ -464,6 +515,12 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             if (event.sender && !event.sender.isDestroyed()) {
                 event.sender.send('facturaCliente:resultado', errorResult);
             }
+
+            historialRepo.registrar({
+                dominio: 'factura', accion: 'generarCliente', estado: 'error',
+                cliente: clienteFactura(usuarioSeleccionado),
+                resumen: 'Fallo al generar factura de cliente', error: error.message
+            });
 
             return errorResult;
         }

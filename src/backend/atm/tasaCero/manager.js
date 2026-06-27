@@ -2,6 +2,8 @@
 // Manager para el servicio de Tasa Cero de ATM
 
 const { ejecutarFlujoPuppeteerTasaCero } = require('../../puppeteer/atm/flujosDeTareas/flujo_tasaCero_puppeteer.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
 
 // Constantes de configuración
 const CONSTANTS = {
@@ -47,7 +49,7 @@ async function procesarLote({ clientes, downloadsPath }, enviarProgreso) {
  * Procesa un único cliente
  */
 async function procesarCliente(cliente, downloadsPath, enviarProgreso) {
-    const { cuit, claveATM, nombre = '', apellido = '', id, periodo } = cliente;
+    const { cuit, nombre = '', apellido = '', id, periodo } = cliente;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
     // Construir nombre para archivos (evitar "null" o "undefined")
@@ -67,10 +69,13 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso) {
     enviarProgresoCliente('iniciando', `Iniciando proceso de Tasa Cero para periodo ${periodo}...`);
 
     try {
+        // Modelo plano: la clave ATM la resuelve el backend (no viaja del frontend).
+        const acceso = await getContribuyenteRepo().resolverAcceso(String(cuit), 'atm');
+        if (!acceso) throw new Error('El contribuyente no tiene clave ATM validada.');
         const resultadoFlujo = await ejecutarFlujoPuppeteerTasaCero({
             credenciales: {
-                cuit,
-                clave: claveATM
+                cuit: acceso.loginCuit,
+                clave: acceso.loginClave
             },
             nombreCliente: nombreCompleto,
             clienteId: id || cuit,
@@ -81,6 +86,8 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso) {
             constants: CONSTANTS
         });
 
+        const clienteHist = historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit });
+
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             enviarProgresoCliente('exito', 'Comprobante Tasa Cero descargado exitosamente.', {
                 archivoPdf: resultadoFlujo.rutaArchivo,
@@ -88,8 +95,20 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso) {
                 periodo: resultadoFlujo.periodo,
                 caso: resultadoFlujo.caso
             });
+            historialRepo.registrar({
+                dominio: 'tasaCero', accion: 'generar', estado: 'exito',
+                cliente: clienteHist,
+                resumen: `Comprobante Tasa Cero descargado${resultadoFlujo.periodo ? ' ' + resultadoFlujo.periodo : ''}`,
+                detalle: { periodo: resultadoFlujo.periodo, archivo: resultadoFlujo.rutaArchivo, caso: resultadoFlujo.caso }
+            });
         } else {
-            enviarProgresoCliente('error', resultadoFlujo?.mensaje || 'Error desconocido al procesar Tasa Cero.');
+            const msg = resultadoFlujo?.mensaje || 'Error desconocido al procesar Tasa Cero.';
+            enviarProgresoCliente('error', msg);
+            historialRepo.registrar({
+                dominio: 'tasaCero', accion: 'generar', estado: 'error',
+                cliente: clienteHist,
+                resumen: 'Fallo al generar Tasa Cero', error: msg
+            });
         }
 
     } catch (error) {
@@ -107,6 +126,11 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso) {
         }
 
         enviarProgresoCliente('error', mensajeError);
+        historialRepo.registrar({
+            dominio: 'tasaCero', accion: 'generar', estado: 'error',
+            cliente: historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit }),
+            resumen: 'Fallo al generar Tasa Cero', error: mensajeError
+        });
     }
 }
 

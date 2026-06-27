@@ -12,23 +12,29 @@ const { dialog } = require('electron');
 const declaracionJuradaManager = require('./declaracionJuradaManager.js');
 const parsers = require('./parsers/index.js');   // despachador: auto-detecta formato 1 o 2
 const escribirDeducciones = require('./escribirDeducciones.js');
-const { getDownloadPath } = require('../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../cliente/carpetaContribuyente.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
-function obtenerCredenciales(userStorage, cliente) {
-    const dataBD = userStorage.loadData();
-    const u = dataBD.users.find(x => String(x.id) === String(cliente.id));
-    if (!u) {
-        throw new Error(`No se encontró el cliente ${cliente.nombre || cliente.id} en el storage`);
-    }
+// Modelo plano: el login lo resuelve el backend con resolverAcceso (representante
+// si aplica). Un representado no tiene clave propia → entra por su representante.
+// La clave NUNCA viaja del frontend. Devuelve null si no hay camino de acceso.
+async function obtenerCredenciales(repo, cliente) {
+    const cuit = String(cliente.cuit || cliente.cuitLogin || cliente.cuil || '');
+    const acceso = await repo.resolverAcceso(cuit, 'afip');
+    if (!acceso) return null;
     return {
-        usuario: u.cuit || cliente.cuitLogin || cliente.cuit,
-        contrasena: u.claveAFIP || u.clave
+        usuario: acceso.loginCuit,
+        contrasena: acceso.loginClave,
+        objetivoCuit: acceso.objetivoCuit,
+        objetivoNombre: acceso.objetivoNombre
     };
 }
 
 function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
+    const repo = getContribuyenteRepo();
 
     ipcMain.handle('declaracionJurada:probarAcceso', async (event, datos) => {
         console.log('[DeclaracionJurada] probarAcceso recibido:', datos && datos.cliente && datos.cliente.id);
@@ -39,9 +45,9 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario seleccionado.' };
             }
 
-            const credenciales = obtenerCredenciales(userStorage, cliente);
-            if (!credenciales.contrasena) {
-                return { success: false, error: 'MISSING_CLAVE', message: 'El cliente no tiene clave AFIP cargada.' };
+            const credenciales = await obtenerCredenciales(repo, cliente);
+            if (!credenciales) {
+                return { success: false, error: 'NO_ACCESO', message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
             }
 
             const downloadsPath = app.getPath('downloads');
@@ -81,9 +87,9 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
                 return { success: false, error: 'BAD_FECHA_PAGO', message: 'Falta la fecha de pago (formato DD/MM/AAAA).' };
             }
 
-            const credenciales = obtenerCredenciales(userStorage, cliente);
-            if (!credenciales.contrasena) {
-                return { success: false, error: 'MISSING_CLAVE', message: 'El cliente no tiene clave AFIP cargada.' };
+            const credenciales = await obtenerCredenciales(repo, cliente);
+            if (!credenciales) {
+                return { success: false, error: 'NO_ACCESO', message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
             }
 
             // Excel → modelo canónico (base/alícuota). Opcional: si no hay Excel, el flujo
@@ -108,7 +114,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
 
             const downloadsPath = app.getPath('downloads');
 
-            return await declaracionJuradaManager.iniciarProceso(
+            const resultado = await declaracionJuradaManager.iniciarProceso(
                 URL_LOGIN_AFIP,
                 credenciales,
                 { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, modelo, fechaPago, grabar },
@@ -117,8 +123,27 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
                 !grabar   // "modoPrueba" del manager = simulación (sin grabar) — solo afecta el log
             );
 
+            // grabar=true → presentación real; grabar=false → simulación (no persiste).
+            historialRepo.registrar({
+                dominio: 'declaracionJurada', accion: grabar ? 'presentar' : 'simular',
+                estado: resultado?.success ? 'exito' : 'error',
+                cliente: historialRepo.clienteDesdeUsuario({ id: cliente.id, nombre: cliente.nombre, cuit: cliente.cuit || cliente.cuitLogin || cliente.cuil }),
+                resumen: `DDJJ ${grabar ? 'presentada' : 'simulada'} (${organismo} ${formulario}, ${periodo})`,
+                detalle: { organismo, formulario, periodo, grabar },
+                error: resultado?.success ? null : (resultado?.message || null)
+            });
+
+            return resultado;
+
         } catch (error) {
             console.error('[DeclaracionJurada] Error en cargar:', error);
+            historialRepo.registrar({
+                dominio: 'declaracionJurada', accion: (datos && datos.grabar) ? 'presentar' : 'simular', estado: 'error',
+                cliente: historialRepo.clienteDesdeUsuario(datos && datos.cliente
+                    ? { id: datos.cliente.id, nombre: datos.cliente.nombre, cuit: datos.cliente.cuit || datos.cliente.cuitLogin || datos.cliente.cuil }
+                    : null),
+                resumen: 'Fallo en Declaración Jurada', error: error.message
+            });
             return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
         }
     });
@@ -132,9 +157,9 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
             if (!cliente || !cliente.id) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario seleccionado.' };
             }
-            const credenciales = obtenerCredenciales(userStorage, cliente);
-            if (!credenciales.contrasena) {
-                return { success: false, error: 'MISSING_CLAVE', message: 'El cliente no tiene clave AFIP cargada.' };
+            const credenciales = await obtenerCredenciales(repo, cliente);
+            if (!credenciales) {
+                return { success: false, error: 'NO_ACCESO', message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
             }
             return await declaracionJuradaManager.iniciarProceso(
                 URL_LOGIN_AFIP,
@@ -179,8 +204,8 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
             let defaultPath;
             if (cli.cuit || cli.nombre) {
                 try {
-                    const baseAtm = getDownloadPath(app.getPath('downloads'),
-                        { cuit: cli.cuit, nombre: cli.nombre, apellido: cli.apellido }, 'archivos_atm');
+                    const baseAtm = await getDownloadPathContribuyente(app.getPath('downloads'),
+                        cli.cuit, cli.nombre, 'archivos_atm');
                     const retDir = path.join(baseAtm, 'RetencionesYPercepciones');
                     defaultPath = fs.existsSync(retDir) ? retDir : baseAtm;
                 } catch (_) { /* si falla el armado de ruta, abre donde Electron quiera */ }
@@ -211,8 +236,8 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
             let defaultPath;
             if (cli.cuit || cli.nombre) {
                 try {
-                    const baseAtm = getDownloadPath(app.getPath('downloads'),
-                        { cuit: cli.cuit, nombre: cli.nombre, apellido: cli.apellido }, 'archivos_atm');
+                    const baseAtm = await getDownloadPathContribuyente(app.getPath('downloads'),
+                        cli.cuit, cli.nombre, 'archivos_atm');
                     const retDir = path.join(baseAtm, 'RetencionesYPercepciones');
                     defaultPath = fs.existsSync(retDir) ? retDir : baseAtm;
                 } catch (_) { /* si falla el armado de ruta, abre donde Electron quiera */ }
@@ -250,8 +275,8 @@ function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
                 if (!cliente) {
                     return { success: false, error: 'BAD_ARGS', message: 'Falta cliente o carpeta.' };
                 }
-                const baseAtm = getDownloadPath(app.getPath('downloads'),
-                    { cuit: cliente.cuit, nombre: cliente.nombre, apellido: cliente.apellido }, 'archivos_atm');
+                const baseAtm = await getDownloadPathContribuyente(app.getPath('downloads'),
+                    cliente.cuit, cliente.nombre, 'archivos_atm');
                 dir = path.join(baseAtm, 'RetencionesYPercepciones');
             }
             if (!fs.existsSync(dir)) return { success: true, sugerencias: {}, carpeta: dir };

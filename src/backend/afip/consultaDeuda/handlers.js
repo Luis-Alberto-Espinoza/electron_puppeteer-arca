@@ -3,6 +3,8 @@
 
 const consultaDeudaManager = require('./consultaDeudaManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
+const clienteHist = historialRepo.clienteDesdeUsuario;
 
 /**
  * Configura los handlers IPC para el dominio de Consulta de Deuda
@@ -78,12 +80,25 @@ function setupConsultaDeudaHandlers(ipcMain, userStorage, app) {
                             rutaCompleta: resultado.rutaCompleta,
                             totalFilas: resultado.totalFilas
                         });
+                        historialRepo.registrar({
+                            dominio: 'consultaDeuda', accion: 'consultar', estado: 'exito',
+                            cliente: clienteHist(usuario),
+                            resumen: `Deuda consultada (${resultado.totalFilas ?? 0} fila/s)`,
+                            detalle: { archivo: resultado.archivoExcel, periodoDesde, periodoHasta, fechaCalculo }
+                        });
                     } else {
                         console.error(`  ${usuario.nombre} fallo: ${resultado.message || resultado.error}`);
+                        const msg = resultado.message || resultado.error || 'Error desconocido';
                         resultados.push({
                             status: 'error',
                             usuario: usuario,
-                            error: resultado.message || resultado.error || 'Error desconocido'
+                            error: msg
+                        });
+                        historialRepo.registrar({
+                            dominio: 'consultaDeuda', accion: 'consultar', estado: 'error',
+                            cliente: clienteHist(usuario),
+                            resumen: 'Fallo al consultar deuda',
+                            error: msg
                         });
                     }
 
@@ -92,6 +107,12 @@ function setupConsultaDeudaHandlers(ipcMain, userStorage, app) {
                     resultados.push({
                         status: 'error',
                         usuario: usuario,
+                        error: error.message
+                    });
+                    historialRepo.registrar({
+                        dominio: 'consultaDeuda', accion: 'consultar', estado: 'error',
+                        cliente: clienteHist(usuario),
+                        resumen: 'Fallo al consultar deuda',
                         error: error.message
                     });
                 }

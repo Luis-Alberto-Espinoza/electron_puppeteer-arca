@@ -3,6 +3,8 @@
 
 const vepManager = require('./vepManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
+const clienteHist = historialRepo.clienteDesdeUsuario;
 
 /**
  * Configura los handlers IPC para el dominio de VEP
@@ -92,6 +94,11 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                                 sinDeuda: true,
                                 message: resultado.message || 'Cliente sin deuda pendiente'
                             });
+                            historialRepo.registrar({
+                                dominio: 'vep', accion: 'generar', estado: 'sinDeuda',
+                                cliente: clienteHist(usuario),
+                                resumen: `Sin deuda pendiente`
+                            });
                         } else if (resultado.success && resultado.autoprocesado) {
                             // Cliente con 1 periodo (procesado automaticamente)
                             console.log(`  ${usuario.nombre} procesado automaticamente`);
@@ -99,6 +106,12 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                                 usuario: usuario,
                                 medioPago: medioPago,
                                 pdfDescargado: resultado.pdfDescargado
+                            });
+                            historialRepo.registrar({
+                                dominio: 'vep', accion: 'generar', estado: 'exito',
+                                cliente: clienteHist(usuario),
+                                resumen: `VEP generado${resultado.pdfDescargado?.datos?.periodo ? ' ' + resultado.pdfDescargado.datos.periodo : ''}`,
+                                detalle: { medioPago: medioPago?.nombre, archivo: resultado.pdfDescargado?.nombre, ...resultado.pdfDescargado?.datos }
                             });
                         } else if (resultado.success) {
                             // Completado exitosamente (segunda pasada o sin periodos)
@@ -108,12 +121,24 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                                 medioPago: medioPago,
                                 pdfDescargado: resultado.pdfDescargado
                             });
+                            historialRepo.registrar({
+                                dominio: 'vep', accion: 'generar', estado: 'exito',
+                                cliente: clienteHist(usuario),
+                                resumen: `VEP generado${resultado.pdfDescargado?.datos?.periodo ? ' ' + resultado.pdfDescargado.datos.periodo : ''}`,
+                                detalle: { medioPago: medioPago?.nombre, archivo: resultado.pdfDescargado?.nombre, ...resultado.pdfDescargado?.datos }
+                            });
                         } else {
                             // Error
                             console.error(`  ${usuario.nombre} fallo: ${resultado.message}`);
                             errores.push({
                                 usuario: usuario,
                                 medioPago: medioPago,
+                                error: resultado.message
+                            });
+                            historialRepo.registrar({
+                                dominio: 'vep', accion: 'generar', estado: 'error',
+                                cliente: clienteHist(usuario),
+                                resumen: 'Fallo al generar VEP',
                                 error: resultado.message
                             });
                         }
@@ -123,6 +148,12 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                         errores.push({
                             usuario: usuario,
                             medioPago: medioPago,
+                            error: error.message
+                        });
+                        historialRepo.registrar({
+                            dominio: 'vep', accion: 'generar', estado: 'error',
+                            cliente: clienteHist(usuario),
+                            resumen: 'Fallo al generar VEP',
                             error: error.message
                         });
                     }
@@ -208,12 +239,24 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                             status: 'success',
                             pdfDescargado: resultado.pdfDescargado
                         });
+                        historialRepo.registrar({
+                            dominio: 'vep', accion: 'generar', estado: 'exito',
+                            cliente: clienteHist(usuario),
+                            resumen: `VEP generado (${periodosCliente.length} periodo/s)`,
+                            detalle: { medioPago: medioPago?.nombre, periodos: periodosCliente, archivo: resultado.pdfDescargado?.nombre, ...resultado.pdfDescargado?.datos }
+                        });
                     } else {
                         console.error(`  ${usuario.nombre} fallo`);
                         resultadosFinales.push({
                             usuario: usuario,
                             medioPago: medioPago,
                             status: 'error',
+                            error: resultado.message
+                        });
+                        historialRepo.registrar({
+                            dominio: 'vep', accion: 'generar', estado: 'error',
+                            cliente: clienteHist(usuario),
+                            resumen: 'Fallo al generar VEP',
                             error: resultado.message
                         });
                     }
@@ -224,6 +267,12 @@ function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
                         usuario: usuario,
                         medioPago: medioPago,
                         status: 'error',
+                        error: error.message
+                    });
+                    historialRepo.registrar({
+                        dominio: 'vep', accion: 'generar', estado: 'error',
+                        cliente: clienteHist(usuario),
+                        resumen: 'Fallo al generar VEP',
                         error: error.message
                     });
                 }

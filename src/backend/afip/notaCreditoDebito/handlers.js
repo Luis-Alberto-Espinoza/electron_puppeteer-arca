@@ -5,6 +5,9 @@
 // La generación de las notas reusa el flujo de Factura Tipificada (otro dominio).
 
 const fs = require('fs');
+const { dialog } = require('electron');
+const { getDownloadPathContribuyente } = require('../../cliente/carpetaContribuyente.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { listarExcelsConsulta } = require('./service/listarExcelsConsulta.js');
 const { leerExcelComprobantes } = require('./service/leerExcelComprobantes.js');
 const { armarNotaDesdeFactura } = require('./service/armarNotaDesdeFactura.js');
@@ -19,6 +22,7 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
  * @param {Electron.App} app
  */
 function setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app) {
+    const repo = getContribuyenteRepo();
 
     // Lista los Excel de consulta del emisor (más reciente primero). Lista vacía
     // = el frontend bloquea la generación de notas con mensaje claro.
@@ -47,6 +51,40 @@ function setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app) {
         } catch (error) {
             console.error('BACKEND: Error en notaCreditoDebito:listarExcels:', error);
             return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
+        }
+    });
+
+    // Abre un buscador de archivos para que el usuario elija el Excel de consulta
+    // a mano. Es la vía robusta cuando la lista automática no lo encuentra
+    // (carpeta distinta, datos viejos): devuelve la ruta y el frontend la usa
+    // igual que una opción del select. Abre por defecto en la carpeta canónica
+    // del contribuyente si nos pasan el cuit.
+    ipcMain.handle('notaCreditoDebito:elegirExcel', async (event, datos) => {
+        try {
+            const { cuit, nombre } = datos || {};
+            let defaultPath;
+            if (cuit) {
+                try {
+                    defaultPath = await getDownloadPathContribuyente(
+                        app.getPath('downloads'), cuit, nombre, 'archivos_afip'
+                    );
+                } catch (_) { /* sin defaultPath: el diálogo abre donde el SO decida */ }
+            }
+
+            const r = await dialog.showOpenDialog({
+                title: 'Elegí el Excel de consulta',
+                defaultPath,
+                properties: ['openFile'],
+                filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+            });
+            if (r.canceled || !r.filePaths || !r.filePaths.length) {
+                return { success: false, canceled: true };
+            }
+            return { success: true, archivo: r.filePaths[0] };
+
+        } catch (error) {
+            console.error('BACKEND: Error en notaCreditoDebito:elegirExcel:', error);
+            return { success: false, error: 'DIALOG_ERROR', message: error.message };
         }
     });
 
@@ -91,14 +129,18 @@ function setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app) {
                 return { success: false, error: 'USER_NOT_FOUND', message: 'No se encontró el usuario en la base.' };
             }
 
-            const credenciales = {
-                usuario: usuarioCompleto.cuit || usuarioCompleto.cuil,
-                contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave,
-                nombreEmpresa: nombreEmpresa || listarRazonesSociales(usuarioCompleto)[0] || ''
-            };
-            if (!credenciales.usuario || !credenciales.contrasena) {
-                return { success: false, message: 'Faltan credenciales del usuario (CUIT/CUIL o clave AFIP).' };
+            // Modelo plano: el login lo resuelve el backend (representante si aplica).
+            // No se confía en la claveAFIP del objeto gordo — un representado como
+            // El Papi no tiene clave propia y entra por su representante (Debora).
+            const acceso = await repo.resolverAcceso(String(usuarioCompleto.cuit || usuarioCompleto.cuil), 'afip');
+            if (!acceso) {
+                return { success: false, message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
             }
+            const credenciales = {
+                usuario: acceso.loginCuit,
+                contrasena: acceso.loginClave,
+                nombreEmpresa: nombreEmpresa || acceso.objetivoNombre
+            };
 
             const total = notas.length;
             const resultados = [];

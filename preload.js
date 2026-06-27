@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Combinar todas las APIs en un solo objeto
 contextBridge.exposeInMainWorld('electronAPI', {
     // APIs existentes
-    
+
     // API para manejar facturas
     sendFormData: (data) => ipcRenderer.send('formulario-enviado', data),
     onFormularioRecibido: (callback) => ipcRenderer.on('formulario-recibido', callback),
@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     user: {
         create: (userData) => ipcRenderer.invoke('user:create', userData),
         getAll: () => ipcRenderer.invoke('user:getAll'),
+        listCrud: () => ipcRenderer.invoke('user:listCrud'),
         getById: (userId) => ipcRenderer.invoke('user:get-by-id', userId),
         update: (userData) => ipcRenderer.invoke('user:update', userData),
         delete: (userId) => ipcRenderer.invoke('user:delete', userId),
@@ -113,6 +114,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onVEPUpdate: (callback) => ipcRenderer.on('vep:update', (_event, datos) => callback(datos))
     },
 
+    // APIs para Historial de acciones (bitacora persistente, solo lectura)
+    historial: {
+        listar: (filtros) => ipcRenderer.invoke('historial:listar', filtros),
+        buscar: (texto, filtros) => ipcRenderer.invoke('historial:buscar', { texto, filtros })
+    },
+
     // APIs para Consulta de Deuda
     consultaDeuda: {
         consultar: (datos) => ipcRenderer.invoke('consultaDeuda:consultar', datos),
@@ -127,6 +134,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // APIs para Notas de Crédito/Débito (listar/leer Excels + generar el lote de notas)
     notaCreditoDebito: {
         listarExcels: (datos) => ipcRenderer.invoke('notaCreditoDebito:listarExcels', datos),
+        elegirExcel: (datos) => ipcRenderer.invoke('notaCreditoDebito:elegirExcel', datos),
         leerExcel: (datos) => ipcRenderer.invoke('notaCreditoDebito:leerExcel', datos),
         generarNotas: (datos) => ipcRenderer.invoke('notaCreditoDebito:generarNotas', datos)
     },
@@ -135,7 +143,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     empresa: {
         descubrirPuntosDeVenta: (datos) => ipcRenderer.invoke('empresa:descubrirPuntosDeVenta', datos),
         analizarCliente: (datos) => ipcRenderer.invoke('empresa:analizarCliente', datos),
-        analizarEmpresa: (datos) => ipcRenderer.invoke('empresa:analizarEmpresa', datos)
+        analizarEmpresa: (datos) => ipcRenderer.invoke('empresa:analizarEmpresa', datos),
+        analizarContribuyente: (datos) => ipcRenderer.invoke('empresa:analizarContribuyente', datos)
     },
 
     // Modelo plano de contribuyente (Tareas 3-7). `listar` NO devuelve claves.

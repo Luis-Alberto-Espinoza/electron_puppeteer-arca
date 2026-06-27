@@ -2,6 +2,8 @@
 // Manager para el servicio de Plan de Pago de ATM
 
 const { flujoPlanDePago } = require('../../puppeteer/atm/flujosDeTareas/flujo_planDepagoIngresosBruto.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
 
 /**
  * Procesa un lote de usuarios para generar planes de pago
@@ -36,7 +38,7 @@ async function procesarLote({ usuarios, downloadsPath }, enviarProgreso) {
  * Procesa un único usuario
  */
 async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
-    const { cuit, claveATM, nombre = '', apellido = '', id } = usuario;
+    const { cuit, nombre = '', apellido = '', id } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
     // Construir nombre para archivos (evitar "null" o "undefined")
@@ -56,7 +58,10 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
     enviarProgresoUsuario('iniciando', 'Iniciando proceso de Plan de Pago...');
 
     try {
-        const credenciales = { cuit, clave: claveATM };
+        // Modelo plano: la clave ATM la resuelve el backend (no viaja del frontend).
+        const acceso = await getContribuyenteRepo().resolverAcceso(String(cuit), 'atm');
+        if (!acceso) throw new Error('El contribuyente no tiene clave ATM validada.');
+        const credenciales = { cuit: acceso.loginCuit, clave: acceso.loginClave };
 
         const resultadoFlujo = await flujoPlanDePago(
             credenciales,
@@ -67,11 +72,22 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             enviarProgresoUsuario('exito_final', 'Plan de Pago generado con éxito.', resultadoFlujo);
+            historialRepo.registrar({
+                dominio: 'planDePago', accion: 'generar', estado: 'exito',
+                cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
+                resumen: 'Plan de Pago generado',
+                detalle: { archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo }
+            });
         }
 
     } catch (error) {
         console.error(`Error procesando Plan de Pago para ${nombreCompleto}:`, error);
         enviarProgresoUsuario('error', `Error: ${error.message}`);
+        historialRepo.registrar({
+            dominio: 'planDePago', accion: 'generar', estado: 'error',
+            cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
+            resumen: 'Fallo al generar Plan de Pago', error: error.message
+        });
     }
 }
 

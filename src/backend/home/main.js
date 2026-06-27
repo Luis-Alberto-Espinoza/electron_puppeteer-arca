@@ -43,6 +43,9 @@ const setupSesionAtmHandlers = require('../atm/sesion/handlers.js');
 const setupPlanesDePagoHandlers = require('../afip/planesDePago/handlers.js');
 const setupListasPlanesPagoHandlers = require('../afip/planesDePago/handlers_listas.js');
 
+// Historial de acciones (bitacora persistente, un solo usuario)
+const setupHistorialHandlers = require('../historial/handlers.js');
+
 // Importar la nueva función de carga masiva
 const { procesarArchivoUsuarios } = require('../cliente/service/cargaMasiva.js');
 
@@ -90,6 +93,17 @@ function createWindow() {
     });
 
     mainWindow.loadFile('src/frontend_js/home/index.html');
+
+    // Ctrl+Shift+R: recarga COMPLETA de la ventana (vuelve al inicio y descarta
+    // todo el estado en memoria). Es a propósito: sirve para limpiar el cliente/
+    // servicio anterior que queda "pegado". Lo hacemos explícito con
+    // reloadIgnoringCache para no depender del acelerador del menú nativo.
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown' && input.control && input.shift && input.code === 'KeyR') {
+            event.preventDefault();
+            mainWindow.webContents.reloadIgnoringCache();
+        }
+    });
 
     mainWindow.webContents.once('did-finish-load', () => {
         mainWindow.show();
@@ -375,6 +389,8 @@ app.whenReady().then(async () => {
         // Handlers de Planes de Pago AFIP
         setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app);
         setupListasPlanesPagoHandlers(ipcMain);
+
+        setupHistorialHandlers(ipcMain); // bitacora de acciones (solo lectura desde el front)
 
         // Handler para la carga masiva de usuarios desde Excel
         ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {

@@ -2,6 +2,8 @@
 // Manager para el servicio de Constancia Fiscal de ATM
 
 const { flujoConstanciaFiscal } = require('../../puppeteer/atm/flujosDeTareas/flujo_constanciaFiscal_imprimir.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
 
 /**
  * Procesa un lote de usuarios para generar constancias fiscales
@@ -36,7 +38,7 @@ async function procesarLote({ usuarios, downloadsPath }, enviarProgreso) {
  * Procesa un único usuario
  */
 async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
-    const { cuit, claveATM, nombre = '', apellido = '', id } = usuario;
+    const { cuit, nombre = '', apellido = '', id } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
     // Construir nombre para archivos (evitar "null" o "undefined")
@@ -56,7 +58,10 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
     enviarProgresoUsuario('iniciando', 'Iniciando proceso de Constancia Fiscal...');
 
     try {
-        const credenciales = { cuit, clave: claveATM };
+        // Modelo plano: la clave ATM la resuelve el backend (no viaja del frontend).
+        const acceso = await getContribuyenteRepo().resolverAcceso(String(cuit), 'atm');
+        if (!acceso) throw new Error('El contribuyente no tiene clave ATM validada.');
+        const credenciales = { cuit: acceso.loginCuit, clave: acceso.loginClave };
 
         const resultadoFlujo = await flujoConstanciaFiscal(
             credenciales,
@@ -67,11 +72,22 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             enviarProgresoUsuario('exito_final', 'Constancia Fiscal generada con éxito.', resultadoFlujo);
+            historialRepo.registrar({
+                dominio: 'constanciaFiscal', accion: 'generar', estado: 'exito',
+                cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
+                resumen: 'Constancia Fiscal generada',
+                detalle: { archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo }
+            });
         }
 
     } catch (error) {
         console.error(`Error procesando Constancia Fiscal para ${nombreCompleto}:`, error);
         enviarProgresoUsuario('error', `Error: ${error.message}`);
+        historialRepo.registrar({
+            dominio: 'constanciaFiscal', accion: 'generar', estado: 'error',
+            cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
+            resumen: 'Fallo al generar Constancia Fiscal', error: error.message
+        });
     }
 }
 

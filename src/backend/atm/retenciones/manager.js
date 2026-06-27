@@ -2,6 +2,8 @@
 // Manager para el servicio de Descarga de Retenciones de ATM
 
 const { flujoDescargaRetenciones } = require('../../puppeteer/atm/flujosDeTareas/flujo_descargaRetenciones.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { historialRepo } = require('../../historial/historialRepo.js');
 
 /**
  * Procesa un lote de usuarios para descargar retenciones
@@ -36,7 +38,7 @@ async function procesarLote({ usuarios, downloadsPath }, enviarProgreso) {
  * Procesa un único usuario
  */
 async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
-    const { cuit, claveATM, nombre = '', apellido = '', id, periodo = '' } = usuario;
+    const { cuit, nombre = '', apellido = '', id, periodo = '' } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
     // Construir nombre para archivos (evitar "null" o "undefined")
@@ -56,7 +58,10 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
     enviarProgresoUsuario('iniciando', `Iniciando descarga de Retenciones (periodo: ${periodo})...`);
 
     try {
-        const credenciales = { cuit, clave: claveATM };
+        // Modelo plano: la clave ATM la resuelve el backend (no viaja del frontend).
+        const acceso = await getContribuyenteRepo().resolverAcceso(String(cuit), 'atm');
+        if (!acceso) throw new Error('El contribuyente no tiene clave ATM validada.');
+        const credenciales = { cuit: acceso.loginCuit, clave: acceso.loginClave };
 
         const resultadoFlujo = await flujoDescargaRetenciones(
             credenciales,
@@ -68,11 +73,22 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             enviarProgresoUsuario('exito_final', 'Retenciones descargadas con éxito.', resultadoFlujo);
+            historialRepo.registrar({
+                dominio: 'retenciones', accion: 'descargar', estado: 'exito',
+                cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
+                resumen: `Retenciones descargadas${periodo ? ' (periodo ' + periodo + ')' : ''}`,
+                detalle: { periodo, archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo }
+            });
         }
 
     } catch (error) {
         console.error(`Error descargando Retenciones para ${nombreCompleto}:`, error);
         enviarProgresoUsuario('error', `Error: ${error.message}`);
+        historialRepo.registrar({
+            dominio: 'retenciones', accion: 'descargar', estado: 'error',
+            cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
+            resumen: 'Fallo al descargar Retenciones', error: error.message
+        });
     }
 }
 
