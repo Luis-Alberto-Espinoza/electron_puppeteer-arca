@@ -1,0 +1,127 @@
+/**
+ * NAVBAR — barra de navegación fija superior
+ * Componente reutilizable (patrón selectorUsuarios / confirmModal / lanzadorSesion).
+ * Usa los tokens de estilos/tokens.css.
+ */
+
+/* La barra es fija arriba: empujamos el contenido para que no quede tapado */
+body {
+    padding-top: 60px;
+}
+
+.app-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+    background: var(--grad-primario);
+    box-shadow: var(--sombra-sm);
+    font-family: var(--fuente);
+}
+
+.app-navbar .nav-brand {
+    font-weight: 700;
+    font-size: 18px;
+    color: #fff;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+.app-navbar .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Botón base del navbar: estilo "fantasma" sobre el gradiente */
+.app-navbar .nav-btn {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: var(--radio-sm);
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+}
+
+.app-navbar .nav-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Dropdown de servicios AFIP */
+.app-navbar .nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.app-navbar .nav-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    min-width: 220px;
+    background: var(--card);
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-sm);
+    box-shadow: var(--sombra);
+    padding: 6px;
+    z-index: 1001;
+}
+
+.app-navbar .nav-dropdown-menu.abierto {
+    display: block;
+}
+
+.app-navbar .nav-drop-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    color: var(--texto-1);
+    border: none;
+    border-radius: var(--radio-sm);
+    padding: 10px 12px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.app-navbar .nav-drop-item:hover {
+    background: var(--fondo-claro);
+}
+
+/* Zona derecha: usuario + recargar */
+.app-navbar .nav-right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.app-navbar .nav-usuario {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-navbar .nav-recargar {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--c-primario-2);
+    border-color: transparent;
+}
+
+.app-navbar .nav-recargar:hover {
+    background: #fff;
+}

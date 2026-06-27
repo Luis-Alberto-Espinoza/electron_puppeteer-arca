@@ -1,0 +1,57 @@
+/**
+ * TOKENS DE DISEÑO — AFIP Electron
+ * ---------------------------------
+ * Paso 1 del plan de modularización (ver docs/vistas/analisis_vista_inicial.md).
+ *
+ * Esta es la paleta de la app, en UN solo lugar. No define cómo se ve nada:
+ * solo le pone NOMBRE a los colores/medidas que ya usabas hardcodeados.
+ *
+ * Cómo se usa: en cualquier CSS escribís  color: var(--texto-1);
+ * Cómo se migra: cuando edites una vista, reemplazá el hex por su var(--...).
+ *   No hace falta migrar todo de una; conviven sin problema.
+ */
+
+:root {
+  /* ===== Marca / primario (el gradiente violeta que ya usabas 13 veces) ===== */
+  --c-primario-1: #667eea;
+  --c-primario-2: #764ba2;
+  --grad-primario: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
+
+  /* ===== Estados ===== */
+  --c-ok-1: #10b981;
+  --c-ok-2: #059669;
+  --grad-ok: linear-gradient(135deg, var(--c-ok-1) 0%, var(--c-ok-2) 100%);
+
+  --c-peligro-1: #ef4444;
+  --c-peligro-2: #dc2626;
+  --grad-peligro: linear-gradient(135deg, var(--c-peligro-1) 0%, var(--c-peligro-2) 100%);
+
+  --c-accion: #007bff;        /* azul de botones de acción */
+  --c-accion-hover: #0056b3;
+
+  --c-acento: #f6e05e;        /* amarillo de resaltado */
+
+  /* ===== Texto ===== */
+  --texto-1: #1f2937;         /* principal */
+  --texto-2: #6b7280;         /* secundario */
+  --texto-3: #9ca3af;         /* atenuado / placeholders */
+
+  /* ===== Superficies y bordes ===== */
+  --card: #ffffff;
+  --fondo-claro: #f9fafb;
+  --fondo-claro-2: #f3f4f6;
+  --borde: #e5e7eb;
+  --borde-2: #e2e8f0;
+
+  /* ===== Forma ===== */
+  --radio: 12px;
+  --radio-sm: 6px;
+  --sombra: 0 10px 40px rgba(0, 0, 0, 0.2);
+  --sombra-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  /* ===== Tipografía ===== */
+  --fuente: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* ===== Layout ===== */
+  --ancho-max: 1200px;
+}

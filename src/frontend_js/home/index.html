@@ -10,13 +10,19 @@
                  img-src 'self' data: https:;
                  connect-src 'self' https://cdn.jsdelivr.net;">
     <title>ARCA - AFIP</title>
+    <!-- Sistema de diseño: tokens (paleta) primero para que las variables existan -->
+    <link rel="stylesheet" href="../estilos/tokens.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="index.css">
+    <!-- Base + componentes compartidos: después de index.css para imponer el fondo de marca -->
+    <link rel="stylesheet" href="../estilos/base.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <!-- Componente reutilizable: Modal de confirmación -->
     <link rel="stylesheet" href="../utils/confirmModal.css">
     <!-- Componente reutilizable: Lanzador de sesión (abrir navegador logueado) -->
     <link rel="stylesheet" href="../componentes/lanzadorSesion/lanzadorSesion.css">
+    <!-- Componente reutilizable: Navbar (barra de navegación fija) -->
+    <link rel="stylesheet" href="../componentes/navbar/navbar.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 </head>
@@ -25,8 +31,10 @@
     <div class="general">
         <h1>Sistema AFIP - ARCA</h1>
 
-        <!-- MENÚ PRINCIPAL -->
-        <div class="menu-principal">
+        <!-- MENÚ PRINCIPAL (oculto: la navegación ahora vive en el navbar).
+             Se conservan los botones en el DOM para no romper el cableado de
+             inicializarBotonesPrincipales(); el navbar dispara las mismas claves. -->
+        <div class="menu-principal" style="display:none;">
             <button id="btnEntrarAfip" class="btn-principal">Entrar a AFIP</button>
             <button id="btnEntrarATM" class="btn-principal">Entrar a ATM</button>
             <button id="btnUsuarios" class="btn-principal">Gestión de Clientes</button>
@@ -63,6 +71,11 @@
             <!-- Aquí se cargará el módulo de Declaración Jurada -->
         </div>
 
+        <!-- HISTORIAL DE ACCIONES (bitácora) -->
+        <div id="historialDiv" class="contenido-oculto">
+            <!-- Aquí se cargará el módulo de Historial -->
+        </div>
+
         <!-- SELECTOR DE USUARIO -->
         <div id="selectorUsuarioDiv" class="contenido-oculto">
             <!-- El controlador.js inyectará aquí el componente selectorUsuarios dinámicamente -->
@@ -84,7 +97,9 @@
                 <button id="btnLectorMP" class="btn-principal">Lector MercadoPago</button>
                 <div id="leerMercadoPagoDiv" class="contenido-oculto"></div>
             </div>
-            <div class="seccion" id="libroIvaSeccion">
+            <!-- Libro IVA: servicio desactualizado e inoperativo → oculto por ahora
+                 (no se migra; se deja el DOM para no romper inicializarLibroIVA). -->
+            <div class="seccion" id="libroIvaSeccion" style="display:none;">
                 <button id="btnLibroIVA" class="btn-principal">Libro IVA</button>
                 <div id="libroIvaDiv" class="contenido-oculto"></div>
             </div>
@@ -109,6 +124,8 @@
     <script src="../utils/confirmModal.js"></script>
     <!-- Componente reutilizable: Lanzador de sesión (expone window.abrirLanzadorSesion) -->
     <script src="../componentes/lanzadorSesion/lanzadorSesion.js"></script>
+    <!-- Componente reutilizable: Navbar (expone window.initNavbar; lo inicializa controlador.js) -->
+    <script src="../componentes/navbar/navbar.js"></script>
     <script>
         // Inicializar el modal de confirmación cuando el DOM esté listo
         document.addEventListener('DOMContentLoaded', () => {

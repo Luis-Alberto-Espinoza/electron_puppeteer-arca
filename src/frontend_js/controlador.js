@@ -13,6 +13,31 @@ function ocultarSubmodulos() {
     // ['atmSubmodulo1', 'atmSubmodulo2'].forEach(...)
 }
 
+/**
+ * Cierra y vacía los paneles on-demand de los módulos AFIP. Se llama al CAMBIAR
+ * de cliente para que no quede pegado el dato del anterior. NO re-inicializa nada
+ * (los listeners de los botones siguen vivos): al reabrir cada panel, su loader
+ * on-demand hace fetch fresco y lo arma con el cliente actual.
+ *
+ * OJO: 'facturasDiv' NO se vacía. A diferencia de los otros, se carga UNA vez en
+ * inicializarInterfazFacturas() y se alterna por display (no se re-fetchea al
+ * reabrir), así que vaciarlo lo dejaría roto. Solo se oculta; su estado interno
+ * (datosMasivos, formulario) necesita un reset propio que todavía no existe.
+ */
+function limpiarPanelesAfip() {
+    // Paneles on-demand: se reconstruyen al reabrirse → vaciar es seguro.
+    ['facturasTipificadasDiv', 'leerMercadoPagoDiv', 'libroIvaDiv'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.add('contenido-oculto');
+            el.innerHTML = '';
+        }
+    });
+    // Facturas: solo ocultar (su contenido vive desde el init, no se re-fetchea).
+    const facturas = document.getElementById('facturasDiv');
+    if (facturas) facturas.style.display = 'none';
+}
+
 // ========================================
 // VARIABLES GLOBALES
 // ========================================
@@ -30,21 +55,25 @@ const MODULOS_PRINCIPALES = [
     {
         btn: 'btnEntrarAfip',
         modulo: 'homeAfipDiv',
+        clave: 'afip',
         callback: cargarModuloHomeAfip
     },
     {
         btn: 'btnUsuarios',
         modulo: 'usuariosDiv',
+        clave: 'clientes',
         callback: cargarModuloUsuarios
     },
     {
         btn: 'btnExtraerTablasPDF',
         modulo: 'extraerTablasPDFDiv',
+        clave: 'pdf',
         callback: cargarModuloExtraerTablasPDF
     },
     {
         btn: 'btnEntrarATM',
         modulo: 'atmsDiv',
+        clave: 'atm',
         callback: cargarModuloLoteATM
     }
 ];
@@ -65,7 +94,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -78,19 +107,84 @@ function mostrarSoloModulo(idMostrar) {
 }
 
 /**
- * Inicializa todos los botones principales basándose en la configuración del array
+ * Inicializa todos los botones principales basándose en la configuración del array.
+ * Cada botón ahora navega vía navegarVista(clave), que además recuerda la vista
+ * activa para poder recargarla (botón "Recargar" del navbar / Ctrl+Shift+R).
  */
 function inicializarBotonesPrincipales() {
-    MODULOS_PRINCIPALES.forEach(({ btn, modulo, callback }) => {
+    MODULOS_PRINCIPALES.forEach(({ btn, clave }) => {
         const boton = document.getElementById(btn);
         if (boton) {
-            boton.addEventListener('click', () => {
-                mostrarSoloModulo(modulo); // Mostrar el módulo correspondiente
-                if (typeof callback === 'function') callback(); // Ejecutar función de carga específica
-            });
+            boton.addEventListener('click', () => navegarVista(clave));
         }
     });
 }
+
+// ========================================
+// REGISTRO DE VISTAS NAVEGABLES (para navbar + recarga)
+// ========================================
+// Mapea una clave de vista a su contenedor + su loader. El loader es idempotente
+// (limpia el div y vuelve a inyectar HTML/JS), así que re-ejecutarlo = recargar.
+// Nota: las 4 vistas principales también figuran en MODULOS_PRINCIPALES (que se usa
+// para la lógica de ocultar); acá las repetimos a propósito para tener UN registro
+// único de navegación que incluya además los servicios AFIP.
+const REGISTRO_VISTAS = {
+    afip: { modulo: 'homeAfipDiv', cargar: cargarModuloHomeAfip },
+    atm: { modulo: 'atmsDiv', cargar: cargarModuloLoteATM },
+    clientes: { modulo: 'usuariosDiv', cargar: cargarModuloUsuarios },
+    pdf: { modulo: 'extraerTablasPDFDiv', cargar: cargarModuloExtraerTablasPDF },
+    vep: { modulo: 'generarVEPDiv', cargar: cargarModuloGenerarVEP },
+    planesDePago: { modulo: 'planesDePagoDiv', cargar: cargarModuloPlanesDePago },
+    cuentaTributaria: { modulo: 'cuentaTributariaDiv', cargar: cargarModuloCuentaTributaria },
+    consultaComprobantes: { modulo: 'consultaComprobantesDiv', cargar: cargarModuloConsultaComprobantes },
+    declaracionJurada: { modulo: 'declaracionJuradaDiv', cargar: cargarModuloDeclaracionJurada },
+    historial: { modulo: 'historialDiv', cargar: cargarModuloHistorial },
+};
+
+// Recuerda qué vista está activa para poder recargarla sin perder el contexto.
+let vistaActual = null;
+
+// Subservicio ATM pendiente de activar tras cargar la vista (lo setea navegarAtmSub).
+let atmSubPendiente = null;
+
+/**
+ * Navega a una vista por su clave: muestra su contenedor y ejecuta su loader.
+ * @param {string} clave - clave en REGISTRO_VISTAS (ej: 'vep', 'atm', 'afip')
+ */
+function navegarVista(clave) {
+    const vista = REGISTRO_VISTAS[clave];
+    if (!vista) {
+        console.warn('[controlador] Vista desconocida:', clave);
+        return;
+    }
+    vistaActual = clave;
+    mostrarSoloModulo(vista.modulo);
+    vista.cargar();
+}
+
+/**
+ * Recarga COMPLETA de la ventana (igual que Ctrl+Shift+R). Vuelve al inicio y
+ * descarta todo el estado en memoria, a propósito: así se limpia el cliente/
+ * servicio anterior que queda pegado. Mantiene el nombre que usa el navbar.
+ */
+function recargarVistaActual() {
+    window.location.reload();
+}
+
+/**
+ * Navega a la vista ATM y activa un subservicio puntual (constancias, planesPago,
+ * tasaCero, retenciones). Lo usa el dropdown ATM del navbar.
+ * @param {string} sub - valor de data-sub del botón del subservicio.
+ */
+function navegarAtmSub(sub) {
+    atmSubPendiente = sub;
+    navegarVista('atm');
+}
+
+// Exponer para el navbar (componente separado)
+window.navegarVista = navegarVista;
+window.recargarVistaActual = recargarVistaActual;
+window.navegarAtmSub = navegarAtmSub;
 
 // ========================================
 // INICIALIZACIÓN PRINCIPAL
@@ -98,36 +192,30 @@ function inicializarBotonesPrincipales() {
 document.addEventListener('DOMContentLoaded', () => {
     inicializarBotonesPrincipales(); // Inicializar toda la navegación centralizada
 
-    // Listeners para eventos personalizados de los módulos
-    document.addEventListener('cargarModuloVEP', () => {
-        cargarModuloGenerarVEP();
-    });
+    // Inicializar el navbar (componente separado, expuesto en window por navbar.js)
+    if (typeof window.initNavbar === 'function') {
+        window.initNavbar();
+    }
+
+    // Listeners para eventos personalizados de los módulos.
+    // Pasan por navegarVista para que quede registrada la vista activa (recargable).
+    document.addEventListener('cargarModuloVEP', () => navegarVista('vep'));
 
     document.addEventListener('cargarModuloFactura', () => {
+        // Flujo especial: selector de usuario previo (no es una vista del registro)
         mostrarSoloModulo('selectorUsuarioDiv');
         cargarModuloGenerarFactura();
     });
 
-    document.addEventListener('volverHomeAfip', () => {
-        mostrarSoloModulo('homeAfipDiv');
-        cargarModuloHomeAfip();
-    });
+    document.addEventListener('volverHomeAfip', () => navegarVista('afip'));
 
-    document.addEventListener('cargarModuloPlanesDePago', () => {
-        cargarModuloPlanesDePago();
-    });
+    document.addEventListener('cargarModuloPlanesDePago', () => navegarVista('planesDePago'));
 
-    document.addEventListener('cargarModuloCuentaTributaria', () => {
-        cargarModuloCuentaTributaria();
-    });
+    document.addEventListener('cargarModuloCuentaTributaria', () => navegarVista('cuentaTributaria'));
 
-    document.addEventListener('cargarModuloConsultaComprobantes', () => {
-        cargarModuloConsultaComprobantes();
-    });
+    document.addEventListener('cargarModuloConsultaComprobantes', () => navegarVista('consultaComprobantes'));
 
-    document.addEventListener('cargarModuloDeclaracionJurada', () => {
-        cargarModuloDeclaracionJurada();
-    });
+    document.addEventListener('cargarModuloDeclaracionJurada', () => navegarVista('declaracionJurada'));
 });
 
 // ========================================
@@ -211,17 +299,13 @@ async function mostrarSelectorUsuario() {
             // Ocultar tabla de seleccionados (solo selección simple, avanza automático)
             mostrarTablaSeleccionados: false,
 
-            // ====== VALIDACIÓN Y FILTRADO DE CREDENCIALES AFIP ======
-            campoCredencial: 'claveAFIP',
-            campoEstado: 'estado_afip',
-            campoError: 'errorAfip',
-            permitirInvalidos: false,
-            permitirSinValidar: false,
-            mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
-
-            // El selector que sirve para Facturación / MP / Factura Tipificada exige
-            // que el cliente esté analizado (tener empresas + PDV scrapeados).
-            requiereAnalisis: true,
+            // ====== MODELO PLANO ======
+            // El backend ya computó puedeOperar/motivoNoOpera para 'facturacion'
+            // (acceso AFIP propio o por representante + ≥1 PDV). El representado
+            // (El Papi) aparece como fila propia. NO se usan campoCredencial/
+            // campoEstado/requiereAnalisis: eso era del objeto gordo legacy.
+            fuente: 'contribuyentes',
+            servicio: 'facturacion',
 
             onCambioSeleccion: (usuariosSeleccionados) => {
                 // Solo permitir 1 usuario - tomar el ÚLTIMO (el recién clickeado)
@@ -430,6 +514,13 @@ async function cargarModuloLoteATM() {
                 if (window.inicializarModuloLoteATM) {
                     window.inicializarModuloLoteATM();
                 }
+                // Si se navegó a un subservicio puntual desde el navbar, activarlo
+                // simulando el click en su botón (la lógica vive dentro del módulo).
+                if (atmSubPendiente) {
+                    const btnSub = document.querySelector(`.btn-sub[data-sub="${atmSubPendiente}"]`);
+                    if (btnSub) btnSub.click();
+                    atmSubPendiente = null;
+                }
             };
             document.head.appendChild(script);
 
@@ -584,6 +675,51 @@ async function cargarModuloGenerarVEP() {
         }
     } else {
         console.error('❌ No se encontró el elemento generarVEPDiv');
+    }
+}
+
+/**
+ * Carga el módulo de Historial de acciones (bitácora, solo lectura).
+ * No usa selector de usuario ni componentes genéricos: HTML + CSS + JS plano.
+ */
+async function cargarModuloHistorial() {
+    mostrarSoloModulo('historialDiv');
+    const historialDiv = document.getElementById('historialDiv');
+    if (!historialDiv) {
+        console.error('❌ No se encontró historialDiv');
+        return;
+    }
+
+    historialDiv.innerHTML = ''; // limpiar contenido anterior (loader idempotente)
+
+    try {
+        const htmlPath = '../historial/historial.html';
+        const jsPath = '../historial/historial.js';
+
+        const response = await fetch(htmlPath);
+        if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+        const html = await response.text();
+
+        // El CSS va por <link> dentro del HTML; lo dejamos, el navegador no lo duplica.
+        historialDiv.innerHTML = html;
+
+        // (Re)cargar el JS y luego inicializar.
+        const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+        if (oldScript) oldScript.remove();
+
+        const script = document.createElement('script');
+        script.src = jsPath;
+        script.onload = () => {
+            if (window.inicializarHistorial) {
+                window.inicializarHistorial();
+            } else {
+                console.error('❌ window.inicializarHistorial no está definida');
+            }
+        };
+        document.head.appendChild(script);
+    } catch (error) {
+        console.error('❌ Error cargando módulo Historial:', error);
+        historialDiv.innerHTML = '<div style="color:red;">Error cargando el Historial.</div>';
     }
 }
 
@@ -1043,9 +1179,21 @@ async function cargarUsuariosEnSelector() {
  * @param {Object} usuarioCompleto - Objeto con todos los datos del usuario
  */
 function seleccionarUsuario(usuarioCompleto) {
+    // Detectar si realmente CAMBIÓ el cliente (id distinto al anterior). La 1ra
+    // selección (idAnterior === null) no cuenta como cambio: no hay nada que limpiar.
+    const idAnterior = usuarioSeleccionado ? String(usuarioSeleccionado.id) : null;
+    const idNuevo = usuarioCompleto ? String(usuarioCompleto.id) : null;
+    const cambioDeCliente = idAnterior !== null && idAnterior !== idNuevo;
+
     // Guardar usuario en variables globales
     usuarioSeleccionado = usuarioCompleto;
     window.usuarioSeleccionado = usuarioSeleccionado; // Para compatibilidad con otros módulos
+
+    // Si cambió de cliente, cerrar/vaciar los paneles AFIP para no arrastrar datos
+    // del cliente anterior (se reconstruyen al reabrirlos con el cliente nuevo).
+    if (cambioDeCliente) {
+        limpiarPanelesAfip();
+    }
 
     // Ejecutar el callback definido al entrar al selector de usuario (AFIP o ATM)
     if (typeof onUsuarioSeleccionado === 'function') {
@@ -1077,6 +1225,11 @@ function mostrarModulosAfip() {
 function actualizarUIConNuevoUsuario() {
     // Actualizar badge de usuario activo
     mostrarUsuarioSeleccionado();
+
+    // Reflejar el usuario activo en el navbar
+    if (typeof window.actualizarNavbarUsuario === 'function' && usuarioSeleccionado) {
+        window.actualizarNavbarUsuario(capitalizarNombre(usuarioSeleccionado.nombre));
+    }
 
     // Actualizar módulo de facturas si está cargado
     if (typeof window.configurarUsuarioEnFacturas === 'function') {

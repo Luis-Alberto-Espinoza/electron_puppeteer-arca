@@ -1,23 +1,16 @@
 /**
  * ESTILOS ESPECÍFICOS PARA VEP
- * Complementa los estilos del componente genérico
+ * Complementa los estilos del componente genérico.
+ *
+ * MIGRADO A TOKENS (molde de referencia para las demás vistas):
+ *  - El reset (* {}) y el body{} se borraron: ahora los da estilos/base.css.
+ *  - Los colores hardcodeados se reemplazaron por var(--...) de tokens.css.
+ *  - Las clases NO se renombran (generar_vep.js depende de varias), solo
+ *    cambia el VALOR de las propiedades. Patrón a replicar en cada vista.
  */
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    min-height: 100vh;
-    padding: 20px;
-}
-
 .contenedor-principal-vep {
-    max-width: 1200px;
+    max-width: var(--ancho-max);
     margin: 0 auto;
     background: white;
     border-radius: 12px;
@@ -31,25 +24,25 @@ body {
 .header-vep {
     margin-bottom: 30px;
     padding-bottom: 20px;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid var(--borde);
 }
 
 .breadcrumb {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--texto-2);
     margin-bottom: 12px;
 }
 
 .titulo-principal {
     font-size: 28px;
     font-weight: 700;
-    color: #1f2937;
+    color: var(--texto-1);
     margin-bottom: 8px;
 }
 
 .descripcion-principal {
     font-size: 14px;
-    color: #6b7280;
+    color: var(--texto-2);
     font-weight: 400;
 }
 
@@ -60,7 +53,7 @@ body {
     display: flex;
     gap: 12px;
     margin: 20px 0;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid var(--borde);
     padding-bottom: 0;
 }
 
@@ -84,9 +77,9 @@ body {
 }
 
 .tab-btn.tab-activo {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%) !important;
     color: white !important;
-    border-color: #667eea !important;
+    border-color: var(--c-primario-1) !important;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
 }
 
@@ -103,7 +96,7 @@ body {
     flex: 1;
     padding: 14px 24px;
     background: transparent;
-    color: #6b7280;
+    color: var(--texto-2);
     border: 2px solid #d1d5db;
     border-radius: 8px;
     font-size: 15px;
@@ -113,13 +106,13 @@ body {
 }
 
 .tab-modulo:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: var(--fondo-claro-2);
+    border-color: var(--texto-3);
     color: #374151;
 }
 
 .tab-modulo.tab-activo {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
     color: white;
     border-color: transparent;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
@@ -157,14 +150,14 @@ body {
 
 .modal-contenido h3 {
     font-size: 20px;
-    color: #1f2937;
+    color: var(--texto-1);
     margin-bottom: 20px;
 }
 
 .progreso-barra {
     width: 100%;
     height: 8px;
-    background: #e5e7eb;
+    background: var(--borde);
     border-radius: 4px;
     overflow: hidden;
     margin-bottom: 16px;
@@ -179,7 +172,7 @@ body {
 
 #progreso-texto {
     font-size: 14px;
-    color: #6b7280;
+    color: var(--texto-2);
 }
 
 /* ========================================
@@ -228,18 +221,18 @@ th br {
     font-size: 13px;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
-    background: #fff;
+    background: var(--card);
     /* Color explícito: el select hereda el texto blanco de la tabla y, con
        fondo blanco, quedaba invisible (blanco sobre blanco). */
-    color: #1f2937;
+    color: var(--texto-1);
     cursor: pointer;
     min-width: 150px;
 }
 
 /* Las <option> también: en algunos navegadores heredan el color del contexto. */
 .select-medio-pago option {
-    color: #1f2937;
-    background: #fff;
+    color: var(--texto-1);
+    background: var(--card);
 }
 
 .select-medio-pago:disabled {
@@ -361,7 +354,7 @@ th br {
 .modal-cabecera {
     padding: 25px 30px;
     border-bottom: 2px solid #e1e8ed;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
     color: white;
     border-radius: 12px 12px 0 0;
 }
@@ -455,7 +448,7 @@ th br {
     width: 22px;
     height: 22px;
     cursor: pointer;
-    accent-color: #667eea;
+    accent-color: var(--c-primario-1);
     transform: scale(1.2);
 }
 
@@ -506,7 +499,7 @@ th br {
 }
 
 .btn-confirmar-periodos {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
     color: white;
     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
@@ -583,7 +576,7 @@ th br {
 .seccion-resultados {
     margin-top: 40px;
     padding-top: 30px;
-    border-top: 3px solid #e5e7eb;
+    border-top: 3px solid var(--borde);
     animation: fadeIn 0.4s ease;
 }
 
@@ -594,13 +587,13 @@ th br {
 .resultados-header h2 {
     font-size: 24px;
     font-weight: 700;
-    color: #1f2937;
+    color: var(--texto-1);
     margin-bottom: 8px;
 }
 
 .resultados-descripcion {
     font-size: 14px;
-    color: #6b7280;
+    color: var(--texto-2);
 }
 
 /* ========================================
@@ -643,7 +636,7 @@ th br {
 }
 
 .grupo-procesados .grupo-header {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: linear-gradient(135deg, var(--c-ok-1) 0%, var(--c-ok-2) 100%);
 }
 
 .grupo-pendientes .grupo-header {
@@ -651,7 +644,7 @@ th br {
 }
 
 .grupo-errores .grupo-header {
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    background: linear-gradient(135deg, var(--c-peligro-1) 0%, var(--c-peligro-2) 100%);
 }
 
 .grupo-icono {
@@ -673,7 +666,7 @@ th br {
 
 .grupo-contenido {
     padding: 20px;
-    background: #f9fafb;
+    background: var(--fondo-claro);
 }
 
 /* ========================================
@@ -700,7 +693,7 @@ th br {
 
 /* Variantes de tarjetas */
 .tarjeta-procesado {
-    border-left: 4px solid #10b981;
+    border-left: 4px solid var(--c-ok-1);
 }
 
 .tarjeta-requiere-seleccion {
@@ -708,13 +701,13 @@ th br {
 }
 
 .tarjeta-error {
-    border-left: 4px solid #ef4444;
+    border-left: 4px solid var(--c-peligro-1);
 }
 
 /* Estado excluido */
 .tarjeta-cliente.excluido {
     opacity: 0.5;
-    background: #f3f4f6;
+    background: var(--fondo-claro-2);
 }
 
 .tarjeta-cliente.excluido .tarjeta-body {
@@ -728,7 +721,7 @@ th br {
 .tarjeta-header {
     padding: 16px 20px;
     background: #fafbfc;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--borde);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -754,12 +747,12 @@ th br {
     width: 18px;
     height: 18px;
     cursor: pointer;
-    accent-color: #667eea;
+    accent-color: var(--c-primario-1);
 }
 
 .checkbox-label {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--texto-2);
     font-weight: 500;
 }
 
@@ -773,14 +766,14 @@ th br {
 .cliente-nombre {
     font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--texto-1);
 }
 
 .cliente-cuit {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--texto-2);
     font-family: monospace;
-    background: #f3f4f6;
+    background: var(--fondo-claro-2);
     padding: 2px 8px;
     border-radius: 4px;
 }
@@ -791,7 +784,7 @@ th br {
 }
 
 .badge-medio-pago {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
     color: white;
     padding: 6px 14px;
     border-radius: 6px;
@@ -822,7 +815,7 @@ th br {
 
 .icono-exito {
     font-size: 20px;
-    color: #10b981;
+    color: var(--c-ok-1);
     font-weight: bold;
 }
 
@@ -839,7 +832,7 @@ th br {
 
 .icono-error {
     font-size: 20px;
-    color: #ef4444;
+    color: var(--c-peligro-1);
     font-weight: bold;
     flex-shrink: 0;
 }
@@ -859,7 +852,7 @@ th br {
 
 .btn-reintentar {
     padding: 8px 16px;
-    background: #ef4444;
+    background: var(--c-peligro-1);
     color: white;
     border: none;
     border-radius: 6px;
@@ -870,7 +863,7 @@ th br {
 }
 
 .btn-reintentar:hover {
-    background: #dc2626;
+    background: var(--c-peligro-2);
     transform: translateY(-1px);
 }
 
@@ -890,7 +883,7 @@ th br {
 }
 
 .tabla-periodos-cliente thead {
-    background: #f9fafb;
+    background: var(--fondo-claro);
 }
 
 .tabla-periodos-cliente th {
@@ -898,7 +891,7 @@ th br {
     text-align: left;
     font-weight: 600;
     color: #374151;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid var(--borde);
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -923,7 +916,7 @@ th br {
 }
 
 .tabla-periodos-cliente tbody tr {
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--fondo-claro-2);
     transition: background-color 0.15s;
 }
 
@@ -948,7 +941,7 @@ th br {
     width: 16px;
     height: 16px;
     cursor: pointer;
-    accent-color: #667eea;
+    accent-color: var(--c-primario-1);
 }
 
 /* Detalles del período */
@@ -968,7 +961,7 @@ th br {
 .detalle-impuesto,
 .detalle-categoria {
     padding: 2px 8px;
-    background: #f3f4f6;
+    background: var(--fondo-claro-2);
     border-radius: 4px;
     color: #4b5563;
     font-weight: 500;
@@ -977,7 +970,7 @@ th br {
 .detalle-importe {
     font-family: monospace;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--texto-1);
     margin-left: auto;
 }
 
@@ -988,7 +981,7 @@ th br {
 .resultados-acciones {
     margin-top: 30px;
     padding: 20px;
-    background: #f9fafb;
+    background: var(--fondo-claro);
     border-radius: 8px;
     display: flex;
     gap: 12px;
@@ -1007,7 +1000,7 @@ th br {
 }
 
 .btn-confirmar {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
     color: white;
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
@@ -1018,7 +1011,7 @@ th br {
 }
 
 .btn-confirmar:disabled {
-    background: #9ca3af;
+    background: var(--texto-3);
     cursor: not-allowed;
     box-shadow: none;
     transform: none;
@@ -1026,13 +1019,13 @@ th br {
 
 .btn-cancelar {
     background: white;
-    color: #6b7280;
+    color: var(--texto-2);
     border: 2px solid #d1d5db;
 }
 
 .btn-cancelar:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--fondo-claro);
+    border-color: var(--texto-3);
     color: #374151;
 }
 
@@ -1107,9 +1100,9 @@ th br {
 .seccion-archivos-descargados {
     margin-top: 30px;
     padding: 24px;
-    background: #f9fafb;
+    background: var(--fondo-claro);
     border-radius: 12px;
-    border: 2px solid #10b981;
+    border: 2px solid var(--c-ok-1);
 }
 
 .archivos-header {
@@ -1119,12 +1112,12 @@ th br {
 
 .archivos-header h2 {
     font-size: 24px;
-    color: #10b981;
+    color: var(--c-ok-1);
     margin-bottom: 8px;
 }
 
 .archivos-descripcion {
-    color: #6b7280;
+    color: var(--texto-2);
     font-size: 14px;
 }
 
@@ -1142,12 +1135,12 @@ th br {
     padding: 16px 20px;
     background: white;
     border-radius: 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--borde);
     transition: all 0.2s ease;
 }
 
 .archivo-item:hover {
-    border-color: #10b981;
+    border-color: var(--c-ok-1);
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.1);
 }
 
@@ -1168,20 +1161,20 @@ th br {
 
 .archivo-usuario {
     font-weight: 600;
-    color: #1f2937;
+    color: var(--texto-1);
     font-size: 15px;
     margin-bottom: 4px;
 }
 
 .archivo-nombre {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--texto-2);
     font-family: 'Courier New', monospace;
 }
 
 .btn-abrir-archivo {
     padding: 10px 24px;
-    background: #10b981;
+    background: var(--c-ok-1);
     color: white;
     border: none;
     border-radius: 6px;
@@ -1192,7 +1185,7 @@ th br {
 }
 
 .btn-abrir-archivo:hover {
-    background: #059669;
+    background: var(--c-ok-2);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
 }
@@ -1235,12 +1228,12 @@ th br {
     display: flex;
     justify-content: center;
     padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--borde);
 }
 
 .btn-nuevo-proceso {
     padding: 12px 32px;
-    background: #667eea;
+    background: var(--c-primario-1);
     color: white;
     border: none;
     border-radius: 8px;
@@ -1272,7 +1265,7 @@ th br {
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     overflow: hidden;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid var(--c-primario-1);
     transition: all 0.3s ease;
 }
 
@@ -1282,9 +1275,9 @@ th br {
 }
 
 .card-header-deuda {
-    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    background: linear-gradient(135deg, var(--fondo-claro) 0%, var(--fondo-claro-2) 100%);
     padding: 16px 20px;
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid var(--borde);
 }
 
 .cliente-info-deuda {
@@ -1303,17 +1296,17 @@ th br {
 .cliente-nombre-deuda {
     font-size: 16px;
     font-weight: 600;
-    color: #1f2937;
+    color: var(--texto-1);
 }
 
 .cliente-cuit-deuda {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--texto-2);
     font-family: monospace;
     background: white;
     padding: 4px 10px;
     border-radius: 6px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--borde);
 }
 
 .card-body-deuda {
@@ -1348,7 +1341,7 @@ th br {
     font-family: monospace;
     transition: all 0.2s;
     background: white;
-    color: #1f2937; /* Color del texto */
+    color: var(--texto-1); /* Color del texto */
 }
 
 /* Estilos específicos para inputs nativos type="month" y type="date" */
@@ -1363,8 +1356,8 @@ th br {
 /* Estilos para el calendario/picker al hacer hover */
 .campo-formulario-deuda input[type="month"]:hover,
 .campo-formulario-deuda input[type="date"]:hover {
-    border-color: #9ca3af;
-    background: #f9fafb;
+    border-color: var(--texto-3);
+    background: var(--fondo-claro);
 }
 
 /* Estilos cuando está abierto el picker */
@@ -1384,18 +1377,18 @@ th br {
 
 .campo-formulario-deuda input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--c-primario-1);
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .campo-formulario-deuda input.error {
-    border-color: #ef4444;
+    border-color: var(--c-peligro-1);
     background: #fef2f2;
 }
 
 .mensaje-error-campo {
     font-size: 12px;
-    color: #ef4444;
+    color: var(--c-peligro-1);
     margin-top: 4px;
     display: none;
 }
@@ -1409,7 +1402,7 @@ th br {
 #btn-generar-vep {
     width: 100%;
     padding: 16px 32px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -1429,7 +1422,7 @@ th br {
 
 .btn-generar-vep:disabled,
 #btn-generar-vep:disabled {
-    background: #9ca3af;
+    background: var(--texto-3);
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -1438,7 +1431,7 @@ th br {
 #btn-ejecutar-consulta-deuda {
     width: 100%;
     padding: 16px 32px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    background: linear-gradient(135deg, var(--c-ok-1) 0%, var(--c-ok-2) 100%);
     color: white;
     border: none;
     border-radius: 8px;
@@ -1456,7 +1449,7 @@ th br {
 }
 
 #btn-ejecutar-consulta-deuda:disabled {
-    background: #9ca3af;
+    background: var(--texto-3);
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -1465,15 +1458,15 @@ th br {
 .seccion-resultados-deuda {
     margin-top: 40px;
     padding: 30px;
-    background: #f9fafb;
+    background: var(--fondo-claro);
     border-radius: 12px;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--borde);
 }
 
 .resultados-header-deuda {
     margin-bottom: 24px;
     padding: 20px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    background: linear-gradient(135deg, var(--c-ok-1) 0%, var(--c-ok-2) 100%) !important;
     border-radius: 8px;
 }
 
@@ -1501,7 +1494,7 @@ th br {
     display: flex;
     justify-content: center;
     padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--borde);
 }
 
 /* Advertencia para medios de pago */

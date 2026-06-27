@@ -1,0 +1,148 @@
+/**
+ * BASE + COMPONENTES COMPARTIDOS — AFIP Electron
+ * ----------------------------------------------
+ * Paso 2 del plan (ver docs/vistas/analisis_vista_inicial.md).
+ *
+ * Acá viven las piezas que HOY están copiadas en cada vista: el fondo de la app,
+ * la "card" contenedora, el header con breadcrumb+título, y los botones.
+ *
+ * Convención: todas las clases nuevas usan prefijo  .ui-
+ *   ¿Por qué? Para no chocar con Bootstrap (que ya define .btn) ni con las clases
+ *   que cada vista usa hoy (.header-vep, .contenedor-principal-vep, etc.).
+ *   Así esto es 100% aditivo: no piso nada existente, lo nuevo convive con lo viejo.
+ *
+ * Migración sugerida (gradual, vista por vista):
+ *   .contenedor-principal-vep  →  .ui-page
+ *   .header-vep                →  .ui-page-header
+ *   .titulo-principal          →  .ui-page-title
+ *   .breadcrumb                →  .ui-breadcrumb
+ *   botones varios             →  .ui-btn (+ .ui-btn--ok / --danger / --accion)
+ */
+
+/* ============================================================
+   0. RESET (antes lo repetía cada vista; ahora vive acá una sola vez)
+   ============================================================ */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ============================================================
+   1. FONDO DE LA APP (la victoria visual inmediata)
+   Reemplaza el violeta chillón del shell por el gradiente de marca.
+   ============================================================ */
+body {
+  font-family: var(--fuente);
+  background: var(--grad-primario);
+  background-attachment: fixed;
+  color: var(--texto-1);
+  min-height: 100vh;
+}
+
+/* ============================================================
+   2. CARD CONTENEDORA DE UNA VISTA
+   ============================================================ */
+.ui-page {
+  max-width: var(--ancho-max);
+  margin: 0 auto;
+  background: var(--card);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  padding: 30px;
+}
+
+.ui-card {
+  background: var(--card);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-sm);
+  padding: 20px;
+}
+
+/* ============================================================
+   3. HEADER DE VISTA (breadcrumb + título)
+   ============================================================ */
+.ui-page-header {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--borde);
+}
+
+.ui-breadcrumb {
+  font-size: 13px;
+  color: var(--texto-2);
+  margin-bottom: 12px;
+}
+
+.ui-page-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--texto-1);
+  margin: 0;
+}
+
+.ui-page-subtitle {
+  font-size: 14px;
+  color: var(--texto-2);
+  margin-top: 6px;
+}
+
+/* ============================================================
+   4. BOTONES
+   .ui-btn = base.  Modificadores: --ok / --danger / --accion.
+   Sin modificador = primario (gradiente de marca).
+   ============================================================ */
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: var(--radio-sm);
+  background: var(--grad-primario);
+  color: #fff;
+  font-family: var(--fuente);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--sombra-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.ui-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.ui-btn:active {
+  transform: translateY(0);
+}
+
+.ui-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ui-btn--ok { background: var(--grad-ok); }
+.ui-btn--danger { background: var(--grad-peligro); }
+
+.ui-btn--accion {
+  background: var(--c-accion);
+}
+.ui-btn--accion:hover {
+  background: var(--c-accion-hover);
+}
+
+/* Variante "fantasma": borde, sin relleno */
+.ui-btn--ghost {
+  background: transparent;
+  color: var(--c-primario-2);
+  border: 1px solid var(--borde-2);
+  box-shadow: none;
+}
+.ui-btn--ghost:hover {
+  background: var(--fondo-claro);
+}
