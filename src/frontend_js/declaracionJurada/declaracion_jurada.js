@@ -357,12 +357,11 @@ async function autodetectarRetenciones(auto = false) {
 function montarSelectorUsuarios() {
     selectorUsuariosDDJJ = new SelectorUsuarios('ddjj-selector-usuarios', {
         mostrarTablaSeleccionados: false,
-        campoCredencial: 'claveAFIP',
-        campoEstado: 'estado_afip',
-        campoError: 'errorAfip',
-        permitirInvalidos: false,
-        permitirSinValidar: false,
-        mensajeSinValidar: 'Debe validar las credenciales primero en la sección Gestión de Cliente',
+
+        // Modelo plano: el backend ya computó puedeOperar para 'afip' (acceso
+        // propio o por representante). El representado aparece como fila propia.
+        fuente: 'contribuyentes',
+        servicio: 'afip',
 
         onCambioSeleccion: (seleccionados) => {
             if (!seleccionados || seleccionados.length === 0) {
@@ -403,21 +402,16 @@ function ocultarConfig() {
 }
 
 /**
- * Empresas/CUITs que el cliente puede declarar. Localmente los asociados están en
- * `empresas[].razonSocial` (no en cuitAsociados, que viene vacío); el número de
- * CUIT del asociado no se guarda, así que el value es la razón social. El backend
- * matchea la opción del portal por razón social o por CUIT indistintamente.
+ * Empresa objetivo a declarar. Modelo plano: el contribuyente ES la empresa, así
+ * que hay UNA sola opción = su razón social (cada representado es su propia fila
+ * en el selector, no una empresa anidada). El backend matchea la opción del
+ * portal por razón social o por CUIT indistintamente.
  */
 function obtenerEmpresasObjetivo(usuario) {
-    const empresas = Array.isArray(usuario.empresas) ? usuario.empresas : [];
-    const opciones = empresas
-        .map(e => (e && e.razonSocial || '').trim())
-        .filter(Boolean)
-        .map(razon => ({ value: razon, label: razon }));
+    const razon = (usuario.razonSocial || usuario.nombre || '').trim();
+    if (razon) return [{ value: razon, label: razon }];
 
-    if (opciones.length > 0) return opciones;
-
-    // Fallback: solo el CUIT titular (cliente sin empresas cargadas).
+    // Fallback: solo el CUIT titular (sin razón social cargada).
     const cuit = usuario.cuit || usuario.cuil;
     return cuit ? [{ value: String(cuit), label: `${cuit} (titular)` }] : [];
 }
