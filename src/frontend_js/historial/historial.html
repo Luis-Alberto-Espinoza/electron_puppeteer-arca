@@ -1,0 +1,56 @@
+<!-- Vista: Historial de acciones (bitacora). Solo lectura.
+     Se inyecta dinamicamente en #historialDiv (ver controlador.js). -->
+<link rel="stylesheet" href="../historial/historial.css">
+
+<div class="ui-page">
+    <div class="ui-page-header">
+        <div>
+            <h1 class="ui-page-title">Historial de acciones</h1>
+            <p class="ui-page-subtitle">Bitácora de lo que hizo la app: VEP, consultas y demás servicios.</p>
+        </div>
+        <button id="histRefrescar" class="ui-btn ui-btn--ghost" title="Volver a leer el historial">⟳ Refrescar</button>
+    </div>
+
+    <div class="ui-card hist-filtros">
+        <input type="search" id="histBuscar" class="hist-input" placeholder="Buscar (cliente, CUIT, resumen…)">
+
+        <select id="histDominio" class="hist-input">
+            <option value="">Todos los servicios</option>
+            <option value="vep">Generar VEP</option>
+            <option value="consultaDeuda">Consulta de Deuda</option>
+            <option value="factura">Facturas</option>
+            <option value="declaracionJurada">Declaración Jurada</option>
+            <option value="tasaCero">Tasa Cero</option>
+            <option value="retenciones">Retenciones</option>
+            <option value="planDePago">Plan de Pago</option>
+        </select>
+
+        <select id="histEstado" class="hist-input">
+            <option value="">Todos los estados</option>
+            <option value="exito">Éxito</option>
+            <option value="error">Error</option>
+            <option value="sinDeuda">Sin deuda</option>
+            <option value="parcial">Parcial</option>
+        </select>
+
+        <span id="histContador" class="hist-contador"></span>
+    </div>
+
+    <div class="ui-card">
+        <table class="hist-tabla">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Servicio</th>
+                    <th>Estado</th>
+                    <th>Cliente</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody id="histBody">
+                <!-- Filas inyectadas por historial.js -->
+            </tbody>
+        </table>
+        <div id="histVacio" class="hist-vacio" style="display:none;">Todavía no hay acciones registradas.</div>
+    </div>
+</div>

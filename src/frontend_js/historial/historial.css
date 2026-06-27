@@ -1,0 +1,76 @@
+/* Vista Historial. Usa los tokens del sistema de diseño (estilos/tokens.css). */
+
+.hist-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.hist-input {
+    padding: 8px 10px;
+    border: 1px solid var(--borde);
+    border-radius: var(--radio-sm);
+    background: var(--fondo-claro);
+    color: var(--texto-1);
+    font-family: var(--fuente);
+    font-size: 0.9rem;
+}
+
+#histBuscar { flex: 1 1 240px; }
+
+.hist-contador {
+    margin-left: auto;
+    color: var(--texto-3);
+    font-size: 0.85rem;
+}
+
+.hist-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.hist-tabla th,
+.hist-tabla td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--borde);
+    vertical-align: top;
+}
+
+.hist-tabla th {
+    color: var(--texto-3);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.4px;
+}
+
+.hist-tabla tbody tr:hover { background: var(--fondo-claro-2); }
+
+.hist-fecha { color: var(--texto-2); white-space: nowrap; }
+.hist-cliente-nombre { color: var(--texto-1); }
+.hist-cliente-cuit { color: var(--texto-3); font-size: 0.8rem; }
+.hist-detalle { color: var(--texto-2); }
+.hist-error { color: var(--c-peligro-2); }
+
+/* Chip de estado */
+.hist-chip {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.hist-chip--exito    { background: var(--c-ok-1);      color: #fff; }
+.hist-chip--error    { background: var(--c-peligro-1); color: #fff; }
+.hist-chip--sinDeuda { background: var(--c-primario-1); color: #fff; }
+.hist-chip--parcial  { background: var(--c-acento);    color: #fff; }
+
+.hist-vacio {
+    padding: 28px;
+    text-align: center;
+    color: var(--texto-3);
+}
