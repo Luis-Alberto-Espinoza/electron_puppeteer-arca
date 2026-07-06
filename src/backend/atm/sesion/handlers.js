@@ -33,6 +33,24 @@ function setupSesionAtmHandlers(ipcMain) {
             return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };
         }
     });
+
+    // Modo manual: el usuario tipea CUIT + clave y abrimos el navegador logueado con
+    // eso, sin pasar por resolverAcceso (no lo buscamos en la base de clientes).
+    ipcMain.handle('atm:abrirSesionManual', async (event, datos) => {
+        const cuit  = String((datos && datos.cuit)  || '').trim();
+        const clave = String((datos && datos.clave) || '');
+        console.log('[SesionATM] Solicitud de apertura MANUAL para CUIT:', cuit);
+        if (!cuit || !clave) {
+            return { success: false, error: 'DATOS_INCOMPLETOS', message: 'Ingresá CUIT y clave ATM.' };
+        }
+        try {
+            const credenciales = { cuit, clave };
+            return await sesionAtmManager.abrirSesion(credenciales);
+        } catch (error) {
+            console.error('[SesionATM] Error (manual):', error.message);
+            return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };
+        }
+    });
 }
 
 module.exports = setupSesionAtmHandlers;

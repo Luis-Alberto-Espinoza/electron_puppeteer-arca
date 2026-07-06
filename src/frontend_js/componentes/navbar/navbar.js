@@ -62,6 +62,8 @@
                     <button class="nav-btn nav-dropdown-toggle">AFIP ▾</button>
                     <div class="nav-dropdown-menu">
                         <button class="nav-drop-item" data-clave="afip">Inicio AFIP-ARCA</button>
+                        <button class="nav-drop-item" data-lanzador="afip">Lanzador</button>
+                        <button class="nav-drop-item" data-evento="cargarModuloFactura">Facturación</button>
                         ${SERVICIOS_AFIP.map(s => `<button class="nav-drop-item" data-clave="${s.clave}">${s.label}</button>`).join('')}
                     </div>
                 </div>
@@ -105,6 +107,28 @@
                 } else {
                     console.warn('[navbar] window.navegarAtmSub no está disponible todavía');
                 }
+                cerrarDropdowns();
+            });
+        });
+
+        // Lanzador de sesión (ítems con data-lanzador="afip"|"atm"): abren el modal
+        // del lanzador vía window.abrirLanzadorSesion (componente global, cargado en index.html).
+        nav.querySelectorAll('[data-lanzador]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (typeof window.abrirLanzadorSesion === 'function') {
+                    window.abrirLanzadorSesion(btn.dataset.lanzador);
+                } else {
+                    console.warn('[navbar] window.abrirLanzadorSesion no está disponible todavía');
+                }
+                cerrarDropdowns();
+            });
+        });
+
+        // Ítems que disparan un evento de módulo (data-evento="cargarModuloFactura"):
+        // reusan el MISMO flujo que los botones de la home (ej. selector de usuario previo).
+        nav.querySelectorAll('[data-evento]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.dispatchEvent(new CustomEvent(btn.dataset.evento));
                 cerrarDropdowns();
             });
         });

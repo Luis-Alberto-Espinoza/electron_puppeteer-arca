@@ -157,7 +157,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Ahora recibe el CUIT (el backend resuelve el acceso con resolverAcceso).
     sesion: {
         afip: (cuit) => ipcRenderer.invoke('afip:abrirSesion', cuit),
-        atm:  (cuit) => ipcRenderer.invoke('atm:abrirSesion',  cuit)
+        atm:  (cuit) => ipcRenderer.invoke('atm:abrirSesion',  cuit),
+        // Modo manual: recibe { cuit, clave } tipeados a mano (no busca en la base).
+        afipManual: (datos) => ipcRenderer.invoke('afip:abrirSesionManual', datos),
+        atmManual:  (datos) => ipcRenderer.invoke('atm:abrirSesionManual',  datos)
     },
 
     // APIs para Cuenta Tributaria (SCT)

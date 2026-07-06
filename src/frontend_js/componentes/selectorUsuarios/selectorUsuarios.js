@@ -291,9 +291,12 @@ class SelectorUsuarios {
                 id: it.id,
                 cuit: it.cuit,
                 cuil: null,
-                nombre: it.nombreMostrado,
-                apellido: '',
-                razonSocial: it.nombreMostrado,
+                // Preferimos el apodo del usuario (nombre/apellido) para mostrar y
+                // buscar; si no cargó ninguno, cae al nombre canónico (razón social).
+                // Lo que se usa para operar en AFIP lo resuelve el backend aparte.
+                nombre: it.nombre || it.nombreMostrado,
+                apellido: it.apellido || '',
+                razonSocial: it.razonSocial || it.nombreMostrado,
                 tipo: it.tipo,
                 tipoContribuyente: it.tipoContribuyente,
                 puedeOperar: it.puedeOperar,
@@ -332,7 +335,7 @@ class SelectorUsuarios {
                             type="text"
                             id="${this.contenedorId}-buscador"
                             class="buscador-input"
-                            placeholder="Buscar por nombre, CUIT, razón social..."
+                            placeholder="Buscar por nombre, apellido, CUIT, razón social..."
                             value="${this.textoBusqueda}"
                         />
                         <button
@@ -598,12 +601,19 @@ class SelectorUsuarios {
         if (!this.textoBusqueda) {
             this.usuariosFiltrados = [...this.todosLosUsuarios];
         } else {
-            this.usuariosFiltrados = this.todosLosUsuarios.filter(u =>
-                u.nombre?.toLowerCase().includes(this.textoBusqueda) ||
-                String(u.cuit || '').includes(this.textoBusqueda) ||
-                String(u.cuil || '').includes(this.textoBusqueda) ||
-                u.razonSocial?.toLowerCase().includes(this.textoBusqueda)
-            );
+            this.usuariosFiltrados = this.todosLosUsuarios.filter(u => {
+                // Nombre completo combinado: permite buscar "juan salas" aunque el
+                // nombre y el apellido estén en campos separados.
+                const nombreCompleto = `${u.nombre || ''} ${u.apellido || ''}`.toLowerCase();
+                return (
+                    u.nombre?.toLowerCase().includes(this.textoBusqueda) ||
+                    u.apellido?.toLowerCase().includes(this.textoBusqueda) ||
+                    nombreCompleto.includes(this.textoBusqueda) ||
+                    String(u.cuit || '').includes(this.textoBusqueda) ||
+                    String(u.cuil || '').includes(this.textoBusqueda) ||
+                    u.razonSocial?.toLowerCase().includes(this.textoBusqueda)
+                );
+            });
         }
 
         this.renderizarSoloListaDisponibles();

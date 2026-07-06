@@ -11,6 +11,8 @@
  */
 (function () {
     const TITULOS = { afip: 'Abrir sesión AFIP', atm: 'Abrir sesión ATM' };
+    // Etiqueta de la clave según el servicio (ARCA usa "clave fiscal"; ATM su propia clave).
+    const LABEL_CLAVE = { afip: 'Clave fiscal', atm: 'Clave ATM' };
 
     // Servicios válidos (también son el 'servicio' que entiende contribuyente.listar).
     const SERVICIOS = ['afip', 'atm'];
@@ -60,8 +62,32 @@
                     <h3>🚀 ${TITULOS[servicio]}</h3>
                     <button class="lanzador-cerrar" title="Cerrar">✕</button>
                 </div>
-                <p class="lanzador-ayuda">Elegí un cliente y abrí el navegador ya logueado para operar a mano.</p>
-                <div id="lanzador-selector"></div>
+
+                <div class="lanzador-tabs" role="tablist">
+                    <button class="lanzador-tab activo" data-modo="cliente">👥 Cliente guardado</button>
+                    <button class="lanzador-tab" data-modo="manual">✍️ Ingresar a mano</button>
+                </div>
+
+                <div class="lanzador-panel" data-modo="cliente">
+                    <p class="lanzador-ayuda">Elegí un cliente y abrí el navegador ya logueado para operar a mano.</p>
+                    <div id="lanzador-selector"></div>
+                </div>
+
+                <div class="lanzador-panel" data-modo="manual" hidden>
+                    <p class="lanzador-ayuda">Ingresá el CUIT y la clave a mano para abrir el navegador logueado (no se guardan).</p>
+                    <label class="lanzador-campo">
+                        <span>CUIT</span>
+                        <input type="text" id="lanzador-manual-cuit" inputmode="numeric" autocomplete="off" placeholder="20123456789">
+                    </label>
+                    <label class="lanzador-campo">
+                        <span>${LABEL_CLAVE[servicio]}</span>
+                        <div class="lanzador-clave-wrap">
+                            <input type="password" id="lanzador-manual-clave" autocomplete="off" placeholder="••••••••">
+                            <button type="button" class="lanzador-ver-clave" id="lanzador-ver-clave" title="Mostrar clave">👁️</button>
+                        </div>
+                    </label>
+                </div>
+
                 <div class="lanzador-estado" id="lanzador-estado"></div>
                 <div class="lanzador-acciones">
                     <button class="lanzador-btn-abrir" id="lanzador-btn-abrir" disabled>Abrir navegador</button>
@@ -71,11 +97,53 @@
 
         const btnAbrir = overlay.querySelector('#lanzador-btn-abrir');
         const estado = overlay.querySelector('#lanzador-estado');
+        const inputCuit = overlay.querySelector('#lanzador-manual-cuit');
+        const inputClave = overlay.querySelector('#lanzador-manual-clave');
+        const btnVerClave = overlay.querySelector('#lanzador-ver-clave');
         let clienteSel = null;
+        let modoActivo = 'cliente';
+
+        function limpiarEstado() {
+            estado.textContent = '';
+            estado.className = 'lanzador-estado';
+        }
+
+        // Habilita "Abrir navegador" según el modo activo.
+        function recomputarBoton() {
+            if (modoActivo === 'cliente') {
+                btnAbrir.disabled = !clienteSel;
+            } else {
+                btnAbrir.disabled = !(inputCuit.value.trim() && inputClave.value);
+            }
+        }
 
         // Cerrar al clickear el fondo o la X.
         overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
         overlay.querySelector('.lanzador-cerrar').addEventListener('click', cerrar);
+
+        // Pestañas: alternar cliente / manual.
+        overlay.querySelectorAll('.lanzador-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                modoActivo = tab.dataset.modo;
+                overlay.querySelectorAll('.lanzador-tab').forEach(t =>
+                    t.classList.toggle('activo', t === tab));
+                overlay.querySelectorAll('.lanzador-panel').forEach(p =>
+                    p.hidden = p.dataset.modo !== modoActivo);
+                limpiarEstado();
+                recomputarBoton();
+            });
+        });
+
+        inputCuit.addEventListener('input', () => { limpiarEstado(); recomputarBoton(); });
+        inputClave.addEventListener('input', () => { limpiarEstado(); recomputarBoton(); });
+
+        // Ojito: mostrar / ocultar la clave para chequear que se tipeó bien.
+        btnVerClave.addEventListener('click', () => {
+            const visible = inputClave.type === 'text';
+            inputClave.type = visible ? 'password' : 'text';
+            btnVerClave.classList.toggle('activo', !visible);
+            btnVerClave.title = visible ? 'Mostrar clave' : 'Ocultar clave';
+        });
 
         try {
             await asegurarSelectorCargado();
@@ -92,19 +160,28 @@
             mostrarTablaSeleccionados: false,
             onCambioSeleccion: (sel) => {
                 clienteSel = sel[0] || null;
-                btnAbrir.disabled = !clienteSel;
-                estado.textContent = '';
-                estado.className = 'lanzador-estado';
+                limpiarEstado();
+                recomputarBoton();
             }
         });
 
         btnAbrir.addEventListener('click', async () => {
-            if (!clienteSel) return;
+            let promesa;
+            if (modoActivo === 'cliente') {
+                if (!clienteSel) return;
+                promesa = window.electronAPI.sesion[servicio](clienteSel.cuit);
+            } else {
+                const cuit = inputCuit.value.trim();
+                const clave = inputClave.value;
+                if (!cuit || !clave) return;
+                promesa = window.electronAPI.sesion[`${servicio}Manual`]({ cuit, clave });
+            }
+
             btnAbrir.disabled = true;
             estado.textContent = '⏳ Abriendo navegador e iniciando sesión…';
             estado.className = 'lanzador-estado cargando';
             try {
-                const r = await window.electronAPI.sesion[servicio](clienteSel.cuit);
+                const r = await promesa;
                 if (r && r.success) {
                     const extra = r.requiereElegirEmpresa
                         ? ' Entrás como su representante: elegí la empresa en la pantalla de AFIP.'
@@ -119,7 +196,7 @@
                 estado.textContent = '❌ ' + err.message;
                 estado.className = 'lanzador-estado error';
             } finally {
-                btnAbrir.disabled = false;
+                recomputarBoton();
             }
         });
     }

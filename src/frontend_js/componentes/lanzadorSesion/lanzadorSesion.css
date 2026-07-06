@@ -51,6 +51,89 @@
     margin: 0 0 16px;
 }
 
+/* ===== Pestañas: cliente guardado / manual ===== */
+.lanzador-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.lanzador-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    padding: 8px 14px;
+    font-size: 0.95rem;
+    color: #7f8c8d;
+    cursor: pointer;
+    margin-bottom: -1px;
+}
+.lanzador-tab:hover { color: #2c3e50; }
+.lanzador-tab.activo {
+    color: #667eea;
+    border-bottom-color: #667eea;
+    font-weight: 600;
+}
+.lanzador-atm .lanzador-tab.activo {
+    color: #1e8e6f;
+    border-bottom-color: #1e8e6f;
+}
+
+/* ===== Campos del modo manual ===== */
+.lanzador-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 14px;
+}
+.lanzador-campo span {
+    font-size: 0.9rem;
+    color: #2c3e50;
+    font-weight: 600;
+}
+.lanzador-campo input {
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.lanzador-campo input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+.lanzador-atm .lanzador-campo input:focus {
+    border-color: #1e8e6f;
+    box-shadow: 0 0 0 3px rgba(30, 142, 111, 0.15);
+}
+
+/* Input de clave con botón "ojito" para mostrar/ocultar. */
+.lanzador-clave-wrap {
+    position: relative;
+    display: flex;
+}
+.lanzador-clave-wrap input {
+    flex: 1;
+    padding-right: 44px;   /* deja lugar al ojito */
+}
+.lanzador-ver-clave {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 6px;
+    border-radius: 6px;
+    opacity: 0.55;
+}
+.lanzador-ver-clave:hover { opacity: 0.9; background: #f0f0f0; }
+.lanzador-ver-clave.activo { opacity: 1; }
+
 .lanzador-estado {
     min-height: 22px;
     margin: 14px 0;

@@ -39,6 +39,24 @@ function setupSesionAfipHandlers(ipcMain) {
             return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };
         }
     });
+
+    // Modo manual: el usuario tipea CUIT + clave y abrimos el navegador logueado con
+    // eso, sin pasar por resolverAcceso (no hay representación: se loguea tal cual).
+    ipcMain.handle('afip:abrirSesionManual', async (event, datos) => {
+        const cuit  = String((datos && datos.cuit)  || '').trim();
+        const clave = String((datos && datos.clave) || '');
+        console.log('[SesionAFIP] Solicitud de apertura MANUAL para CUIT:', cuit);
+        if (!cuit || !clave) {
+            return { success: false, error: 'DATOS_INCOMPLETOS', message: 'Ingresá CUIT y clave fiscal.' };
+        }
+        try {
+            const credenciales = { usuario: cuit, contrasena: clave };
+            return await sesionAfipManager.abrirSesion(credenciales);
+        } catch (error) {
+            console.error('[SesionAFIP] Error (manual):', error.message);
+            return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };
+        }
+    });
 }
 
 module.exports = setupSesionAfipHandlers;
