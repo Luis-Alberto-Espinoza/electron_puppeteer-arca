@@ -23,6 +23,8 @@
 // en C3; hasta entonces, este puente cubre el caso representado (el crítico para
 // SCT/Planes/NC).
 
+const { nombreDe } = require('./resolverAcceso.js');
+
 /** Mapea un contribuyente representado al shape `empresa` del embed. */
 function empresaDesdeContribuyente(r) {
     return {
@@ -55,8 +57,15 @@ function proyectarUsersJson(contribuyentes) {
         representadosPorCuit.get(k).push(c);
     }
 
+    // Índice cuit → contribuyente, para resolver el representante de un representado.
+    const porCuit = new Map(lista.map(c => [String(c.cuit), c]));
+
     const users = lista.map(c => {
         const representados = representadosPorCuit.get(String(c.cuit)) || [];
+        // Si no tiene clave propia pero sí representante, el acceso AFIP es el de él.
+        const repAfip = (!c.claveAFIP && c.representanteAfipCuit)
+            ? porCuit.get(String(c.representanteAfipCuit)) || null
+            : null;
         const user = {
             id: c.id,
             cuit: c.cuit,
@@ -76,6 +85,11 @@ function proyectarUsersJson(contribuyentes) {
             fechaVerificacionAtm: c.fechaVerificacionAtm || null,
             // refleja si alguna vez se trajeron PDV (lo usa la ABM/algunas vistas)
             analizado_afip: Boolean(c.puntosDeVentaActualizados),
+            // Acceso AFIP por representante (para que el CRUD no muestre "sin clave"
+            // en un representado que SÍ puede operar con la clave de su representante).
+            representanteAfipCuit: c.representanteAfipCuit || null,
+            representanteAfipNombre: repAfip ? nombreDe(repAfip) : null,
+            estadoAfipRepresentante: repAfip ? (repAfip.estado_afip || 'no_aplica') : null,
             empresas: representados.map(empresaDesdeContribuyente)
         };
         if (c.cuil) user.cuil = c.cuil;   // normalizarCliente borra cuil vacío

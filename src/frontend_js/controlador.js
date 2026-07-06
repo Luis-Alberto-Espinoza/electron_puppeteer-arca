@@ -251,7 +251,7 @@ async function mostrarSelectorUsuario() {
         // 1. INYECTAR HTML
         selectorDiv.innerHTML = `
             <div class="selector-usuario">
-                <h2>Seleccione el Cliente con el que trabajará</h2>
+                <h2>Seleccione el Cliente para Facturar</h2>
                 <div id="selector-usuarios-afip"></div>
                 <p style="color: #666; font-size: 14px; margin-top: 10px;">
                     Una vez seleccionado el cliente, podrá acceder a los módulos de Facturas y MercadoPago
@@ -343,51 +343,63 @@ async function mostrarSelectorUsuario() {
  */
 function cargarModuloUsuarios() {
     const usuariosDiv = document.getElementById('usuariosDiv');
-    let usuarioCssLink = document.getElementById('usuario-css-link');
+    if (!usuariosDiv) return;
 
-    if (usuariosDiv) {
-        // Limpiar contenido anterior
-        usuariosDiv.innerHTML = '';
+    // Garantiza que el CSS del módulo esté REALMENTE cargado antes de renderizar.
+    // Antes se agregaba el <link> async y se renderizaba con un setTimeout(100)
+    // adivinado: en arranque en frío la grilla se calculaba con el CSS a medio
+    // aplicar y la columna del nombre colapsaba a 0 (solo se veía el emoji hasta
+    // hacer resize). Esperar el onload elimina esa carrera.
+    const asegurarCssCargado = () => new Promise((resolve) => {
+        const existente = document.getElementById('usuario-css-link');
+        if (existente) return resolve();  // ya se cargó en una navegación previa
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '../usuario/usuario.css';
+        link.id = 'usuario-css-link';
+        link.addEventListener('load', resolve);
+        link.addEventListener('error', resolve);  // no bloquear la vista si falla
+        document.head.appendChild(link);
+    });
 
-        // Cargar HTML del módulo de usuarios
-        fetch('../usuario/usuario.html')
-            .then(response => response.text())
-            .then(html => {
-                usuariosDiv.innerHTML = html;
+    usuariosDiv.innerHTML = '';
 
-                // Cargar CSS del módulo si no está presente
-                if (!usuarioCssLink) {
-                    usuarioCssLink = document.createElement('link');
-                    usuarioCssLink.rel = 'stylesheet';
-                    usuarioCssLink.href = '../usuario/usuario.css';
-                    usuarioCssLink.id = 'usuario-css-link';
-                    document.head.appendChild(usuarioCssLink);
+    Promise.all([
+        fetch('../usuario/usuario.html').then(r => r.text()),
+        asegurarCssCargado()
+    ])
+        .then(([html]) => {
+            usuariosDiv.innerHTML = html;
+
+            // Inicializar/renderar recién cuando el contenedor YA está visible y con
+            // el layout resuelto: el doble requestAnimationFrame garantiza un pase de
+            // layout completo al tamaño final, así la grilla mide el ancho real (no 0)
+            // y el nombre nunca aparece vacío al arrancar.
+            const arrancar = () => {
+                // usuario.js es un SCRIPT CLÁSICO: re-ejecutarlo redeclara sus
+                // `let`/`const` de nivel superior → "Identifier already declared" y
+                // aborta TODO el script. Por eso se carga UNA sola vez; en reentradas
+                // solo re-inicializamos (el HTML ya se re-inyectó arriba).
+                if (window.inicializarUsuarioFrontend) {
+                    window.inicializarUsuarioFrontend();
+                    return;
                 }
-
-                // Cargar JavaScript del módulo después de un breve delay
-                setTimeout(() => {
-                    // Remover script anterior para evitar duplicados
-                    const oldScript = document.head.querySelector('script[src="../usuario/usuario.js"]');
-                    if (oldScript) oldScript.remove();
-
-                    // Agregar nuevo script
-                    const script = document.createElement('script');
-                    script.src = '../usuario/usuario.js';
-                    script.defer = true;
-                    script.onload = () => {
-                        // Inicializar funcionalidad del módulo una vez cargado
-                        if (window.inicializarUsuarioFrontend) {
-                            window.inicializarUsuarioFrontend();
-                        }
-                    };
-                    document.head.appendChild(script);
-                }, 100);
-            })
-            .catch(error => {
-                console.error('Error cargando módulo de usuarios:', error);
-                usuariosDiv.innerHTML = `<p>Error: ${error.message}</p>`;
-            });
-    }
+                const script = document.createElement('script');
+                script.src = '../usuario/usuario.js';
+                script.defer = true;
+                script.onload = () => {
+                    if (window.inicializarUsuarioFrontend) {
+                        window.inicializarUsuarioFrontend();
+                    }
+                };
+                document.head.appendChild(script);
+            };
+            requestAnimationFrame(() => requestAnimationFrame(arrancar));
+        })
+        .catch(error => {
+            console.error('Error cargando módulo de usuarios:', error);
+            usuariosDiv.innerHTML = `<p>Error: ${error.message}</p>`;
+        });
 }
 
 /**

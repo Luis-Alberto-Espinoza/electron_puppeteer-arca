@@ -20,6 +20,8 @@ const {
     volverAListaEmpresas
 } = require('../../puppeteer/afip/empresa/flujo_abmPuntosDeVenta.js');
 const { listarEmpresas } = require('../../puppeteer/afip/archivosComunes/empresasDisponibles.js');
+const { buscarEnAfip } = require('../../puppeteer/afip/archivosComunes/buscadorAfip.js');
+const { listarRepresentadosSistemaRegistral } = require('../../puppeteer/afip/archivosComunes/representadosSistemaRegistral.js');
 const { crearEmpresa, normalizarPuntoDeVenta, getEmpresaPorRazonSocial } = require('../../cliente/model.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
@@ -478,6 +480,45 @@ async function analizarContribuyente(repo, cuit) {
 
     const credenciales = { usuario: acceso.loginCuit, contrasena: acceso.loginClave };
 
+    // Guarda los PDV de UNA empresa en la fila del contribuyente DUEÑO, ruteando
+    // por el CUIT que leímos de su encabezado (no por nombre). Si la fila no existe
+    // (empresa representada que aún no estaba cargada), la crea: la representa quien
+    // estamos logueando, salvo que la empresa SEA el login (entonces tiene clave
+    // propia → sin representante, y el normalizador respeta esa clave).
+    async function persistirEmpresaPorCuit(cuitEmpresa, razonSocial, pdvsCrudos) {
+        const puntosDeVenta = (pdvsCrudos || []).map(p => normalizarPuntoDeVenta(p)).filter(Boolean);
+        const cambios = { puntosDeVenta, puntosDeVentaActualizados: new Date().toISOString() };
+
+        if (await repo.getByCuit(String(cuitEmpresa))) {
+            await repo.actualizar(String(cuitEmpresa), cambios);
+            return { creado: false };
+        }
+        const esElLogin = String(cuitEmpresa) === String(acceso.loginCuit);
+        await repo.crear({
+            cuit: String(cuitEmpresa),
+            razonSocial,
+            representanteAfipCuit: esElLogin ? null : String(acceso.loginCuit),
+            ...cambios
+        });
+        return { creado: true };
+    }
+
+    // Crea la fila de una empresa representada que NO pasó por el ABM (no tiene PDV,
+    // por eso el ABM no la lista). NO toca puntosDeVenta: la creamos "vacía" y sin
+    // fecha de actualización, para dejar claro que sus PDV nunca se scrapearon. Si la
+    // fila ya existe (la analizó el ABM recién, o estaba de antes), no la tocamos.
+    async function crearFilaRepresentadoSiFalta(cuitEmpresa, razonSocial) {
+        if (!cuitEmpresa) return { creado: false };
+        if (await repo.getByCuit(String(cuitEmpresa))) return { creado: false };
+        const esElLogin = String(cuitEmpresa) === String(acceso.loginCuit);
+        await repo.crear({
+            cuit: String(cuitEmpresa),
+            razonSocial,
+            representanteAfipCuit: esElLogin ? null : String(acceso.loginCuit)
+        });
+        return { creado: true };
+    }
+
     return await puppeteerManager.ejecutar(async (browser, page) => {
         console.log('🔵 [EmpresaManager] analizarContribuyente: login AFIP...');
         const loginResult = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
@@ -485,32 +526,130 @@ async function analizarContribuyente(repo, cuit) {
             return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
         }
 
-        // Mismo flujo ABM que analizarEmpresa: navegar a "Administración de PDV"
-        // y scrapear la empresa objetivo (o la única, si el login no tiene selector).
         const { page: pageLista, modo } = await abrirAbmPuntosVenta(page);
-        const r = modo === 'lista'
-            ? await procesarEmpresaEnAbm(pageLista, acceso.objetivoNombre)
-            : await procesarEnAbmSinSelector(pageLista, modo);
 
-        const pdvsNormalizados = (r.pdvs || []).map(p => normalizarPuntoDeVenta(p)).filter(Boolean);
-        const ahora = new Date().toISOString();
+        // Modo "lista": AFIP muestra el selector con TODAS las empresas (la propia +
+        // las representadas). Las recorremos todas: de cada una sacamos su CUIT (del
+        // encabezado) y sus PDV, y guardamos en SU fila. Máxima extracción.
+        // Modo "menu"/"abm": el login no tiene selector → una sola empresa.
+        const razonesSociales = modo === 'lista'
+            ? await listarEmpresas(pageLista)
+            : [acceso.objetivoNombre];
+        console.log(`🔵 [EmpresaManager] ${razonesSociales.length} empresa(s) a procesar (modo "${modo}").`);
 
-        await repo.actualizar(String(cuit), {
-            puntosDeVenta: pdvsNormalizados,
-            puntosDeVentaActualizados: ahora
-        });
+        const resultados = [];
+        for (let i = 0; i < razonesSociales.length; i++) {
+            const razon = razonesSociales[i];
+            const num = `${i + 1}/${razonesSociales.length}`;
+            try {
+                console.log(`🔵 [EmpresaManager] Empresa ${num}: ${razon}`);
+                const r = modo === 'lista'
+                    ? await procesarEmpresaEnAbm(pageLista, razon)
+                    : await procesarEnAbmSinSelector(pageLista, modo);
 
-        console.log(`✅ [EmpresaManager] ${pdvsNormalizados.length} PDV guardado(s) en el plano para ${acceso.objetivoNombre} (${cuit}).`);
+                // El CUIT sale del encabezado "Representando a:". Si AFIP no lo trae,
+                // caemos al objetivo para no perder los PDV (única opción sensata).
+                const cuitEmpresa = r.cuit || acceso.objetivoCuit;
+                if (!r.cuit) {
+                    console.log(`  ⚠️ Empresa "${razon}" sin CUIT en el encabezado; uso el objetivo ${cuitEmpresa}.`);
+                }
+
+                const { creado } = await persistirEmpresaPorCuit(cuitEmpresa, razon, r.pdvs);
+                const count = (r.pdvs || []).length;
+                resultados.push({ razonSocial: razon, cuit: cuitEmpresa, creado, count, success: true });
+                console.log(`  ✅ Empresa ${num} OK: ${count} PDV → ${cuitEmpresa}${creado ? ' (fila creada)' : ''}.`);
+            } catch (err) {
+                console.error(`  ❌ Empresa ${num} "${razon}" falló: ${err.message}`);
+                resultados.push({ razonSocial: razon, success: false, error: err.message });
+            }
+
+            // Volver a la lista para la próxima empresa (solo en modo lista).
+            if (modo === 'lista' && i < razonesSociales.length - 1) {
+                try {
+                    await volverAListaEmpresas(pageLista);
+                } catch (eVuelta) {
+                    console.error(`  ⚠️ No se pudo volver a la lista: ${eVuelta.message}. Aborto las restantes.`);
+                    break;
+                }
+            }
+        }
+
+        // Segundo flujo: el ABM de arriba solo lista empresas CON punto de venta. Las
+        // empresas que el CUIT representa pero no facturan no aparecen ahí y se perderían.
+        // Sistema Registral trae la lista COMPLETA (cuit + razón social). Creamos la fila
+        // de las que falten para no perderlas; sus PDV quedan vacíos hasta que tengan y
+        // se re-analice. Usamos `page` (la pestaña original conserva el buscador; el ABM
+        // se abrió en una pestaña aparte).
+        let representadosCreados = 0;
+        console.log('🔵 [EmpresaManager] Sistema Registral: completando empresas sin PDV...');
+        let registralPage = null;
+        try {
+            registralPage = await buscarEnAfip(page, 'Sistema registral', {
+                esperarNuevaPestana: true,
+                timeoutNuevaPestana: 10000,
+                textoEsperadoEnResultado: 'Sistema Registral'
+            });
+            const representados = await listarRepresentadosSistemaRegistral(registralPage);
+            console.log(`  → Sistema Registral: ${representados.length} persona(s) listada(s).`);
+            for (const rep of representados) {
+                if (!rep.cuit) continue;
+                try {
+                    const { creado } = await crearFilaRepresentadoSiFalta(rep.cuit, rep.razonSocial);
+                    if (creado) {
+                        representadosCreados++;
+                        console.log(`  ➕ Empresa sin PDV agregada: ${rep.razonSocial} (${rep.cuit}).`);
+                    }
+                } catch (eRep) {
+                    console.error(`  ⚠️ No se pudo crear fila para ${rep.razonSocial} (${rep.cuit}): ${eRep.message}`);
+                }
+            }
+        } catch (eReg) {
+            console.log(`  ⚠️ Sistema Registral no disponible: ${eReg.message}`);
+        } finally {
+            if (registralPage && registralPage !== page) {
+                try { await registralPage.close(); } catch (_) {}
+            }
+        }
+
+        const exitosos = resultados.filter(r => r.success).length;
+        const fallidas = resultados.filter(r => !r.success);
+        const extraSinPdv = representadosCreados > 0 ? ` (+${representadosCreados} sin PDV desde Sistema Registral)` : '';
+        const message = exitosos === 0
+            ? `Ninguna de las ${razonesSociales.length} empresas pudo procesarse. Primer error: ${fallidas[0]?.error || 'sin detalle'}`
+            : `${exitosos}/${razonesSociales.length} empresa(s) procesadas${extraSinPdv}.`;
+        console.log(`✅ [EmpresaManager] analizarContribuyente terminado: ${exitosos}/${razonesSociales.length} OK${extraSinPdv}.`);
+
+        // Sellar como analizado al contribuyente clickeado aunque él mismo no tenga
+        // PDV propios: si es representante, sus PDV viven en las empresas representadas
+        // (p.ej. Lucas → GRUPO DALED), así que su fila nunca se tocó en el loop y su
+        // botón quedaría en "Traer empresas" para siempre. Solo sella la fecha (no
+        // pisa puntosDeVenta), y solo si algo se pudo traer.
+        if (exitosos > 0) {
+            try {
+                await repo.actualizar(String(cuit), { puntosDeVentaActualizados: new Date().toISOString() });
+            } catch (eSello) {
+                console.error(`  ⚠️ No se pudo marcar ${cuit} como analizado: ${eSello.message}`);
+            }
+        }
+
+        // Para que el alert del frontend muestre los PDV del cliente analizado,
+        // releemos su fila ya actualizada y devolvemos sus puntos de venta.
+        const objetivoFresh = await repo.getByCuit(String(cuit));
         return {
-            success: true,
+            success: exitosos > 0,
+            error: exitosos === 0 ? 'ALL_EMPRESAS_FAILED' : null,
+            message,
             data: {
                 razonSocial: acceso.objetivoNombre,
                 cuit: String(cuit),
-                puntosDeVenta: pdvsNormalizados,
-                puntosDeVentaActualizados: ahora
+                puntosDeVenta: (objetivoFresh && objetivoFresh.puntosDeVenta) || [],
+                totalEmpresas: razonesSociales.length,
+                empresasExitosas: exitosos,
+                representadosSinPdvCreados: representadosCreados,
+                resultados
             }
         };
-    }, { headless: false });
+    }, { headless: false, dejarAbiertoEnError: true });
 }
 
 module.exports = {

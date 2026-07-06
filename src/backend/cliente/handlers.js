@@ -146,15 +146,9 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
 
     const { gestionarValidacion } = require('./service/verificacion.js');
-    const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher.js');
-
-    const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
-    const verificarCredencialesATM = require('../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm.js');
 
     ipcMain.handle('user:verify-on-create', async (event, credenciales) => {
         console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);
-
-        let browser;
 
         try {
             // Crear un usuario temporal para verificar (sin guardarlo)
@@ -186,10 +180,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             console.log('[Verificación Manual] Llamando a verificación unificada...');
             const result = await new Promise(async (resolve) => {
                 try {
-                    // ✅ ABRIR NAVEGADOR UNA SOLA VEZ
-                    const { browser: launchedBrowser } = await launchBrowserAndPage({ headless: false });
-                    browser = launchedBrowser;
-
+                    // Cada servicio (AFIP/ATM) abre y cierra su propio navegador en serie:
+                    // acá no pre-abrimos nada.
                     const userIndex = data.users.findIndex(u => String(u.id) === String(tempUser.id));
                     const usuario = data.users[userIndex];
                     const servicesToVerify = verificationJobs.map(j => j.service);
@@ -197,7 +189,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     // Modo lite: si el frontend lo pidió, solo validar credenciales sin scraping.
                     const soloLogin = credenciales.soloLogin === true;
 
-                    await gestionarValidacion(browser, usuario, servicesToVerify, { soloLogin });
+                    await gestionarValidacion(usuario, servicesToVerify, { soloLogin });
 
                     // Obtener empresas y CUITs del usuario validado.
                     // En modo lite, empresas[] viene vacío (no se scrapea).
@@ -217,6 +209,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                         empresas,
                         empresasDisponible: empresas, // alias retrocompat
                         cuitAsociados,
+                        nombreDetectado: usuario.nombreDetectado || null, // titular leído en el login
                         error: null,
                         verificaciones: {
                             afip: { intentado: false, exitoso: false, error: null },
@@ -270,11 +263,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                             atm: { intentado: !!credenciales.claveATM, exitoso: false, error: error.message }
                         }
                     });
-                } finally {
-                    if (browser) {
-                        await browser.close();
-                        browser = null;
-                    }
                 }
             });
 
@@ -309,11 +297,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     atm: { intentado: !!credenciales.claveATM, exitoso: false, error: error.message }
                 }
             };
-        } finally {
-            if (browser) {
-                await browser.close();
-                console.log('[Verificación Manual] Navegador cerrado.');
-            }
         }
     });
 
@@ -325,7 +308,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         const data = userStorage.loadData();
         const stats = { validados: 0, con_fallos: 0, no_encontrados: 0 };
         const updatedUsers = []; // Array para recolectar usuarios actualizados
-        let browser;
 
         // Agrupar trabajos por usuario
         const jobsByUser = verificationJobs.reduce((acc, job) => {
@@ -340,9 +322,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         let processedUsers = 0;
 
         try {
-            const { browser: launchedBrowser } = await launchBrowserAndPage({ headless: false });
-            browser = launchedBrowser;
-
             for (const [userId, servicesToVerify] of Object.entries(jobsByUser)) {
                 const userIndex = data.users.findIndex(u => String(u.id) === String(userId));
                 if (userIndex === -1) {
@@ -393,8 +372,10 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     continue;
                 }
 
-                // Llama a la función de validación modular
-                await gestionarValidacion(browser, usuario, servicesToVerify);
+                // Llama a la función de validación modular.
+                // soloLogin: este handler es "Probar clave" → solo confirma que el login
+                // anda. El scraping de empresas/PDV lo hace "Analizar" (empresa:analizar).
+                await gestionarValidacion(usuario, servicesToVerify, { soloLogin: true });
 
                 // gestionarValidacion ya escribió usuario.empresas[] directamente.
                 // El normalizador regenera el alias legacy puntosDeVenta[] al guardar.
@@ -451,6 +432,18 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     cambiosEstado.errorAtm = usuario.errorAtm || null;
                     cambiosEstado.fechaVerificacionAtm = usuario.fechaVerificacion;
                 }
+                // Si el cliente todavía no tiene nombre y lo leímos del login (titular AFIP/ATM),
+                // lo guardamos como razonSocial. La proyección usa razonSocial de fallback para
+                // mostrar el nombre en la lista. Solo lo hacemos si la fila está sin nombre, para
+                // no pisar uno que el usuario haya cargado a mano.
+                if (usuario.nombreDetectado && usuario.cuit) {
+                    try {
+                        const filaActual = await repo.getByCuit(String(usuario.cuit));
+                        if (filaActual && !String(filaActual.razonSocial || '').trim()) {
+                            cambiosEstado.razonSocial = usuario.nombreDetectado;
+                        }
+                    } catch (_) { /* si no se puede leer, no bloquea la persistencia del estado */ }
+                }
                 try {
                     if (usuario.cuit) await repo.actualizar(String(usuario.cuit), cambiosEstado);
                 } catch (e) {
@@ -498,10 +491,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         } catch (error) {
             console.error('Error en el proceso de verificación masiva:', error);
             return { success: false, error: error.message, stats };
-        } finally {
-            if (browser) {
-                await browser.close();
-            }
         }
     });
 }

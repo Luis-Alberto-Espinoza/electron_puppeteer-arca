@@ -4,16 +4,16 @@ const { crearEmpresa } = require('../model.js');
 
 /**
  * Orquesta la validación de credenciales y la extracción de datos para un usuario.
- * Abre y cierra pestañas dedicadas para cada servicio (AFIP, ATM, etc.).
+ * Corre los servicios EN SERIE: cada flujo (AFIP, ATM) abre y cierra su propio
+ * navegador de punta a punta, así nunca hay dos ventanas abiertas al mismo tiempo.
  *
- * @param {import('puppeteer').Browser} browser La instancia del navegador Puppeteer.
  * @param {object} usuario El objeto de usuario a procesar.
  * @param {Array<string>|null} servicesToVerify Servicios a chequear; null = todos los disponibles.
  * @param {object} [opciones]
  * @param {boolean} [opciones.soloLogin=false] Si true, AFIP solo valida login sin scrapear empresas.
  *                                             En este modo NO se reescribe usuario.empresas.
  */
-async function gestionarValidacion(browser, usuario, servicesToVerify = null, opciones = {}) {
+async function gestionarValidacion(usuario, servicesToVerify = null, opciones = {}) {
     const { soloLogin = false } = opciones;
     console.log(`[MANAGER] ==> Entrando a gestionarValidacion para CUIT: ${usuario.cuit}`);
 
@@ -40,12 +40,17 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null, op
     // --- Flujo de AFIP ---
     if (servicesToCheck.includes('afip') && usuario.claveAFIP) {
         console.log('[MANAGER] -> Iniciando flujo AFIP...');
-        const afipPage = await browser.newPage();
         try {
-            const resultadoAFIP = await verificarYObtenerDatosAFIP(afipPage, usuario, { soloLogin });
+            // El flujo AFIP abre y cierra su propio navegador (no recibe page).
+            const resultadoAFIP = await verificarYObtenerDatosAFIP(null, usuario, { soloLogin });
             if (resultadoAFIP.success) {
                 usuario.claveAfipValida = true;
                 usuario.errorAfip = null;
+
+                // Nombre del titular (comodidad del alta). AFIP tiene prioridad sobre ATM.
+                if (resultadoAFIP.data && resultadoAFIP.data.nombre) {
+                    usuario.nombreDetectado = resultadoAFIP.data.nombre;
+                }
 
                 if (soloLogin) {
                     // Modo lite: solo confirmamos credenciales, no tocamos empresas[]
@@ -86,20 +91,22 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null, op
             console.error('Error catastrófico en el flujo AFIP:', e.message);
             usuario.claveAfipValida = false;
             usuario.errorAfip = `Error: ${e.message}`;
-        } finally {
-            await afipPage.close();
         }
     }
 
     // --- Flujo de ATM ---
     if (servicesToCheck.includes('atm') && usuario.claveATM) {
         console.log('[MANAGER] -> Iniciando flujo ATM...');
-        const atmPage = await browser.newPage();
         try {
-            const resultadoATM = await verificarCredencialesATM(atmPage, usuario.cuit, usuario.claveATM);
+            // El flujo ATM abre y cierra su propio navegador (no recibe page).
+            const resultadoATM = await verificarCredencialesATM(null, usuario.cuit, usuario.claveATM);
             if (resultadoATM.success) {
                 usuario.claveAtmValida = true;
                 usuario.errorAtm = null;
+                // Nombre solo si AFIP no lo trajo (AFIP tiene prioridad).
+                if (!usuario.nombreDetectado && resultadoATM.nombre) {
+                    usuario.nombreDetectado = resultadoATM.nombre;
+                }
                 console.log(`  -> ATM: Válido.`);
             } else {
                 usuario.claveAtmValida = false;
@@ -121,8 +128,6 @@ async function gestionarValidacion(browser, usuario, servicesToVerify = null, op
             console.error('Error catastrófico en el flujo ATM:', e.message);
             usuario.claveAtmValida = false;
             usuario.errorAtm = `Error: ${e.message}`;
-        } finally {
-            await atmPage.close();
         }
     }
     console.log(`[MANAGER] <== Saliendo de gestionarValidacion para CUIT: ${usuario.cuit}`);

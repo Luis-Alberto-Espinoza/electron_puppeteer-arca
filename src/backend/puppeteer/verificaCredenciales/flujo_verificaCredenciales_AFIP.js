@@ -7,6 +7,34 @@ const { obtenerCuitsAsociados } = require('../afip/archivosComunes/obtenerCuitsA
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
+ * Lee el nombre/razón social del titular logueado desde el encabezado del portal AFIP
+ * (`#usernav > div`). Best-effort: si el selector no está o cambió, devuelve null y el
+ * login sigue igual — el nombre es una comodidad para el alta, no un dato crítico.
+ * @param {import('puppeteer').Page} page
+ * @returns {Promise<string|null>}
+ */
+async function leerNombreTitularAfip(page) {
+    try {
+        return await page.evaluate(() => {
+            const el = document.querySelector('#usernav > div');
+            if (!el) return null;
+            let txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
+            // Sacar el CUIT si viene pegado, incluyendo los corchetes/paréntesis que lo
+            // envuelvan (ej. "APELLIDO NOMBRE [27-33461797-7]" -> "APELLIDO NOMBRE").
+            // Si borramos solo los dígitos, quedan los corchetes vacíos "[]" en el nombre.
+            txt = txt
+                .replace(/[[(]?\s*\d{2}-?\d{8}-?\d\s*[\])]?/g, '') // CUIT con o sin corchetes/paréntesis
+                .replace(/[[\]()]/g, '')                            // corchetes/paréntesis huérfanos
+                .replace(/\s+/g, ' ')
+                .trim();
+            return txt || null;
+        });
+    } catch (_) {
+        return null;
+    }
+}
+
+/**
  * Valida credenciales de AFIP.
  *
  * Por default hace VALIDACIÓN COMPLETA: login + lista empresas + CUITs asociados.
@@ -57,10 +85,12 @@ async function verificarYObtenerDatosAFIP(page, usuario, opciones = {}) {
             return { success: false, error: 'No se pudo detectar la pagina principal de AFIP tras el login' };
         }
 
-        // Salida temprana modo lite: las credenciales son válidas, nada más que hacer
+        // Salida temprana modo lite: las credenciales son válidas, nada más que hacer.
+        // Aprovechamos el login para leer el nombre del titular (comodidad del alta).
         if (soloLogin) {
-            console.log('    [AFIP] <== Modo soloLogin: credenciales OK, salgo sin scraping.');
-            return { success: true, data: {} };
+            const nombre = await leerNombreTitularAfip(loggedPage);
+            console.log(`    [AFIP] <== Modo soloLogin: credenciales OK${nombre ? ` (titular: ${nombre})` : ''}.`);
+            return { success: true, data: { nombre } };
         }
 
         // 3. Buscar comprobante en linea

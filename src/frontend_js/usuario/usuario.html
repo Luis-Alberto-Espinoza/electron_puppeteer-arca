@@ -124,7 +124,7 @@
                     <div class="form-column">
                         <div class="form-group">
                             <label for="nombre">Nombre:</label>
-                            <input type="text" id="nombre" placeholder="Ingresa el nombre">
+                            <input type="text" id="nombre" placeholder="Se completa al probar la clave (opcional)">
                         </div>
                         <div class="form-group">
                             <label for="apellido">Apellido:</label>
@@ -177,33 +177,22 @@
                             <select id="representanteAfip">
                                 <option value="">— Opera solo (sin representante) —</option>
                             </select>
-                            <span style="font-size:12px;color:#666;">Si entra a AFIP por otra persona/empresa, elegila acá.</span>
+                            <span class="form-hint">Si entra a AFIP por otra persona/empresa, elegila acá.</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Verificación de Credenciales -->
+                <!-- Guardar: solo escribe la ficha del cliente. Las claves se prueban
+                     después desde la lista, no acá. Botón siempre visible (sin candado). -->
                 <div class="action-bar">
-                    <button class="btn btn-primary" id="btnVerificarCredenciales">
-                        🔍 Verificar Credenciales
+                    <button class="btn btn-success" id="btnCrearUsuario">
+                        <span id="createLoading" class="loading hidden"></span>
+                        💾 Guardar Cliente
                     </button>
-                    <span id="verificarLoading" class="loading hidden"></span>
                 </div>
-
-                <!-- Mensaje de Verificación Local (dentro del formulario) -->
-                <div id="verificacionAlert" class="alert hidden" style="margin: 15px 0;">
-                    <span id="verificacionAlertMessage"></span>
-                    <button id="btnCloseVerificacionAlert" class="btn-close-alert" title="Cerrar">✖</button>
-                </div>
-
-                <!-- Lista de Empresas Disponibles -->
-                <div id="elegirEmpresa" class="puntos-venta-list"></div>
-
-                <!-- Botón Crear (oculto hasta verificación) -->
-                <button class="btn btn-success" id="btnCrearUsuario" style="display:none;">
-                    <span id="createLoading" class="loading hidden"></span>
-                    ✅ Crear Cliente
-                </button>
+                <p class="form-note">
+                    Guardás primero. Después, desde la lista de clientes, probás la clave y traés las empresas.
+                </p>
             </div>
         </div>
 
@@ -273,26 +262,21 @@
                             <select id="editRepresentanteAfip">
                                 <option value="">— Opera solo (sin representante) —</option>
                             </select>
-                            <span style="font-size:12px;color:#666;">Si entra a AFIP por otra persona/empresa, elegila acá.</span>
+                            <span class="form-hint">Si entra a AFIP por otra persona/empresa, elegila acá.</span>
                         </div>
                     </div>
                 </div>
+                <!-- Edición = solo datos. Probar clave / Traer empresas viven en la lista. -->
                 <div class="action-bar">
-                    <button class="btn btn-primary" onclick="updateUser()">
+                    <button class="btn btn-success" onclick="updateUser()">
                         <span id="updateLoading" class="loading hidden"></span>
-                        💾 Actualizar Cliente
-                    </button>
-                    <button class="btn btn-info" id="btnAnalizarCliente" onclick="analizarCliente()" title="Trae empresas y puntos de venta desde AFIP">
-                        <span id="analizarLoading" class="loading hidden"></span>
-                        🔍 Analizar Cliente
+                        💾 Guardar cambios
                     </button>
                     <button class="btn btn-secondary" onclick="cancelEdit()">Cancelar</button>
                 </div>
-                <div id="editEstadoAnalisis" style="margin-top: 10px; font-size: 13px;"></div>
-
-                <!-- Editor de empresas representadas: CUIT + clave ATM por empresa.
-                     ATM entra con el CUIT de la empresa (no con el del representante). -->
-                <div id="editEmpresasEditor" style="margin-top: 14px;"></div>
+                <p class="form-note">
+                    Para probar la clave o traer las empresas, usá los botones de la fila en la lista de clientes.
+                </p>
             </div>
         </div>
 

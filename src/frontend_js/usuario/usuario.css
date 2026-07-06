@@ -1,3 +1,29 @@
+/* ============================================================================
+   TOKENS DE TEMA OSCURO — vista Clientes (usuario)
+   ---------------------------------------------------------------------------
+   El sistema de diseño global (estilos/tokens.css + base.css) es CLARO. Esta
+   vista es oscura a propósito (igual que atm_lote). Para no repetir los mismos
+   hex 40 veces, acá les ponemos NOMBRE en un solo lugar, al estilo tokens.css.
+   Cómo se usa: color: var(--u-texto);   (el prefijo -u- = "usuario/oscuro").
+   Se pueden mezclar con hex sin migrar todo de una.
+   ========================================================================== */
+:root {
+  /* Superficies (de más oscuro a más claro) */
+  --u-fondo:        #1a202c;  /* fondo app / inputs */
+  --u-superficie:   #2d3748;  /* tarjetas, paneles */
+  --u-borde:        #4a5568;  /* bordes y divisores */
+
+  /* Texto */
+  --u-texto:        #e2e8f0;  /* principal */
+  --u-texto-2:      #a0aec0;  /* secundario / labels */
+
+  /* Acentos de marca/estado (comparten valor con tokens.css cuando aplica) */
+  --u-acento:       #f6e05e;  /* amarillo de resaltado */
+  --u-azul:         #4299e1;  /* foco / acción */
+  --u-ok:           #48bb78;  /* éxito */
+  --u-peligro:      #f56565;  /* error */
+}
+
 /* --- Paleta de Tema Oscuro: Azul y Amarillo --- */
 
 * {
@@ -8,8 +34,8 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: #1a202c; /* Fondo principal: Azul carbón oscuro */
-    color: #e2e8f0; /* Color de texto principal: Gris claro */
+    background-color: var(--u-fondo); /* Fondo principal: Azul carbón oscuro */
+    color: var(--u-texto); /* Color de texto principal: Gris claro */
     min-height: 100vh;
     padding: 20px;
 }
@@ -17,16 +43,16 @@ body {
 .container {
     max-width: 1100px;
     margin: 0 auto;
-    background-color: #2d3748 !important; /* Añadido !important para forzar el estilo */
+    background-color: var(--u-superficie) !important; /* Añadido !important para forzar el estilo */
     border-radius: 15px;
-    border: 1px solid #4a5568;
+    border: 1px solid var(--u-borde);
     overflow: hidden;
 }
 
 .header {
-    background-color: #2d3748;
-    border-bottom: 2px solid #f6e05e; /* Acento amarillo */
-    color: #f6e05e; /* Acento amarillo */
+    background-color: var(--u-superficie);
+    border-bottom: 2px solid var(--u-acento); /* Acento amarillo */
+    color: var(--u-acento); /* Acento amarillo */
     padding: 30px;
     text-align: center;
 }
@@ -41,15 +67,15 @@ body {
 }
 
 .form-section, .bulk-upload-section {
-    background: #2d3748;
+    background: var(--u-superficie);
     padding: 25px;
     border-radius: 10px;
     margin-bottom: 30px;
-    border: 1px solid #4a5568;
+    border: 1px solid var(--u-borde);
 }
 
 .form-section h2, .bulk-upload-section h2 {
-    color: #e2e8f0;
+    color: var(--u-texto);
     margin-bottom: 20px;
     font-size: 1.3em;
 }
@@ -57,16 +83,16 @@ body {
 .form-group label {
     display: block;
     margin-bottom: 8px;
-    color: #a0aec0; /* Gris más suave para etiquetas */
+    color: var(--u-texto-2); /* Gris más suave para etiquetas */
     font-weight: 600;
 }
 
 .form-group input, .form-group select {
     width: 100%;
     padding: 12px;
-    background-color: #1a202c;
-    border: 2px solid #4a5568;
-    color: #e2e8f0;
+    background-color: var(--u-fondo);
+    border: 2px solid var(--u-borde);
+    color: var(--u-texto);
     border-radius: 8px;
     font-size: 16px;
     transition: border-color 0.3s ease;
@@ -74,7 +100,7 @@ body {
 
 .form-group input:focus, .form-group select:focus {
     outline: none;
-    border-color: #4299e1; /* Acento azul para foco */
+    border-color: var(--u-azul); /* Acento azul para foco */
     box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.2);
 }
 
@@ -90,8 +116,8 @@ body {
 }
 
 .btn-primary {
-    background-color: #f6e05e; /* Acento amarillo */
-    color: #1a202c; /* Texto oscuro para contraste */
+    background-color: var(--u-acento); /* Acento amarillo */
+    color: var(--u-fondo); /* Texto oscuro para contraste */
 }
 
 .btn-primary:hover {
@@ -99,37 +125,59 @@ body {
     transform: translateY(-2px);
 }
 
+/* Sección de clientes. Definición ÚNICA (antes en 2 bloques). */
 .users-section {
     margin-top: 30px;
-}
-
-.users-list {
-    background: #2d3748;
+    margin-bottom: 30px;
+    background: var(--u-superficie);
+    border: 1px solid var(--u-borde);
     border-radius: 10px;
     overflow: hidden;
-    border: 1px solid #4a5568;
 }
 
+/* Lista de clientes: tarjeta con altura fija y scroll. Definición ÚNICA. */
+.users-list {
+    background: var(--u-superficie);
+    border: 1px solid var(--u-borde);
+    border-radius: 10px;
+    overflow: hidden;
+    overflow-y: auto;      /* pisa el overflow:hidden de arriba en el eje Y */
+    overflow-x: hidden;
+    max-height: 500px;
+}
+
+/* Fila de cliente / header del lote. Definición ÚNICA (antes estaba repartida en
+   4 bloques). Para filas de cliente reales, .user-item[data-user-id] la pisa con
+   display:grid más abajo. */
 .user-item {
-    padding: 20px;
-    border-bottom: 1px solid #4a5568;
     display: flex;
+    flex-wrap: wrap;       /* en vista chica las acciones bajan en vez de desbordar */
     justify-content: space-between;
     align-items: center;
-    transition: background-color 0.3s ease;
+    gap: 12px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--u-borde);
+    transition: all 0.3s ease;
 }
 
 .user-item:hover {
-    background-color: #4a5568;
+    background-color: var(--u-borde);
 }
 
 .user-name {
-    color: #f6e05e; /* Acento amarillo para nombres */
+    color: var(--u-acento); /* Acento amarillo para nombres */
     font-weight: 600;
+    /* La columna del nombre es la GLOTONA (se queda con todo el ancho sobrante),
+       así que casi siempre entra completo. Solo un nombre absurdamente largo se
+       corta con "…" al final, en 1 sola línea (fila compacta para escrolear). El
+       nombre completo queda en el title (tooltip al pasar el mouse). */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .user-details {
-    color: #a0aec0;
+    color: var(--u-texto-2);
 }
 
 /* --- Estilos para Alertas y Resultados --- */
@@ -144,7 +192,7 @@ body {
 }
 
 .status-message.success {
-    background-color: #2d3748;
+    background-color: var(--u-superficie);
     border-color: #38a169; /* Verde */
 }
 
@@ -156,12 +204,12 @@ body {
 .status-message .result-summary {
     font-size: 1.1em;
     font-weight: 600;
-    color: #a0aec0;
+    color: var(--u-texto-2);
     margin-bottom: 15px;
 }
 
 .status-message .result-section-title.warning {
-    color: #f6e05e; /* Amarillo para advertencias */
+    color: var(--u-acento); /* Amarillo para advertencias */
 }
 
 .status-message .result-section-title.error-title {
@@ -175,7 +223,7 @@ body {
 
 .status-message li {
     margin-bottom: 5px;
-    color: #a0aec0;
+    color: var(--u-texto-2);
 }
 
 /* --- Otros estilos --- */
@@ -183,26 +231,32 @@ body {
 .hidden { display: none; }
 
 .spinner {
-    border-top-color: #f6e05e; /* Acento amarillo */
-    border-right-color: #4299e1; /* Acento azul */
+    border-top-color: var(--u-acento); /* Acento amarillo */
+    border-right-color: var(--u-azul); /* Acento azul */
 }
 
 .loader-text {
-    color: #f6e05e; /* Acento amarillo */
+    color: var(--u-acento); /* Acento amarillo */
 }
 
 .validation-error {
     color: #e53e3e;
 }
 
-/* --- Nuevos Estilos para Lista de Usuarios Mejorada --- */
-
-.user-item {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 15px;
+/* Texto de ayuda al pie de un campo (ej. hint del select "Representante AFIP"). */
+.form-hint {
+    font-size: 12px;
+    color: var(--u-texto-2);
 }
+
+/* Nota al pie de un formulario, debajo de la barra de acciones. */
+.form-note {
+    font-size: 12px;
+    color: var(--u-texto-2);
+    margin-top: 8px;
+}
+
+/* --- Nuevos Estilos para Lista de Usuarios Mejorada --- */
 
 .user-select {
     flex-shrink: 0;
@@ -210,6 +264,9 @@ body {
 
 .user-info {
     flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;   /* imprescindible para que el hijo con ellipsis pueda encoger */
+    cursor: pointer;   /* toda la zona nombre/CUIT marca/desmarca la fila */
 }
 
 .user-status {
@@ -224,21 +281,170 @@ body {
     gap: 8px;
 }
 
+/* Columna de acciones de la fila. Definición ÚNICA (antes en 2 bloques). */
 .user-actions {
     flex-shrink: 0;
     display: flex;
     flex-direction: column; /* Apilar botones verticalmente */
-    gap: 5px; /* Espacio reducido para botones apilados */
     align-items: flex-start; /* Alinear botones a la izquierda */
+    gap: 8px;
     min-width: 150px; /* Ancho mínimo para mantener consistencia */
 }
 
+/* ============================================================================
+   FILA DE CLIENTE = GRID (tipo tabla), NO flex-wrap.
+   Con flex-wrap:wrap los botones se iban al renglón de abajo cuando las columnas
+   fijas no entraban (y un nombre largo lo destapaba). Con Grid, las columnas
+   están FIJAS y nunca saltan de línea: el nombre se ajusta dentro de su columna
+   y Editar/Eliminar quedan clavados a la derecha.
+   Solo aplica a filas de cliente (tienen data-user-id); el header del lote, que
+   reusa .user-item, sigue siendo flex.
+   ========================================================================== */
+.user-item[data-user-id] {
+    display: grid;
+    /* checkbox | NOMBRE (glotón) | estado | acción AFIP | botones.
+       Las 3 últimas tienen ancho FIJO → se alinean entre todas las filas (tabla
+       de verdad): no bailan a izquierda/derecha según el largo del nombre. El
+       nombre toma TODO lo que sobra (1fr) y queda del mismo ancho en cada fila.
+       El piso de 80px es la red de seguridad: aunque el layout se calcule mal en
+       el primer frame, el nombre nunca colapsa a 0. */
+    /* checkbox | NOMBRE (glotón) | estado | botones. La columna de acción AFIP se
+       eliminó: ese botón (Traer empresas / Probar clave / Reintentar) ahora vive
+       junto a Editar/Eliminar en la última columna. Así se recupera ~150px para
+       el nombre y desaparece el hueco muerto. */
+    /* checkbox | NOMBRE (1fr, glotón) | estado | íconos de acción.
+       Las 2 columnas de la derecha con ancho FIJO → se ALINEAN entre todas las
+       filas (tabla de verdad). La acción AFIP (🔍/🔁/🔑) es un ícono más dentro
+       del grupo de acciones, pegado a la derecha: no necesita columna propia. */
+    grid-template-columns: auto minmax(90px, 1fr) 125px 110px;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Las 2 columnas fijas: padding mínimo para no robarle ancho al nombre. */
+.user-item[data-user-id] .user-status,
+.user-item[data-user-id] .user-actions {
+    padding: 0;
+    min-width: 0;
+    flex-basis: auto;   /* anula los flex-basis viejos */
+}
+/* Un respiro arriba en la columna de estados. */
+.user-item[data-user-id] .user-status {
+    padding-top: 4px;
+}
+/* Acciones EN HORIZONTAL en 1 renglón (antes apiladas en vertical: hacían la fila
+   altísima). La acción AFIP conserva su texto (es el "próximo paso"); Editar /
+   Eliminar / Actualizar quedan como botón de solo ícono con tooltip. */
+.user-item[data-user-id] .user-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    justify-content: flex-end;
+}
+.user-item[data-user-id] .user-actions > button {
+    width: auto;
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.3;
+    white-space: nowrap;
+    text-align: center;
+}
+/* Botones de solo ícono: cuadraditos, glifo un poco más grande. Incluye la acción
+   AFIP (🔍/🔁/🔑), que ahora es un ícono más del grupo. */
+.user-item[data-user-id] .user-actions .btn-accion-afip,
+.user-item[data-user-id] .user-actions .btn-edit,
+.user-item[data-user-id] .user-actions .btn-delete,
+.user-item[data-user-id] .user-actions .btn-actualizar {
+    padding: 4px 7px;
+    font-size: 15px;
+}
+
+/* Ventana angosta (ej. media pantalla ~800px): recuperar el ancho que hoy
+   desperdician los paddings del body y del content, para que la lista de clientes
+   use casi todo el ancho. Base: body 20px + content 30px = 50px/lado → acá 6+12. */
+@media (max-width: 860px) {
+    body { padding: 12px 6px; }
+    .content { padding: 16px 12px; }
+}
+
+/* La fila compacta (acciones en 1 renglón de íconos) entra horizontal hasta
+   ~500px de ventana. Solo por debajo de 480px apilamos en vertical, como último
+   recurso cuando de verdad no hay ancho. Antes el corte era 720px y por eso a
+   media pantalla (~697px) se apilaba y la fila se hacía altísima. */
+@media (max-width: 480px) {
+    .user-item[data-user-id] {
+        grid-template-columns: auto 1fr;
+        row-gap: 10px;
+    }
+    /* Estado, acción AFIP y botones pasan a ocupar el ancho completo debajo. */
+    .user-item[data-user-id] .user-status,
+    .user-item[data-user-id] .user-actions {
+        grid-column: 1 / -1;
+    }
+}
+
+.btn-accion-afip {
+    padding: 6px 12px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    background: #f7fafc;
+    color: var(--u-superficie);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.btn-accion-afip:hover { background: #edf2f7; }
+
+/* "Traer empresas": resaltado en ámbar porque es el paso pendiente recomendado. */
+.btn-accion-traer {
+    background: #fff8e1;
+    color: #b26a00;
+    border-color: #f0ad4e;
+}
+.btn-accion-traer:hover { background: #ffefc2; }
+
+/* "Reintentar": la clave falló. */
+.btn-accion-reintentar {
+    background: #fff5f5;
+    color: #c53030;
+    border-color: #fc8181;
+}
+.btn-accion-reintentar:hover { background: #fed7d7; }
+
+.btn-icono {
+    padding: 2px 6px;
+    background: transparent;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+}
+.btn-icono:hover { background: #edf2f7; }
+
 .status-badge {
+    display: inline-flex;      /* alinea el emoji con el texto y con el botón 🔄 */
+    align-items: center;
+    gap: 4px;
     padding: 3px 8px;
     border-radius: 12px;
     font-size: 0.8em;
     font-weight: 600;
+    letter-spacing: 0.02em;
     text-transform: uppercase;
+    white-space: nowrap;       /* "Analizado" nunca parte en dos renglones */
+}
+
+/* Marca "opera vía representante": el AFIP del representado no es propio. */
+.badge-representado {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.75em;
+    font-style: italic;
+    color: #6b7280;
+    margin-left: 4px;
+    white-space: nowrap;
 }
 
 .status-validado {
@@ -257,47 +463,80 @@ body {
 }
 
 .status-pendiente {
-    background-color: #4a5568; /* Gris */
-    color: #e2e8f0;
+    background-color: var(--u-borde); /* Gris */
+    color: var(--u-texto);
 }
 
 .status-default {
     background-color: #718096; /* Gris más claro */
-    color: #e2e8f0;
-}
-
-.btn-sm {
-    padding: 5px 10px;
-    font-size: 12px;
+    color: var(--u-texto);
 }
 
 .bulk-actions-header {
-    background-color: #1a202c;
+    background-color: var(--u-fondo);
     justify-content: flex-start;
     gap: 20px;
     font-size: 0.9em;
+    padding: 12px 16px;                     /* un toque más de aire que las filas */
 }
 
 .bulk-actions-controls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    flex-wrap: wrap;       /* si no entran, bajan de renglón en vez de desbordar feo */
+    gap: 10px;             /* separa tanto en horizontal como al bajar de línea */
+    width: 100%;
+}
+/* Botones del lote: compactos y sin MAYÚSCULAS, para que los tres entren en una
+   sola fila. Sin los margin-left inline (el gap del flex ya los separa). */
+.bulk-actions-controls .btn {
+    margin-left: 0 !important;
+    flex: 0 0 auto;
+    padding: 7px 12px;
+    font-size: 13px;
+    text-transform: none;
+}
+/* "Seleccionar todos" es un botón más, pero de estilo NEUTRO (no es una acción):
+   contorno gris; relleno sobrio cuando está activo (todo seleccionado). */
+.btn-seleccion {
+    background: transparent;
+    color: var(--u-texto);
+    border: 1px solid var(--u-borde);
+}
+.btn-seleccion:hover {
+    background: var(--u-borde);
+}
+.btn-seleccion.activo {
+    background: var(--u-borde);
+    border-color: var(--u-texto-2);
 }
 
 .bulk-actions-header label {
-    color: #e2e8f0; /* Asegurar que el texto sea legible */
+    color: var(--u-texto); /* Asegurar que el texto sea legible */
     cursor: pointer;
 }
 
 .btn-edit, .btn-delete {
     background-color: transparent;
-    color: #e2e8f0;
-    border: 1px solid #4a5568;
+    color: var(--u-texto);
+    border: 1px solid var(--u-borde);
 }
 
 .btn-edit:hover, .btn-delete:hover {
-    background-color: #4a5568;
-    border-color: #a0aec0;
+    background-color: var(--u-borde);
+    border-color: var(--u-texto-2);
+}
+
+/* Botón "🔄 Actualizar" (movido desde la columna de acción AFIP). Mismo estilo
+   sobrio que Editar/Eliminar, con un acento celeste para distinguirlo. */
+.btn-actualizar {
+    background-color: transparent;
+    color: #90cdf4;
+    border: 1px solid var(--u-borde);
+}
+.btn-actualizar:hover {
+    background-color: var(--u-borde);
+    border-color: #90cdf4;
 }
 
 /* --- Estilos para Checkboxes Personalizados --- */
@@ -323,18 +562,18 @@ body {
     display: inline-block;
     width: 16px;
     height: 16px;
-    border: 2px solid #a0aec0; /* Borde gris claro */
+    border: 2px solid var(--u-texto-2); /* Borde gris claro */
     border-radius: 4px;
     margin-right: 8px;
-    background-color: #1a202c; /* Fondo oscuro */
+    background-color: var(--u-fondo); /* Fondo oscuro */
     transition: all 0.2s ease;
 }
 
 /* Estilo cuando el checkbox está marcado */
 .service-checkbox:checked + span::before,
 .select-all-service-checkbox:checked + span::before {
-    background-color: #f6e05e; /* Fondo amarillo */
-    border-color: #f6e05e;
+    background-color: var(--u-acento); /* Fondo amarillo */
+    border-color: var(--u-acento);
 }
 
 /* Crear la marca de verificación (check) */
@@ -346,7 +585,7 @@ body {
     top: 3px;
     width: 5px;
     height: 10px;
-    border: solid #1a202c; /* Color de la marca (negro) */
+    border: solid var(--u-fondo); /* Color de la marca (negro) */
     border-width: 0 3px 3px 0;
     transform: rotate(45deg);
 }
@@ -359,7 +598,7 @@ body {
 
 /* Ajuste para el estado deshabilitado */
 .service-checkbox:disabled + span::before {
-    background-color: #4a5568;
+    background-color: var(--u-borde);
     border-color: #718096;
     cursor: not-allowed;
 }
@@ -368,8 +607,8 @@ body {
 
 /* Secciones colapsables */
 .collapsible-section {
-    background: #2d3748;
-    border: 1px solid #4a5568;
+    background: var(--u-superficie);
+    border: 1px solid var(--u-borde);
     border-radius: 10px;
     margin-bottom: 20px;
     overflow: hidden;
@@ -386,15 +625,15 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 20px 25px;
-    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-    border-bottom: 2px solid #f6e05e;
+    background: linear-gradient(135deg, var(--u-superficie) 0%, var(--u-fondo) 100%);
+    border-bottom: 2px solid var(--u-acento);
     flex-wrap: wrap;
     gap: 15px;
 }
 
 .section-header h2 {
     margin: 0;
-    color: #f6e05e;
+    color: var(--u-acento);
     font-size: 1.4em;
     font-weight: 700;
 }
@@ -415,12 +654,24 @@ body {
 
 /* Botón info (azul) */
 .btn-info {
-    background-color: #4299e1;
+    background-color: var(--u-azul);
     color: #ffffff;
 }
 
 .btn-info:hover {
     background-color: #3182ce;
+    transform: translateY(-2px);
+}
+
+/* Botón warning (naranja) — mismo naranja que el badge de advertencia. Antes no
+   estaba definido y el botón "Analizar pendientes" quedaba sin fondo. */
+.btn-warning {
+    background-color: #dd6b20;
+    color: #fffaf0;
+}
+
+.btn-warning:hover {
+    background-color: #c05e1c;
     transform: translateY(-2px);
 }
 
@@ -430,7 +681,7 @@ body {
     gap: 15px;
     align-items: center;
     padding: 20px 0;
-    border-top: 1px solid #4a5568;
+    border-top: 1px solid var(--u-borde);
     margin-top: 20px;
 }
 
@@ -468,56 +719,29 @@ input[type="password"] {
     }
 }
 
-/* Mejorar la sección de usuarios */
-.users-section {
-    background: #2d3748;
-    border: 1px solid #4a5568;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-bottom: 30px;
-}
-
-/* Lista de usuarios con altura fija y scroll */
-.users-list {
-    max-height: 500px;
-    overflow-y: auto;
-    overflow-x: hidden;
-}
-
 /* Estilos para la barra de scroll */
 .users-list::-webkit-scrollbar {
     width: 12px;
 }
 
 .users-list::-webkit-scrollbar-track {
-    background: #1a202c;
+    background: var(--u-fondo);
     border-radius: 0 0 10px 0;
 }
 
 .users-list::-webkit-scrollbar-thumb {
-    background: #4a5568;
+    background: var(--u-borde);
     border-radius: 6px;
-    border: 2px solid #1a202c;
+    border: 2px solid var(--u-fondo);
 }
 
 .users-list::-webkit-scrollbar-thumb:hover {
     background: #718096;
 }
 
-/* Tabla de clientes más compacta */
-.user-item {
-    padding: 15px 20px;
-}
-
 /* Scroll suave */
 html {
     scroll-behavior: smooth;
-}
-
-/* Botones más compactos en tabla */
-.user-actions {
-    display: flex;
-    gap: 8px;
 }
 
 .user-actions .btn {
@@ -527,33 +751,43 @@ html {
 
 /* Alertas mejoradas */
 .alert {
-    padding: 15px 50px 15px 20px; /* Espacio extra a la derecha para el botón X */
-    margin: 15px 0;
+    /* Toast FLOTANTE: siempre visible en pantalla, sin importar el scroll. Antes era
+       estático arriba de todo y, al accionar desde un botón de abajo, el mensaje
+       aparecía fuera de vista (había que subir con la rueda para verlo). */
+    position: fixed;
+    top: 72px;                            /* debajo del navbar fijo (.app-navbar: 60px + aire) */
+    left: 0;
+    right: 0;
+    margin: 0 auto;                       /* centrado horizontal sin transform */
+    max-width: 600px;
+    width: calc(100% - 32px);
+    z-index: 1001;                        /* por encima del navbar (z-index:1000) */
+    padding: 15px 50px 15px 20px;         /* espacio a la derecha para el botón X */
     border-radius: 8px;
     border-left: 4px solid;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);   /* lo despega del contenido */
     animation: slideDown 0.3s ease;
-    position: relative;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 
 .alert-success {
-    background-color: rgba(72, 187, 120, 0.1);
-    border-left-color: #48bb78;
-    color: #48bb78;
+    background-color: var(--u-superficie);   /* sólido: legible flotando sobre el contenido */
+    border-left-color: var(--u-ok);
+    color: var(--u-ok);
 }
 
 .alert-error {
-    background-color: rgba(245, 101, 101, 0.1);
-    border-left-color: #f56565;
-    color: #f56565;
+    background-color: var(--u-superficie);
+    border-left-color: var(--u-peligro);
+    color: var(--u-peligro);
 }
 
 .alert-warning {
-    background-color: rgba(246, 224, 94, 0.1);
-    border-left-color: #f6e05e;
-    color: #f6e05e;
+    background-color: var(--u-superficie);
+    border-left-color: var(--u-acento);
+    color: var(--u-acento);
 }
 
 /* Botón de cerrar alert */
@@ -586,8 +820,8 @@ html {
 /* ========== BUSCADOR DE CLIENTES ========== */
 .search-section {
     padding: 20px 25px;
-    background: #1a202c;
-    border-bottom: 1px solid #4a5568;
+    background: var(--u-fondo);
+    border-bottom: 1px solid var(--u-borde);
 }
 
 .search-wrapper {
@@ -600,8 +834,8 @@ html {
 .search-input {
     flex: 1;
     padding: 12px 16px;
-    background-color: #2d3748;
-    border: 2px solid #4a5568;
+    background-color: var(--u-superficie);
+    border: 2px solid var(--u-borde);
     color: #ffffff;
     border-radius: 8px;
     font-size: 16px;
@@ -610,7 +844,7 @@ html {
 
 .search-input:focus {
     outline: none;
-    border-color: #f6e05e;
+    border-color: var(--u-acento);
     box-shadow: 0 0 0 3px rgba(246, 224, 94, 0.2);
 }
 
@@ -620,8 +854,8 @@ html {
 
 .btn-clear-search {
     padding: 12px 20px;
-    background-color: #4a5568;
-    color: #e2e8f0;
+    background-color: var(--u-borde);
+    color: var(--u-texto);
     border: none;
     border-radius: 8px;
     font-size: 14px;
@@ -637,20 +871,20 @@ html {
 }
 
 .search-results-count {
-    color: #a0aec0;
+    color: var(--u-texto-2);
     font-size: 14px;
     text-align: center;
 }
 
 .search-results-count span {
-    color: #f6e05e;
+    color: var(--u-acento);
     font-weight: 600;
 }
 
 /* Destacar clientes encontrados */
 .user-item.highlight {
     background-color: rgba(246, 224, 94, 0.1);
-    border-left: 3px solid #f6e05e;
+    border-left: 3px solid var(--u-acento);
 }
 
 .user-item.hidden {
@@ -698,9 +932,9 @@ html {
 
 /* ========== PANEL DE PROGRESO DE VERIFICACIÓN - MEJORADO PARA MÁXIMA VISIBILIDAD ========== */
 .progress-panel {
-    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
-    border: 3px solid #f6e05e;
-    border-bottom: 4px solid #f6e05e;
+    background: linear-gradient(135deg, var(--u-fondo) 0%, var(--u-superficie) 100%);
+    border: 3px solid var(--u-acento);
+    border-bottom: 4px solid var(--u-acento);
     padding: 25px 30px;
     animation: slideDownAndGlow 0.4s ease;
     box-shadow: 0 4px 20px rgba(246, 224, 94, 0.3);
@@ -745,7 +979,7 @@ html {
 .progress-title {
     font-size: 18px;
     font-weight: 700;
-    color: #f6e05e;
+    color: var(--u-acento);
     flex: 1;
     text-shadow: 0 0 10px rgba(246, 224, 94, 0.5);
     letter-spacing: 0.5px;
@@ -755,7 +989,7 @@ html {
     font-size: 16px;
     font-weight: 700;
     color: #ffffff;
-    background: linear-gradient(90deg, #4299e1 0%, #3182ce 100%);
+    background: linear-gradient(90deg, var(--u-azul) 0%, #3182ce 100%);
     padding: 6px 16px;
     border-radius: 16px;
     box-shadow: 0 0 15px rgba(66, 153, 225, 0.6);
@@ -770,17 +1004,17 @@ html {
 .progress-bar-container {
     width: 100%;
     height: 12px;
-    background: #1a202c;
+    background: var(--u-fondo);
     border-radius: 6px;
     overflow: hidden;
     margin-bottom: 15px;
-    border: 2px solid #4a5568;
+    border: 2px solid var(--u-borde);
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #4299e1 0%, #f6e05e 50%, #48bb78 100%);
+    background: linear-gradient(90deg, var(--u-azul) 0%, var(--u-acento) 50%, var(--u-ok) 100%);
     transition: width 0.4s ease;
     border-radius: 4px;
     box-shadow: 0 0 15px rgba(66, 153, 225, 0.8);
@@ -817,20 +1051,20 @@ html {
 }
 
 .stat-success {
-    color: #48bb78;
-    border: 1px solid #48bb78;
+    color: var(--u-ok);
+    border: 1px solid var(--u-ok);
     box-shadow: 0 0 8px rgba(72, 187, 120, 0.4);
 }
 
 .stat-error {
-    color: #f6e05e;
-    border: 1px solid #f6e05e;
+    color: var(--u-acento);
+    border: 1px solid var(--u-acento);
     box-shadow: 0 0 8px rgba(246, 224, 94, 0.4);
 }
 
 .stat-processing {
-    color: #4299e1;
-    border: 1px solid #4299e1;
+    color: var(--u-azul);
+    border: 1px solid var(--u-azul);
     box-shadow: 0 0 8px rgba(66, 153, 225, 0.4);
     animation: processingPulse 1.5s ease-in-out infinite;
 }
@@ -842,8 +1076,8 @@ html {
 
 /* ========== PANEL DE RESULTADOS PERSISTENTE ========== */
 .results-panel {
-    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-    border: 2px solid #48bb78;
+    background: linear-gradient(135deg, var(--u-superficie) 0%, var(--u-fondo) 100%);
+    border: 2px solid var(--u-ok);
     border-radius: 10px;
     padding: 20px 25px;
     margin-bottom: 15px;
@@ -861,7 +1095,7 @@ html {
     align-items: center;
     margin-bottom: 15px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #4a5568;
+    border-bottom: 1px solid var(--u-borde);
 }
 
 .results-title-section {
@@ -878,12 +1112,12 @@ html {
 .results-title {
     font-size: 16px;
     font-weight: 700;
-    color: #48bb78;
+    color: var(--u-ok);
 }
 
 .results-timestamp {
     font-size: 13px;
-    color: #a0aec0;
+    color: var(--u-texto-2);
     font-weight: 400;
     margin-left: auto;
     padding-right: 10px;
@@ -892,7 +1126,7 @@ html {
 .btn-close-results {
     background: transparent;
     border: none;
-    color: #e2e8f0;
+    color: var(--u-texto);
     font-size: 20px;
     cursor: pointer;
     padding: 5px 10px;
@@ -902,7 +1136,7 @@ html {
 
 .btn-close-results:hover {
     background: rgba(255, 255, 255, 0.1);
-    color: #f56565;
+    color: var(--u-peligro);
     transform: scale(1.1);
 }
 
@@ -923,11 +1157,11 @@ html {
 }
 
 .summary-success {
-    border: 1px solid #48bb78;
+    border: 1px solid var(--u-ok);
 }
 
 .summary-failed {
-    border: 1px solid #f56565;
+    border: 1px solid var(--u-peligro);
 }
 
 .summary-icon {
@@ -940,16 +1174,16 @@ html {
 }
 
 .summary-success .summary-count {
-    color: #48bb78;
+    color: var(--u-ok);
 }
 
 .summary-failed .summary-count {
-    color: #f56565;
+    color: var(--u-peligro);
 }
 
 .summary-label {
     font-size: 14px;
-    color: #a0aec0;
+    color: var(--u-texto-2);
 }
 
 .results-toggle {
@@ -959,8 +1193,8 @@ html {
 
 .btn-toggle-details {
     background: rgba(66, 153, 225, 0.1);
-    border: 1px solid #4299e1;
-    color: #4299e1;
+    border: 1px solid var(--u-azul);
+    color: var(--u-azul);
     padding: 8px 20px;
     border-radius: 6px;
     cursor: pointer;
@@ -986,7 +1220,7 @@ html {
 .results-details {
     margin-top: 15px;
     padding-top: 15px;
-    border-top: 1px solid #4a5568;
+    border-top: 1px solid var(--u-borde);
     max-height: 300px;
     overflow-y: auto;
 }
@@ -1010,15 +1244,15 @@ html {
 }
 
 .result-user-group.result-success {
-    border-left-color: #48bb78;
+    border-left-color: var(--u-ok);
 }
 
 .result-user-group.result-failed {
-    border-left-color: #f56565;
+    border-left-color: var(--u-peligro);
 }
 
 .result-user-group.result-mixed {
-    border-left-color: #f6e05e;
+    border-left-color: var(--u-acento);
 }
 
 /* Header del usuario (nombre + icono) */
@@ -1038,7 +1272,7 @@ html {
 
 .result-user-header .result-item-name {
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--u-texto);
     font-size: 15px;
 }
 
@@ -1061,7 +1295,7 @@ html {
 }
 
 .service-bullet {
-    color: #4a5568;
+    color: var(--u-borde);
     font-weight: 600;
     font-size: 14px;
     flex-shrink: 0;
@@ -1075,7 +1309,7 @@ html {
 .service-name {
     font-size: 13px;
     font-weight: 600;
-    color: #4299e1;
+    color: var(--u-azul);
     background: rgba(66, 153, 225, 0.1);
     padding: 2px 8px;
     border-radius: 4px;
@@ -1090,11 +1324,11 @@ html {
 }
 
 .result-service-item.service-success .service-status {
-    color: #48bb78;
+    color: var(--u-ok);
 }
 
 .result-service-item.service-failed .service-status {
-    color: #f56565;
+    color: var(--u-peligro);
 }
 
 /* Scroll personalizado para detalles */
@@ -1103,12 +1337,12 @@ html {
 }
 
 .results-details::-webkit-scrollbar-track {
-    background: #1a202c;
+    background: var(--u-fondo);
     border-radius: 4px;
 }
 
 .results-details::-webkit-scrollbar-thumb {
-    background: #4a5568;
+    background: var(--u-borde);
     border-radius: 4px;
 }
 
@@ -1139,7 +1373,7 @@ html {
 
 /* Badge "Verificando" - Azul brillante con animación */
 .badge-verifying {
-    background: linear-gradient(90deg, #4299e1 0%, #3182ce 100%);
+    background: linear-gradient(90deg, var(--u-azul) 0%, #3182ce 100%);
     color: #ffffff;
     animation: pulse 1.5s ease-in-out infinite;
 }
@@ -1151,14 +1385,14 @@ html {
 
 /* Badge "Verificado" - Verde brillante */
 .badge-success {
-    background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+    background: linear-gradient(90deg, var(--u-ok) 0%, #38a169 100%);
     color: #ffffff;
     box-shadow: 0 0 10px rgba(72, 187, 120, 0.6);
 }
 
 /* Badge "Falló" - Rojo brillante */
 .badge-failed {
-    background: linear-gradient(90deg, #f56565 0%, #e53e3e 100%);
+    background: linear-gradient(90deg, var(--u-peligro) 0%, #e53e3e 100%);
     color: #ffffff;
     box-shadow: 0 0 10px rgba(245, 101, 101, 0.6);
 }
@@ -1170,7 +1404,7 @@ html {
     background: linear-gradient(90deg,
         rgba(66, 153, 225, 0.25) 0%,
         rgba(246, 224, 94, 0.25) 100%) !important;
-    border-left: 4px solid #4299e1 !important;
+    border-left: 4px solid var(--u-azul) !important;
     animation: shimmer 2s ease-in-out infinite;
     position: relative;
 }
@@ -1207,7 +1441,7 @@ html {
     background: linear-gradient(90deg,
         rgba(72, 187, 120, 0.3) 0%,
         rgba(56, 161, 105, 0.3) 100%) !important;
-    border-left: 4px solid #48bb78 !important;
+    border-left: 4px solid var(--u-ok) !important;
     animation: successFlash 0.6s ease;
 }
 
@@ -1221,18 +1455,13 @@ html {
     background: linear-gradient(90deg,
         rgba(245, 101, 101, 0.3) 0%,
         rgba(229, 62, 62, 0.3) 100%) !important;
-    border-left: 4px solid #f56565 !important;
+    border-left: 4px solid var(--u-peligro) !important;
     animation: errorFlash 0.6s ease;
 }
 
 @keyframes errorFlash {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; background-color: rgba(245, 101, 101, 0.5); }
-}
-
-/* Transiciones suaves para todos los estados */
-.user-item {
-    transition: all 0.3s ease;
 }
 
 /* ========== BOTÓN MOSTRAR/OCULTAR CONTRASEÑA ========== */
@@ -1253,7 +1482,7 @@ html {
     top: 36%;
     transform: translateY(-50%);
     background: rgba(66, 153, 225, 0.1);
-    border: 1px solid #4a5568;
+    border: 1px solid var(--u-borde);
     border-radius: 6px;
     padding: 8px 12px;
     cursor: pointer;
@@ -1268,7 +1497,7 @@ html {
 
 .btn-toggle-password:hover {
     background: rgba(66, 153, 225, 0.2);
-    border-color: #4299e1;
+    border-color: var(--u-azul);
     transform: translateY(-50%) scale(1.05);
 }
 
@@ -1279,7 +1508,7 @@ html {
 /* Estado cuando la contraseña está visible */
 .btn-toggle-password.active {
     background: rgba(246, 224, 94, 0.15);
-    border-color: #f6e05e;
+    border-color: var(--u-acento);
 }
 
 .btn-toggle-password.active:hover {

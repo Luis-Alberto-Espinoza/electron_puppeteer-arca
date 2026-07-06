@@ -80,14 +80,13 @@ class ClienteManager {
     }
 
     /**
-     * Valida credenciales de un usuario
-     * @param {Object} browser - Instancia del navegador Puppeteer
+     * Valida credenciales de un usuario. Cada servicio abre y cierra su propio navegador.
      * @param {Object} usuario - Usuario a validar
      * @param {Array} servicesToVerify - Servicios a verificar ['afip', 'atm']
      * @returns {Promise<Object>} Resultado de la validacion
      */
-    async validarCredenciales(browser, usuario, servicesToVerify = null) {
-        return await gestionarValidacion(browser, usuario, servicesToVerify);
+    async validarCredenciales(usuario, servicesToVerify = null) {
+        return await gestionarValidacion(usuario, servicesToVerify);
     }
 }
 

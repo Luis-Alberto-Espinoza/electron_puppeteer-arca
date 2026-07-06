@@ -6,8 +6,8 @@
  * en Línea" y lee un <select>), este flujo va al ABM oficial y extrae la
  * tabla #tblmiGrilla, que incluye número, sistema, domicilio y "Usado".
  *
- * Sólo nos quedamos con los PDV "operables" para la app:
- *   sistema === "Factura en Linea - Responsable Inscripto" && activo === true
+ * Sólo nos quedamos con los PDV "operables" para la app: sistema en
+ *   { "Factura en Linea - Responsable Inscripto", "Factura en Linea - Monotributo" }.
  * El resto se descarta (no podemos emitir desde ahí — guardarlos sería ruido).
  *
  * La tabla puede tener varias páginas. Iteramos con #tblmiGrilla_btn_next
@@ -31,17 +31,25 @@ const URLS = {
 const TEXTO_BUSCADOR = 'Administración de puntos de venta y domicilios';
 const URL_ABM_DESTINO = 'https://fes.afip.gob.ar/pvel/jsp/index_bis.jsp';
 
-// Sistema operable. Comparamos normalizado (case-insensitive + colapso de
-// espacios) para tolerar diferencias sutiles entre lo que renderiza AFIP y
-// nuestro literal.
-const SISTEMA_OPERABLE = 'Factura en Linea - Responsable Inscripto';
+// Sistemas operables. La app factura por "Factura en Línea", que tiene dos
+// sabores según la condición del emisor: Responsable Inscripto (Factura B) y
+// Monotributo (Factura C). Ambos flujos existen en facturación (paso_0 elige el
+// tipo de comprobante por tipoContribuyente), así que ambos PDV son operables.
+// Comparamos normalizado (case-insensitive + colapso de espacios) para tolerar
+// diferencias sutiles entre lo que renderiza AFIP y nuestros literales.
+const SISTEMAS_OPERABLES = [
+    'Factura en Linea - Responsable Inscripto',
+    'Factura en Linea - Monotributo'
+];
 
 function normalizarSistema(s) {
     return String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
+const SET_SISTEMAS_OPERABLES = new Set(SISTEMAS_OPERABLES.map(normalizarSistema));
+
 /**
- * Una fila es "operable" si su sistema (normalizado) coincide con SISTEMA_OPERABLE.
+ * Una fila es "operable" si su sistema (normalizado) es uno de SISTEMAS_OPERABLES.
  *
  * Decisión actual (por consulta con contador): NO exigir activo === true.
  * La columna "Usado" del ABM indica si AFIP registró emisiones desde ese PDV,
@@ -49,7 +57,7 @@ function normalizarSistema(s) {
  * se haya emitido nunca desde ahí (activo=false). El criterio único es el sistema.
  */
 function esOperable(pdv) {
-    return normalizarSistema(pdv.sistema) === normalizarSistema(SISTEMA_OPERABLE);
+    return SET_SISTEMAS_OPERABLES.has(normalizarSistema(pdv.sistema));
 }
 
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
@@ -342,8 +350,7 @@ async function leerTodasLasPaginas(page) {
 
 /**
  * Lee TODAS las páginas del ABM y devuelve sólo los PDV "operables":
- *   sistema (normalizado) === "Factura en Linea - Responsable Inscripto"
- *   Y activo === true.
+ *   sistema (normalizado) ∈ SISTEMAS_OPERABLES (RI o Monotributo).
  *
  * Loguea cada fila con su decisión para diagnóstico (importante cuando AFIP
  * cambia textos o caracteres invisibles rompen el match).
@@ -352,6 +359,13 @@ async function leerTablaPuntosDeVenta(page) {
     const todas = await leerTodasLasPaginas(page);
     const operables = todas.filter(esOperable);
     console.log(`  → [ABM PDV] ${todas.length} fila(s) totales, ${operables.length} operables.`);
+    // Diagnóstico: si descartamos filas, mostramos POR QUÉ (su sistema real vs. el
+    // esperado). Es la causa nº1 de "tiene PDV pero no guarda nada": el sistema del
+    // PDV no es "Factura en Linea - Responsable Inscripto".
+    const descartadas = todas.filter(p => !esOperable(p));
+    for (const p of descartadas) {
+        console.log(`  ⛔ [ABM PDV] PDV ${p.numero} descartado: sistema="${p.sistema}" (operables: ${SISTEMAS_OPERABLES.join(' | ')}).`);
+    }
     return operables;
 }
 
@@ -456,5 +470,5 @@ module.exports = {
     procesarEnAbmSinSelector,
     volverAListaEmpresas,
     extraerCuitEmpresa,
-    SISTEMA_OPERABLE
+    SISTEMAS_OPERABLES
 };

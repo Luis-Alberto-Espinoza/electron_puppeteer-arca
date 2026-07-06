@@ -45,13 +45,25 @@ function normalizarContribuyente(raw) {
     // social). Evita que un `nombre` colgado le gane a la razón social en la carpeta.
     const esJuridica = tipo === 'juridica';
 
-    const representante = (raw.representanteAfipCuit != null && String(raw.representanteAfipCuit).trim() !== '')
+    const cuitNorm = raw.cuit != null ? String(raw.cuit) : null;
+    let representante = (raw.representanteAfipCuit != null && String(raw.representanteAfipCuit).trim() !== '')
         ? String(raw.representanteAfipCuit)
         : null;
+    // Un contribuyente NO puede representarse a sí mismo (dato corrupto típico:
+    // elegirse en el propio dropdown). Si pasa, se anula → vuelve a "opera solo".
+    if (representante && representante === cuitNorm) representante = null;
+
+    // Invariante del modelo: un representado entra a AFIP POR su representante →
+    // NO tiene clave AFIP propia. Si hay representante, se ignora cualquier
+    // claveAFIP cargada (si no, el resolver usaría la propia —aunque sea inválida—
+    // y nunca caería al representante: ese era el footgun del CRUD).
+    const claveAFIP = representante ? null : (raw.claveAFIP || null);
+    const estadoAfip = representante ? 'no_aplica' : (estadoValido(raw.estado_afip) || 'no_aplica');
+    const errorAfip = representante ? null : (raw.errorAfip || null);
 
     return {
         id: raw.id,                                   // handle de transición
-        cuit: raw.cuit != null ? String(raw.cuit) : null,
+        cuit: cuitNorm,
         tipo,
         razonSocial: String(raw.razonSocial || '').trim(),
         nombre: esJuridica ? null : (raw.nombre || null),
@@ -59,9 +71,9 @@ function normalizarContribuyente(raw) {
         cuil: raw.cuil || null,
         tipoContribuyente: TIPOS_CONTRIB.has(raw.tipoContribuyente) ? raw.tipoContribuyente : null,
 
-        claveAFIP: raw.claveAFIP || null,
-        estado_afip: estadoValido(raw.estado_afip) || 'no_aplica',
-        errorAfip: raw.errorAfip || null,
+        claveAFIP,
+        estado_afip: estadoAfip,
+        errorAfip,
         fechaVerificacionAfip: raw.fechaVerificacionAfip || null,
 
         claveATM: raw.claveATM || null,
@@ -126,6 +138,13 @@ function aListItem(c, servicio, lista) {
         id: c.id,
         cuit: c.cuit,
         nombreMostrado: nombreDe(c),
+        // Campos crudos para que el buscador del selector matchee por el apodo que
+        // cargó el usuario (nombre/apellido) además de la razón social canónica.
+        // El nombre canónico para operar en AFIP sigue saliendo de nombreDe() (razón
+        // social); estos son solo para mostrar/buscar en el frontend.
+        nombre: c.nombre || null,
+        apellido: c.apellido || null,
+        razonSocial: c.razonSocial || null,
         tipo: c.tipo,
         tipoContribuyente: c.tipoContribuyente,
         puedeOperar: op.puedeOperar,
@@ -167,7 +186,10 @@ function crearContribuyenteRepo(store) {
         },
 
         async getById(id) {
-            return cargarNormalizado().find(c => String(c.id) === String(id)) || null;
+            // Sin id no se busca: String(undefined)==='undefined' matchearía al
+            // primer contribuyente sin id (footgun de borrar/editar el equivocado).
+            if (id == null || String(id) === 'undefined') return null;
+            return cargarNormalizado().find(c => c.id != null && String(c.id) === String(id)) || null;
         },
 
         async resolverAcceso(cuit, canal) {
@@ -184,6 +206,10 @@ function crearContribuyenteRepo(store) {
             if (lista.some(c => c.cuit === nuevo.cuit)) {
                 throw repoError('CUIT_DUPLICADO', `Ya existe un contribuyente con CUIT ${nuevo.cuit}`);
             }
+            // id = handle de transición que usa el frontend (editar/borrar). Si el
+            // creador no lo trajo, lo generamos acá (si no, queda undefined y el
+            // frontend no puede distinguirlo del resto sin id).
+            if (nuevo.id == null) nuevo.id = Date.now() + Math.random();
             nuevo.fechaCreacion = nuevo.fechaCreacion || new Date().toISOString();
             lista.push(nuevo);
             persistir(lista);

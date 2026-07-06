@@ -82,6 +82,12 @@ async function intentarBusqueda(page, textoBusqueda, opts) {
 
     console.log(`  → Buscando "${textoBusqueda}" en el buscador de AFIP... (intento ${intento})`);
 
+    // Traer la pestaña del buscador (Home de AFIP) al frente antes de tipear. Si un paso
+    // previo abrió otra pestaña (CCMA, ABM, etc.), esta queda en segundo plano y Chrome la
+    // throttlea → el buscador React deja de responder y la búsqueda falla. bringToFront la
+    // "despierta" (es el equivalente a volver a la pestaña manualmente).
+    try { await page.bringToFront(); } catch (_) { /* pestaña cerrada u otro: no es crítico */ }
+
     await page.waitForSelector('#buscadorInput', { timeout: 30000 });
 
     // Capturamos la URL antes del click para detectar si la navegación realmente ocurrió.

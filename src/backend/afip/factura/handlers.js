@@ -73,7 +73,12 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             const credenciales = {
                 usuario: acceso.loginCuit,
                 contrasena: acceso.loginClave,
-                nombreEmpresa: data.credenciales.nombreEmpresa
+                // Razón social canónica de AFIP (misma que usan los otros handlers).
+                // El nombre que arma el frontend puede venir como "Nombre Apellido",
+                // pero AFIP lista a las personas físicas como "APELLIDO NOMBRE": si le
+                // pasamos ese, el selector de empresa no matchea. objetivoNombre sale
+                // de nombreDe() → razón social, que es exactamente el texto del botón.
+                nombreEmpresa: acceso.objetivoNombre || data.credenciales.nombreEmpresa
             };
 
             // Usamos el manager unificado con resultadoCodigo ya procesado

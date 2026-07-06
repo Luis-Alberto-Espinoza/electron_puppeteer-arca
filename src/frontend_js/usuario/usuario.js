@@ -56,6 +56,27 @@ async function cargarOpcionesRepresentante(selectId, selectedCuit, excludeCuit) 
     }
 }
 
+// Un representado entra POR su representante → no tiene clave AFIP propia. Si hay
+// representante elegido, deshabilitamos y limpiamos el campo Clave AFIP (evita el
+// footgun de cargar ambos; el backend igual fuerza el invariante al guardar).
+function sincronizarClaveAfipConRepresentante(selId, claveInputId) {
+    const sel = document.getElementById(selId);
+    const clave = document.getElementById(claveInputId);
+    if (!sel || !clave) return;
+    const aplicar = () => {
+        if (sel.value) {
+            clave.value = '';
+            clave.disabled = true;
+            clave.placeholder = 'Entra por su representante (sin clave propia)';
+        } else {
+            clave.disabled = false;
+            clave.placeholder = 'Clave de AFIP';
+        }
+    };
+    sel.onchange = aplicar;   // asignación = idempotente, no duplica listeners
+    aplicar();
+}
+
 function showAlert(message, type = 'success') {
     const alert = document.getElementById('alert');
     const alertMessage = document.getElementById('alertMessage');
@@ -64,12 +85,8 @@ function showAlert(message, type = 'success') {
     alertMessage.textContent = message;
     alert.classList.remove('hidden');
 
-    // Auto-scroll al alert con un pequeño delay
-    setTimeout(() => {
-        alert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 100);
-
-    // ❌ Ya NO se oculta automáticamente - el usuario debe cerrarlo manualmente
+    // Es un toast fijo (position:fixed): ya aparece dentro de la pantalla, no hace
+    // falta scrollear hacia él. No se oculta solo: el usuario lo cierra con la X.
 }
 
 // Función para cerrar el alert manualmente
@@ -486,7 +503,7 @@ let isReordering = false;
  * @returns {Set<string>} Set de IDs de usuarios seleccionados
  */
 function getSelectedUserIds() {
-    const selectedCheckboxes = document.querySelectorAll('.service-checkbox:checked');
+    const selectedCheckboxes = document.querySelectorAll('.user-checkbox:checked');
     const selectedUserIds = new Set();
     selectedCheckboxes.forEach(checkbox => {
         selectedUserIds.add(checkbox.dataset.userId);
@@ -541,9 +558,8 @@ function reorderUsersBySelection() {
         const selectedStates = new Map();
 
         // Guardar estado de TODOS los checkboxes
-        document.querySelectorAll('.service-checkbox').forEach(cb => {
-            const key = `${cb.dataset.userId}-${cb.dataset.service}`;
-            selectedStates.set(key, cb.checked);
+        document.querySelectorAll('.user-checkbox').forEach(cb => {
+            selectedStates.set(cb.dataset.userId, cb.checked);
         });
 
         console.log('📌 Usuarios seleccionados:', Array.from(selectedUserIds));
@@ -569,9 +585,8 @@ function reorderUsersBySelection() {
         // Restaurar el estado EXACTO de todos los checkboxes
         // Usamos requestAnimationFrame para asegurar que el DOM esté listo
         requestAnimationFrame(() => {
-            document.querySelectorAll('.service-checkbox').forEach(cb => {
-                const key = `${cb.dataset.userId}-${cb.dataset.service}`;
-                const wasChecked = selectedStates.get(key);
+            document.querySelectorAll('.user-checkbox').forEach(cb => {
+                const wasChecked = selectedStates.get(cb.dataset.userId);
                 if (wasChecked !== undefined) {
                     cb.checked = wasChecked;
                 }
@@ -657,6 +672,15 @@ function inicializarVerificarCredenciales() {
             window.cuitAsociados = [];
             mostrarPendienteDeAnalisis();
 
+            // Autocompletar el nombre con el titular leído en el login (AFIP/ATM).
+            // Solo si el campo está vacío, para no pisar lo que el usuario haya tipeado.
+            if (response && response.nombreDetectado) {
+                const nombreInput = document.getElementById('nombre');
+                if (nombreInput && !nombreInput.value.trim()) {
+                    nombreInput.value = response.nombreDetectado;
+                }
+            }
+
             if (response.success) {
                 // Marcar qué servicios fueron verificados exitosamente usando la info detallada
                 if (response.verificaciones) {
@@ -728,10 +752,10 @@ async function createUser() {
         const tipoContribuyente = document.getElementById('tipoContribuyente').value;
         const apellido = document.getElementById('apellido').value.trim();
 
-        if (!nombre ) {
-            showAlert('Por favor completa nombre', 'error');
-            return;
-        }
+        // El nombre YA NO es obligatorio al guardar: se completa solo cuando se prueba
+        // la clave/analiza (ahí se abre el navegador y se lee el titular de AFIP/ATM).
+        // Si el login falla y nunca se pudo leer, el cliente queda sin nombre hasta que
+        // lo edites a mano.
         if (!cuit && !cuil) {
             showAlert('Debes ingresar CUIT o CUIL', 'error');
             return;
@@ -780,7 +804,13 @@ async function createUser() {
         });
 
         if (result.success) {
-            showAlert(`Cliente "${nombre}" creado exitosamente!`);
+            const etiqueta = nombre || razonSocial || cuit || cuil;
+            const tieneClave = !!(claveAFIP || claveATM);
+            // Si hay clave, el alert de "creado" se lo dejamos a la verificación
+            // (que avisa OK/fallo). Sin clave, avisamos el alta acá y listo.
+            if (!tieneClave) {
+                showAlert(`Cliente ${etiqueta ? `"${etiqueta}" ` : ''}creado exitosamente!`);
+            }
             document.getElementById('nombre').value = '';
             document.getElementById('claveAFIP').value = '';
             document.getElementById('claveATM').value = '';
@@ -800,6 +830,23 @@ async function createUser() {
             // Cerrar formulario y recargar lista
             document.getElementById('createSection').classList.add('hidden');
             await loadUsers();
+
+            // Flujo unificado: al guardar probamos la clave automáticamente y
+            // llevamos el foco al cliente recién creado (antes eran 2 pasos manuales
+            // aparte en la lista). Ojo: esto abre un navegador y hace login real,
+            // así que "Guardar" ahora tarda lo que tarde la verificación.
+            const creado = (window.allUsers || []).find(u =>
+                (cuit && String(u.cuit) === String(cuit)) ||
+                (cuil && String(u.cuil) === String(cuil))
+            );
+            if (creado) {
+                if (tieneClave) {
+                    // probarClaveDesdeListado verifica, recarga la lista y avisa el
+                    // resultado (OK / con fallo) con su propio alert.
+                    await window.probarClaveDesdeListado(creado.id);
+                }
+                focusUserRow(creado.id);
+            }
         } else {
             showAlert(result.error || 'Error al crear cliente', 'error');
         }
@@ -807,6 +854,19 @@ async function createUser() {
         console.error('Error completo:', error);
         showAlert('Error de comunicación con el backend: ' + error.message, 'error');
     }
+}
+
+/**
+ * Lleva el foco visual a la fila de un cliente: hace scroll hasta ella y la
+ * resalta un momento. Se usa después de crear un cliente para que el operador
+ * lo ubique enseguida en la lista.
+ */
+function focusUserRow(userId) {
+    const row = document.querySelector(`.user-item[data-user-id="${userId}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('highlight');
+    setTimeout(() => row.classList.remove('highlight'), 4000);
 }
 
 // Cargar usuarios
@@ -819,7 +879,8 @@ async function loadUsers() {
             displayUsers(window.allUsers);
             updateSearchCount(window.allUsers.length, window.allUsers.length);
             // Mantener fresca la lista de representantes del form de alta.
-            cargarOpcionesRepresentante('representanteAfip', null, null);
+            cargarOpcionesRepresentante('representanteAfip', null, null)
+                .then(() => sincronizarClaveAfipConRepresentante('representanteAfip', 'claveAFIP'));
         } else {
             showAlert(result.error || 'Error al cargar clientes', 'error');
         }
@@ -848,6 +909,42 @@ function renderStatus(status) {
 
 const SERVICIOS = ['afip', 'atm'];
 
+/**
+ * Devuelve el ÚNICO botón/indicador contextual de AFIP para una fila, según su estado.
+ * La idea: el usuario ve un solo "próximo paso", no una pared de verbos.
+ *   - sin clave AFIP            -> Probar clave (si tiene ATM) o nada
+ *   - validado + sin analizar   -> 📋 Traer empresas
+ *   - validado + analizado      -> ✅ Analizado + 🔄 refrescar
+ *   - inválido / a actualizar   -> 🔁 Reintentar
+ *   - pendiente / desconocido   -> 🔑 Probar clave
+ */
+function renderAccionAfip(user, nombreSafe) {
+    const estado = user.estado_afip || 'pendiente';
+    const tieneClaveAfip = !!user.claveAFIP;
+
+    // Todos los pasos AFIP son ícono (se agrupan con Editar/Eliminar). El texto
+    // vive en el title/tooltip; el color del botón marca la urgencia.
+    if (!tieneClaveAfip) {
+        return user.claveATM
+            ? `<button class="btn-accion-afip" onclick="window.probarClaveDesdeListado('${user.id}')" title="Probar clave AFIP/ATM.">🔑</button>`
+            : '';
+    }
+
+    if (estado === 'validado') {
+        if (user.analizado_afip === true) {
+            // Analizado: sin paso pendiente. El 🔄 "Actualizar" vive en .user-actions.
+            return '';
+        }
+        return `<button class="btn-accion-afip btn-accion-traer" onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" title="Analizar cliente: entra a AFIP y trae empresas y puntos de venta.">🔍</button>`;
+    }
+
+    if (estado === 'invalido' || estado === 'requiere_actualizacion') {
+        return `<button class="btn-accion-afip btn-accion-reintentar" onclick="window.probarClaveDesdeListado('${user.id}')" title="Reintentar: la clave falló. Revisala en Editar y volvé a probar.">🔁</button>`;
+    }
+
+    return `<button class="btn-accion-afip" onclick="window.probarClaveDesdeListado('${user.id}')" title="Probar clave AFIP/ATM.">🔑</button>`;
+}
+
 // Mostrar usuarios en la lista
 function displayUsers(users) {
     const usersList = document.getElementById('usersList');
@@ -859,12 +956,11 @@ function displayUsers(users) {
         return;
     }
 
-    const selectAllCheckboxes = SERVICIOS.map(s => `
-        <label>
-            <input type="checkbox" id="selectAll-${s}" class="select-all-service-checkbox" data-service="${s}">
-            <span>Sel. todo ${s.toUpperCase()}</span>
-        </label>
-    `).join('');
+    // Un solo checkbox por cliente para el lote. El lote prueba todas las claves
+    // cargadas del cliente (más simple que un checkbox por servicio).
+    const selectAllCheckbox = `
+        <button class="btn btn-seleccion" id="selectAllUsers">☑️ Seleccionar todos</button>
+    `;
 
     // Candidatos al análisis por lote: AFIP validado + sin analizar.
     const pendientesAnalisis = users.filter(u =>
@@ -876,17 +972,17 @@ function displayUsers(users) {
     ).length;
 
     const botonAnalizarPendientes = pendientesAnalisis > 0
-        ? `<button class="btn btn-warning" id="btnAnalizarLote" style="margin-left:10px;">🔍 Analizar pendientes (${pendientesAnalisis})</button>`
+        ? `<button class="btn btn-warning" id="btnAnalizarLote">🔍 Analizar pendientes (${pendientesAnalisis})</button>`
         : '';
     const botonReanalizarTodos = analizadosCount > 0
-        ? `<button class="btn btn-info" id="btnReanalizarTodos" style="margin-left:6px;" title="Vuelve a scrapear empresas y PDV de TODOS los clientes ya analizados. Puede tardar bastante.">🔄 Re-analizar todos (${analizadosCount})</button>`
+        ? `<button class="btn btn-info" id="btnReanalizarTodos" title="Vuelve a traer empresas y PDV de TODOS los clientes ya analizados. Puede tardar bastante.">🔄 Refrescar todas (${analizadosCount})</button>`
         : '';
 
     const bulkActionsHeader = `
         <div class="user-item bulk-actions-header">
             <div class="bulk-actions-controls">
-                ${selectAllCheckboxes}
-                <button class="btn btn-primary" id="btnVerificarSeleccionados">Verificar Seleccionados</button>
+                ${selectAllCheckbox}
+                <button class="btn btn-primary" id="btnVerificarSeleccionados" title="Prueba las claves de los clientes seleccionados">🔑 Probar seleccionadas</button>
                 ${botonAnalizarPendientes}
                 ${botonReanalizarTodos}
             </div>
@@ -897,51 +993,44 @@ function displayUsers(users) {
     bulkActionsContainer.innerHTML = bulkActionsHeader;
 
     const usersHTML = users.map(user => {
-        const servicesHTML = SERVICIOS.map(service => {
-            const status = user[`estado_${service}`] || 'no_aplica';
+        // Chips de estado (solo lectura) por servicio que tenga clave cargada.
+        const chips = SERVICIOS.map(service => {
             const hasKey = !!user[`clave${service.toUpperCase()}`];
-            const isCheckable = hasKey && status !== 'validado';
-
-            // Para AFIP validado, en lugar del badge "✔ Validado" mostramos
-            // el sub-estado de análisis: botón "Analizar" si falta, badge si ya está.
-            let indicador = renderStatus(status);
-            if (service === 'afip' && status === 'validado') {
-                const nombreSafe = (user.nombre || '').replace(/'/g, "\\'");
-                indicador = user.analizado_afip === true
-                    ? `<span class="status-badge status-validado" title="Credenciales OK y empresas/PDV scrapeados">✅ Analizado</span>
-                       <button onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" style="margin-left:4px;padding:2px 6px;background:transparent;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-size:12px;" title="Re-analizar: vuelve a scrapear empresas y puntos de venta desde AFIP.">🔄</button>`
-                    : `<button onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" style="padding:3px 10px;background:#fff8e1;color:#b26a00;border:1px solid #f0ad4e;border-radius:4px;font-size:12px;cursor:pointer;" title="Validado. Falta scrapear empresas y puntos de venta.">🔍 Analizar</button>`;
+            // AFIP sin clave propia pero con representante: opera con la clave de él.
+            // No es "sin clave", así que mostramos el acceso heredado y su estado.
+            if (!hasKey && service === 'afip' && user.representanteAfipCuit) {
+                const repNombre = user.representanteAfipNombre || 'su representante';
+                const estadoRep = user.estadoAfipRepresentante || 'pendiente';
+                return `<div class="service-status"><span>AFIP:</span> ${renderStatus(estadoRep)} <span class="badge-representado" title="Entra a AFIP con la clave de ${repNombre}">↳</span></div>`;
             }
-
-            return `
-                <div class="service-status">
-                    <label>
-                        <input
-                            type="checkbox"
-                            class="service-checkbox"
-                            data-user-id="${user.id}"
-                            data-service="${service}"
-                            ${isCheckable ? '' : 'disabled'}
-                        >
-                        <span>${service.toUpperCase()}:</span>
-                    </label>
-                    ${indicador}
-                </div>
-            `;
+            if (!hasKey) {
+                return `<div class="service-status"><span>${service.toUpperCase()}:</span> <span class="status-badge status-default">— sin clave</span></div>`;
+            }
+            const status = user[`estado_${service}`] || 'pendiente';
+            return `<div class="service-status"><span>${service.toUpperCase()}:</span> ${renderStatus(status)}</div>`;
         }).join('');
+
+        // Un solo botón contextual según el estado AFIP (el análisis es de AFIP).
+        const nombreSafe = (user.nombre || '').replace(/'/g, "\\'");
+        const accionAfip = renderAccionAfip(user, nombreSafe);
 
         return `
             <div class="user-item" data-user-id="${user.id}">
+                <label class="user-select">
+                    <input type="checkbox" class="user-checkbox" data-user-id="${user.id}">
+                </label>
                 <div class="user-info">
-                    <div class="user-name">👤 ${user.nombre} ${user.apellido || ''}</div>
+                    <div class="user-name" title="${user.nombre || ''} ${user.apellido || ''}">👤 ${user.nombre} ${user.apellido || ''}</div>
                     <div class="user-details">🆔 CUIT/L: ${user.cuit || user.cuil || 'N/A'}</div>
                 </div>
                 <div class="user-status">
-                    ${servicesHTML}
+                    ${chips}
                 </div>
                 <div class="user-actions">
-                    <button class="btn btn-edit" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.claveAFIP || ''}', '${user.claveATM || ''}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}', ${user.analizado_afip === true})">✏️ Editar</button>
-                    <button class="btn btn-delete" onclick="window.deleteUser('${user.id}', '${user.nombre}')">🗑️ Eliminar</button>
+                    ${accionAfip}
+                    ${user.analizado_afip === true ? `<button class="btn btn-actualizar" onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" title="Refrescar: vuelve a traer empresas y puntos de venta.">🔄</button>` : ''}
+                    <button class="btn btn-edit" title="Editar cliente" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.claveAFIP || ''}', '${user.claveATM || ''}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}', ${user.analizado_afip === true})">✏️</button>
+                    <button class="btn btn-delete" title="Eliminar cliente" onclick="window.deleteUser('${user.id}', '${user.nombre}')">🗑️</button>
                 </div>
             </div>
         `;
@@ -1002,7 +1091,7 @@ function filterUsers(searchText) {
     if (selectedUserIds.size > 0) {
         setTimeout(() => {
             selectedUserIds.forEach(userId => {
-                const checkboxes = document.querySelectorAll(`.service-checkbox[data-user-id="${userId}"]`);
+                const checkboxes = document.querySelectorAll(`.user-checkbox[data-user-id="${userId}"]`);
                 checkboxes.forEach(cb => {
                     cb.checked = true;
                 });
@@ -1105,26 +1194,11 @@ function resetCreateForm() {
     window.empresasCliente = [];
     window.cuitAsociados = [];
 
-    // Ocultar botón de crear hasta verificación
+    // El botón Guardar está siempre visible (sin candado): no depende de probar la clave.
     const btnCrear = document.getElementById('btnCrearUsuario');
     if (btnCrear) {
-        btnCrear.style.display = 'none';
+        btnCrear.style.display = '';
     }
-
-    // Mostrar botón de verificar
-    const btnVerificar = document.getElementById('btnVerificarCredenciales');
-    if (btnVerificar) {
-        btnVerificar.style.display = '';
-    }
-
-    // Limpiar lista de puntos de venta
-    const elegirEmpresa = document.getElementById('elegirEmpresa');
-    if (elegirEmpresa) {
-        elegirEmpresa.innerHTML = '';
-    }
-
-    // Ocultar alert de verificación
-    closeVerificationAlert();
 
     // Asegurar que los inputs de contraseña estén en modo password
     document.getElementById('claveAFIP').type = 'password';
@@ -1231,6 +1305,7 @@ window.editUser = async function (id, nombre, claveAFIP, claveATM, cuit, cuil, t
     }
     document.getElementById('editRazonSocial').value = razonSocial;
     await cargarOpcionesRepresentante('editRepresentanteAfip', representanteAfipCuit, cuit);
+    sincronizarClaveAfipConRepresentante('editRepresentanteAfip', 'editClaveAFIP');
 
     // El editor de empresas embebido se jubiló: la representación ahora es el
     // dropdown "Representante AFIP". Limpiamos el contenedor por si quedó algo.
@@ -1467,15 +1542,22 @@ function inicializarUsuarioFrontend() {
 
         // --- Verificación en lote ---
         if (target.matches('#btnVerificarSeleccionados')) {
-            const verificationJobs = Array.from(usersList.querySelectorAll('.service-checkbox:checked'))
-                .map(cb => ({ userId: cb.dataset.userId, service: cb.dataset.service }));
+            // Por cada cliente tildado, probamos todas las claves que tenga cargadas.
+            const verificationJobs = [];
+            Array.from(usersList.querySelectorAll('.user-checkbox:checked')).forEach(cb => {
+                const u = (window.allUsers || []).find(x => String(x.id) === String(cb.dataset.userId));
+                if (!u) return;
+                if (u.claveAFIP) verificationJobs.push({ userId: u.id, service: 'afip' });
+                if (u.claveATM) verificationJobs.push({ userId: u.id, service: 'atm' });
+            });
 
             if (verificationJobs.length === 0) {
-                showAlert('No hay servicios seleccionados para verificar.', 'warning');
+                showAlert('No hay clientes seleccionados con claves para probar.', 'warning');
                 return;
             }
 
-            if (!confirm(`¿Iniciar la verificación para los ${verificationJobs.length} servicios seleccionados?`)) return;
+            const uniqueSel = new Set(verificationJobs.map(j => j.userId)).size;
+            if (!confirm(`¿Probar las claves de ${uniqueSel} cliente(s) seleccionado(s)?`)) return;
 
             // ✨ AGRUPAR SELECCIONADOS AL INICIO DE LA TABLA
             reorderUsersBySelection();
@@ -1648,14 +1730,28 @@ function inicializarUsuarioFrontend() {
             }
         }
 
-        // --- Checkbox "Seleccionar Todo por Servicio" ---
-        if (target.matches('.select-all-service-checkbox')) {
-            const service = target.dataset.service;
-            const isChecked = target.checked;
-            usersList.querySelectorAll(`.service-checkbox[data-service="${service}"]:not(:disabled)`).forEach(checkbox => {
-                checkbox.checked = isChecked;
-            });
+        // --- Botón "Seleccionar todos" (toggle) ---
+        const btnSelAll = target.closest('#selectAllUsers');
+        if (btnSelAll) {
+            const checkboxes = Array.from(usersList.querySelectorAll('.user-checkbox:not(:disabled)'));
+            const todosMarcados = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
+            const nuevoEstado = !todosMarcados;   // si ya están todos, deselecciona; si no, selecciona
+            checkboxes.forEach(cb => { cb.checked = nuevoEstado; });
+            btnSelAll.classList.toggle('activo', nuevoEstado);
+            btnSelAll.textContent = nuevoEstado ? '☑️ Quitar selección' : '☑️ Seleccionar todos';
         }
+    });
+
+    // Clic en el nombre/CUIT (.user-info) marca/desmarca el checkbox de esa fila:
+    // cómodo para seleccionar sin apuntar al cuadradito. El checkbox propio se
+    // togglea solo (no cae acá porque no está dentro de .user-info).
+    usersList.addEventListener('click', (e) => {
+        const info = e.target.closest('.user-info');
+        if (!info) return;
+        const cb = info.closest('.user-item[data-user-id]')?.querySelector('.user-checkbox');
+        if (!cb || cb.disabled) return;
+        cb.checked = !cb.checked;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
     // --- Eventos existentes ---
@@ -2100,6 +2196,41 @@ function mostrarModalProgreso(total) {
         }
     };
 }
+
+/**
+ * Prueba las claves (AFIP/ATM) de un solo cliente desde el botón inline del listado.
+ * Reutiliza verifyBatch con un job por cada clave cargada. Login liviano, sin scraping.
+ */
+window.probarClaveDesdeListado = async function (userId) {
+    const u = (window.allUsers || []).find(x => String(x.id) === String(userId));
+    if (!u) { showAlert('No se encontró el cliente.', 'error'); return; }
+
+    const jobs = [];
+    if (u.claveAFIP) jobs.push({ userId: u.id, service: 'afip' });
+    if (u.claveATM) jobs.push({ userId: u.id, service: 'atm' });
+    if (jobs.length === 0) {
+        showAlert('Este cliente no tiene claves cargadas para probar. Editalo y cargá la clave.', 'warning');
+        return;
+    }
+
+    const display = `${u.nombre || ''} ${u.apellido || ''}`.trim() || u.cuit || u.id;
+    markRowAsVerifying(userId, jobs.map(j => j.service));
+
+    try {
+        const result = await window.electronAPI.user.verifyBatch({ verificationJobs: jobs });
+        if (result.success) {
+            const v = result.stats?.validados || 0;
+            const f = result.stats?.con_fallos || 0;
+            showAlert(`Prueba de ${display}: ${v} OK, ${f} con fallo.`, f === 0 ? 'success' : 'warning');
+        } else {
+            showAlert(result.error || `No se pudo probar la clave de ${display}.`, 'error');
+        }
+    } catch (err) {
+        showAlert(`Error probando ${display}: ${err.message}`, 'error');
+    } finally {
+        await loadUsers();
+    }
+};
 
 /**
  * Dispara el análisis de un solo cliente desde el botón inline del listado.

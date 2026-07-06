@@ -35,6 +35,20 @@ function normalizarFuerte(s) {
 }
 
 /**
+ * Version "conjunto de palabras": normalizaFuerte + ordena las palabras alfabeticamente.
+ * Sirve para el ultimo fallback cuando los MISMOS tokens vienen en distinto orden:
+ * AFIP lista personas fisicas como "APELLIDO NOMBRE" y la app arma "Nombre Apellido".
+ * "juan carlos salas" y "salas juan carlos" quedan iguales ("carlos juan salas").
+ */
+function normalizarTokens(s) {
+    return normalizarFuerte(s)
+        .split(' ')
+        .filter(Boolean)
+        .sort()
+        .join(' ');
+}
+
+/**
  * Extrae los nombres de todas las empresas disponibles en la pagina de seleccion.
  * NO realiza ninguna accion de clic.
  * @param {import('puppeteer').Page} page La pagina de Puppeteer que muestra la lista de empresas.
@@ -102,6 +116,17 @@ async function seleccionarEmpresa(page, nombreEmpresa) {
             indice = nombresDom.findIndex(n => normalizarFuerte(n) === objetivoFuerte);
             if (indice !== -1) {
                 console.log('        [empresasDisponibles] -> Match por fallback (sin tildes/mayusculas).');
+            }
+        }
+
+        // 4) Ultimo fallback: mismos tokens en distinto orden (apellido/nombre invertidos).
+        //    Solo se llega aca si los dos fallos anteriores no encontraron nada, asi que
+        //    el riesgo de falso positivo en una lista chica de empresas es minimo.
+        if (indice === -1) {
+            const objetivoTokens = normalizarTokens(nombreEmpresa);
+            indice = nombresDom.findIndex(n => normalizarTokens(n) === objetivoTokens);
+            if (indice !== -1) {
+                console.log('        [empresasDisponibles] -> Match por conjunto de palabras (orden distinto, ej. APELLIDO NOMBRE).');
             }
         }
 
