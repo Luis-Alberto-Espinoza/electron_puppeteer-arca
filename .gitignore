@@ -1,6 +1,28 @@
 # Reportes de pruebas (artefactos generados, no código)
 pruebas/reportes/
 
+# Config de pilotos con credenciales reales (NO subir). Se versiona el .example.
+pruebas/*.config.js
+
+# Plantillas/Excels de carga de clientes (pueden contener claves fiscales reales)
+plantilla_carga_clientes*.xlsx
+*_clientes.xlsx
+clientes_*.xlsx
+
+# Datos de la app generados al correrla (se crean solos en cada máquina).
+# Nunca versionarlos: llevan CUITs y claves fiscales reales.
+/users.json
+/contribuyentes.json
+/pendientes_cuit.json
+/config_datos.json
+/historial.ndjson
+/listas_atm.json
+/listas_planes_pago.json
+/cuits_asociados_planes.json
+
+# Carpeta de pruebas manuales con exports reales
+borrar_pruebaCliente/
+
 # Logs
 *.log
 npm-debug.log*
