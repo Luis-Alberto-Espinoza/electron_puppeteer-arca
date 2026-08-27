@@ -61,6 +61,9 @@ function procesarDatosFactura(data) {
     // Añadir los resultados procesados
     facturas.montoResultados = restoPropiedades;
     facturas.fechaComprobante = data.fechaComprobante;
+    // PV elegido por el usuario en el selector del frontend. Sin esto llega
+    // undefined a paso_0 y AFIP factura desde el primer PV de la lista.
+    facturas.puntoVenta = data.puntoVenta;
     return facturas;
 }
 

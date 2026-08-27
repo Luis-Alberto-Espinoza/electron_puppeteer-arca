@@ -57,10 +57,21 @@ function parseNumero(v) {
     return isNaN(n) ? 0 : n;
 }
 
-/** Header de actividad "107912 - Elaboracion" → { codigo, nombre } ; si no matchea → null. */
+/**
+ * Header de actividad → { codigo, nombre } ; si no matchea → null.
+ * Dos formas vistas en planillas reales:
+ *   "107912 - Elaboracion"  → código + nombre.
+ *   107410                  → solo el código (celda numérica), típico de mono-actividad.
+ * En la 2ª forma se exigen 6 dígitos exactos (código CLANAE) para no confundir con un
+ * año, un total ni un período que caiga en la fila de headers.
+ */
 function parseActividadHeader(v) {
-    const m = String(v == null ? '' : v).match(/^\s*(\d{3,6})\s*-\s*(.+?)\s*$/);
-    return m ? { codigo: m[1], nombre: m[2] } : null;
+    const s = String(v == null ? '' : v).trim();
+    const conNombre = s.match(/^(\d{3,6})\s*-\s*(.+?)$/);
+    if (conNombre) return { codigo: conNombre[1], nombre: conNombre[2].trim() };
+    const soloCodigo = s.match(/^(\d{6})$/);
+    if (soloCodigo) return { codigo: soloCodigo[1], nombre: '' };
+    return null;
 }
 
 /** Celda "Periodo" → { anio, mes, rect } ; serial de Excel o texto "mar 26- rect" ; si no → null. */
@@ -101,17 +112,64 @@ function ubicarBloque(filas) {
     return null;
 }
 
-/** ¿El (archivo, hoja) es del formato "Planilla IVA - IB"? (para el despachador). */
-function esPlanillaIvaIB(archivo, hoja) {
+/** Fila del marcador "DDJJ IIBB" (título del bloque) → índice, o -1 si no está. */
+function ubicarMarcador(filas) {
+    for (let i = 0; i < filas.length; i++) {
+        if ((filas[i] || []).some(c => norm(c) === 'ddjjiibb')) return i;
+    }
+    return -1;
+}
+
+/** (archivo, hoja) → filas, o null si no se puede leer. */
+function leerFilas(archivo, hoja) {
     try {
         const wb = XLSX.readFile(archivo, { sheetRows: 0 });
         const ws = wb.Sheets[hoja] || wb.Sheets[wb.SheetNames[0]];
-        if (!ws) return false;
-        const filas = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
-        return ubicarBloque(filas) !== null;
+        if (!ws) return null;
+        return XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
     } catch (_) {
-        return false;
+        return null;
     }
+}
+
+/** ¿El (archivo, hoja) es del formato "Planilla IVA - IB"? (para el despachador). */
+function esPlanillaIvaIB(archivo, hoja) {
+    const filas = leerFilas(archivo, hoja);
+    return filas ? ubicarBloque(filas) !== null : false;
+}
+
+/**
+ * Diagnóstico para el despachador. Se llama SOLO cuando el parser de Liquidaciones ya
+ * falló, para no dar un mensaje que apunta al parser equivocado.
+ *
+ * Devuelve un mensaje explicando por qué no se pudo leer la planilla, o null si esta hoja
+ * no es de este formato (no tiene el marcador "DDJJ IIBB") y entonces no opinamos: que
+ * hable el error del otro parser.
+ */
+function diagnosticarPlanilla(archivo, hoja) {
+    const filas = leerFilas(archivo, hoja);
+    if (!filas) return null;
+
+    const marcadorIdx = ubicarMarcador(filas);
+    if (marcadorIdx === -1) return null;    // no es este formato
+    if (ubicarBloque(filas)) return null;   // se lee bien → no hay nada que diagnosticar
+
+    const cabeza = `La hoja "${hoja}" parece una Planilla IVA - IB (encontré "DDJJ IIBB" en la fila ` +
+        `${marcadorIdx + 1}) pero no pude leer el bloque: `;
+
+    let periodoIdx = -1;
+    for (let i = marcadorIdx + 1; i < filas.length; i++) {
+        if (norm((filas[i] || [])[0]) === 'periodo') { periodoIdx = i; break; }
+    }
+    if (periodoIdx === -1) {
+        return cabeza + 'no encontré la fila de encabezados ("Periodo" en la primera columna) debajo del marcador.';
+    }
+
+    const headers = (filas[periodoIdx] || []).slice(1)
+        .filter(c => c !== null && c !== '')
+        .map(c => JSON.stringify(c)).join(', ');
+    return cabeza + `en la fila ${periodoIdx + 1} ninguna columna parece una actividad ` +
+        `(se espera "107912 - Elaboracion" o un código de 6 dígitos). Encontré: ${headers || '(vacío)'}.`;
 }
 
 /** Lista los nombres de hoja (para el selector del frontend). */
@@ -139,7 +197,8 @@ function parsearPlanillaIvaIB(archivo, hoja, periodo) {
 
     const bloque = ubicarBloque(filas);
     if (!bloque) {
-        throw new Error(`No se encontró el bloque "DDJJ IIBB" (Periodo + actividades) en la hoja "${ws['!ref'] ? hoja : hoja}"`);
+        throw new Error(diagnosticarPlanilla(archivo, hoja) ||
+            `No se encontró el bloque "DDJJ IIBB" (Periodo + actividades) en la hoja "${hoja}"`);
     }
     const { headerIdx, actividadCols, totalCols } = bloque;
     const alicuotaIdx = headerIdx + 1;   // fila inmediatamente debajo del header
@@ -199,6 +258,6 @@ function parsearPlanillaIvaIB(archivo, hoja, periodo) {
 }
 
 module.exports = {
-    parsearPlanillaIvaIB, esPlanillaIvaIB, listarHojas, parseNumero,
-    ubicarBloque, parsePeriodoCelda, norm, MESES
+    parsearPlanillaIvaIB, esPlanillaIvaIB, diagnosticarPlanilla, listarHojas, parseNumero,
+    ubicarBloque, ubicarMarcador, parsePeriodoCelda, norm, MESES
 };

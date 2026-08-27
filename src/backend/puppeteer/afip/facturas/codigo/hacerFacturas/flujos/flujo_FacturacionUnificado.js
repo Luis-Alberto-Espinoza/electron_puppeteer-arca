@@ -585,6 +585,16 @@ const ejecutar_FacturacionUnificado = async (
                     modoTest
                 );
 
+                // En modo test paso_4 NO confirma ni vuelve al menú: el navegador
+                // queda en la página de resumen. Si seguimos a la siguiente factura,
+                // menuPrincipal recarga esa página y espera #btn_gen_cmp (que solo
+                // existe en el menú) → timeout. Igual que el modo DETALLADO: en test
+                // procesamos solo la primera.
+                if (modoTest) {
+                    console.log("🧪 MODO TEST: solo se procesa la primera factura (sin confirmar).");
+                    break;
+                }
+
                 // Reducir la espera adicional entre facturas
                 await esperar(1000);
             }
