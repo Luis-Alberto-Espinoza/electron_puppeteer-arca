@@ -298,6 +298,28 @@
 }
 
 /* Periodo */
+.periodo-fila {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.periodo-label {
+    color: #a0aec0;
+    font-size: 13px;
+}
+
+.periodo-resumen {
+    color: #718096;
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.periodo-resumen.periodo-error {
+    color: #fc8181;
+}
+
 .lote-select-periodo {
     background-color: #1a202c;
     color: #e2e8f0;

@@ -18,7 +18,13 @@
         <!-- Periodo global (solo Tasa Cero y Retenciones) -->
         <div id="panel-periodo" class="lote-seccion" style="display:none">
             <div class="lote-seccion-titulo">Periodo</div>
-            <select id="selectPeriodoGlobal" class="lote-select-periodo"></select>
+            <div class="periodo-fila">
+                <label class="periodo-label" id="labelPeriodoDesde" for="selectPeriodoGlobal">Desde</label>
+                <select id="selectPeriodoGlobal" class="lote-select-periodo"></select>
+                <label class="periodo-label" id="labelPeriodoHasta" for="selectPeriodoHasta">Hasta</label>
+                <select id="selectPeriodoHasta" class="lote-select-periodo"></select>
+            </div>
+            <div id="periodoResumen" class="periodo-resumen"></div>
         </div>
 
         <!-- Gestión de listas guardadas -->

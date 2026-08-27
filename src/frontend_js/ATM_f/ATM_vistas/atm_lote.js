@@ -24,6 +24,7 @@ window.inicializarModuloLoteATM = () => {
         retenciones: {
             label:         'Retenciones',
             tienePeriodo:  true,
+            rangoPeriodo:  true,         // permite descargar un rango de meses de una sola pasada
             periodoDefault: 'previous',  // índice 1 → mes anterior
             ejecutar:      (clientes) => window.electronAPI.atm.retenciones.generarLote({ usuarios: clientes })
         }
@@ -40,7 +41,11 @@ window.inicializarModuloLoteATM = () => {
     // =========================================================================
     const panelConfiguracion  = document.getElementById('panel-configuracion');
     const panelPeriodo        = document.getElementById('panel-periodo');
-    const selectPeriodo       = document.getElementById('selectPeriodoGlobal');
+    const selectPeriodo       = document.getElementById('selectPeriodoGlobal'); // "desde"
+    const selectPeriodoHasta  = document.getElementById('selectPeriodoHasta');
+    const labelPeriodoDesde   = document.getElementById('labelPeriodoDesde');
+    const labelPeriodoHasta   = document.getElementById('labelPeriodoHasta');
+    const periodoResumen      = document.getElementById('periodoResumen');
     const selectLista         = document.getElementById('selectLista');
     const btnNuevaLista       = document.getElementById('btnNuevaLista');
     const btnRenombrarLista   = document.getElementById('btnRenombrarLista');
@@ -108,6 +113,72 @@ window.inicializarModuloLoteATM = () => {
         return `${anio}-${mes}`;
     }
 
+    // Las opciones van del mes más nuevo (índice 0) al más viejo (índice 23),
+    // así que el "desde" siempre tiene un índice mayor o igual que el "hasta".
+    function expandirRangoPeriodos() {
+        const idxDesde = selectPeriodo.selectedIndex;
+        const idxHasta = selectPeriodoHasta.selectedIndex;
+
+        if (idxDesde < 0 || idxHasta < 0 || idxDesde < idxHasta) return [];
+
+        const periodos = [];
+        for (let i = idxDesde; i >= idxHasta; i--) {
+            periodos.push(periodoParaBackend(selectPeriodo.options[i].value));
+        }
+        return periodos; // del más viejo al más nuevo
+    }
+
+    // Si el usuario deja el rango al revés, lo emparejamos en vez de bloquearlo.
+    function corregirRango(origen) {
+        if (selectPeriodo.selectedIndex >= selectPeriodoHasta.selectedIndex) return;
+
+        if (origen === 'desde') {
+            selectPeriodoHasta.selectedIndex = selectPeriodo.selectedIndex;
+        } else {
+            selectPeriodo.selectedIndex = selectPeriodoHasta.selectedIndex;
+        }
+    }
+
+    function actualizarResumenPeriodo() {
+        if (!periodoResumen) return;
+
+        const config = subservicioActivo ? CONFIG_SUB[subservicioActivo] : null;
+
+        if (!config || !config.tienePeriodo) {
+            periodoResumen.textContent = '';
+            return;
+        }
+
+        if (!config.rangoPeriodo) {
+            periodoResumen.textContent = `Periodo: ${selectPeriodo.value}`;
+            periodoResumen.classList.remove('periodo-error');
+            return;
+        }
+
+        const periodos = expandirRangoPeriodos();
+
+        if (periodos.length === 0) {
+            periodoResumen.textContent = 'El periodo "desde" no puede ser posterior al "hasta".';
+            periodoResumen.classList.add('periodo-error');
+            return;
+        }
+
+        periodoResumen.classList.remove('periodo-error');
+        periodoResumen.textContent = periodos.length === 1
+            ? `1 periodo: ${selectPeriodo.value}`
+            : `${periodos.length} periodos: ${selectPeriodo.value} a ${selectPeriodoHasta.value}`;
+    }
+
+    selectPeriodo.addEventListener('change', () => {
+        corregirRango('desde');
+        actualizarResumenPeriodo();
+    });
+
+    selectPeriodoHasta.addEventListener('change', () => {
+        corregirRango('hasta');
+        actualizarResumenPeriodo();
+    });
+
     // =========================================================================
     // INICIALIZAR SELECTOR DE USUARIOS (se crea una sola vez)
     // =========================================================================
@@ -170,14 +241,28 @@ window.inicializarModuloLoteATM = () => {
         if (config.tienePeriodo) {
             if (selectPeriodo.options.length === 0) {
                 generarOpcionesPeriodo().forEach(p => {
-                    const opt = document.createElement('option');
-                    opt.value = p;
-                    opt.textContent = p;
-                    selectPeriodo.appendChild(opt);
+                    [selectPeriodo, selectPeriodoHasta].forEach(select => {
+                        const opt = document.createElement('option');
+                        opt.value = p;
+                        opt.textContent = p;
+                        select.appendChild(opt);
+                    });
                 });
             }
-            // Aplicar periodo por defecto según el subservicio
-            selectPeriodo.selectedIndex = config.periodoDefault === 'previous' ? 1 : 0;
+
+            // El "hasta" solo tiene sentido en los subservicios que aceptan rango
+            const mostrarHasta = !!config.rangoPeriodo;
+            labelPeriodoDesde.style.display  = mostrarHasta ? '' : 'none';
+            labelPeriodoHasta.style.display  = mostrarHasta ? '' : 'none';
+            selectPeriodoHasta.style.display = mostrarHasta ? '' : 'none';
+
+            // Por defecto, desde y hasta apuntan al mismo mes: un solo periodo,
+            // igual que antes. El rango es opcional.
+            const indiceDefault = config.periodoDefault === 'previous' ? 1 : 0;
+            selectPeriodo.selectedIndex      = indiceDefault;
+            selectPeriodoHasta.selectedIndex = indiceDefault;
+
+            actualizarResumenPeriodo();
         }
 
         // Cargar listas guardadas del subservicio
@@ -461,17 +546,34 @@ window.inicializarModuloLoteATM = () => {
 
         const config = CONFIG_SUB[subservicioActivo];
 
-        // Agregar periodo si corresponde
+        // Agregar periodo(s) si corresponde
+        let textoPeriodos = '';
+
         if (config.tienePeriodo) {
             const periodoSeleccionado = selectPeriodo.value;
             if (!periodoSeleccionado) { alert('Seleccione un periodo.'); return; }
-            const periodoBackend = periodoParaBackend(periodoSeleccionado);
-            clientes.forEach(c => { c.periodo = periodoBackend; });
+
+            if (config.rangoPeriodo) {
+                const periodos = expandirRangoPeriodos();
+                if (periodos.length === 0) {
+                    alert('El periodo "desde" no puede ser posterior al "hasta".');
+                    return;
+                }
+                // periodo (singular) se manda igual por compatibilidad con el backend viejo
+                clientes.forEach(c => { c.periodos = periodos; c.periodo = periodos[0]; });
+                textoPeriodos = periodos.length === 1
+                    ? `\n\nPeriodo: ${selectPeriodo.value}`
+                    : `\n\nPeriodos: ${selectPeriodo.value} a ${selectPeriodoHasta.value} (${periodos.length} meses por cliente)`;
+            } else {
+                const periodoBackend = periodoParaBackend(periodoSeleccionado);
+                clientes.forEach(c => { c.periodo = periodoBackend; });
+                textoPeriodos = `\n\nPeriodo: ${periodoSeleccionado}`;
+            }
         }
 
         const nombresClientes = clientes.map(c => `${c.nombre || ''} ${c.apellido || ''}`.trim()).join('\n - ');
         const confirmacion = confirm(
-            `Se iniciará el proceso de ${config.label} para ${clientes.length} cliente(s):\n\n - ${nombresClientes}\n\n¿Desea continuar?`
+            `Se iniciará el proceso de ${config.label} para ${clientes.length} cliente(s):\n\n - ${nombresClientes}${textoPeriodos}\n\n¿Desea continuar?`
         );
         if (!confirmacion) return;
 

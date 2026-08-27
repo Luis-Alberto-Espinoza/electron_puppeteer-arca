@@ -38,8 +38,19 @@ async function procesarLote({ usuarios, downloadsPath }, enviarProgreso) {
  * Procesa un único usuario
  */
 async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
-    const { cuit, nombre = '', apellido = '', id, periodo = '' } = usuario;
+    const { cuit, nombre = '', apellido = '', id, periodo = '', periodos } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
+
+    // El frontend manda un rango (periodos); si viniera el formato viejo, lo envolvemos.
+    const listaPeriodos = Array.isArray(periodos) && periodos.length > 0
+        ? periodos
+        : (periodo ? [periodo] : []);
+
+    const descripcionPeriodos = listaPeriodos.length === 0
+        ? 'sin periodo'
+        : (listaPeriodos.length === 1
+            ? listaPeriodos[0]
+            : `${listaPeriodos[0]} a ${listaPeriodos[listaPeriodos.length - 1]}, ${listaPeriodos.length} periodos`);
 
     // Construir nombre para archivos (evitar "null" o "undefined")
     const partesNombre = [nombre, apellido].filter(parte => parte && parte.trim());
@@ -55,7 +66,7 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
         });
     };
 
-    enviarProgresoUsuario('iniciando', `Iniciando descarga de Retenciones (periodo: ${periodo})...`);
+    enviarProgresoUsuario('iniciando', `Iniciando descarga de Retenciones (${descripcionPeriodos})...`);
 
     try {
         // Modelo plano: la clave ATM la resuelve el backend (no viaja del frontend).
@@ -68,7 +79,7 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
             nombreParaArchivos,
             downloadsPath,
             enviarProgresoUsuario,
-            periodo
+            listaPeriodos
         );
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
@@ -76,8 +87,12 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
             historialRepo.registrar({
                 dominio: 'retenciones', accion: 'descargar', estado: 'exito',
                 cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
-                resumen: `Retenciones descargadas${periodo ? ' (periodo ' + periodo + ')' : ''}`,
-                detalle: { periodo, archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo }
+                resumen: `Retenciones descargadas${listaPeriodos.length ? ' (' + descripcionPeriodos + ')' : ''}`,
+                detalle: {
+                    periodos: listaPeriodos,
+                    archivos: (resultadoFlujo.files || []).length,
+                    archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo
+                }
             });
         }
 
