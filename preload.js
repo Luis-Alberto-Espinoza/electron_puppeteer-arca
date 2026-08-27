@@ -52,8 +52,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onVerificationProgress: (callback) => ipcRenderer.on('verification:progress', (_event, data) => callback(data))
     },
 
+    // Estudios/grupos: etiqueta organizativa de los clientes (independiente del
+    // representante AFIP). Ver docs/modelo_cliente/plan_grupos_estudios.
+    grupos: {
+        listar: () => ipcRenderer.invoke('grupos:listar'),
+        crear: (datos) => ipcRenderer.invoke('grupos:crear', datos),
+        renombrar: (datos) => ipcRenderer.invoke('grupos:renombrar', datos),
+        eliminar: (id) => ipcRenderer.invoke('grupos:eliminar', { id })
+    },
+
     // API para carga masiva de usuarios
     cargarUsuariosMasivo: (filePath) => ipcRenderer.invoke('cargar-usuarios-masivo', filePath),
+    descargarPlantillaClientes: () => ipcRenderer.invoke('descargar-plantilla-clientes'),
+    exportarClientesExcel: (opciones) => ipcRenderer.invoke('exportar-clientes-excel', opciones || {}),
 
     // Canal para recibir la respuesta final de facturación
     onFacturaResultado: (callback) => {
@@ -144,7 +155,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
         descubrirPuntosDeVenta: (datos) => ipcRenderer.invoke('empresa:descubrirPuntosDeVenta', datos),
         analizarCliente: (datos) => ipcRenderer.invoke('empresa:analizarCliente', datos),
         analizarEmpresa: (datos) => ipcRenderer.invoke('empresa:analizarEmpresa', datos),
-        analizarContribuyente: (datos) => ipcRenderer.invoke('empresa:analizarContribuyente', datos)
+        analizarContribuyente: (datos) => ipcRenderer.invoke('empresa:analizarContribuyente', datos),
+        // Lote: un login por credencial. Progreso por grupo vía onAnalizarLoteProgreso.
+        analizarLote: (cuits) => ipcRenderer.invoke('empresa:analizarLote', { cuits }),
+        onAnalizarLoteProgreso: (callback) => ipcRenderer.on('empresa:analizarLote:progreso', (_event, data) => callback(data))
+    },
+
+    // Carpeta de datos: ver/cambiar dónde viven los .json (Fase 2).
+    datos: {
+        getInfo:      ()     => ipcRenderer.invoke('datos:getInfo'),
+        abrirCarpeta: ()     => ipcRenderer.invoke('datos:abrirCarpeta'),
+        elegirCarpeta:()     => ipcRenderer.invoke('datos:elegirCarpeta'),
+        setCarpeta:   (ruta) => ipcRenderer.invoke('datos:setCarpeta', ruta),
+        reiniciar:    ()     => ipcRenderer.invoke('datos:reiniciar')
     },
 
     // Modelo plano de contribuyente (Tareas 3-7). `listar` NO devuelve claves.

@@ -201,6 +201,11 @@ body {
     border-color: #e53e3e; /* Rojo */
 }
 
+.status-message.warning {
+    background-color: var(--u-superficie);
+    border-color: var(--u-acento); /* Amarillo: proceso con errores parciales */
+}
+
 .status-message .result-summary {
     font-size: 1.1em;
     font-weight: 600;
@@ -412,6 +417,69 @@ body {
     border-color: #fc8181;
 }
 .btn-accion-reintentar:hover { background: #fed7d7; }
+
+/* ===== Menú "Probar credenciales" (cuando el cliente tiene AFIP y ATM) ===== */
+.menu-probar {
+    position: relative;          /* ancla el desplegable */
+    display: inline-block;
+}
+/* Estado urgente: el AFIP propio está fallado. Tiñe el disparador (directo o menú)
+   de rojo, como el viejo 🔁, pero sin cambiar el verbo. */
+.menu-probar--urgente > .menu-probar-toggle,
+.btn-accion-afip.menu-probar--urgente {
+    background: #fff5f5;
+    color: #c53030;
+    border-color: #fc8181;
+}
+/* Flyout: OCULTO por defecto; se revela al pasar el mouse (:hover) o al entrar con
+   teclado (:focus-within, cubre Tab). Sin JS de abrir/cerrar. El pequeño delay de
+   aparición evita que parpadee al cruzar el mouse por la fila de paso. */
+.menu-probar-lista {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;                    /* la fila alinea acciones a la derecha */
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    min-width: 150px;
+    padding: 4px;
+    background: #fff;
+    border: 1px solid #cbd5e0;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+    opacity: 0;
+    visibility: hidden;          /* saca el flyout del foco/tab cuando está cerrado */
+    transform: translateY(-4px);
+    transition: opacity .12s ease, transform .12s ease, visibility 0s linear .12s;
+}
+.menu-probar:hover .menu-probar-lista,
+.menu-probar:focus-within .menu-probar-lista {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    transition-delay: 60ms, 60ms, 0s;   /* hover-intent chico; visibility sin retardo al abrir */
+}
+.menu-probar-lista button {
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--u-superficie);
+    font-size: 13px;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.menu-probar-lista button:hover { background: #edf2f7; }
+
+/* Variante en la barra de lote: el disparador es un .btn ancho a la izquierda del
+   grupo, así que el flyout cae alineado a la IZQUIERDA (no a la derecha como en la
+   fila). Abre hacia abajo con espacio de sobra (la barra está arriba de todo). */
+.menu-probar--barra .menu-probar-lista {
+    left: 0;
+    right: auto;
+    min-width: 100%;   /* al menos tan ancho como el botón */
+}
 
 .btn-icono {
     padding: 2px 6px;
@@ -1517,3 +1585,72 @@ html {
 /* ========== FIN BOTÓN MOSTRAR/OCULTAR CONTRASEÑA ==========*/
 
 /* Los estilos del modal de confirmación ahora están en /utils/confirmModal.css */
+
+/* ========== ESTUDIOS / GRUPOS ========== */
+
+/* Fila del <select> de estudio + botón ⚙️ de gestión, en el form de alta/edición. */
+.grupo-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.grupo-input-row select {
+    flex: 1;
+}
+.btn-gestionar-grupos {
+    flex: 0 0 auto;
+    border: 1px solid var(--u-borde);
+    background: var(--u-superficie);
+    color: var(--u-texto-2);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: all 0.2s ease;
+}
+.btn-gestionar-grupos:hover {
+    border-color: var(--u-acento);
+}
+
+/* Filtro por estudio en la barra de búsqueda. */
+.grupo-filtro-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.grupo-filtro-wrapper label {
+    font-size: 14px;
+    color: var(--u-texto-2);
+    white-space: nowrap;
+}
+.grupo-filtro-wrapper select {
+    padding: 8px 12px;
+    background-color: var(--u-superficie);
+    border: 2px solid var(--u-borde);
+    color: #ffffff;
+    border-radius: 8px;
+    font-size: 14px;
+}
+.grupo-filtro-wrapper select:focus {
+    outline: none;
+    border-color: var(--u-acento);
+}
+
+/* Badge del estudio en cada fila de la lista. El color viene del registro (inline). */
+.badge-estudio {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: 10px;
+    color: var(--badge-color, #888);
+    border: 1px solid var(--badge-color, #888);
+    background: color-mix(in srgb, var(--badge-color, #888) 14%, transparent);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* ========== FIN ESTUDIOS / GRUPOS ========== */

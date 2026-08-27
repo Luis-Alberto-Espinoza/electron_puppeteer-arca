@@ -80,6 +80,7 @@
             </div>
             <div class="nav-right">
                 <span class="nav-usuario" id="navUsuario"></span>
+                <button class="nav-btn" id="navConfigDatos" title="Carpeta de datos">📁</button>
                 <button class="nav-btn nav-recargar" id="navRecargar" title="Recargar vista (Ctrl+Shift+R)">⟳ Recargar</button>
             </div>
         `;
@@ -147,6 +148,15 @@
 
         // Botón recargar vista
         nav.querySelector('#navRecargar').addEventListener('click', recargar);
+
+        // Botón carpeta de datos (abre el modal de configDatos)
+        nav.querySelector('#navConfigDatos').addEventListener('click', () => {
+            if (typeof window.abrirConfigDatos === 'function') {
+                window.abrirConfigDatos();
+            } else {
+                console.warn('[navbar] window.abrirConfigDatos no está disponible todavía');
+            }
+        });
     };
 
     window.actualizarNavbarUsuario = function (texto) {

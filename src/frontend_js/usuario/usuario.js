@@ -77,6 +77,59 @@ function sincronizarClaveAfipConRepresentante(selId, claveInputId) {
     aplicar();
 }
 
+// ===================== ESTUDIOS / GRUPOS =====================
+// Cache local de estudios (para pintar selects y badges sin ir al backend por fila).
+window.gruposCache = window.gruposCache || [];
+// Estudio seleccionado en el filtro de la lista ('' = todos, '__none__' = sin estudio).
+window.grupoFiltroActual = window.grupoFiltroActual || '';
+
+async function refrescarGruposCache() {
+    try {
+        const r = await window.electronAPI.grupos.listar();
+        window.gruposCache = (r && r.success) ? (r.grupos || []) : [];
+    } catch (e) {
+        console.error('[grupos] no se pudo listar:', e);
+        window.gruposCache = [];
+    }
+    return window.gruposCache;
+}
+
+function grupoPorId(id) {
+    if (!id) return null;
+    return window.gruposCache.find(g => g.id === id) || null;
+}
+
+// Llena un <select> de estudios desde la cache. comoFiltro=true → primera opción
+// "Todos" + "Sin estudio"; si no, "— Sin estudio —" (para el form de alta/edición).
+function llenarSelectGrupos(selectId, selectedId, { comoFiltro = false } = {}) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    if (comoFiltro) {
+        sel.innerHTML = '<option value="">Todos los estudios</option><option value="__none__">— Sin estudio —</option>';
+    } else {
+        sel.innerHTML = '<option value="">— Sin estudio —</option>';
+    }
+    for (const g of window.gruposCache) {
+        const opt = document.createElement('option');
+        opt.value = g.id;
+        opt.textContent = g.nombre;
+        if (selectedId && selectedId === g.id) opt.selected = true;
+        sel.appendChild(opt);
+    }
+    // Mantener la selección del filtro aunque el grupo ya no exista (queda en '').
+    if (selectedId && !comoFiltro && !window.gruposCache.some(g => g.id === selectedId)) {
+        sel.value = '';
+    }
+}
+
+// Escape mínimo para meter el nombre del estudio en HTML (atributo y texto).
+function escaparHtml(s) {
+    return String(s || '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+// ===================== FIN ESTUDIOS / GRUPOS =====================
+
 function showAlert(message, type = 'success') {
     const alert = document.getElementById('alert');
     const alertMessage = document.getElementById('alertMessage');
@@ -592,6 +645,9 @@ function reorderUsersBySelection() {
                 }
             });
             console.log('📌 Checkboxes restaurados');
+            // Los tildes se restauraron DESPUÉS del render, así que los botones de
+            // lote quedaron contando sobre una selección vacía: hay que reetiquetarlos.
+            actualizarBotonesLote();
 
             // Liberar el flag después de restaurar
             isReordering = false;
@@ -784,6 +840,7 @@ async function createUser() {
         // Modelo plano: armar la fila del contribuyente.
         const razonSocialInput = document.getElementById('razonSocial').value.trim();
         const representanteAfipCuit = document.getElementById('representanteAfip').value || null;
+        const grupoId = document.getElementById('grupo').value || null;
         const tipo = inferirTipoPorCuit(cuit, cuil);
         // razonSocial siempre presente; en física la derivamos del nombre si está vacía.
         const razonSocial = razonSocialInput || [apellido, nombre].filter(Boolean).join(' ').trim() || nombre;
@@ -799,6 +856,7 @@ async function createUser() {
             claveAFIP,
             claveATM,
             representanteAfipCuit,
+            grupoId,
             verificadoAFIP: window.verificacionRealizada.afip,  // flag de verificación
             verificadoATM: window.verificacionRealizada.atm     // flag de verificación
         });
@@ -873,11 +931,26 @@ function focusUserRow(userId) {
 async function loadUsers() {
     setLoading('loadLoading', true);
     try {
-        const result = await window.electronAPI.user.getAll();
+        // getAll = proyección users.json (shape rico para la fila). listCrud = repo
+        // plano, ÚNICA fuente de grupoId (no viaja en la proyección: es CRUD-only).
+        const [result, crud] = await Promise.all([
+            window.electronAPI.user.getAll(),
+            window.electronAPI.user.listCrud()
+        ]);
+        await refrescarGruposCache();
         if (result.success) {
             window.allUsers = result.users || [];
-            displayUsers(window.allUsers);
-            updateSearchCount(window.allUsers.length, window.allUsers.length);
+            // Pegar grupoId por id (fresco de contribuyentes.json).
+            if (crud && crud.success) {
+                const grupoPorUser = new Map((crud.contribuyentes || []).map(c => [String(c.id), c.grupoId || null]));
+                window.allUsers.forEach(u => { u.grupoId = grupoPorUser.get(String(u.id)) ?? null; });
+            }
+            // Poblar el select del alta y el filtro de la lista con los estudios.
+            llenarSelectGrupos('grupo', document.getElementById('grupo')?.value || '');
+            llenarSelectGrupos('grupoFiltro', window.grupoFiltroActual || '', { comoFiltro: true });
+            // filterUsers aplica el filtro de estudio + el texto actual (si los hay);
+            // con ambos vacíos muestra todo, igual que antes.
+            filterUsers(textoBusquedaActual());
             // Mantener fresca la lista de representantes del form de alta.
             cargarOpcionesRepresentante('representanteAfip', null, null)
                 .then(() => sincronizarClaveAfipConRepresentante('representanteAfip', 'claveAFIP'));
@@ -900,6 +973,9 @@ function renderStatus(status) {
             return '<span class="status-badge status-invalido">✖ Inválido</span>';
         case 'requiere_actualizacion':
             return '<span class="status-badge status-advertencia">⚠️ Actualizar</span>';
+        case 'no_verificado':
+            // No se pudo comprobar (ej. captcha de AFIP). NO es inválido: reintentar.
+            return '<span class="status-badge status-advertencia">🧩 No verificado</span>';
         case 'pendiente':
             return '<span class="status-badge status-pendiente">⌛ Pendiente</span>';
         default:
@@ -909,46 +985,193 @@ function renderStatus(status) {
 
 const SERVICIOS = ['afip', 'atm'];
 
+// Estados en los que reintentar el login sería tirar un intento a la basura: ya
+// sabemos que esa credencial no entra. Se arreglan en Editar, y al cambiar la clave
+// el repo devuelve el estado a 'pendiente' solo → vuelven al lote sin hacer nada.
+const ESTADOS_AFIP_NO_REINTENTABLES = ['invalido', 'requiere_actualizacion'];
+
 /**
- * Devuelve el ÚNICO botón/indicador contextual de AFIP para una fila, según su estado.
- * La idea: el usuario ve un solo "próximo paso", no una pared de verbos.
- *   - sin clave AFIP            -> Probar clave (si tiene ATM) o nada
- *   - validado + sin analizar   -> 📋 Traer empresas
- *   - validado + analizado      -> ✅ Analizado + 🔄 refrescar
- *   - inválido / a actualizar   -> 🔁 Reintentar
- *   - pendiente / desconocido   -> 🔑 Probar clave
+ * Estado AFIP que realmente aplica a un cliente. Un representado entra con la clave
+ * de SU representante, así que el estado que vale es el de él: el propio lo fuerza
+ * el normalizador a 'no_aplica' (invariante: representado sin clave propia).
  */
-function renderAccionAfip(user, nombreSafe) {
-    const estado = user.estado_afip || 'pendiente';
-    const tieneClaveAfip = !!user.claveAFIP;
+function estadoAfipEfectivo(u) {
+    if (!u.claveAFIP && u.representanteAfipCuit) return u.estadoAfipRepresentante || 'pendiente';
+    return u.estado_afip || 'pendiente';
+}
 
-    // Todos los pasos AFIP son ícono (se agrupan con Editar/Eliminar). El texto
-    // vive en el title/tooltip; el color del botón marca la urgencia.
-    if (!tieneClaveAfip) {
-        return user.claveATM
-            ? `<button class="btn-accion-afip" onclick="window.probarClaveDesdeListado('${user.id}')" title="Probar clave AFIP/ATM.">🔑</button>`
-            : '';
+/**
+ * ¿Este cliente es candidato al análisis por lote?
+ *
+ * Ya NO exige `estado_afip === 'validado'`. Desde que `analizarContribuyente` sella
+ * el estado de la credencial con el resultado de su propio login, analizar VALIDA
+ * de paso: pedir una validación previa obligaba a dos pasadas (dos logins contra
+ * AFIP) para averiguar exactamente lo mismo.
+ *
+ * Solo pedimos que exista un camino de acceso (clave propia o representante) y que
+ * no sepamos de antemano que la credencial está mal.
+ */
+function esCandidatoAAnalisis(u) {
+    if (!u.claveAFIP && !u.representanteAfipCuit) return false;
+    return !ESTADOS_AFIP_NO_REINTENTABLES.includes(estadoAfipEfectivo(u));
+}
+
+/**
+ * Sobre qué clientes debe actuar una acción por lote.
+ *
+ * Regla ÚNICA para todos los botones de la barra: si hay filas tildadas, la acción
+ * se limita a ellas; si no hay ninguna, aplica a todos los candidatos. Antes cada
+ * botón hacía la suya (🔑 miraba los tildes, 🔍 y 🔄 los ignoraban y arrasaban con
+ * la lista entera), así que el checkbox significaba cosas distintas según a cuál le
+ * pegaras — y la selección se perdía en silencio.
+ *
+ * @param {Array} candidatos ya filtrados por el criterio propio de la acción
+ * @returns {{lista: Array, huboSeleccion: boolean}}
+ */
+function objetivoDelLote(candidatos) {
+    const ids = getSelectedUserIds();
+    if (ids.size === 0) return { lista: candidatos, huboSeleccion: false };
+    return { lista: candidatos.filter(u => ids.has(String(u.id))), huboSeleccion: true };
+}
+
+/**
+ * Recorta una lista traída del backend a lo que hay EN PANTALLA.
+ *
+ * Hace falta porque las acciones de lote releen todos los clientes con `user.getAll()`
+ * (para trabajar con datos frescos), pero el contador del botón cuenta lo mostrado.
+ * Sin esto, con una búsqueda activa el botón diría "(3)" y el lote se comería los 109
+ * de la base — la misma clase de sorpresa que tener la selección ignorada.
+ */
+function soloVisibles(users) {
+    const visibles = new Set((window.usuariosMostrados || []).map(u => String(u.id)));
+    if (visibles.size === 0) return users;   // sin referencia de pantalla, no recortamos
+    return users.filter(u => visibles.has(String(u.id)));
+}
+
+/** Config de los dos botones de lote (el 🔑 se maneja aparte, ya leía la selección). */
+const BOTONES_LOTE = [
+    {
+        id: 'btnAnalizarLote',
+        filtro: u => esCandidatoAAnalisis(u) && u.analizado_afip !== true,
+        etiqueta: n => `🔍 Analizar pendientes (${n})`,
+        etiquetaSeleccion: n => `🔍 Analizar seleccionados (${n})`,
+        title: 'Entra a AFIP, trae empresas y puntos de venta. El login valida la clave de paso.',
+        titleVacio: 'Ninguno de los clientes seleccionados está pendiente de análisis.'
+    },
+    {
+        id: 'btnReanalizarTodos',
+        filtro: u => esCandidatoAAnalisis(u) && u.analizado_afip === true,
+        etiqueta: n => `🔄 Refrescar todas (${n})`,
+        etiquetaSeleccion: n => `🔄 Refrescar seleccionadas (${n})`,
+        title: 'Vuelve a traer empresas y PDV de los ya analizados. Puede tardar bastante.',
+        titleVacio: 'Ninguno de los clientes seleccionados fue analizado todavía.'
+    }
+];
+
+/**
+ * Sincroniza texto/estado de los botones de lote con la selección actual, para que
+ * el botón diga sobre cuántos va a actuar ANTES de que lo aprieten:
+ * "Analizar pendientes (12)" sin selección → "Analizar seleccionados (3)" con ella.
+ */
+function actualizarBotonesLote() {
+    const users = window.usuariosMostrados || [];
+
+    for (const cfg of BOTONES_LOTE) {
+        const btn = document.getElementById(cfg.id);
+        if (!btn) continue;
+
+        const candidatos = users.filter(cfg.filtro);
+        // Sin candidatos en toda la lista, el botón no tiene razón de existir.
+        // (display en vez del atributo `hidden`: los .btn traen display propio del
+        // sistema de diseño y le ganarían a `hidden`).
+        if (candidatos.length === 0) { btn.style.display = 'none'; continue; }
+
+        const { lista, huboSeleccion } = objetivoDelLote(candidatos);
+        btn.style.display = '';
+        btn.textContent = huboSeleccion
+            ? cfg.etiquetaSeleccion(lista.length)
+            : cfg.etiqueta(candidatos.length);
+
+        // Tildaste filas pero ninguna aplica: lo mostramos APAGADO con el motivo, en
+        // vez de esconderlo — desaparecer justo después de tildar parece un bug.
+        btn.disabled = huboSeleccion && lista.length === 0;
+        btn.title = btn.disabled ? cfg.titleVacio : cfg.title;
+    }
+}
+
+// La fila separa DOS ejes que antes compartían un mismo botón (y confundían):
+//   • PROBAR credenciales → login liviano, AFIP y/o ATM (renderControlProbar)
+//   • ANALIZAR            → scraping pesado, solo AFIP     (renderControlAnalizar)
+// Cada uno es su propio control; el usuario ya no adivina qué hace el 🔑 según el estado.
+
+/** Servicios con clave PROPIA cargada que se pueden probar en esta fila. */
+function serviciosProbables(user) {
+    const s = [];
+    if (user.claveAFIP) s.push('afip');   // representado sin clave propia no entra: su AFIP se prueba desde el representante
+    if (user.claveATM) s.push('atm');
+    return s;
+}
+
+/**
+ * Control "Probar credenciales" de la fila (split button).
+ *   - 0 claves propias → nada (un representado sin ATM no tiene qué probar acá).
+ *   - 1 clave          → botón directo "🔑 Probar AFIP" / "🔑 Probar ATM".
+ *   - 2 claves         → botón que al CLICK prueba AMBAS (caso común, un solo click);
+ *                        al pasar el mouse o darle foco (Tab) se despliega para elegir
+ *                        una sola. El desplegar/ocultar es 100% CSS (:hover/:focus-within),
+ *                        no hay toggle por click ni click-afuera que mantener.
+ * Si el AFIP propio está fallado, se tiñe de rojo (mismo aviso que el viejo 🔁),
+ * pero el verbo sigue siendo "Probar": la urgencia es color, no otro botón.
+ */
+function renderControlProbar(user) {
+    const servicios = serviciosProbables(user);
+    if (servicios.length === 0) return '';
+
+    const afipFallado = user.claveAFIP && ['invalido', 'requiere_actualizacion'].includes(user.estado_afip);
+    const urgente = afipFallado ? ' menu-probar--urgente' : '';
+
+    // Una sola clave: botón directo, sin desplegable (un menú de una opción molesta).
+    if (servicios.length === 1) {
+        const svc = servicios[0];
+        const etiqueta = svc === 'afip' ? 'Probar AFIP' : 'Probar ATM';
+        return `<button class="btn-accion-afip${urgente}" data-probar="${svc}" data-user-id="${user.id}" title="${etiqueta}: login liviano para validar la clave.">🔑</button>`;
     }
 
-    if (estado === 'validado') {
-        if (user.analizado_afip === true) {
-            // Analizado: sin paso pendiente. El 🔄 "Actualizar" vive en .user-actions.
-            return '';
-        }
-        return `<button class="btn-accion-afip btn-accion-traer" onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" title="Analizar cliente: entra a AFIP y trae empresas y puntos de venta.">🔍</button>`;
-    }
+    // Dos claves: split button. El disparador prueba AMBAS; el flyout (hover/foco) ofrece
+    // una sola. Todos son [data-probar] → el mismo handler los cubre.
+    return `
+        <div class="menu-probar${urgente}" data-user-id="${user.id}">
+            <button class="btn-accion-afip menu-probar-toggle" data-probar="afip,atm" data-user-id="${user.id}" title="Probar ambas (AFIP y ATM). Pasá el mouse o Tab para elegir una.">🔑 ▾</button>
+            <div class="menu-probar-lista">
+                <button data-probar="afip" data-user-id="${user.id}">Solo AFIP</button>
+                <button data-probar="atm" data-user-id="${user.id}">Solo ATM</button>
+            </div>
+        </div>`;
+}
 
-    if (estado === 'invalido' || estado === 'requiere_actualizacion') {
-        return `<button class="btn-accion-afip btn-accion-reintentar" onclick="window.probarClaveDesdeListado('${user.id}')" title="Reintentar: la clave falló. Revisala en Editar y volvé a probar.">🔁</button>`;
-    }
+/**
+ * Control "Analizar" de la fila (eje AFIP pesado). Solo aparece si hay acceso AFIP
+ * (clave propia o representante). El 🔄 "Refrescar" es el mismo verbo, ya analizado.
+ */
+function renderControlAnalizar(user, nombreSafe) {
+    const tieneAccesoAfip = !!user.claveAFIP || !!user.representanteAfipCuit;
+    if (!tieneAccesoAfip) return '';
 
-    return `<button class="btn-accion-afip" onclick="window.probarClaveDesdeListado('${user.id}')" title="Probar clave AFIP/ATM.">🔑</button>`;
+    if (user.analizado_afip === true) {
+        return `<button class="btn btn-actualizar" data-analizar data-user-id="${user.id}" data-nombre="${nombreSafe}" title="Refrescar: vuelve a traer empresas y puntos de venta.">🔄</button>`;
+    }
+    return `<button class="btn-accion-afip btn-accion-traer" data-analizar data-user-id="${user.id}" data-nombre="${nombreSafe}" title="Analizar: entra a AFIP y trae empresas y puntos de venta. Valida la clave de paso.">🔍</button>`;
 }
 
 // Mostrar usuarios en la lista
 function displayUsers(users) {
     const usersList = document.getElementById('usersList');
     const bulkActionsContainer = document.getElementById('bulkActionsContainer');
+
+    // Lo que está EN PANTALLA (puede ser un subconjunto de allUsers si hay búsqueda).
+    // Los botones de lote cuentan sobre esto, no sobre la lista completa: si filtraste,
+    // el lote tiene que operar sobre lo que ves.
+    window.usuariosMostrados = users || [];
 
     if (!users || users.length === 0) {
         usersList.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No hay clientes registrados</p></div>`;
@@ -962,29 +1185,23 @@ function displayUsers(users) {
         <button class="btn btn-seleccion" id="selectAllUsers">☑️ Seleccionar todos</button>
     `;
 
-    // Candidatos al análisis por lote: AFIP validado + sin analizar.
-    const pendientesAnalisis = users.filter(u =>
-        u.estado_afip === 'validado' && u.analizado_afip !== true
-    ).length;
-    // Candidatos al re-análisis: AFIP validado + ya analizado (refresh masivo).
-    const analizadosCount = users.filter(u =>
-        u.estado_afip === 'validado' && u.analizado_afip === true
-    ).length;
-
-    const botonAnalizarPendientes = pendientesAnalisis > 0
-        ? `<button class="btn btn-warning" id="btnAnalizarLote">🔍 Analizar pendientes (${pendientesAnalisis})</button>`
-        : '';
-    const botonReanalizarTodos = analizadosCount > 0
-        ? `<button class="btn btn-info" id="btnReanalizarTodos" title="Vuelve a traer empresas y PDV de TODOS los clientes ya analizados. Puede tardar bastante.">🔄 Refrescar todas (${analizadosCount})</button>`
-        : '';
-
+    // Los botones de lote se renderizan SIEMPRE y vacíos: su texto, su visibilidad y
+    // su estado los decide `actualizarBotonesLote()` según la selección, que cambia
+    // sin re-renderizar la lista. Si los pintáramos condicionalmente acá, un botón
+    // que aparece recién al tildar no existiría en el DOM para poder actualizarlo.
     const bulkActionsHeader = `
         <div class="user-item bulk-actions-header">
             <div class="bulk-actions-controls">
                 ${selectAllCheckbox}
-                <button class="btn btn-primary" id="btnVerificarSeleccionados" title="Prueba las claves de los clientes seleccionados">🔑 Probar seleccionadas</button>
-                ${botonAnalizarPendientes}
-                ${botonReanalizarTodos}
+                <div class="menu-probar menu-probar--barra">
+                    <button class="btn btn-primary" id="btnVerificarSeleccionados" data-probar-lote="afip,atm" title="Probar AFIP y ATM de los seleccionados. Pasá el mouse o Tab para elegir un solo servicio.">🔑 Probar seleccionadas ▾</button>
+                    <div class="menu-probar-lista">
+                        <button data-probar-lote="afip">Solo AFIP</button>
+                        <button data-probar-lote="atm">Solo ATM</button>
+                    </div>
+                </div>
+                <button class="btn btn-warning" id="btnAnalizarLote" style="display:none"></button>
+                <button class="btn btn-info" id="btnReanalizarTodos" style="display:none"></button>
             </div>
         </div>
     `;
@@ -1010,9 +1227,18 @@ function displayUsers(users) {
             return `<div class="service-status"><span>${service.toUpperCase()}:</span> ${renderStatus(status)}</div>`;
         }).join('');
 
-        // Un solo botón contextual según el estado AFIP (el análisis es de AFIP).
-        const nombreSafe = (user.nombre || '').replace(/'/g, "\\'");
-        const accionAfip = renderAccionAfip(user, nombreSafe);
+        // Dos controles separados: Probar (credenciales) y Analizar (empresas/PDV).
+        // nombreSafe va como atributo HTML → escapamos comillas dobles también (un
+        // apellido con " rompía el render con el escape viejo de solo comilla simple).
+        const nombreSafe = (user.nombre || '').replace(/"/g, '&quot;');
+        const controlProbar = renderControlProbar(user);
+        const controlAnalizar = renderControlAnalizar(user, nombreSafe);
+
+        // Badge del estudio (si pertenece a uno). El color viene del registro de grupos.
+        const grupo = grupoPorId(user.grupoId);
+        const badgeEstudio = grupo
+            ? `<div class="badge-estudio" style="--badge-color:${escaparHtml(grupo.color || '#888')}" title="Estudio: ${escaparHtml(grupo.nombre)}">🏢 ${escaparHtml(grupo.nombre)}</div>`
+            : '';
 
         return `
             <div class="user-item" data-user-id="${user.id}">
@@ -1022,13 +1248,14 @@ function displayUsers(users) {
                 <div class="user-info">
                     <div class="user-name" title="${user.nombre || ''} ${user.apellido || ''}">👤 ${user.nombre} ${user.apellido || ''}</div>
                     <div class="user-details">🆔 CUIT/L: ${user.cuit || user.cuil || 'N/A'}</div>
+                    ${badgeEstudio}
                 </div>
                 <div class="user-status">
                     ${chips}
                 </div>
                 <div class="user-actions">
-                    ${accionAfip}
-                    ${user.analizado_afip === true ? `<button class="btn btn-actualizar" onclick="window.analizarClienteDesdeListado('${user.id}', '${nombreSafe}')" title="Refrescar: vuelve a traer empresas y puntos de venta.">🔄</button>` : ''}
+                    ${controlProbar}
+                    ${controlAnalizar}
                     <button class="btn btn-edit" title="Editar cliente" onclick="window.editUser('${user.id}', '${user.nombre}', '${user.claveAFIP || ''}', '${user.claveATM || ''}', '${user.cuit || ''}', '${user.cuil || ''}', '${user.tipoContribuyente || ''}', '${user.apellido || ''}', ${user.analizado_afip === true})">✏️</button>
                     <button class="btn btn-delete" title="Eliminar cliente" onclick="window.deleteUser('${user.id}', '${user.nombre}')">🗑️</button>
                 </div>
@@ -1037,6 +1264,10 @@ function displayUsers(users) {
     }).join('');
 
     usersList.innerHTML = usersHTML;
+
+    // Después de pintar las filas: los checkboxes ya existen, así que los botones de
+    // lote pueden leer la selección y decir a cuántos van a alcanzar.
+    actualizarBotonesLote();
 }
 
 // ========== FUNCIONES DE BÚSQUEDA ==========
@@ -1053,18 +1284,29 @@ function updateSearchCount(showing, total) {
     }
 }
 
-// Filtrar usuarios según texto de búsqueda
+// Texto que hay ahora mismo en el buscador (para re-aplicar filtros tras recargar).
+function textoBusquedaActual() {
+    const s = document.getElementById('searchInput');
+    return s ? s.value : '';
+}
+
+// Filtrar usuarios: primero por estudio (pre-filtro), después por texto. Se combinan
+// con AND — buscar "perez" dentro del "Estudio A" devuelve los Pérez de ese estudio.
 function filterUsers(searchText) {
-    const search = searchText.toLowerCase().trim();
+    const search = (searchText || '').toLowerCase().trim();
+    const grupoSel = window.grupoFiltroActual || '';
 
+    // 1) Pre-filtro por estudio. '' = todos; '__none__' = sin estudio; id = ese estudio.
+    let base = window.allUsers || [];
+    if (grupoSel === '__none__') base = base.filter(u => !u.grupoId);
+    else if (grupoSel) base = base.filter(u => u.grupoId === grupoSel);
+
+    // 2) Filtro por texto sobre el subconjunto ya recortado.
     let usersToDisplay;
-
     if (!search) {
-        // Sin búsqueda, mostrar todos
-        usersToDisplay = window.allUsers;
+        usersToDisplay = base;
     } else {
-        // Filtrar usuarios
-        usersToDisplay = window.allUsers.filter(user => {
+        usersToDisplay = base.filter(user => {
             const nombre = (user.nombre || '').toLowerCase();
             const apellido = (user.apellido || '').toLowerCase();
             const cuit = String(user.cuit || '');
@@ -1131,6 +1373,15 @@ function initializeSearchEvents() {
 
     if (btnClearSearch) {
         btnClearSearch.addEventListener('click', clearSearch);
+    }
+
+    // Filtro por estudio: recuerda la elección y re-aplica junto al texto actual.
+    const grupoFiltro = document.getElementById('grupoFiltro');
+    if (grupoFiltro) {
+        grupoFiltro.addEventListener('change', (e) => {
+            window.grupoFiltroActual = e.target.value;
+            filterUsers(textoBusquedaActual());
+        });
     }
 }
 
@@ -1291,14 +1542,16 @@ window.editUser = async function (id, nombre, claveAFIP, claveATM, cuit, cuil, t
 
     actualizarEstadoAnalisisEnEdicion();
 
-    // Modelo plano: traer el contribuyente completo para razón social + representante.
+    // Modelo plano: traer el contribuyente completo para razón social + representante + estudio.
     let razonSocial = '';
     let representanteAfipCuit = null;
+    let grupoId = null;
     try {
         const resp = await window.electronAPI.user.getById(id);
         if (resp && resp.success && resp.user) {
             razonSocial = resp.user.razonSocial || '';
             representanteAfipCuit = resp.user.representanteAfipCuit || null;
+            grupoId = resp.user.grupoId || null;
         }
     } catch (err) {
         console.error('[editUser] no se pudo traer el contribuyente:', err);
@@ -1306,6 +1559,9 @@ window.editUser = async function (id, nombre, claveAFIP, claveATM, cuit, cuil, t
     document.getElementById('editRazonSocial').value = razonSocial;
     await cargarOpcionesRepresentante('editRepresentanteAfip', representanteAfipCuit, cuit);
     sincronizarClaveAfipConRepresentante('editRepresentanteAfip', 'editClaveAFIP');
+    // Estudio: refrescamos la cache por si se creó uno recién en el modal de gestión.
+    await refrescarGruposCache();
+    llenarSelectGrupos('editGrupo', grupoId || '');
 
     // El editor de empresas embebido se jubiló: la representación ahora es el
     // dropdown "Representante AFIP". Limpiamos el contenedor por si quedó algo.
@@ -1456,6 +1712,7 @@ window.updateUser = async function() {
         // Modelo plano: fila del contribuyente. cuit es la PK (no se edita acá).
         const razonSocialInput = document.getElementById('editRazonSocial').value.trim();
         const representanteAfipCuit = document.getElementById('editRepresentanteAfip').value || null;
+        const grupoId = document.getElementById('editGrupo').value || null;
         const razonSocial = razonSocialInput || [apellido, nombre].filter(Boolean).join(' ').trim() || nombre;
 
         const userData = {
@@ -1469,7 +1726,8 @@ window.updateUser = async function() {
             tipoContribuyente,
             claveAFIP,
             claveATM,
-            representanteAfipCuit
+            representanteAfipCuit,
+            grupoId
         };
 
         // Siempre usar el handler 'update' que ya existe en el backend
@@ -1528,206 +1786,23 @@ function inicializarUsuarioFrontend() {
     bulkActionsContainer.addEventListener('click', async (event) => {
         const target = event.target;
 
-        // --- Análisis por lote (todos los AFIP validados sin analizar) ---
+        // --- Análisis por lote (los tildados; si no hay tildes, todos los pendientes) ---
         if (target.matches('#btnAnalizarLote')) {
             await analizarPorLote();
             return;
         }
 
-        // --- Re-análisis por lote (todos los AFIP validados YA analizados) ---
+        // --- Re-análisis por lote (los tildados; si no hay tildes, todos los analizados) ---
         if (target.matches('#btnReanalizarTodos')) {
             await reanalizarTodos();
             return;
         }
 
-        // --- Verificación en lote ---
-        if (target.matches('#btnVerificarSeleccionados')) {
-            // Por cada cliente tildado, probamos todas las claves que tenga cargadas.
-            const verificationJobs = [];
-            Array.from(usersList.querySelectorAll('.user-checkbox:checked')).forEach(cb => {
-                const u = (window.allUsers || []).find(x => String(x.id) === String(cb.dataset.userId));
-                if (!u) return;
-                if (u.claveAFIP) verificationJobs.push({ userId: u.id, service: 'afip' });
-                if (u.claveATM) verificationJobs.push({ userId: u.id, service: 'atm' });
-            });
-
-            if (verificationJobs.length === 0) {
-                showAlert('No hay clientes seleccionados con claves para probar.', 'warning');
-                return;
-            }
-
-            const uniqueSel = new Set(verificationJobs.map(j => j.userId)).size;
-            if (!confirm(`¿Probar las claves de ${uniqueSel} cliente(s) seleccionado(s)?`)) return;
-
-            // ✨ AGRUPAR SELECCIONADOS AL INICIO DE LA TABLA
-            reorderUsersBySelection();
-
-            // Agrupar por userId para contar usuarios únicos
-            const uniqueUserIds = [...new Set(verificationJobs.map(j => j.userId))];
-            const totalUsers = uniqueUserIds.length;
-
-            // Mostrar panel de progreso
-            showProgressPanel(totalUsers);
-
-            // Deshabilitar botón durante el proceso
-            target.disabled = true;
-            target.style.opacity = '0.5';
-            target.style.cursor = 'not-allowed';
-
-            // Variables para tracking
-            let currentStats = { validados: 0, con_fallos: 0 };
-            const verificationDetails = []; // Array para guardar detalles de cada verificación
-
-            // Listener para eventos de progreso en tiempo real
-            const progressHandler = (progressData) => {
-                console.log('Progreso recibido:', progressData);
-
-                // Actualizar panel de progreso
-                updateProgress(
-                    progressData.processed,
-                    progressData.total,
-                    progressData.stats.validados,
-                    progressData.stats.con_fallos
-                );
-
-                currentStats = progressData.stats;
-
-                // Actualizar feedback visual por fila
-                if (progressData.status === 'processing') {
-                    markRowAsVerifying(progressData.userId, progressData.services);
-                } else if (progressData.status === 'success' || progressData.status === 'failed' || progressData.status === 'error') {
-                    // Guardar detalles de la verificación
-                    const isSuccess = progressData.status === 'success';
-
-                    // DEBUG: Ver qué datos llegan
-                    console.log('🔍 [DEBUG] progressData completo:', progressData);
-                    console.log('🔍 [DEBUG] progressData.services:', progressData.services);
-                    console.log('🔍 [DEBUG] progressData.results:', progressData.results);
-
-                    // Determinar servicio verificado
-                    const services = progressData.services || [];
-
-                    // Si services es un array vacío o no existe, usar un fallback
-                    if (services.length === 0) {
-                        console.warn('⚠️ No hay servicios en progressData, agregando detalle sin servicio específico');
-                        verificationDetails.push({
-                            userId: progressData.userId,
-                            userName: progressData.userName || 'Usuario',
-                            service: 'N/A',
-                            success: isSuccess,
-                            error: isSuccess ? null : (progressData.error || 'Error desconocido')
-                        });
-                    } else {
-                        // Agregar cada servicio con su error específico
-                        services.forEach(service => {
-                            let errorMessage = null;
-
-                            // Obtener el error específico del resultado del servicio
-                            if (!isSuccess && progressData.results) {
-                                const serviceResult = progressData.results[service];
-                                if (serviceResult && serviceResult.error) {
-                                    errorMessage = serviceResult.error;
-                                }
-                            }
-
-                            // Si no hay error específico, usar el genérico
-                            if (!isSuccess && !errorMessage) {
-                                errorMessage = progressData.error || 'Error desconocido';
-                            }
-
-                            verificationDetails.push({
-                                userId: progressData.userId,
-                                userName: progressData.userName || 'Usuario',
-                                service: service,
-                                success: isSuccess,
-                                error: errorMessage
-                            });
-                        });
-                    }
-
-                    console.log('🔍 [DEBUG] verificationDetails actualizado:', verificationDetails);
-
-                    // Actualizar visual
-                    if (isSuccess) {
-                        markRowAsSuccess(progressData.userId);
-                    } else {
-                        markRowAsFailed(progressData.userId);
-                    }
-                }
-            };
-
-            // Suscribirse a eventos de progreso
-            window.electronAPI.user.onVerificationProgress(progressHandler);
-
-            try {
-                const result = await window.electronAPI.user.verifyBatch({ verificationJobs });
-
-                if (result.success) {
-                    const validados = result.stats.validados || 0;
-                    const fallos = result.stats.con_fallos || 0;
-
-                    // Actualizar panel con resultados finales
-                    updateProgress(totalUsers, totalUsers, validados, fallos);
-
-                    // Mostrar mensaje de éxito
-                    showAlert(`Verificación completada. Validados: ${validados}, Fallos: ${fallos}.`);
-
-                    // Ocultar panel de progreso después de 5 segundos
-                    hideProgressPanel(validados, fallos);
-
-                    // ✨ MOSTRAR PANEL DE RESULTADOS PERSISTENTE
-                    showResultsPanel({
-                        successCount: validados,
-                        failedCount: fallos,
-                        details: verificationDetails
-                    });
-
-                    // Refrescar el usuario seleccionado en memoria si fue actualizado
-                    if (result.updatedUsers && window.usuarioSeleccionado) {
-                        const updatedCurrentUser = result.updatedUsers.find(u => String(u.id) === String(window.usuarioSeleccionado.id));
-                        if (updatedCurrentUser) {
-                            console.log('Refrescando el usuario seleccionado en memoria...');
-                            window.usuarioSeleccionado = updatedCurrentUser;
-                        }
-                    }
-                } else {
-                    // Error en la verificación
-                    hideProgressPanel(0, 0, 3000);
-                    showAlert(result.error || 'Error en la verificación masiva.', 'error');
-
-                    // Mostrar panel de resultados con error si hay detalles
-                    if (verificationDetails.length > 0) {
-                        showResultsPanel({
-                            successCount: 0,
-                            failedCount: verificationDetails.length,
-                            details: verificationDetails
-                        });
-                    }
-                }
-            } catch (error) {
-                // Error de comunicación
-                hideProgressPanel(0, 0, 3000);
-                showAlert(`Error de comunicación: ${error.message}`, 'error');
-
-                // Mostrar panel de resultados con error si hay detalles parciales
-                if (verificationDetails.length > 0) {
-                    const successCount = verificationDetails.filter(d => d.success).length;
-                    const failedCount = verificationDetails.filter(d => !d.success).length;
-                    showResultsPanel({
-                        successCount,
-                        failedCount,
-                        details: verificationDetails
-                    });
-                }
-            } finally {
-                // Re-habilitar botón
-                target.disabled = false;
-                target.style.opacity = '1';
-                target.style.cursor = 'pointer';
-
-                // Recargar lista de usuarios
-                await loadUsers();
-            }
+        // --- Verificación en lote (split: click=ambas, flyout=Solo AFIP / Solo ATM) ---
+        const btnLote = target.closest('[data-probar-lote]');
+        if (btnLote) {
+            await ejecutarProbarLote(btnLote.dataset.probarLote.split(','));
+            return;
         }
 
         // --- Botón "Seleccionar todos" (toggle) ---
@@ -1739,24 +1814,75 @@ function inicializarUsuarioFrontend() {
             checkboxes.forEach(cb => { cb.checked = nuevoEstado; });
             btnSelAll.classList.toggle('activo', nuevoEstado);
             btnSelAll.textContent = nuevoEstado ? '☑️ Quitar selección' : '☑️ Seleccionar todos';
+            actualizarBotonesLote();
         }
     });
 
-    // Clic en el nombre/CUIT (.user-info) marca/desmarca el checkbox de esa fila:
-    // cómodo para seleccionar sin apuntar al cuadradito. El checkbox propio se
-    // togglea solo (no cae acá porque no está dentro de .user-info).
+    // Cualquier cambio de selección reetiqueta los botones de lote ("Analizar
+    // pendientes (12)" ⇄ "Analizar seleccionados (3)"). Va delegado en la lista para
+    // que siga andando después de cada re-render.
+    usersList.addEventListener('change', (e) => {
+        if (e.target.matches('.user-checkbox')) actualizarBotonesLote();
+    });
+
+    // Acciones de fila por delegación (Probar / Analizar). Antes iban por onclick
+    // inline; se migran a data-* para no meter claves ni nombres sin escapar en el
+    // HTML, y para que un solo listener cubra todas las filas. El abrir/cerrar del
+    // menú "Probar" es CSS puro (:hover/:focus-within), así que acá solo hay acciones.
     usersList.addEventListener('click', (e) => {
+        // Disparador "Probar ambas", "Solo AFIP" o "Solo ATM": todos llevan data-probar.
+        const btnProbar = e.target.closest('[data-probar]');
+        if (btnProbar) {
+            window.probarClaveDesdeListado(btnProbar.dataset.userId, btnProbar.dataset.probar.split(','));
+            return;
+        }
+
+        // Botón "Analizar" / "Refrescar".
+        const btnAnalizar = e.target.closest('[data-analizar]');
+        if (btnAnalizar) {
+            window.analizarClienteDesdeListado(btnAnalizar.dataset.userId, btnAnalizar.dataset.nombre || '');
+            return;
+        }
+
+        // Clic en el nombre/CUIT (.user-info) marca/desmarca el checkbox de esa fila:
+        // cómodo para seleccionar sin apuntar al cuadradito.
         const info = e.target.closest('.user-info');
-        if (!info) return;
-        const cb = info.closest('.user-item[data-user-id]')?.querySelector('.user-checkbox');
-        if (!cb || cb.disabled) return;
-        cb.checked = !cb.checked;
-        cb.dispatchEvent(new Event('change', { bubbles: true }));
+        if (info) {
+            const cb = info.closest('.user-item[data-user-id]')?.querySelector('.user-checkbox');
+            if (!cb || cb.disabled) return;
+            cb.checked = !cb.checked;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
     });
 
     // --- Eventos existentes ---
     document.getElementById('btnCrearUsuario')?.addEventListener('click', createUser);
     document.getElementById('btnRecargarLista')?.addEventListener('click', loadUsers);
+
+    // El modal de gestión de estudios avisa por evento cuando crea/renombra/elimina:
+    // recargamos para reflejar nombres, badges y selects (y limpiar los que se fueron).
+    document.addEventListener('grupos:cambiado', () => {
+        loadUsers().catch(err => console.error('[grupos] recarga tras cambio falló:', err));
+    });
+
+    // Exportar todos los clientes a Excel (proceso inverso a la carga masiva).
+    document.getElementById('btnExportarClientes')?.addEventListener('click', async () => {
+        try {
+            // Respeta el filtro de estudio: exporta solo el estudio elegido (o todos).
+            const grupoId = window.grupoFiltroActual || null;
+            const res = await window.electronAPI.exportarClientesExcel({ grupoId });
+            if (res.success) {
+                const grupo = grupoPorId(grupoId);
+                const alcance = grupoId === '__none__' ? ' (sin estudio)'
+                    : grupo ? ` del estudio "${grupo.nombre}"` : '';
+                showAlert(`Exportados ${res.total} cliente(s)${alcance} a:\n${res.filePath}\n\nOjo: el archivo incluye las claves en texto plano. Guardalo con cuidado.`, 'success');
+            } else if (!res.canceled) {
+                showAlert(`No se pudo exportar: ${res.error || 'error desconocido'}`, 'error');
+            }
+        } catch (err) {
+            showAlert(`Error al exportar: ${err.message}`, 'error');
+        }
+    });
 
     // Carga inicial y otros inicializadores
     loadUsers().catch(error => {
@@ -2010,6 +2136,22 @@ function inicializarCargaMasiva() {
             return;
         }
 
+        // Manejar click en botón "Descargar modelo"
+        if (event.target.closest('#btnDescargarModelo')) {
+            event.preventDefault();
+            try {
+                const res = await window.electronAPI.descargarPlantillaClientes();
+                if (res.success) {
+                    showAlert(`Modelo guardado en:\n${res.filePath}`, 'success');
+                } else if (!res.canceled) {
+                    showAlert(`No se pudo generar el modelo: ${res.error || 'error desconocido'}`, 'error');
+                }
+            } catch (err) {
+                showAlert(`Error al descargar el modelo: ${err.message}`, 'error');
+            }
+            return;
+        }
+
         // Si el elemento clickeado no es nuestro botón (o algo dentro de él), no hacemos nada
         if (!event.target.closest('#btnCargarExcel')) {
             return;
@@ -2056,7 +2198,30 @@ function inicializarCargaMasiva() {
                             return acc + (u.tieneAFIP ? 1 : 0) + (u.tieneATM ? 1 : 0);
                         }, 0);
 
-                        let message = `<div class="result-summary">✅ Proceso completado: Leídos: ${result.usuariosLeidos}, Creados: ${result.usuariosCreados}, Actualizados: ${result.usuariosActualizados}.</div>`;
+                        const errores = result.errores || 0;
+                        // Si hubo errores, el encabezado no debe fingir éxito total.
+                        const icono = errores > 0 ? '⚠️' : '✅';
+                        // "Sin cambios": ya estaban con todo cargado (fill-only no tocó nada).
+                        const sinCambios = result.usuariosSinCambios || 0;
+                        const sinCambiosTxt = sinCambios > 0 ? `, Sin cambios: ${sinCambios}` : '';
+                        let message = `<div class="result-summary">${icono} Proceso terminado: Leídos: ${result.usuariosLeidos}, Creados: ${result.usuariosCreados}, Actualizados: ${result.usuariosActualizados}${sinCambiosTxt}, Con error: ${errores}.</div>`;
+
+                        // Detalle de las filas que fallaron (antes quedaban ocultas).
+                        if (errores > 0 && Array.isArray(result.listaErrores) && result.listaErrores.length > 0) {
+                            const MAX = 10;
+                            message += `<span class="result-section-title error-title">❌ Filas con error (${errores}):</span><ul>`;
+                            result.listaErrores.slice(0, MAX).forEach(e => {
+                                // e.fila puede ser la fila cruda (objeto) o 'General'; mostramos el CUIT si lo hay.
+                                const ref = e.fila && typeof e.fila === 'object'
+                                    ? (e.fila.cuit || e.fila.cuil || JSON.stringify(e.fila).slice(0, 60))
+                                    : e.fila;
+                                message += `<li><b>${ref}</b> — ${e.error}</li>`;
+                            });
+                            if (result.listaErrores.length > MAX) {
+                                message += `<li>… y ${result.listaErrores.length - MAX} más</li>`;
+                            }
+                            message += `</ul>`;
+                        }
 
                         // Sección para usuarios que requieren actualización de clave
                         if (result.usuariosParaActualizar && result.usuariosParaActualizar.length > 0) {
@@ -2091,7 +2256,7 @@ function inicializarCargaMasiva() {
                         }
 
                         uploadStatus.innerHTML = message;
-                        uploadStatus.className = 'status-message success';
+                        uploadStatus.className = errores > 0 ? 'status-message warning' : 'status-message success';
                     } else {
                         if (result.errores > 1) {
                             errorMessage += ` (y ${result.errores - 1} más errores)`;
@@ -2177,18 +2342,21 @@ function mostrarModalProgreso(total) {
                 <div id="modalProgresoBarra" style="background:linear-gradient(90deg,#28a745,#20c997);height:100%;width:0%;transition:width .3s;"></div>
             </div>
             <div id="modalProgresoStats" style="margin-top:15px;font-size:13px;color:#666;"></div>
-            <div style="margin-top:10px;font-size:11px;color:#999;">El proceso no se puede cancelar a mitad. Cada cliente abre una sesión de AFIP.</div>
+            <div style="margin-top:10px;font-size:11px;color:#999;">El proceso no se puede cancelar a mitad. Se agrupa por credencial: un login por clave AFIP.</div>
         </div>
     `;
     document.body.appendChild(overlay);
 
     return {
-        actualizar(actual, mensaje, stats) {
+        // totalOverride: el lote agrupa por credencial, así que el total real (nº de
+        // logins) recién se conoce cuando llega el primer progreso. Permitimos pisarlo.
+        actualizar(actual, mensaje, stats, totalOverride) {
+            const tot = totalOverride || total;
             const t = document.getElementById('modalProgresoTexto');
             const b = document.getElementById('modalProgresoBarra');
             const s = document.getElementById('modalProgresoStats');
-            if (t) t.textContent = `${actual}/${total}: ${mensaje}`;
-            if (b) b.style.width = `${Math.round((actual / total) * 100)}%`;
+            if (t) t.textContent = `${actual}/${tot}: ${mensaje}`;
+            if (b) b.style.width = `${Math.round((actual / tot) * 100)}%`;
             if (s && stats) s.innerHTML = `✅ ${stats.exitosos} &nbsp;&nbsp; ❌ ${stats.fallidos}`;
         },
         cerrar() {
@@ -2198,18 +2366,25 @@ function mostrarModalProgreso(total) {
 }
 
 /**
- * Prueba las claves (AFIP/ATM) de un solo cliente desde el botón inline del listado.
- * Reutiliza verifyBatch con un job por cada clave cargada. Login liviano, sin scraping.
+ * Prueba credenciales de un cliente desde el listado. Login liviano, sin scraping.
+ *
+ * @param {string|number} userId
+ * @param {string[]} [servicios] Qué servicios probar: ['afip'], ['atm'] o ambos.
+ *        Si se omite, prueba TODAS las claves cargadas (comportamiento histórico).
+ *        Poder pedir ['atm'] solo es lo que permite validar ATM sin loguear AFIP.
  */
-window.probarClaveDesdeListado = async function (userId) {
+window.probarClaveDesdeListado = async function (userId, servicios) {
     const u = (window.allUsers || []).find(x => String(x.id) === String(userId));
     if (!u) { showAlert('No se encontró el cliente.', 'error'); return; }
 
+    // Filtro: solo servicios pedidos Y con clave cargada (pedir 'afip' sin clave AFIP
+    // no tiene sentido). Sin `servicios` → todas las que tenga.
+    const pedidos = Array.isArray(servicios) ? servicios : ['afip', 'atm'];
     const jobs = [];
-    if (u.claveAFIP) jobs.push({ userId: u.id, service: 'afip' });
-    if (u.claveATM) jobs.push({ userId: u.id, service: 'atm' });
+    if (pedidos.includes('afip') && u.claveAFIP) jobs.push({ userId: u.id, service: 'afip' });
+    if (pedidos.includes('atm') && u.claveATM) jobs.push({ userId: u.id, service: 'atm' });
     if (jobs.length === 0) {
-        showAlert('Este cliente no tiene claves cargadas para probar. Editalo y cargá la clave.', 'warning');
+        showAlert('Este cliente no tiene esa clave cargada para probar. Editalo y cargala.', 'warning');
         return;
     }
 
@@ -2264,9 +2439,161 @@ window.analizarClienteDesdeListado = async function (userId, nombre) {
 };
 
 /**
- * Itera una lista de clientes y dispara `empresa:analizarCliente` para cada uno.
- * Muestra modal de progreso, recolecta resumen y refresca la lista al final.
- * Helper compartido entre "Analizar pendientes" y "Re-analizar todos".
+ * Prueba credenciales de los clientes SELECCIONADOS para el/los servicio(s) pedidos.
+ * Es el motor detrás del split button "Probar seleccionadas": click en el principal
+ * → ['afip','atm']; "Solo AFIP"/"Solo ATM" → un único servicio.
+ *
+ * Caso borde central: pedir un servicio que algún (o ningún) seleccionado no tiene.
+ * Un job se arma SOLO cuando el servicio pedido coincide con una clave cargada, así
+ * que "probar ATM" sobre clientes sin ATM no genera un login destinado a fallar:
+ *   - nadie del grupo tiene la clave → no se prueba nada, se avisa y se corta.
+ *   - algunos la tienen → se prueban esos y se informa cuántos se saltearon.
+ *
+ * @param {string[]} servicios p.ej. ['atm'] o ['afip','atm']
+ */
+async function ejecutarProbarLote(servicios) {
+    const usersList = document.getElementById('usersList');
+    const btnMain = document.getElementById('btnVerificarSeleccionados');
+
+    const seleccionados = Array.from(usersList.querySelectorAll('.user-checkbox:checked'))
+        .map(cb => (window.allUsers || []).find(u => String(u.id) === String(cb.dataset.userId)))
+        .filter(Boolean);
+
+    if (seleccionados.length === 0) {
+        showAlert('No hay clientes seleccionados. Tildá al menos uno.', 'warning');
+        return;
+    }
+
+    // Un job por (servicio pedido ∩ clave cargada). `aportaron` = quiénes tienen algo
+    // que probar; el resto se saltea sin generar un login condenado a fallar.
+    const verificationJobs = [];
+    const aportaron = new Set();
+    seleccionados.forEach(u => {
+        if (servicios.includes('afip') && u.claveAFIP) { verificationJobs.push({ userId: u.id, service: 'afip' }); aportaron.add(String(u.id)); }
+        if (servicios.includes('atm') && u.claveATM) { verificationJobs.push({ userId: u.id, service: 'atm' }); aportaron.add(String(u.id)); }
+    });
+
+    const nombreSvc = servicios.length === 1 ? servicios[0].toUpperCase() : 'AFIP y ATM';
+
+    // Caso borde: pediste un servicio y NINGÚN seleccionado tiene esa clave.
+    if (verificationJobs.length === 0) {
+        showAlert(`Ninguno de los ${seleccionados.length} cliente(s) seleccionado(s) tiene clave ${nombreSvc} cargada. No hay nada que probar.`, 'warning');
+        return;
+    }
+
+    // Algunos seleccionados no tienen la clave pedida: se prueban los que sí, con aviso.
+    const salteados = seleccionados.length - aportaron.size;
+    let msg = `¿Probar ${servicios.length === 1 ? 'la clave ' + nombreSvc : 'las claves ' + nombreSvc} de ${aportaron.size} cliente(s) seleccionado(s)?`;
+    if (salteados > 0) msg += `\n\n${salteados} seleccionado(s) no tiene(n) clave ${nombreSvc} y se saltea(n).`;
+    if (!confirm(msg)) return;
+
+    reorderUsersBySelection();
+
+    const totalUsers = aportaron.size;
+    showProgressPanel(totalUsers);
+
+    // Deshabilitamos el botón PRINCIPAL (no el ítem clickeado): es el que queda visible.
+    if (btnMain) { btnMain.disabled = true; btnMain.style.opacity = '0.5'; btnMain.style.cursor = 'not-allowed'; }
+
+    const verificationDetails = [];
+
+    const progressHandler = (progressData) => {
+        updateProgress(progressData.processed, progressData.total, progressData.stats.validados, progressData.stats.con_fallos);
+
+        if (progressData.status === 'processing') {
+            markRowAsVerifying(progressData.userId, progressData.services);
+        } else if (progressData.status === 'success' || progressData.status === 'failed' || progressData.status === 'error') {
+            const isSuccess = progressData.status === 'success';
+            const services = progressData.services || [];
+
+            if (services.length === 0) {
+                verificationDetails.push({
+                    userId: progressData.userId,
+                    userName: progressData.userName || 'Usuario',
+                    service: 'N/A',
+                    success: isSuccess,
+                    error: isSuccess ? null : (progressData.error || 'Error desconocido')
+                });
+            } else {
+                services.forEach(service => {
+                    let errorMessage = null;
+                    if (!isSuccess && progressData.results) {
+                        const serviceResult = progressData.results[service];
+                        if (serviceResult && serviceResult.error) errorMessage = serviceResult.error;
+                    }
+                    if (!isSuccess && !errorMessage) errorMessage = progressData.error || 'Error desconocido';
+                    verificationDetails.push({
+                        userId: progressData.userId,
+                        userName: progressData.userName || 'Usuario',
+                        service,
+                        success: isSuccess,
+                        error: errorMessage
+                    });
+                });
+            }
+
+            if (isSuccess) markRowAsSuccess(progressData.userId);
+            else markRowAsFailed(progressData.userId);
+        }
+    };
+
+    window.electronAPI.user.onVerificationProgress(progressHandler);
+
+    try {
+        const result = await window.electronAPI.user.verifyBatch({ verificationJobs });
+
+        if (result.success) {
+            const validados = result.stats.validados || 0;
+            const fallos = result.stats.con_fallos || 0;
+            updateProgress(totalUsers, totalUsers, validados, fallos);
+            showAlert(`Verificación completada. Validados: ${validados}, Fallos: ${fallos}.`);
+            hideProgressPanel(validados, fallos);
+            showResultsPanel({ successCount: validados, failedCount: fallos, details: verificationDetails });
+
+            if (result.updatedUsers && window.usuarioSeleccionado) {
+                const updatedCurrentUser = result.updatedUsers.find(u => String(u.id) === String(window.usuarioSeleccionado.id));
+                if (updatedCurrentUser) window.usuarioSeleccionado = updatedCurrentUser;
+            }
+        } else {
+            hideProgressPanel(0, 0, 3000);
+            showAlert(result.error || 'Error en la verificación masiva.', 'error');
+            if (verificationDetails.length > 0) {
+                showResultsPanel({ successCount: 0, failedCount: verificationDetails.length, details: verificationDetails });
+            }
+        }
+    } catch (error) {
+        hideProgressPanel(0, 0, 3000);
+        showAlert(`Error de comunicación: ${error.message}`, 'error');
+        if (verificationDetails.length > 0) {
+            const successCount = verificationDetails.filter(d => d.success).length;
+            const failedCount = verificationDetails.filter(d => !d.success).length;
+            showResultsPanel({ successCount, failedCount, details: verificationDetails });
+        }
+    } finally {
+        if (btnMain) { btnMain.disabled = false; btnMain.style.opacity = '1'; btnMain.style.cursor = 'pointer'; }
+        await loadUsers();
+    }
+}
+
+// Progreso del lote de análisis. onAnalizarLoteProgreso usa ipcRenderer.on, que NO
+// se puede desuscribir desde el renderer → registramos UN solo listener permanente
+// que delega en el handler del lote en curso. Al terminar, se pone en null y los
+// eventos rezagados se ignoran (no ensucian un modal ya cerrado).
+let _handlerProgresoLote = null;
+let _suscritoProgresoLote = false;
+function usarHandlerProgresoLote(handler) {
+    _handlerProgresoLote = handler;
+    if (_suscritoProgresoLote) return;
+    _suscritoProgresoLote = true;
+    window.electronAPI.empresa.onAnalizarLoteProgreso((data) => {
+        if (_handlerProgresoLote) _handlerProgresoLote(data);
+    });
+}
+
+/**
+ * Analiza una lista de clientes vía `empresa:analizarLote` (UN login por credencial).
+ * El loop y el agrupamiento viven en el backend; acá solo confirmamos, mostramos el
+ * progreso por grupo (login) y resumimos. Helper de "Analizar pendientes" y "Refrescar".
  *
  * @param {Array} clientes
  * @param {{icono:string, mensajeConfirmacion:string, textoConfirmar:string}} opciones
@@ -2285,40 +2612,52 @@ async function procesarLoteAnalisis(clientes, opciones) {
     });
     if (!confirmed) return;
 
+    const cuits = clientes.map(c => c.cuit).filter(Boolean);
     const progreso = mostrarModalProgreso(clientes.length);
-    let exitosos = 0;
-    let fallidos = 0;
+    progreso.actualizar(0, 'Agrupando por credencial…', { exitosos: 0, fallidos: 0 });
+
+    let ok = 0;
+    let fallo = 0;
     const resumen = [];
 
-    for (let i = 0; i < clientes.length; i++) {
-        const cli = clientes[i];
-        const display = `${cli.nombre || ''} ${cli.apellido || ''}`.trim() || cli.cuit || cli.id;
-        progreso.actualizar(i + 1, display, { exitosos, fallidos });
-
-        try {
-            const resp = await window.electronAPI.empresa.analizarContribuyente({ cuit: cli.cuit });
-            if (resp.success) {
-                exitosos++;
-                const pdvs = (resp.data && resp.data.puntosDeVenta) || [];
-                resumen.push(`✅ ${display}: ${pdvs.length} PDV`);
-            } else {
-                fallidos++;
-                resumen.push(`❌ ${display}: ${resp.message || resp.error || 'falló'}`);
-            }
-        } catch (err) {
-            fallidos++;
-            resumen.push(`❌ ${display}: ${err.message}`);
+    // Progreso POR GRUPO (login): el backend nos manda el índice y el total real de
+    // logins, más los contribuyentes que cubre cada uno.
+    usarHandlerProgresoLote((p) => {
+        const cubre = `login ${p.loginCuit} · ${p.targets.length} contribuyente(s)`;
+        if (p.status === 'processing') {
+            progreso.actualizar(p.indice - 1, `Entrando: ${cubre}…`, { exitosos: ok, fallidos: fallo }, p.total);
+        } else if (p.status === 'ok') {
+            ok++;
+            resumen.push(`✅ ${cubre}: ${p.message || 'OK'}`);
+            progreso.actualizar(p.indice, `Listo: ${cubre}`, { exitosos: ok, fallidos: fallo }, p.total);
+        } else { // 'fallo' | 'error'
+            fallo++;
+            resumen.push(`❌ ${cubre}: ${p.message || p.error || 'falló'}`);
+            progreso.actualizar(p.indice, `Falló: ${cubre}`, { exitosos: ok, fallidos: fallo }, p.total);
         }
-        progreso.actualizar(i + 1, display, { exitosos, fallidos });
+    });
+
+    try {
+        const res = await window.electronAPI.empresa.analizarLote(cuits);
+        progreso.cerrar();
+        if (typeof loadUsers === 'function') await loadUsers();
+
+        const sin = (res.sinAcceso || []).length;
+        const gruposOk = res.gruposOk || 0;
+        const totalGrupos = res.totalGrupos || 0;
+        const cabecera =
+            `Lote terminado: ${gruposOk}/${totalGrupos} login(s) OK` +
+            (sin ? `, ${sin} contribuyente(s) sin acceso AFIP (salteado(s))` : '') +
+            `.\n(${cuits.length} contribuyente(s) resueltos con ${totalGrupos} login(s)).`;
+        const tipo = (gruposOk > 0 && fallo === 0 && !sin) ? 'success' : (gruposOk > 0 ? 'warning' : 'error');
+        showAlert(`${cabecera}\n\n${resumen.join('\n')}`, tipo);
+    } catch (err) {
+        progreso.cerrar();
+        if (typeof loadUsers === 'function') await loadUsers();
+        showAlert(`Error en el lote: ${err.message}`, 'error');
+    } finally {
+        usarHandlerProgresoLote(null);   // ignora eventos rezagados
     }
-
-    progreso.cerrar();
-    if (typeof loadUsers === 'function') await loadUsers();
-
-    showAlert(
-        `Lote terminado: ${exitosos} OK, ${fallidos} fallido(s).\n\n${resumen.join('\n')}`,
-        exitosos > 0 && fallidos === 0 ? 'success' : (exitosos > 0 ? 'warning' : 'error')
-    );
 }
 
 /**
@@ -2329,19 +2668,26 @@ async function analizarPorLote() {
     if (!result.success) {
         return showAlert('No se pudo cargar la lista de clientes.', 'error');
     }
-    const pendientes = (result.users || []).filter(u =>
-        u.estado_afip === 'validado' && u.analizado_afip !== true
-    );
+    const candidatos = soloVisibles(result.users || []).filter(u => esCandidatoAAnalisis(u) && u.analizado_afip !== true);
+    const { lista: pendientes, huboSeleccion } = objetivoDelLote(candidatos);
     if (pendientes.length === 0) {
-        return showAlert('No hay clientes pendientes de análisis.', 'info');
+        return showAlert(
+            huboSeleccion
+                ? 'Ninguno de los clientes seleccionados está pendiente de análisis.'
+                : 'No hay clientes pendientes de análisis.',
+            'info'
+        );
     }
     await procesarLoteAnalisis(pendientes, {
         icono: '🔍',
-        textoConfirmar: 'Sí, analizar todos',
+        textoConfirmar: 'Sí, analizar',
         mensajeConfirmacion:
-            `Vas a analizar ${pendientes.length} cliente(s) con AFIP validado y sin analizar.\n\n` +
-            'Cada cliente abre una sesión de AFIP, hace login y scrapea sus empresas. ' +
-            'Si tenés muchos puede tardar bastante.\n\n¿Continuar?'
+            `Vas a analizar ${pendientes.length} cliente(s)` +
+            `${huboSeleccion ? ' de los que seleccionaste' : ' (toda la lista: no hay ninguno tildado)'}.\n\n` +
+            'Se agrupan por credencial: un solo login por clave AFIP trae a todos sus ' +
+            'representados de una. El login valida la clave de paso, así que no hace ' +
+            'falta probarlas antes.\n\n' +
+            'Si son muchas credenciales distintas puede tardar.\n\n¿Continuar?'
     });
 }
 
@@ -2354,19 +2700,24 @@ async function reanalizarTodos() {
     if (!result.success) {
         return showAlert('No se pudo cargar la lista de clientes.', 'error');
     }
-    const analizados = (result.users || []).filter(u =>
-        u.estado_afip === 'validado' && u.analizado_afip === true
-    );
+    const candidatos = soloVisibles(result.users || []).filter(u => esCandidatoAAnalisis(u) && u.analizado_afip === true);
+    const { lista: analizados, huboSeleccion } = objetivoDelLote(candidatos);
     if (analizados.length === 0) {
-        return showAlert('No hay clientes analizados para refrescar.', 'info');
+        return showAlert(
+            huboSeleccion
+                ? 'Ninguno de los clientes seleccionados fue analizado todavía.'
+                : 'No hay clientes analizados para refrescar.',
+            'info'
+        );
     }
     await procesarLoteAnalisis(analizados, {
         icono: '🔄',
-        textoConfirmar: 'Sí, re-analizar TODOS',
+        textoConfirmar: huboSeleccion ? 'Sí, re-analizar' : 'Sí, re-analizar TODOS',
         mensajeConfirmacion:
-            `Vas a RE-ANALIZAR ${analizados.length} cliente(s) ya analizados.\n\n` +
-            'Cada cliente abre una sesión de AFIP completa (login + scrapeo de todas sus empresas). ' +
-            `Con ${analizados.length} clientes esto puede tardar varias HORAS.\n\n` +
+            `Vas a RE-ANALIZAR ${analizados.length} cliente(s) ya analizados` +
+            `${huboSeleccion ? ' de los que seleccionaste' : ' (toda la lista: no hay ninguno tildado)'}.\n\n` +
+            'Se agrupan por credencial (un login por clave AFIP), pero cada login scrapea ' +
+            'todas sus empresas: con muchas credenciales puede tardar bastante.\n\n' +
             'Los datos de empresas y puntos de venta se reemplazan por el scraping fresco.\n\n¿Continuar?'
     });
 }

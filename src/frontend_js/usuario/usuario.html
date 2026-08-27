@@ -24,6 +24,9 @@
                     <button class="btn btn-info btn-sm" onclick="toggleSection('bulkUploadSection')">
                         📂 Carga Masiva
                     </button>
+                    <button class="btn btn-secondary btn-sm" id="btnExportarClientes" title="Descarga TODOS los clientes a un Excel (incluye claves). Se puede volver a importar.">
+                        ⬆️ Exportar a Excel
+                    </button>
                     <button class="btn btn-secondary btn-sm" id="btnRecargarLista">
                         <span id="loadLoading" class="loading hidden"></span>
                         🔄 Recargar
@@ -94,6 +97,13 @@
                     <button id="btnClearSearch" class="btn-clear-search">
                         ✕ Limpiar
                     </button>
+                </div>
+                <div class="grupo-filtro-wrapper">
+                    <label for="grupoFiltro">🏢 Estudio:</label>
+                    <select id="grupoFiltro">
+                        <option value="">Todos los estudios</option>
+                        <option value="__none__">— Sin estudio —</option>
+                    </select>
                 </div>
                 <div class="search-results-count">
                     <span id="searchResultsCount"></span>
@@ -178,6 +188,16 @@
                                 <option value="">— Opera solo (sin representante) —</option>
                             </select>
                             <span class="form-hint">Si entra a AFIP por otra persona/empresa, elegila acá.</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="grupo">Estudio / Grupo:</label>
+                            <div class="grupo-input-row">
+                                <select id="grupo">
+                                    <option value="">— Sin estudio —</option>
+                                </select>
+                                <button type="button" class="btn-gestionar-grupos" onclick="window.abrirGestionGrupos()" title="Crear, renombrar o eliminar estudios">⚙️</button>
+                            </div>
+                            <span class="form-hint">Para agrupar tus clientes por estudio. Es independiente del representante.</span>
                         </div>
                     </div>
                 </div>
@@ -264,6 +284,16 @@
                             </select>
                             <span class="form-hint">Si entra a AFIP por otra persona/empresa, elegila acá.</span>
                         </div>
+                        <div class="form-group">
+                            <label for="editGrupo">Estudio / Grupo:</label>
+                            <div class="grupo-input-row">
+                                <select id="editGrupo">
+                                    <option value="">— Sin estudio —</option>
+                                </select>
+                                <button type="button" class="btn-gestionar-grupos" onclick="window.abrirGestionGrupos()" title="Crear, renombrar o eliminar estudios">⚙️</button>
+                            </div>
+                            <span class="form-hint">Para agrupar tus clientes por estudio. Es independiente del representante.</span>
+                        </div>
                     </div>
                 </div>
                 <!-- Edición = solo datos. Probar clave / Traer empresas viven en la lista. -->
@@ -289,6 +319,33 @@
                 </button>
             </div>
             <div class="form-section">
+                <details class="ayuda-carga-masiva" style="margin-bottom: 12px; font-size: 0.9em; color: var(--u-texto-2);">
+                    <summary style="cursor: pointer; font-weight: 600;">ℹ️ Formato esperado del Excel</summary>
+                    <p style="margin: 8px 0;">
+                        Los <b>encabezados deben estar en la primera fila</b> de la primera hoja
+                        (sin títulos ni filas en blanco por encima). El <b>orden de las columnas no importa</b>.
+                        Solo <code>cuit</code> es obligatorio.
+                    </p>
+                    <table style="border-collapse: collapse; width: 100%;">
+                        <thead>
+                            <tr><th style="text-align:left; padding:2px 8px;">Columna</th><th style="text-align:left; padding:2px 8px;">Oblig.</th><th style="text-align:left; padding:2px 8px;">Notas</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td style="padding:2px 8px;"><code>cuit</code> (o <code>cuil</code>)</td><td style="padding:2px 8px;">Sí</td><td style="padding:2px 8px;">Se le quitan guiones/espacios; debe quedar en 11 dígitos</td></tr>
+                            <tr><td style="padding:2px 8px;"><code>nombre</code></td><td style="padding:2px 8px;">No</td><td></td></tr>
+                            <tr><td style="padding:2px 8px;"><code>apellido</code></td><td style="padding:2px 8px;">No</td><td></td></tr>
+                            <tr><td style="padding:2px 8px;"><code>razonSocial</code></td><td style="padding:2px 8px;">No</td><td style="padding:2px 8px;">Si falta, se arma con apellido + nombre</td></tr>
+                            <tr><td style="padding:2px 8px;"><code>tipoContribuyente</code></td><td style="padding:2px 8px;">No</td><td style="padding:2px 8px;">A | B | C | M</td></tr>
+                            <tr><td style="padding:2px 8px;"><code>cuitRepresentante</code></td><td style="padding:2px 8px;">No</td><td style="padding:2px 8px;">CUIT de quien lo representa en AFIP. Si se completa, el cliente entra por él (sin clave AFIP propia)</td></tr>
+                            <tr><td style="padding:2px 8px;"><code>claveAFIP</code></td><td style="padding:2px 8px;">No</td><td></td></tr>
+                            <tr><td style="padding:2px 8px;"><code>claveATM</code></td><td style="padding:2px 8px;">No</td><td></td></tr>
+                            <tr><td style="padding:2px 8px;"><code>estadoAFIP</code> / <code>estadoATM</code></td><td style="padding:2px 8px;">No</td><td style="padding:2px 8px;">Restaura la validación de un backup. Solo al crear un registro nuevo; en uno existente no se pisa</td></tr>
+                        </tbody>
+                    </table>
+                    <button class="btn btn-secondary btn-sm" id="btnDescargarModelo" style="margin-top: 10px;">
+                        ⬇️ Descargar modelo (.xlsx)
+                    </button>
+                </details>
                 <div class="form-group">
                     <label for="excelFile">Selecciona archivo Excel (.xlsx, .xls, .csv):</label>
                     <input type="file" id="excelFile" accept=".xlsx, .xls, .csv">

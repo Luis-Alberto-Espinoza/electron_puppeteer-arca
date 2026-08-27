@@ -16,6 +16,7 @@ let userStorage;
 
 // Importar los handlers de usuario modularizados
 const setupUserHandlers = require('../cliente/handlers.js');
+const setupGruposHandlers = require('../cliente/grupos/handlers.js');
 const setupContribuyenteHandlers = require('../cliente/contribuyenteHandlers.js');
 const setupMercadoPagoHandlers = require('../afip/extraerDemercadoPago/handlers.js');
 
@@ -46,8 +47,14 @@ const setupListasPlanesPagoHandlers = require('../afip/planesDePago/handlers_lis
 // Historial de acciones (bitacora persistente, un solo usuario)
 const setupHistorialHandlers = require('../historial/handlers.js');
 
+// Carpeta de datos (ver/cambiar dónde viven los .json) — Fase 2
+const setupDatosHandlers = require('../comun/handlers.js');
+
 // Importar la nueva función de carga masiva
 const { procesarArchivoUsuarios } = require('../cliente/service/cargaMasiva.js');
+const { generarPlantillaClientes, generarExcelContribuyentes } = require('../cliente/service/plantillaCargaMasiva.js');
+const { getContribuyenteRepo } = require('../cliente/contribuyenteStore.js');
+const { gruposManager } = require('../cliente/grupos/gruposManager.js');
 
 // Lanzador de navegador y verificador de ATM para la validación manual
 const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher');
@@ -365,7 +372,9 @@ app.whenReady().then(async () => {
 
         // Setup handlers and listeners
         setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
+        setupGruposHandlers(ipcMain);
         setupContribuyenteHandlers(ipcMain); // modelo plano (listar, sin claves)
+        setupDatosHandlers(ipcMain, app, dialog); // carpeta de datos (Fase 2)
         setupMercadoPagoHandlers(ipcMain, mainWindow, dialog);
         setupFacturaHandlers(ipcMain, userStorage, mainWindow);
         setupVepHandlers(ipcMain, userStorage, mainWindow, app);
@@ -391,6 +400,66 @@ app.whenReady().then(async () => {
         setupListasPlanesPagoHandlers(ipcMain);
 
         setupHistorialHandlers(ipcMain); // bitacora de acciones (solo lectura desde el front)
+
+        // Handler para descargar el Excel modelo de carga masiva
+        ipcMain.handle('descargar-plantilla-clientes', async () => {
+            try {
+                const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
+                    title: 'Guardar modelo de carga de clientes',
+                    defaultPath: 'modelo_carga_clientes.xlsx',
+                    filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+                });
+                if (canceled || !filePath) return { success: false, canceled: true };
+
+                fs.writeFileSync(filePath, generarPlantillaClientes());
+                return { success: true, filePath };
+            } catch (error) {
+                console.error('Error generando el modelo de carga:', error);
+                return { success: false, error: error.message };
+            }
+        });
+
+        // Exportar clientes a Excel (proceso inverso a la carga masiva). Respeta el
+        // filtro de estudio: si el frontend manda un grupoId, exporta SOLO ese estudio
+        // (o los sin estudio con '__none__'); sin grupoId, exporta todos.
+        // Va por el repo (no por contribuyente:listar) porque el archivo incluye las
+        // claves, y listar las oculta a propósito.
+        ipcMain.handle('exportar-clientes-excel', async (event, opciones = {}) => {
+            try {
+                const grupoId = opciones && opciones.grupoId ? opciones.grupoId : null;
+                const grupos = gruposManager.listar();
+
+                // Recorte por estudio + etiqueta para el nombre del archivo.
+                const repo = getContribuyenteRepo();
+                let contribuyentes = await repo.obtenerTodos();
+                let etiqueta = '';
+                if (grupoId === '__none__') {
+                    contribuyentes = contribuyentes.filter(c => !c.grupoId);
+                    etiqueta = 'SinEstudio';
+                } else if (grupoId) {
+                    contribuyentes = contribuyentes.filter(c => c.grupoId === grupoId);
+                    const g = grupos.find(x => x.id === grupoId);
+                    etiqueta = (g ? g.nombre : 'Estudio').replace(/[^\p{L}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '');
+                }
+
+                const fecha = new Date().toISOString().slice(0, 10);
+                const nombreArchivo = etiqueta
+                    ? `clientes_${etiqueta}_${fecha}.xlsx`
+                    : `clientes_${fecha}.xlsx`;
+                const { filePath, canceled } = await dialog.showSaveDialog(mainWindow, {
+                    title: 'Exportar clientes a Excel',
+                    defaultPath: nombreArchivo,
+                    filters: [{ name: 'Excel', extensions: ['xlsx'] }]
+                });
+                if (canceled || !filePath) return { success: false, canceled: true };
+
+                fs.writeFileSync(filePath, generarExcelContribuyentes(contribuyentes, grupos));
+                return { success: true, filePath, total: contribuyentes.length };
+            } catch (error) {
+                console.error('Error exportando clientes a Excel:', error);
+                return { success: false, error: error.message };
+            }
+        });
 
         // Handler para la carga masiva de usuarios desde Excel
         ipcMain.handle('cargar-usuarios-masivo', async (event, fileBuffer) => {
