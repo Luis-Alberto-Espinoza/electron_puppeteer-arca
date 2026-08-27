@@ -22,8 +22,18 @@ const { normalizarContribuyente } = require('../src/backend/cliente/contribuyent
 
 const args = process.argv.slice(2);
 const DRY = args.includes('--dry');
-const DATA_DIR = args.find(a => !a.startsWith('--')) || path.join(os.homedir(), '.config', 'afip_atm');
-const usersPath = path.join(DATA_DIR, 'users.json');
+const firstArg = args.find(a => !a.startsWith('--'));
+
+// Allow passing either a data directory OR a direct path to users.json
+let DATA_DIR;
+let usersPath;
+if (firstArg && fs.existsSync(firstArg) && fs.statSync(firstArg).isFile()) {
+    usersPath = path.resolve(firstArg);
+    DATA_DIR = path.dirname(usersPath);
+} else {
+    DATA_DIR = firstArg || path.join(os.homedir(), '.config', 'afip_atm');
+    usersPath = path.join(DATA_DIR, 'users.json');
+}
 const outContrib = path.join(DATA_DIR, 'contribuyentes.json');
 const outPend = path.join(DATA_DIR, 'pendientes_cuit.json');
 const backupPath = path.join(DATA_DIR, 'users.json.bak');

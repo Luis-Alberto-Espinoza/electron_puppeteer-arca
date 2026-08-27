@@ -16,7 +16,9 @@
 const { resolverAcceso, nombreDe } = require('./resolverAcceso.js');
 const { normalizarPuntoDeVenta } = require('./model.js');
 
-const ESTADOS = new Set(['no_aplica', 'pendiente', 'validado', 'invalido', 'requiere_actualizacion']);
+// 'no_verificado': no se pudo comprobar la clave (ej. AFIP interpuso captcha por
+// bloqueo temporal de IP). NO es 'invalido' — la clave puede ser buena; hay que reintentar.
+const ESTADOS = new Set(['no_aplica', 'pendiente', 'validado', 'invalido', 'requiere_actualizacion', 'no_verificado']);
 const TIPOS_CONTRIB = new Set(['A', 'B', 'C', 'M']);
 
 /** Error tipado: lleva `.code` legible en vez de un string suelto. */
@@ -62,7 +64,17 @@ function normalizarContribuyente(raw) {
     const errorAfip = representante ? null : (raw.errorAfip || null);
 
     return {
-        id: raw.id,                                   // handle de transición
+        // Handle de transición que el frontend usa para editar/borrar (user:update
+        // y user:delete resuelven con getById). Versiones viejas del barrido crearon
+        // filas de representadas SIN id, y el CRUD las rechazaba con "Usuario no
+        // encontrado" — imposible de arreglar salvo borrando y re-barriendo, que se
+        // lleva puesto grupoId, claveATM y todo lo cargado a mano.
+        //
+        // Se rellena con el CUIT (que ya es la PK) y NO con un valor random: esto
+        // corre en CADA lectura, así que tiene que ser determinista. Un id nuevo por
+        // carga dejaría al frontend con un handle vencido apenas se recargue la lista
+        // — peor que no tener id, porque fallaría de manera intermitente.
+        id: raw.id != null ? raw.id : cuitNorm,
         cuit: cuitNorm,
         tipo,
         razonSocial: String(raw.razonSocial || '').trim(),
@@ -82,6 +94,13 @@ function normalizarContribuyente(raw) {
         fechaVerificacionAtm: raw.fechaVerificacionAtm || null,
 
         representanteAfipCuit: representante,
+
+        // Estudio/grupo al que pertenece (FK blanda al registro grupos.json). Es una
+        // etiqueta ORGANIZATIVA ("quién administra"), independiente del representante
+        // AFIP (login). null = sin estudio. Ver docs/modelo_cliente/plan_grupos_estudios.
+        grupoId: (raw.grupoId != null && String(raw.grupoId).trim() !== '')
+            ? String(raw.grupoId).trim()
+            : null,
 
         puntosDeVenta: Array.isArray(raw.puntosDeVenta)
             ? raw.puntosDeVenta.map(normalizarPuntoDeVenta).filter(Boolean)
@@ -206,10 +225,9 @@ function crearContribuyenteRepo(store) {
             if (lista.some(c => c.cuit === nuevo.cuit)) {
                 throw repoError('CUIT_DUPLICADO', `Ya existe un contribuyente con CUIT ${nuevo.cuit}`);
             }
-            // id = handle de transición que usa el frontend (editar/borrar). Si el
-            // creador no lo trajo, lo generamos acá (si no, queda undefined y el
-            // frontend no puede distinguirlo del resto sin id).
-            if (nuevo.id == null) nuevo.id = Date.now() + Math.random();
+            // El id ya lo garantiza normalizarContribuyente (cae al CUIT si el creador
+            // no trajo uno), así que acá no hace falta generarlo. Se respeta el que
+            // venga: el CRUD manda su propio timestamp para las altas manuales.
             nuevo.fechaCreacion = nuevo.fechaCreacion || new Date().toISOString();
             lista.push(nuevo);
             persistir(lista);
@@ -257,6 +275,21 @@ function crearContribuyenteRepo(store) {
             lista.splice(idx, 1);
             persistir(lista);
             return { ok: true };
+        },
+
+        // Limpia el grupo de TODOS sus miembros (una pasada, un solo persistir).
+        // Lo usa el borrado de un estudio: los clientes quedan "sin grupo", nunca
+        // se borran (decisión de diseño). No reproyecta users.json: grupoId es
+        // CRUD-only, la proyección no lo lleva.
+        async desasignarGrupo(grupoId) {
+            const objetivo = String(grupoId);
+            const lista = cargarNormalizado();
+            let cambiados = 0;
+            for (const c of lista) {
+                if (c.grupoId === objetivo) { c.grupoId = null; cambiados++; }
+            }
+            if (cambiados > 0) persistir(lista);
+            return { cambiados };
         }
     };
 
