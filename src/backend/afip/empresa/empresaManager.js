@@ -19,7 +19,7 @@ const {
     procesarEnAbmSinSelector,
     volverAListaEmpresas
 } = require('../../puppeteer/afip/empresa/flujo_abmPuntosDeVenta.js');
-const { listarEmpresas } = require('../../puppeteer/afip/archivosComunes/empresasDisponibles.js');
+const { listarEmpresas, normalizarFuerte } = require('../../puppeteer/afip/archivosComunes/empresasDisponibles.js');
 const { buscarEnAfip } = require('../../puppeteer/afip/archivosComunes/buscadorAfip.js');
 const { listarRepresentadosSistemaRegistral } = require('../../puppeteer/afip/archivosComunes/representadosSistemaRegistral.js');
 const { crearEmpresa, normalizarPuntoDeVenta, getEmpresaPorRazonSocial } = require('../../cliente/model.js');
@@ -464,6 +464,128 @@ async function analizarEmpresa(userStorage, usuarioId, razonSocial) {
 }
 
 /**
+ * Estado de credencial que le corresponde a cada error de `login_arca`.
+ *
+ * TIMEOUT / UNEXPECTED_ERROR caen a 'no_verificado' a propósito: que AFIP no
+ * conteste no prueba que la clave esté mal. Marcarlos 'invalido' condenaría
+ * credenciales buenas por un problema de red — mismo criterio que ya se usa
+ * para el captcha.
+ */
+const ESTADO_POR_ERROR_LOGIN = {
+    INVALID_CREDENTIALS: 'invalido',
+    INVALID_CUIT: 'invalido',
+    UPDATE_PASSWORD_REQUIRED: 'requiere_actualizacion',
+    CAPTCHA_BLOQUEO: 'no_verificado',
+    TIMEOUT: 'no_verificado',
+    UNEXPECTED_ERROR: 'no_verificado'
+};
+
+/**
+ * Traduce el resultado del login AFIP al estado de credencial y lo persiste.
+ *
+ * Es lo que convierte a "analizar" en una validación implícita: si el login
+ * anduvo, la clave es buena, y no hace falta una pasada previa de "probar clave"
+ * (que era un segundo login para averiguar exactamente lo mismo).
+ *
+ * OJO con la fila destino: se sella la del DUEÑO de la clave (`loginCuit`), no la
+ * del contribuyente analizado. Si el analizado es un representado, el normalizador
+ * le fuerza `estado_afip='no_aplica'` (invariante: representado sin clave propia),
+ * así que escribir el estado en su fila se perdería en silencio.
+ *
+ * @returns {Promise<string>} el estado que quedó sellado
+ */
+async function sellarEstadoAfip(repo, loginCuit, loginResult) {
+    const estado = loginResult.success
+        ? 'validado'
+        : (ESTADO_POR_ERROR_LOGIN[loginResult.error] || 'no_verificado');
+
+    try {
+        await repo.actualizar(String(loginCuit), {
+            estado_afip: estado,
+            errorAfip: loginResult.success
+                ? null
+                : (loginResult.message || loginResult.error || 'No se pudo iniciar sesión en AFIP'),
+            fechaVerificacionAfip: new Date().toISOString()
+        });
+        console.log(`  🔐 Credencial AFIP de ${loginCuit} sellada como "${estado}".`);
+    } catch (e) {
+        // No aborta el análisis: el scraping puede seguir aunque el sello falle.
+        console.error(`  ⚠️ No se pudo sellar el estado AFIP de ${loginCuit}: ${e.message}`);
+    }
+    return estado;
+}
+
+/**
+ * Decide si hay que pisar la razón social guardada con la que muestra AFIP.
+ *
+ * La razón social NO es un campo descriptivo: es la CLAVE DE MATCHEO contra la
+ * pantalla de "elegir empresa" (seleccionarEmpresa compara contra el texto de los
+ * botones .btn_empresa). Si no coincide con lo que muestra el organismo, la
+ * facturación muere con "Empresa X no encontrada en la lista".
+ *
+ * Por eso acá gana AFIP y pisamos lo que haya cargado el humano, que suele ser un
+ * apodo ("Mastantuono Guadalupe" contra "BLANCO GUADALUPE AILEN"). El apodo NO se
+ * pierde: vive en nombre/apellido, que este barrido nunca toca.
+ *
+ * Se compara con normalizarFuerte —el MISMO criterio del fallback 2 de
+ * seleccionarEmpresa— para no reescribir la fila en cada barrido por diferencias
+ * de tildes o mayúsculas que el matcher ya perdona.
+ *
+ * @param {Object} filaPrevia        contribuyente ya guardado
+ * @param {string} razonSocialAfip   razón social leída de AFIP
+ * @returns {{razonSocial?: string}} para hacer spread sobre los cambios (vacío = no tocar)
+ */
+function sincronizarRazonSocial(filaPrevia, razonSocialAfip) {
+    const deAfip = (razonSocialAfip || '').trim();
+    if (!deAfip) return {};   // AFIP no trajo nombre: jamás pisar con vacío.
+
+    const guardada = (filaPrevia && filaPrevia.razonSocial) || '';
+    if (normalizarFuerte(guardada) === normalizarFuerte(deAfip)) return {};
+
+    console.log(`  🔄 Razón social desactualizada en ${filaPrevia.cuit}: "${guardada}" → "${deAfip}" (manda AFIP).`);
+    return { razonSocial: deAfip };
+}
+
+/**
+ * Vincula una fila YA EXISTENTE con el representante bajo cuyo login apareció.
+ *
+ * Si AFIP nos mostró esa empresa entrando con la clave de otro CUIT, la representación
+ * existe en el organismo: es la fuente más confiable que tenemos. Antes esto solo se
+ * guardaba al CREAR la fila; si la empresa ya estaba dada de alta el vínculo se perdía
+ * y había que ponerlo a mano con el select, una por una.
+ *
+ * OJO, ES DESTRUCTIVO A PROPÓSITO: `normalizarContribuyente` mantiene la invariante
+ * "representado NO tiene clave propia", así que al escribir `representanteAfipCuit` la
+ * `claveAFIP` de esa fila se borra y su estado vuelve a `no_aplica`. Decisión tomada
+ * el 2026-08-10: el barrido manda. Por eso cada borrado se loguea con el CUIT, para
+ * poder recuperar la clave del backup si hiciera falta.
+ *
+ * @param {Object} filaPrevia  contribuyente ya guardado
+ * @param {string} loginCuit   CUIT con cuya clave entramos a AFIP
+ * @returns {{representanteAfipCuit?: string}} para spread sobre los cambios
+ */
+function vincularConRepresentante(filaPrevia, loginCuit) {
+    const cuitFila = String(filaPrevia.cuit);
+    const rep = String(loginCuit);
+
+    // La empresa ES el login: opera sola, no se representa a sí misma.
+    if (cuitFila === rep) return {};
+    // Ya está vinculada a este mismo representante: nada que escribir.
+    if (String(filaPrevia.representanteAfipCuit || '') === rep) return {};
+
+    const repAnterior = filaPrevia.representanteAfipCuit;
+    if (repAnterior) {
+        console.log(`  🔗 ${cuitFila} cambia de representante: ${repAnterior} → ${rep} (lo vimos con ESTE login).`);
+    } else {
+        console.log(`  🔗 ${cuitFila} "${filaPrevia.razonSocial}" pasa a representada por ${rep}.`);
+    }
+    if (filaPrevia.claveAFIP) {
+        console.log(`     ⚠️ Pierde su clave AFIP propia (estado "${filaPrevia.estado_afip}"). Si la necesitás, está en el backup.`);
+    }
+    return { representanteAfipCuit: rep };
+}
+
+/**
  * Modelo plano: analiza UN contribuyente y guarda sus PDV en `contribuyentes.json`
  * vía el repo. El login lo resuelve `resolverAcceso` (representante si aplica) y se
  * scrapea la empresa OBJETIVO (su razón social canónica). Reemplaza, para el CRUD
@@ -472,7 +594,11 @@ async function analizarEmpresa(userStorage, usuarioId, razonSocial) {
  * @param {Object} repo  contribuyenteRepo (resolverAcceso + actualizar)
  * @param {string} cuit  CUIT del contribuyente a analizar
  */
-async function analizarContribuyente(repo, cuit) {
+async function analizarContribuyente(repo, cuit, opciones = {}) {
+    // dejarAbiertoEnError: en el análisis de a UNO conviene dejar el navegador abierto
+    // para inspeccionar qué falló. En LOTE se apaga (ver analizarLote): 5 logins malos
+    // = 5 Chrome zombis comiéndose la RAM.
+    const { dejarAbiertoEnError = true } = opciones;
     const acceso = await repo.resolverAcceso(String(cuit), 'afip');
     if (!acceso) {
         return { success: false, error: 'NO_ACCESO', message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
@@ -489,8 +615,16 @@ async function analizarContribuyente(repo, cuit) {
         const puntosDeVenta = (pdvsCrudos || []).map(p => normalizarPuntoDeVenta(p)).filter(Boolean);
         const cambios = { puntosDeVenta, puntosDeVentaActualizados: new Date().toISOString() };
 
-        if (await repo.getByCuit(String(cuitEmpresa))) {
-            await repo.actualizar(String(cuitEmpresa), cambios);
+        const previo = await repo.getByCuit(String(cuitEmpresa));
+        if (previo) {
+            // Además de los PDV, realineamos con lo que AFIP nos acaba de mostrar:
+            // la razón social (clave de matcheo al elegir empresa) y de quién depende
+            // esta empresa (el login con el que la vimos).
+            await repo.actualizar(String(cuitEmpresa), {
+                ...cambios,
+                ...sincronizarRazonSocial(previo, razonSocial),
+                ...vincularConRepresentante(previo, acceso.loginCuit)
+            });
             return { creado: false };
         }
         const esElLogin = String(cuitEmpresa) === String(acceso.loginCuit);
@@ -506,10 +640,21 @@ async function analizarContribuyente(repo, cuit) {
     // Crea la fila de una empresa representada que NO pasó por el ABM (no tiene PDV,
     // por eso el ABM no la lista). NO toca puntosDeVenta: la creamos "vacía" y sin
     // fecha de actualización, para dejar claro que sus PDV nunca se scrapearon. Si la
-    // fila ya existe (la analizó el ABM recién, o estaba de antes), no la tocamos.
+    // fila ya existe (la analizó el ABM recién, o estaba de antes), lo ÚNICO que le
+    // sincronizamos es la razón social oficial que trae Sistema Registral.
     async function crearFilaRepresentadoSiFalta(cuitEmpresa, razonSocial) {
         if (!cuitEmpresa) return { creado: false };
-        if (await repo.getByCuit(String(cuitEmpresa))) return { creado: false };
+        const previo = await repo.getByCuit(String(cuitEmpresa));
+        if (previo) {
+            // Sistema Registral lista JUSTO a los representados de este login, así que
+            // es la fuente más directa del vínculo. Igual que arriba: no tocamos PDV.
+            const cambios = {
+                ...sincronizarRazonSocial(previo, razonSocial),
+                ...vincularConRepresentante(previo, acceso.loginCuit)
+            };
+            if (Object.keys(cambios).length) await repo.actualizar(String(cuitEmpresa), cambios);
+            return { creado: false };
+        }
         const esElLogin = String(cuitEmpresa) === String(acceso.loginCuit);
         await repo.crear({
             cuit: String(cuitEmpresa),
@@ -522,8 +667,22 @@ async function analizarContribuyente(repo, cuit) {
     return await puppeteerManager.ejecutar(async (browser, page) => {
         console.log('🔵 [EmpresaManager] analizarContribuyente: login AFIP...');
         const loginResult = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
+
+        // El login ES la validación de la credencial: sellamos el estado en ambos
+        // casos (ande o falle) para no necesitar una pasada aparte de "probar clave".
+        const estadoAfip = await sellarEstadoAfip(repo, acceso.loginCuit, loginResult);
+
         if (!loginResult.success) {
-            return { success: false, error: 'LOGIN_FAILED', message: loginResult.message };
+            return {
+                success: false,
+                // Error GRANULAR tal cual lo dio el login (INVALID_CREDENTIALS,
+                // CAPTCHA_BLOQUEO, UPDATE_PASSWORD_REQUIRED, TIMEOUT...). Antes se
+                // aplastaba todo a 'LOGIN_FAILED' y quien llamaba no podía distinguir
+                // "la clave está mal" de "reintentá más tarde".
+                error: loginResult.error || 'LOGIN_FAILED',
+                message: loginResult.message || 'No se pudo iniciar sesión en AFIP.',
+                data: { estadoAfip, loginCuit: String(acceso.loginCuit) }
+            };
         }
 
         const { page: pageLista, modo } = await abrirAbmPuntosVenta(page);
@@ -649,7 +808,67 @@ async function analizarContribuyente(repo, cuit) {
                 resultados
             }
         };
-    }, { headless: false, dejarAbiertoEnError: true });
+    }, { headless: false, dejarAbiertoEnError });
+}
+
+/**
+ * Analiza un LOTE de contribuyentes con UN login por credencial, no por contribuyente.
+ *
+ * Clave del ahorro: `analizarContribuyente` en modo "lista" ya scrapea TODAS las
+ * empresas que un login ve (la propia + las representadas) y guarda cada una en su
+ * fila. Entonces, si 12 contribuyentes cuelgan del mismo representante, alcanza UN
+ * login del representante para traerlos a todos. Agrupamos por `loginCuit` (que
+ * `resolverAcceso` resuelve sin abrir navegador) y disparamos un análisis por grupo.
+ *
+ * Pasamos `loginCuit` como objetivo (no un representado cualquiera) para que el sello
+ * final de "analizado" caiga sobre el dueño de la clave aunque no tenga PDV propios.
+ *
+ * @param {Object} repo
+ * @param {Array<string>} cuits contribuyentes objetivo del lote
+ * @param {(p:Object)=>void} [onProgreso] callback de progreso POR GRUPO (login)
+ * @returns {Promise<Object>} resumen agregado
+ */
+async function analizarLote(repo, cuits, onProgreso = () => {}) {
+    // 1) Agrupar por credencial. resolverAcceso es puro repo (sin navegador) → barato.
+    const grupos = new Map();      // loginCuit -> [cuits objetivo]
+    const sinAcceso = [];
+    for (const cuit of cuits) {
+        let acceso = null;
+        try { acceso = await repo.resolverAcceso(String(cuit), 'afip'); } catch (_) { /* lo tratamos como sin acceso */ }
+        if (!acceso) { sinAcceso.push(String(cuit)); continue; }
+        const key = String(acceso.loginCuit);
+        if (!grupos.has(key)) grupos.set(key, []);
+        grupos.get(key).push(String(cuit));
+    }
+
+    const totalGrupos = grupos.size;
+    console.log(`🔵 [EmpresaManager] analizarLote: ${cuits.length} contribuyente(s) → ${totalGrupos} login(s) distinto(s)${sinAcceso.length ? `, ${sinAcceso.length} sin acceso` : ''}.`);
+
+    // 2) Un análisis (un navegador) por grupo, en serie.
+    const resultados = [];
+    let i = 0;
+    for (const [loginCuit, targets] of grupos.entries()) {
+        i++;
+        onProgreso({ status: 'processing', indice: i, total: totalGrupos, loginCuit, targets });
+        try {
+            const r = await analizarContribuyente(repo, loginCuit, { dejarAbiertoEnError: false });
+            resultados.push({ loginCuit, targets, success: !!r.success, message: r.message, error: r.error, data: r.data });
+            onProgreso({ status: r.success ? 'ok' : 'fallo', indice: i, total: totalGrupos, loginCuit, targets, message: r.message, error: r.error });
+        } catch (e) {
+            resultados.push({ loginCuit, targets, success: false, error: e.message });
+            onProgreso({ status: 'error', indice: i, total: totalGrupos, loginCuit, targets, message: e.message });
+        }
+    }
+
+    const gruposOk = resultados.filter(r => r.success).length;
+    return {
+        success: gruposOk > 0,
+        totalContribuyentes: cuits.length,
+        totalGrupos,
+        gruposOk,
+        sinAcceso,
+        resultados
+    };
 }
 
 module.exports = {
@@ -657,6 +876,9 @@ module.exports = {
     analizarCliente,
     analizarEmpresa,
     analizarContribuyente,
+    analizarLote,
     // Exportados para tests:
-    parsearOpcionPdv
+    parsearOpcionPdv,
+    sincronizarRazonSocial,
+    vincularConRepresentante
 };

@@ -10,6 +10,11 @@
  *   // continuar con el flujo...
  */
 
+// Cuando AFIP interpone un captcha, dejamos la ventana abierta y ESPERAMOS a que el
+// usuario lo resuelva a mano (es más rápido y confiable que automatizarlo). Este es el
+// tiempo máximo de espera antes de rendirse y marcar CAPTCHA_BLOQUEO. Ajustable.
+const ESPERA_CAPTCHA_MANUAL_MS = 180000; // 3 minutos
+
 async function hacerLogin(page, url, credenciales) {
   try {
     // Validación y normalización de entrada
@@ -97,6 +102,33 @@ async function hacerLogin(page, url, credenciales) {
       winner = await esperarRespuestaIngresar(20000);
     }
 
+    // ¿AFIP interpuso un captcha? Aparece tras varios logins fallidos y bloquea por IP
+    // ~15 min CUALQUIER login. NO significa clave inválida: hay que marcarlo distinto para
+    // no condenar credenciales que sí son buenas. Se chequea ANTES de clasificar el error
+    // porque el mismo #F1:msg muestra "clave incorrecta" y "captcha incorrecto": decidimos
+    // por PRESENCIA del input del captcha, no por el mensaje.
+    if (winner !== 'navigation' && await hayCaptchaAfip(page)) {
+      // Modo manual: dejamos la ventana abierta y esperamos a que el usuario resuelva el
+      // captcha a mano. La ventana no se cierra porque seguimos DENTRO del callback de
+      // puppeteer-manager (que cierra recién cuando este login retorna).
+      console.log('🧩 [Login ARCA] AFIP interpuso un captcha.');
+      console.log(`✋ [Login ARCA] Resolvé el captcha en la ventana del navegador. Esperando hasta ${ESPERA_CAPTCHA_MANUAL_MS / 1000}s...`);
+      try {
+        // Si aparece el buscador del portal, es que el captcha se resolvió y el login entró.
+        await page.waitForSelector('#buscadorInput', { timeout: ESPERA_CAPTCHA_MANUAL_MS });
+        console.log('✅ [Login ARCA] Captcha resuelto manualmente. Login completado.');
+        winner = 'navigation'; // seguimos por el camino de éxito (saltea los checks de error/timeout)
+      } catch (_) {
+        console.log('🔴 [Login ARCA] El captcha no se resolvió a tiempo. Se marca para reintentar.');
+        return {
+          success: false,
+          error: 'CAPTCHA_BLOQUEO',
+          message: 'AFIP pidió un captcha y no se resolvió manualmente a tiempo. ' +
+                   'No indica que la clave sea inválida; reintentar en unos minutos.'
+        };
+      }
+    }
+
     if (winner === 'error') {
       const errorMessage = await page.$eval(errorSelector, el => el.textContent);
       console.log(`🔴 [Login ARCA] Fallo de login detectado: ${errorMessage}`);
@@ -130,6 +162,28 @@ async function hacerLogin(page, url, credenciales) {
   } catch (error) {
     console.error('❌ Error inesperado en hacerLogin:', error);
     return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
+  }
+}
+
+/**
+ * ¿La página está mostrando el captcha de AFIP? El captcha aparece tras varios
+ * logins fallidos y bloquea por IP ~15 min CUALQUIER login. Se detecta por la
+ * PRESENCIA visible del input de solución (#F1:captchaSolutionInput), no por el
+ * mensaje de error #F1:msg, porque ese span se comparte con "clave incorrecta".
+ * @param {import('puppeteer').Page} page
+ * @returns {Promise<boolean>}
+ */
+async function hayCaptchaAfip(page) {
+  try {
+    return await page.evaluate(() => {
+      // getElementById evita tener que escapar los dos puntos del id "F1:...".
+      const input = document.getElementById('F1:captchaSolutionInput');
+      if (!input) return false;
+      const style = window.getComputedStyle(input);
+      return style.display !== 'none' && style.visibility !== 'hidden';
+    });
+  } catch (_) {
+    return false;
   }
 }
 

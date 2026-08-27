@@ -27,6 +27,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             tieneClaveAFIP: !!c.claveAFIP, estado_afip: c.estado_afip,
             tieneClaveATM: !!c.claveATM, estado_atm: c.estado_atm,
             representanteAfipCuit: c.representanteAfipCuit,
+            grupoId: c.grupoId || null,   // estudio al que pertenece (filtro + badge en la lista)
             cantidadPdv: Array.isArray(c.puntosDeVenta) ? c.puntosDeVenta.length : 0
         };
     }
@@ -45,7 +46,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 estado_afip: estadoInicial(userData.claveAFIP, userData.verificadoAFIP),
                 claveATM: userData.claveATM || null,
                 estado_atm: estadoInicial(userData.claveATM, userData.verificadoATM),
-                representanteAfipCuit: userData.representanteAfipCuit || null
+                representanteAfipCuit: userData.representanteAfipCuit || null,
+                grupoId: userData.grupoId || null
             });
             await sincronizarUsersJson();
             return { success: true, user: c };
@@ -106,7 +108,10 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 tipoContribuyente: updatedUser.tipoContribuyente || null,
                 claveAFIP: updatedUser.claveAFIP || null,
                 claveATM: updatedUser.claveATM || null,
-                representanteAfipCuit: updatedUser.representanteAfipCuit || null
+                representanteAfipCuit: updatedUser.representanteAfipCuit || null,
+                // Solo se toca el grupo si el front mandó la clave (el form de edición
+                // sí la manda). Así ningún otro camino que reuse user:update lo borra.
+                ...('grupoId' in updatedUser ? { grupoId: updatedUser.grupoId || null } : {})
             });
             await sincronizarUsersJson();
             return { success: true, user: c };
@@ -321,6 +326,12 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         const totalUsers = Object.keys(jobsByUser).length;
         let processedUsers = 0;
 
+        // Circuit breaker AFIP: el captcha de AFIP bloquea por IP ~15 min, así que apenas
+        // un cliente lo topa, los logins AFIP siguientes también saldrán bloqueados. Una vez
+        // activo, salteamos AFIP para el resto del lote (cada intento extra alimenta el bloqueo)
+        // y lo marcamos 'no_verificado'. ATM no se ve afectado (es otro sitio).
+        let captchaAfipActivo = false;
+
         try {
             for (const [userId, servicesToVerify] of Object.entries(jobsByUser)) {
                 const userIndex = data.users.findIndex(u => String(u.id) === String(userId));
@@ -372,10 +383,28 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                     continue;
                 }
 
+                // Circuit breaker: si el captcha ya se activó en este lote, no intentamos
+                // AFIP (sería inútil y alimentaría el bloqueo). Lo marcamos 'no_verificado'
+                // y seguimos validando ATM si corresponde.
+                let serviciosAValidar = servicesToVerify;
+                if (captchaAfipActivo && serviciosAValidar.includes('afip')) {
+                    serviciosAValidar = serviciosAValidar.filter(s => s !== 'afip');
+                    usuario.estado_afip = 'no_verificado';
+                    usuario.claveAfipValida = false;
+                    usuario.errorAfip = 'AFIP bloqueado por captcha durante el lote. Reintentar en unos minutos.';
+                    console.log(`  -> AFIP salteado (captcha activo en el lote) para ${usuario.nombre}.`);
+                }
+
                 // Llama a la función de validación modular.
                 // soloLogin: este handler es "Probar clave" → solo confirma que el login
                 // anda. El scraping de empresas/PDV lo hace "Analizar" (empresa:analizar).
-                await gestionarValidacion(usuario, servicesToVerify, { soloLogin: true });
+                await gestionarValidacion(usuario, serviciosAValidar, { soloLogin: true });
+
+                // Si este cliente topó el captcha, activamos el breaker para los siguientes.
+                if (usuario.claveAfipBloqueadaCaptcha) {
+                    captchaAfipActivo = true;
+                    console.log('  -> ⚠️ Captcha de AFIP activo: se saltearán los AFIP restantes del lote.');
+                }
 
                 // gestionarValidacion ya escribió usuario.empresas[] directamente.
                 // El normalizador regenera el alias legacy puntosDeVenta[] al guardar.
@@ -388,12 +417,17 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
 
                 // Traducir resultados a los nuevos estados
                 let userSuccess = false;
-                if (servicesToVerify.includes('afip')) {
+                // Usamos serviciosAValidar: si AFIP se salteó por captcha, no entra acá y
+                // conserva el 'no_verificado' que le pusimos arriba.
+                if (serviciosAValidar.includes('afip')) {
                     if (usuario.claveAfipValida) {
                         usuario.estado_afip = 'validado';
                         userSuccess = true;
                     } else if (usuario.claveAfipRequiereActualizacion) {
                         usuario.estado_afip = 'requiere_actualizacion';
+                    } else if (usuario.claveAfipBloqueadaCaptcha) {
+                        // Captcha: no se pudo comprobar. NO es inválido (la clave puede ser buena).
+                        usuario.estado_afip = 'no_verificado';
                     } else {
                         usuario.estado_afip = 'invalido';
                     }

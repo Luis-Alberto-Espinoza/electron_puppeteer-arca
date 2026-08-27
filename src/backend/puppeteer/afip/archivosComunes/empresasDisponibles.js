@@ -164,6 +164,9 @@ async function seleccionarEmpresa(page, nombreEmpresa) {
 module.exports = {
     listarEmpresas,
     seleccionarEmpresa,
+    // Lo exporta el barrido de empresas para decidir si la razon social guardada
+    // difiere de la de AFIP con el MISMO criterio que usa el matcher de arriba.
+    normalizarFuerte,
     // Aliases para compatibilidad temporal (deprecados)
     listarEmpresasDisponibles: listarEmpresas,
     elegirEmpresaDisponible: seleccionarEmpresa

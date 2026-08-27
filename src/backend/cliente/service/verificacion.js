@@ -28,6 +28,7 @@ async function gestionarValidacion(usuario, servicesToVerify = null, opciones = 
     if (servicesToCheck.includes('afip')) {
         usuario.claveAfipValida = false;
         usuario.claveAfipRequiereActualizacion = false;
+        usuario.claveAfipBloqueadaCaptcha = false; // No verificado por captcha (no es inválido)
         usuario.errorAfip = null; // Limpiar error anterior
     }
     if (servicesToCheck.includes('atm')) {
@@ -81,6 +82,12 @@ async function gestionarValidacion(usuario, servicesToVerify = null, opciones = 
                     usuario.claveAfipRequiereActualizacion = true;
                     usuario.errorAfip = 'Requiere actualización de contraseña';
                     console.log('  -> AFIP: Requiere actualización de contraseña.');
+                } else if (resultadoAFIP.error === 'CAPTCHA_BLOQUEO') {
+                    // AFIP pidió captcha (bloqueo temporal por IP). NO es clave inválida:
+                    // marcamos distinto para no condenar credenciales que pueden ser buenas.
+                    usuario.claveAfipBloqueadaCaptcha = true;
+                    usuario.errorAfip = resultadoAFIP.message || 'AFIP pidió captcha (bloqueo temporal). No se pudo verificar.';
+                    console.log('  -> AFIP: Bloqueado por captcha. No es inválido; queda para reintentar.');
                 } else {
                     usuario.errorAfip = resultadoAFIP.message || resultadoAFIP.error || 'Credenciales AFIP inválidas';
                     console.log(`  -> AFIP: Inválido o con errores.`);
