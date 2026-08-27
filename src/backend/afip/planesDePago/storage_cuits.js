@@ -1,20 +1,19 @@
 // afip/planesDePago/storage_cuits.js
 // Almacenamiento de CUITs asociados por representante para Planes de Pago
 
-const { app } = require('electron');
-const path = require('path');
 const fs = require('fs');
+const { rutaDato, escribirAtomico } = require('../../comun/rutasDatos.js');
 
 class CuitsAsociadosStorage {
     constructor() {
-        this.dataPath = path.join(app.getPath('userData'), 'cuits_asociados_planes.json');
+        this.dataPath = rutaDato('cuits_asociados_planes.json');
         this.ensureFileExists();
     }
 
     ensureFileExists() {
         try {
             if (!fs.existsSync(this.dataPath)) {
-                fs.writeFileSync(this.dataPath, JSON.stringify({ representantes: {} }, null, 2), 'utf8');
+                escribirAtomico(this.dataPath, JSON.stringify({ representantes: {} }, null, 2));
                 console.log('[PlanesDePago] cuits_asociados_planes.json creado en:', this.dataPath);
             }
         } catch (error) {
@@ -38,7 +37,7 @@ class CuitsAsociadosStorage {
 
     saveData(data) {
         try {
-            fs.writeFileSync(this.dataPath, JSON.stringify(data, null, 2), 'utf8');
+            escribirAtomico(this.dataPath, JSON.stringify(data, null, 2));
             return true;
         } catch (error) {
             console.error('[PlanesDePago] Error guardando cuits_asociados_planes.json:', error);

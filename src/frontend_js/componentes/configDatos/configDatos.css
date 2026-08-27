@@ -1,0 +1,56 @@
+/* CONFIG DATOS — estilos del modal de carpeta de datos. Usa tokens de tokens.css. */
+
+#configDatosModal .cd-content {
+    border: none;
+    border-radius: var(--radio, 12px);
+}
+
+#configDatosModal .cd-desc {
+    color: var(--texto-2, #6b7280);
+    font-size: 0.9rem;
+    margin-bottom: 14px;
+}
+
+#configDatosModal .cd-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: var(--fondo-claro, #f9fafb);
+    border: 1px solid var(--borde, #e5e7eb);
+    border-radius: var(--radio-sm, 6px);
+}
+
+#configDatosModal .cd-badge {
+    align-self: flex-start;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: var(--fondo-claro-2, #f3f4f6);
+    color: var(--texto-2, #6b7280);
+}
+#configDatosModal .cd-badge--elegida { background: #e0e7ff; color: #4338ca; }
+#configDatosModal .cd-badge--portable { background: #d1fae5; color: #047857; }
+
+#configDatosModal .cd-ruta {
+    display: block;
+    word-break: break-all;
+    font-size: 0.85rem;
+    color: var(--texto-1, #1f2937);
+}
+
+#configDatosModal .cd-aviso {
+    margin-top: 14px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: var(--radio-sm, 6px);
+    color: #92400e;
+}
+
+#configDatosModal .cd-footer {
+    flex-wrap: wrap;
+    gap: 6px;
+}

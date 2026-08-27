@@ -1,8 +1,7 @@
-const { app } = require('electron');
-const path = require('path');
 const fs = require('fs');
 const { capitalizarTexto } = require('../../utils/fileManager.js');
 const { normalizarCliente } = require('../model.js');
+const { rutaDato, escribirAtomico } = require('../../comun/rutasDatos.js');
 
 /**
  * Aplica normalización canónica a `nombre` y `apellido` de un usuario.
@@ -25,7 +24,7 @@ function normalizarUsuario(u) {
 // Clase para manejar el almacenamiento JSON
 class JsonStorage {
   constructor() {
-    this.dataPath = path.join(app.getPath('userData'), 'users.json');
+    this.dataPath = rutaDato('users.json');
     console.log('📂 Archivo de usuarios ubicado en:', this.dataPath);
     this.ensureFileExists();
   }
@@ -35,7 +34,7 @@ class JsonStorage {
     try {
       if (!fs.existsSync(this.dataPath)) {
         const initialData = { users: [] };
-        fs.writeFileSync(this.dataPath, JSON.stringify(initialData, null, 2), 'utf8');
+        escribirAtomico(this.dataPath, JSON.stringify(initialData, null, 2));
         console.log('✅ Archivo users.json creado exitosamente');
       }
       // Verificar que el archivo sea válido
@@ -45,7 +44,7 @@ class JsonStorage {
         console.log('✅ Archivo users.json validado correctamente');
       } catch (e) {
         console.error('❌ Archivo JSON inválido, recreando...');
-        fs.writeFileSync(this.dataPath, JSON.stringify({ users: [] }, null, 2), 'utf8');
+        escribirAtomico(this.dataPath, JSON.stringify({ users: [] }, null, 2));
       }
     } catch (error) {
       console.error('❌ Error con el archivo users.json:', error);
@@ -84,7 +83,7 @@ class JsonStorage {
           normalizarCliente(u);
         });
       }
-      fs.writeFileSync(this.dataPath, JSON.stringify(data, null, 2), 'utf8');
+      escribirAtomico(this.dataPath, JSON.stringify(data, null, 2));
       console.log('💾 Datos guardados exitosamente');
       return true;
     } catch (error) {

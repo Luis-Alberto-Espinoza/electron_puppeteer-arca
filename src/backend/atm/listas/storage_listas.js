@@ -1,15 +1,14 @@
 // atm/listas/storage_listas.js
 // Almacenamiento de listas de clientes por subservicio ATM
 
-const { app } = require('electron');
-const path = require('path');
 const fs = require('fs');
+const { rutaDato, escribirAtomico } = require('../../comun/rutasDatos.js');
 
 const SUBSERVICIOS_VALIDOS = ['constancias', 'planesPago', 'tasaCero', 'retenciones'];
 
 class ListasATMStorage {
     constructor() {
-        this.dataPath = path.join(app.getPath('userData'), 'listas_atm.json');
+        this.dataPath = rutaDato('listas_atm.json');
         this.ensureFileExists();
     }
 
@@ -18,7 +17,7 @@ class ListasATMStorage {
             if (!fs.existsSync(this.dataPath)) {
                 const initialData = {};
                 SUBSERVICIOS_VALIDOS.forEach(s => { initialData[s] = []; });
-                fs.writeFileSync(this.dataPath, JSON.stringify(initialData, null, 2), 'utf8');
+                escribirAtomico(this.dataPath, JSON.stringify(initialData, null, 2));
                 console.log('✅ [ListasATM] listas_atm.json creado en:', this.dataPath);
             }
         } catch (error) {
@@ -45,7 +44,7 @@ class ListasATMStorage {
 
     saveData(data) {
         try {
-            fs.writeFileSync(this.dataPath, JSON.stringify(data, null, 2), 'utf8');
+            escribirAtomico(this.dataPath, JSON.stringify(data, null, 2));
             return true;
         } catch (error) {
             console.error('❌ [ListasATM] Error guardando listas_atm.json:', error);

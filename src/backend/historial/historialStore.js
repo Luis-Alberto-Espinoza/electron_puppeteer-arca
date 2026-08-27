@@ -9,12 +9,13 @@
 // accion). `appendFile` agrega al final en O(1), no reescribe todo el archivo,
 // y si una linea se corrompe se pierde esa sola, no el historial entero.
 
-const { app } = require('electron');
-const path = require('path');
 const fs = require('fs');
+const { rutaDato } = require('../comun/rutasDatos.js');
 
+// NDJSON con append O(1): NO usa escribirAtomico (eso reescribiría todo el archivo).
+// El diseño ya es robusto: cada línea es independiente; una corrupta se ignora al leer.
 function rutaArchivo() {
-    return path.join(app.getPath('userData'), 'historial.ndjson');
+    return rutaDato('historial.ndjson');
 }
 
 const historialStore = {

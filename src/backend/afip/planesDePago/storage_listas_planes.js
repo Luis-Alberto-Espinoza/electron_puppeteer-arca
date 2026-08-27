@@ -1,20 +1,19 @@
 // afip/planesDePago/storage_listas_planes.js
 // Almacenamiento de listas persistentes para Planes de Pago AFIP
 
-const { app } = require('electron');
-const path = require('path');
 const fs = require('fs');
+const { rutaDato, escribirAtomico } = require('../../comun/rutasDatos.js');
 
 class ListasPlanesPagoStorage {
     constructor() {
-        this.dataPath = path.join(app.getPath('userData'), 'listas_planes_pago.json');
+        this.dataPath = rutaDato('listas_planes_pago.json');
         this.ensureFileExists();
     }
 
     ensureFileExists() {
         try {
             if (!fs.existsSync(this.dataPath)) {
-                fs.writeFileSync(this.dataPath, JSON.stringify({ listas: [] }, null, 2), 'utf8');
+                escribirAtomico(this.dataPath, JSON.stringify({ listas: [] }, null, 2));
                 console.log('[ListasPlanesPago] listas_planes_pago.json creado en:', this.dataPath);
             }
         } catch (error) {
@@ -36,7 +35,7 @@ class ListasPlanesPagoStorage {
 
     saveData(data) {
         try {
-            fs.writeFileSync(this.dataPath, JSON.stringify(data, null, 2), 'utf8');
+            escribirAtomico(this.dataPath, JSON.stringify(data, null, 2));
             return true;
         } catch (error) {
             console.error('[ListasPlanesPago] Error guardando listas_planes_pago.json:', error);
