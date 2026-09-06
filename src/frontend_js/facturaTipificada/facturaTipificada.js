@@ -560,20 +560,31 @@ async function manejarCambioEmpresa({ desdeUsuario } = {}) {  // eslint-disable-
 
 /**
  * Filtro defensivo para selects de PDV en frontend.
- * Si el PDV tiene un `sistema` declarado (vino del ABM), exigir que sea
- * "Factura en Linea - Responsable Inscripto". Si no tiene sistema (vino del
- * fallback Comprobantes en Línea), dejar pasar.
+ * Si el PDV tiene un `sistema` declarado (vino del ABM), exigir que sea uno de
+ * los dos sabores de Factura en Línea: Responsable Inscripto (comprobante B) o
+ * Monotributo (comprobante C). Los dos flujos existen en facturación (paso_0
+ * elige el tipo por tipoContribuyente), así que los dos PDV son operables.
+ * Si no tiene sistema (vino del fallback Comprobantes en Línea), dejar pasar.
  * Cubre datos viejos del JSON guardados antes del filtrado en backend.
+ *
+ * ESPEJO de SISTEMAS_OPERABLES en
+ * src/backend/puppeteer/afip/empresa/flujo_abmPuntosDeVenta.js: si allá se
+ * agrega o saca un sistema, hay que tocarlo acá también.
  *
  * NO se exige `activo === true`: por consulta con contador, la columna
  * "Usado" del ABM no es bloqueante — un PDV puede estar habilitado para
  * Factura en Línea aunque todavía no se haya emitido nunca desde ahí.
  */
+const _SISTEMAS_PDV_OPERABLES = new Set([
+    'factura en linea - responsable inscripto',
+    'factura en linea - monotributo'
+]);
+
 function _esPdvOperable(p) {
     if (!p || !p.numero) return false;
     if (p.sistema) {
         const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        return norm(p.sistema) === 'factura en linea - responsable inscripto';
+        return _SISTEMAS_PDV_OPERABLES.has(norm(p.sistema));
     }
     return true;
 }

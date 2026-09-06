@@ -483,14 +483,21 @@ async function popularPuntosDeVentaMP(cuit) {
         console.error('Error obteniendo puntos de venta MP:', e);
     }
 
-    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser
-    // "Factura en Linea - Responsable Inscripto". Sin requisito de `activo`
-    // (la columna "Usado" del ABM no es bloqueante).
+    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser uno de los
+    // dos sabores de Factura en Línea (Responsable Inscripto → B, Monotributo → C).
+    // ESPEJO de SISTEMAS_OPERABLES en
+    // src/backend/puppeteer/afip/empresa/flujo_abmPuntosDeVenta.js: si allá se
+    // agrega o saca un sistema, hay que tocarlo acá también.
+    // Sin requisito de `activo` (la columna "Usado" del ABM no es bloqueante).
     const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const SISTEMAS_OPERABLES = new Set([
+        'factura en linea - responsable inscripto',
+        'factura en linea - monotributo'
+    ]);
     pdvs = pdvs.filter(p => {
         if (!p || !p.numero) return false;
         if (p.sistema) {
-            return normSistema(p.sistema) === 'factura en linea - responsable inscripto';
+            return SISTEMAS_OPERABLES.has(normSistema(p.sistema));
         }
         return true;
     });
