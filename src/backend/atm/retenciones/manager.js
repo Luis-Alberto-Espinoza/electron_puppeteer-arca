@@ -83,14 +83,31 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
         );
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
-            enviarProgresoUsuario('exito_final', 'Retenciones descargadas con éxito.', resultadoFlujo);
+            // Que el proceso haya terminado no quiere decir que esten todos los
+            // archivos: si ATM informo registros y no entrego los 2 archivos de
+            // alguna consulta, esto NO puede salir como exito.
+            const incompleta = resultadoFlujo.descargaIncompleta === true;
+
+            enviarProgresoUsuario(
+                incompleta ? 'error' : 'exito_final',
+                incompleta
+                    ? `⚠️ Descarga INCOMPLETA para ${nombreCompleto}: ${resultadoFlujo.mensaje}`
+                    : 'Retenciones descargadas con éxito.',
+                resultadoFlujo
+            );
+
             historialRepo.registrar({
-                dominio: 'retenciones', accion: 'descargar', estado: 'exito',
+                dominio: 'retenciones', accion: 'descargar',
+                estado: incompleta ? 'error' : 'exito',
                 cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
-                resumen: `Retenciones descargadas${listaPeriodos.length ? ' (' + descripcionPeriodos + ')' : ''}`,
+                resumen: incompleta
+                    ? `Retenciones INCOMPLETAS${listaPeriodos.length ? ' (' + descripcionPeriodos + ')' : ''}: faltaron ${resultadoFlujo.archivosFaltantes} archivo(s)`
+                    : `Retenciones descargadas${listaPeriodos.length ? ' (' + descripcionPeriodos + ')' : ''}`,
                 detalle: {
                     periodos: listaPeriodos,
                     archivos: (resultadoFlujo.files || []).length,
+                    archivosEsperados: resultadoFlujo.archivosEsperados,
+                    incompletas: resultadoFlujo.incompletas,
                     archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo
                 }
             });

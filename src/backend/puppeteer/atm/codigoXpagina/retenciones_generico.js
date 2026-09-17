@@ -2,6 +2,12 @@ const path = require('path');
 const fs = require('fs').promises;
 const { getDownloadPath, getFilenameRetenciones } = require('../../../utils/fileManager.js');
 const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
+const {
+    iniciarSondaDescargas,
+    esperarDescarga,
+    estimarGeneracionMs,
+    techoDescargaMs
+} = require('./descarga_espera.js');
 
 /**
  * Descarga retenciones/percepciones de forma genérica para cualquier sub-servicio de ATM
@@ -29,6 +35,10 @@ const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContri
  */
 async function descargarRetencionGenerico(config) {
     const { nombre, page, nombreUsuario, cuit, downloadsPath, periodo, recargarAlFinal = true } = config;
+
+    // Vigila las pestañas y las descargas del navegador: es quien sabe cuando
+    // ATM termino de generar. Ver descarga_espera.js
+    let sonda = null;
 
     try {
         console.log(`[${nombre}] 🔄 Iniciando descarga para ${periodo}...`);
@@ -213,11 +223,11 @@ async function descargarRetencionGenerico(config) {
             }
         });
 
-        // Esperar la respuesta de la consulta: o aparece el modal "sin registros",
-        // o el label "Cantidad:" se refresca con el numero del periodo pedido.
-        // 4 segundos: es tiempo muerto puro cuando ATM no muestra el cartel de
-        // "sin registros" y el mes nuevo se ve igual que el anterior en pantalla.
-        const respuesta = await esperarRespuestaConsulta(frame, estadoPrevio, 4000);
+        // Esperar la respuesta de la consulta. El limite es alto a proposito:
+        // se sale por senal (modal o ciclo de ZK terminado), no por reloj, asi
+        // que 30s es una red de seguridad y no una espera real. El "sin
+        // registros" sigue saliendo a ~265ms. Ver esperarRespuestaConsulta.
+        const respuesta = await esperarRespuestaConsulta(frame, estadoPrevio, 30000);
 
         if (respuesta.modalDetectado) {
             console.log(`[${nombre}]    ⊘ Sin registros`);
@@ -233,9 +243,21 @@ async function descargarRetencionGenerico(config) {
             };
         }
 
+        if (respuesta.indeterminado) {
+            // No pudimos leer la respuesta. Antes esto caia en "cantidad = 0" y
+            // el periodo se salteaba en silencio con success:true. Preferimos
+            // fallar fuerte: el flujo lo reporta y sigue con el resto del rango.
+            throw new Error(
+                `No se pudo determinar si hay registros para ${periodo} despues de 30s. ` +
+                `La consulta de ATM no respondio o el label "Cantidad:" nunca se completo. ` +
+                `Debug: ${respuesta.debug}`
+            );
+        }
+
         if (!respuesta.refrescado) {
-            // No pudimos confirmar el refresco (por ejemplo, el periodo nuevo tiene la
-            // misma cantidad que el anterior). Seguimos con lo ultimo leido y avisamos.
+            // Leimos un numero pero no pudimos confirmar que sea de esta consulta
+            // (por ejemplo, el periodo nuevo tiene la misma cantidad que el
+            // anterior). Seguimos con lo leido y avisamos.
             console.warn(`[${nombre}]    ⚠️ No se pudo confirmar el refresco de la consulta. Debug: ${respuesta.debug}`);
         }
 
@@ -267,6 +289,11 @@ async function descargarRetencionGenerico(config) {
             downloadPath: downloadDir
         });
 
+        // Misma carpeta que la linea de arriba. Los dos setDownloadBehavior
+        // conviven a proposito: el de pagina es la red por si la sonda no
+        // pudiera abrir su sesion CDP y quedara inerte.
+        sonda = await iniciarSondaDescargas({ page, downloadDir, etiqueta: nombre });
+
         // Esperar botones de exportación
         await frame.waitForFunction(
             () => {
@@ -285,163 +312,92 @@ async function descargarRetencionGenerico(config) {
             { timeout: 15000 }
         );
 
-        // Descargar archivos
-        console.log(`[${nombre}]    📥 Descargando archivos...`);
-
         // Helper: obtener archivos nuevos en el directorio
         const obtenerArchivosNuevos = async () => {
             const archivosActuales = await fs.readdir(downloadDir);
             return archivosActuales.filter(archivo => !archivosAntesDeDescarga.includes(archivo));
         };
 
-        // Click en Excel
-        console.log(`[${nombre}]       Clickeando botón Excel...`);
-        const excelClicked = await frame.evaluate(() => {
-            const btnExcel = Array.from(document.querySelectorAll('.z-button'))
-                .find(btn =>
-                    btn.textContent.trim() === 'Exportar a Excel' ||
-                    btn.title === 'Exportar a Excel'
-                );
-            if (btnExcel) {
-                btnExcel.click();
-                return true;
-            }
-            return false;
-        });
+        // ═══════════════════════════════════════════════════════════════════
+        // DESCARGA: se corta por senal, no por reloj.
+        //
+        // La pestana en blanco que abre ATM vive exactamente lo que dura la
+        // generacion del archivo; mirar la carpeta no distingue "ATM esta
+        // pensando" de "no paso nada". Todo el porque y los numeros medidos
+        // estan en descarga_espera.js.
+        // ═══════════════════════════════════════════════════════════════════
+        const techoMs = techoDescargaMs(cantidad);
+        const estimadoSegundos = Math.round(estimarGeneracionMs(cantidad) / 1000);
+        console.log(`[${nombre}]       ATM tarda ~${estimadoSegundos}s en armar el Excel de ${cantidad} registros (techo de seguridad: ${Math.round(techoMs / 1000)}s)`);
 
-        if (!excelClicked) {
+        // El avance de la espera va a la bitacora, no a consola: con 7 minutos
+        // de generacion son 27 lineas iguales que tapan el log del lote. Si el
+        // periodo termina incompleto, la cronologia las muestra todas.
+        const avance = (texto) => sonda.marcar(texto);
+        const clickEnBoton = (titulo) => frame.evaluate((tituloBoton) => {
+            const boton = Array.from(document.querySelectorAll('.z-button'))
+                .find(btn => btn.textContent.trim() === tituloBoton || btn.title === tituloBoton);
+            if (!boton) return false;
+            boton.click();
+            return true;
+        }, titulo);
+
+        // --- Excel. El observador se crea ANTES del click: si naciera despues,
+        //     se perderia la pestana, que aparece a los 110ms.
+        const observadorExcel = sonda.observar(`click Excel (${cantidad} registros)`);
+        if (!await clickEnBoton('Exportar a Excel')) {
             throw new Error('No se pudo hacer click en botón Excel');
         }
 
-        // CRÍTICO: Esperar a que el Excel empiece a descargarse antes de clickear DIU
-        // Timeout DINÁMICO basado en cantidad de registros
-        let timeoutEsperaExcel;
-        if (cantidad < 50) {
-            timeoutEsperaExcel = 5000;  // 5 segundos para pocos registros
-        } else if (cantidad < 200) {
-            timeoutEsperaExcel = 15000; // 15 segundos
-        } else if (cantidad < 500) {
-            timeoutEsperaExcel = 30000; // 30 segundos
-        } else {
-            timeoutEsperaExcel = 60000; // 60 segundos para muchos registros
-        }
-
-        console.log(`[${nombre}]       Esperando Excel (máx ${timeoutEsperaExcel/1000}s para ${cantidad} registros)...`);
-        const inicioEsperaExcel = Date.now();
-        let excelDetectado = false;
-        let ultimoLog = 0;
-
-        while (!excelDetectado && (Date.now() - inicioEsperaExcel < timeoutEsperaExcel)) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // Verificar cada 500ms (más rápido)
-
-            const archivosNuevos = await obtenerArchivosNuevos();
-
-            // Buscar específicamente archivo Excel (completo o en progreso)
-            // Nota: ATM genera .xls (Excel antiguo), no .xlsx
-            const archivoExcel = archivosNuevos.find(archivo =>
-                archivo.endsWith('.xlsx') || archivo.endsWith('.xlsx.crdownload') ||
-                archivo.endsWith('.xls') || archivo.endsWith('.xls.crdownload')
-            );
-
-            if (archivoExcel) {
-                excelDetectado = true;
-                console.log(`[${nombre}]       ✓ Excel detectado: ${archivoExcel}`);
-                break; // Salir inmediatamente
-            }
-
-            // Log cada 5 segundos solo si hay archivos (para debug)
-            const tiempoTranscurrido = Date.now() - inicioEsperaExcel;
-            if (tiempoTranscurrido - ultimoLog >= 5000) {
-                const tiposArchivos = archivosNuevos.map(a => a.split('.').pop()).join(', ');
-                console.log(`[${nombre}]          [${Math.round(tiempoTranscurrido/1000)}s] ${archivosNuevos.length} archivo(s): ${tiposArchivos || 'ninguno'}`);
-                ultimoLog = tiempoTranscurrido;
-            }
-        }
-
-        if (!excelDetectado) {
-            const tiempoEsperado = Math.round((Date.now() - inicioEsperaExcel) / 1000);
-            console.warn(`[${nombre}]       ⚠️ Excel no detectado después de ${tiempoEsperado}s, continuando...`);
-        }
-
-        // Pequeña pausa antes de clickear DIU
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
-        // Click en DIU
-        console.log(`[${nombre}]       Clickeando botón DIU...`);
-        const diuClicked = await frame.evaluate(() => {
-            const btnDIU = Array.from(document.querySelectorAll('.z-button'))
-                .find(btn =>
-                    btn.textContent.trim() === 'Exportar a TXT para DIU' ||
-                    btn.title === 'Exportar a TXT para DIU'
-                );
-            if (btnDIU) {
-                btnDIU.click();
-                return true;
-            }
-            return false;
+        const resultadoExcel = await esperarDescarga({
+            observador: observadorExcel, techoMs, queEs: 'Excel', log: avance
         });
 
-        if (!diuClicked) {
+        if (resultadoExcel.ok) {
+            console.log(`[${nombre}]       ✓ Excel listo en ${(resultadoExcel.ms / 1000).toFixed(1)}s: ${resultadoExcel.nombre}`);
+        } else {
+            console.warn(`[${nombre}]       ✗ Excel: ${resultadoExcel.motivo}`);
+        }
+
+        // --- DIU. Se pide IGUAL aunque el Excel haya fallado: medido contra
+        //     ATM nunca tardo mas de 6s, ni siquiera con 2468 registros, asi
+        //     que no hay razon para perderlo por culpa del otro archivo.
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const observadorDiu = sonda.observar('click DIU');
+        if (!await clickEnBoton('Exportar a TXT para DIU')) {
             throw new Error('No se pudo hacer click en botón DIU');
         }
 
-        // CRÍTICO: Esperar activamente a que AMBOS archivos estén completos
-        console.log(`[${nombre}]       Esperando que ambos archivos terminen de descargarse...`);
+        const resultadoDiu = await esperarDescarga({
+            observador: observadorDiu, techoMs, queEs: 'DIU', log: avance
+        });
 
-        const tiempoInicio = Date.now();
-        // Timeout dinámico: base 60s + 1s por cada 50 registros (para archivos grandes)
-        const timeoutBase = 60000;
-        const timeoutExtra = Math.ceil(cantidad / 50) * 1000;
-        const timeoutMaximo = Math.min(timeoutBase + timeoutExtra, 180000); // Máximo 3 minutos
-        console.log(`[${nombre}]       Timeout configurado: ${timeoutMaximo/1000}s (${cantidad} registros)`);
-
-        let archivosNuevos = [];
-        let archivosCompletos = [];
-        let ultimoReporte = 0;
-
-        while (archivosCompletos.length < 2 && (Date.now() - tiempoInicio < timeoutMaximo)) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // Verificar cada 500ms
-
-            archivosNuevos = await obtenerArchivosNuevos();
-
-            // Filtrar solo los archivos completos (sin .crdownload)
-            archivosCompletos = archivosNuevos.filter(
-                archivo => !archivo.endsWith('.crdownload')
-            );
-
-            const enProgreso = archivosNuevos.filter(a => a.endsWith('.crdownload'));
-
-            // Reportar cada 5 segundos
-            const tiempoTranscurrido = Date.now() - tiempoInicio;
-            if (tiempoTranscurrido - ultimoReporte >= 5000) {
-                console.log(`[${nombre}]          [${Math.round(tiempoTranscurrido/1000)}s] ${archivosCompletos.length} completo(s), ${enProgreso.length} en progreso`);
-                if (enProgreso.length > 0) {
-                    console.log(`[${nombre}]             En progreso: ${enProgreso.join(', ')}`);
-                }
-                ultimoReporte = tiempoTranscurrido;
-            }
-
-            // Si hay archivos en progreso, seguir esperando aunque pase el timeout base
-            // (solo cortar si pasa el timeout máximo absoluto)
-            if (enProgreso.length > 0 && archivosCompletos.length < 2) {
-                // Extender espera si hay descargas activas
-                continue;
-            }
-        }
-
-        // Usar archivosCompletos para el resto del proceso
-        archivosNuevos = archivosCompletos;
-
-        if (archivosNuevos.length < 2) {
-            const enProgreso = (await fs.readdir(downloadDir)).filter(a => a.endsWith('.crdownload'));
-            console.warn(`[${nombre}]       ⚠️ Solo ${archivosNuevos.length} archivo(s) completo(s) después de ${Math.round((Date.now() - tiempoInicio)/1000)}s`);
-            console.warn(`[${nombre}]          Archivos completos: ${archivosNuevos.join(', ') || 'ninguno'}`);
-            if (enProgreso.length > 0) {
-                console.warn(`[${nombre}]          Archivos incompletos (.crdownload): ${enProgreso.join(', ')}`);
-            }
+        if (resultadoDiu.ok) {
+            console.log(`[${nombre}]       ✓ DIU listo en ${(resultadoDiu.ms / 1000).toFixed(1)}s: ${resultadoDiu.nombre}`);
         } else {
-            console.log(`[${nombre}]       ✓ Ambos archivos descargados correctamente`);
+            console.warn(`[${nombre}]       ✗ DIU: ${resultadoDiu.motivo}`);
         }
+
+        // Si algo quedo generando, hay que cerrarle la pestana: si entrega mas
+        // tarde, el archivo cae en esta misma carpeta mientras corre el servicio
+        // siguiente, y el renombrador lo adopta como propio. Ademas ATM le pone
+        // el MISMO nombre a todos los Excel (CUIT_AAAA_MM.xls), asi que un
+        // archivo tardio pisa al del otro servicio sin dejar rastro.
+        const huerfanas = await sonda.cerrarHuerfanas();
+        if (huerfanas) {
+            console.warn(`[${nombre}]       ⚠️ ${huerfanas} pestaña(s) cerradas a la fuerza: ATM seguía generando`);
+        }
+
+        const fallaron = [
+            resultadoExcel.ok ? null : `Excel (${resultadoExcel.motivo})`,
+            resultadoDiu.ok ? null : `DIU (${resultadoDiu.motivo})`
+        ].filter(Boolean);
+
+        await sonda.detener();
+
+        // Lo que efectivamente quedo en la carpeta, ya sin descargas a medio bajar.
+        const archivosNuevos = (await obtenerArchivosNuevos())
+            .filter(archivo => !archivo.endsWith('.crdownload'));
 
         // Verificación dura del periodo: ATM nombra los archivos CUIT_AAAA_MM.
         // Si lo que bajó no es el mes que pedimos, lo estaríamos renombrando mal.
@@ -454,10 +410,7 @@ async function descargarRetencionGenerico(config) {
         }
 
         if (periodoArchivoInesperado) {
-            console.error(`[${nombre}] ╔══════════════════════════════════════════════════════════════╗`);
-            console.error(`[${nombre}] ║ ⚠️  PERIODO QUE NO COINCIDE                                    ║`);
-            console.error(`[${nombre}] ║ Se pidió ${periodo} y ATM devolvió archivos de ${periodoArchivoInesperado}`);
-            console.error(`[${nombre}] ╚══════════════════════════════════════════════════════════════╝`);
+            console.error(`[${nombre}]    ⚠️ PERIODO QUE NO COINCIDE: se pidió ${periodo} y ATM devolvió archivos de ${periodoArchivoInesperado}`);
         }
 
         // Renombrar archivos NUEVOS
@@ -472,26 +425,14 @@ async function descargarRetencionGenerico(config) {
             archivosRenombrados.push(nuevoPath);
         }
 
-        console.log(`[${nombre}]    ✓ ${archivosRenombrados.length} archivo(s) descargado(s)`);
-
-        // ═══════════════════════════════════════════════════════════════════
-        // RESUMEN FINAL - Verificación de integridad de descarga
-        // ═══════════════════════════════════════════════════════════════════
         const archivosDescargados = archivosRenombrados;
         const cantidadArchivos = archivosDescargados.length;
 
-        if (cantidad >= 1 && cantidadArchivos === 2) {
-            // ÉXITO TOTAL: Tenía registros y descargó ambos archivos
-            console.log(`[${nombre}] ════════════════════════════════════════════════════════════`);
-            console.log(`[${nombre}] ✅✅✅ ÉXITO COMPLETO: ${cantidad} registro(s) → ${cantidadArchivos} archivo(s) ✅✅✅`);
-            console.log(`[${nombre}] ════════════════════════════════════════════════════════════`);
-        } else if (cantidad >= 1 && cantidadArchivos < 2) {
-            // PROBLEMA: Tenía registros pero NO descargó los 2 archivos esperados
-            console.log(`[${nombre}] ╔══════════════════════════════════════════════════════════════╗`);
-            console.log(`[${nombre}] ║ ⚠️⚠️⚠️  ATENCIÓN: DESCARGA INCOMPLETA  ⚠️⚠️⚠️                    ║`);
-            console.log(`[${nombre}] ║ Registros: ${cantidad.toString().padEnd(4)} | Archivos descargados: ${cantidadArchivos} (esperado: 2) ║`);
-            console.log(`[${nombre}] ║ CUIT: ${cuit.padEnd(15)}                                    ║`);
-            console.log(`[${nombre}] ╚══════════════════════════════════════════════════════════════╝`);
+        if (cantidadArchivos === 2) {
+            console.log(`[${nombre}]    ✓ ${cantidad} registro(s) → ${cantidadArchivos} archivo(s)`);
+        } else {
+            // Falto algo: esto tiene que saltar a la vista en el log del lote.
+            console.error(`[${nombre}]    ⚠️ DESCARGA INCOMPLETA: ${cantidad} registro(s) → ${cantidadArchivos} de 2 archivo(s). CUIT ${cuit}`);
         }
 
         // Cerrar la sesion CDP: al recorrer varios periodos abrimos una por consulta.
@@ -512,18 +453,42 @@ async function descargarRetencionGenerico(config) {
             await new Promise(resolve => setTimeout(resolve, 1500));
         }
 
+        // El valor de retorno no miente: si falto un archivo, esto NO es exito.
+        // Se exige lo que dijo la espera Y lo que hay en disco, porque un
+        // archivo que llega tarde puede hacer que una espera se de por buena
+        // sin que el archivo propio haya bajado.
+        // No tiramos error a proposito: el flujo reintenta ante una excepcion y
+        // reintentar 7 minutos de generacion no arregla nada; le devolvemos el
+        // fracaso con los archivos que si bajaron.
+        const salioTodo = fallaron.length === 0 && cantidadArchivos === 2;
+        if (!salioTodo && !fallaron.length) {
+            fallaron.push(`solo quedaron ${cantidadArchivos} de 2 archivos en la carpeta`);
+        }
+
+        // La cronologia se vuelca solo si hay algo que investigar: cuando el
+        // periodo sale bien no aporta nada y tapa el log del lote. Va aca y no
+        // antes, para que alcance tambien al caso en que la espera dio por
+        // buenos los dos archivos pero en la carpeta quedo uno solo.
+        if (!salioTodo) sonda.resumen();
+        sonda = null;
+
         return {
-            success: true,
+            success: salioTodo,
             tipo: nombre,
             periodoArchivoInesperado,
             registros: cantidad,
             archivosDescargados: archivosDescargados.length,
             files: archivosDescargados,
             downloadDir: downloadDir,
-            mensaje: 'Éxito'
+            mensaje: fallaron.length ? `No se pudo descargar: ${fallaron.join(' y ')}` : 'Éxito'
         };
 
     } catch (error) {
+        if (sonda) {
+            sonda.marcar(`el flujo aborto: ${error.message}`);
+            sonda.resumen();
+            await sonda.detener();
+        }
         console.error(`[${nombre}] ❌ ERROR: ${error.message}`);
         throw error;
     }
@@ -532,53 +497,101 @@ async function descargarRetencionGenerico(config) {
 /**
  * Espera la respuesta de un click en "Consultar".
  *
- * Devuelve apenas pasa una de estas dos cosas:
- *   - aparece el modal de "sin registros" (lo acepta y avisa), o
- *   - el label "Cantidad:" muestra un numero que corresponde a esta consulta.
+ * REGLA CENTRAL: mientras ZK tenga un pedido en vuelo NO se decide nada.
+ * Antes esto miraba solo el label "Cantidad:" durante 4 segundos fijos y, si el
+ * label todavia estaba vacio, devolvia cantidad 0. Un cliente con percepciones
+ * que tardaban 5,2s se reportaba como "sin registros" y no se descargaba nada,
+ * en silencio y con success:true. Medido en vivo el 2026-09-15 muestreando el
+ * DOM cada 250ms (CUIT 30711438781, periodo 2026-08):
  *
- * Para saber si el numero es nuevo usamos la marca data-consulta-previa que se
- * dejo antes de consultar: si ZK volvio a renderizar el nodo, la marca ya no
- * esta; si el nodo es el mismo, comparamos contra el texto anterior.
+ *   sin registros -> el modal aparece a ~265ms
+ *   11 registros  -> el label se llena a 3593ms  (zafaba por 400ms)
+ *   35 registros  -> el label se llena a 5188ms  (se lo comia)
+ *
+ * Por eso ahora esperamos el CICLO de ZK (zk.processing / .z-loading), no el
+ * reloj. El caso comun no paga nada: el modal de "sin registros" sale a 265ms.
+ *
+ * Senales que se midieron y NO sirven, para que nadie las vuelva a proponer:
+ *   - Los botones Excel/DIU estan presentes y habilitados desde t=0, incluso
+ *     cuando no hay ni un registro. No dicen nada.
+ *   - El paginador quedo en "/ 1" con 11 registros y en "/ 2" con 35.
+ *   - Contar <tr> del listbox arrastra las filas de los popups de anio/mes.
+ *   - OJO: filas visibles != cantidad. La grilla pagina de a 20, asi que con
+ *     35 registros se ven 20. Nunca validar filas === cantidad.
+ *
+ * Tres resultados posibles:
+ *   - modalDetectado: ATM dijo "no se encontraron"; es un cero de verdad.
+ *   - indeterminado:  se agoto el tiempo sin poder leer. NO es cero: el
+ *                     llamador tiene que tirar error, no saltear el periodo.
+ *   - el numero leido, con refrescado indicando si pudimos confirmar que
+ *     corresponde a esta consulta y no a la anterior.
  *
  * @param {import('puppeteer').Frame} frame - Frame del formulario.
- * @param {{habia: boolean, texto: string}} estadoPrevio - Estado antes de consultar.
+ * @param {{habia: boolean, texto: string, huellaGrilla: string}} estadoPrevio
  * @param {number} timeout - Milisegundos maximos de espera.
- * @returns {Promise<Object>} { modalDetectado, modalMensaje, refrescado, cantidad, debug }
+ * @returns {Promise<Object>} { modalDetectado, modalMensaje, refrescado, indeterminado, cantidad, debug }
  */
 async function esperarRespuestaConsulta(frame, estadoPrevio, timeout) {
+    const INTERVALO_MS = 250;
+
+    // Si nunca vemos a ZK trabajando (respuesta mas rapida que el muestreo) y el
+    // numero tampoco cambia, a partir de este punto aceptamos lo que haya en
+    // pantalla. Solo aplica cuando YA hay un numero leido; el caso del bug
+    // (label vacio) nunca entra por aca.
+    const GRACIA_SIN_ACTIVIDAD_MS = 3000;
+
     const inicio = Date.now();
-    let ultimo = { modalDetectado: false, modalMensaje: '', refrescado: false, cantidad: 0, debug: 'sin lecturas' };
+    let vioActividad = false;
+    let ultimo = {
+        modalDetectado: false, modalMensaje: '', refrescado: false,
+        indeterminado: true, cantidad: 0, ocupado: false, tieneNumero: false,
+        debug: 'sin lecturas'
+    };
 
     while (Date.now() - inicio < timeout) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, INTERVALO_MS));
 
-        ultimo = await frame.evaluate((previo) => {
-            const resultado = { modalDetectado: false, modalMensaje: '', refrescado: false, cantidad: 0, debug: '' };
+        const lectura = await frame.evaluate((previo) => {
+            const resultado = {
+                modalDetectado: false, modalMensaje: '', refrescado: false,
+                cantidad: 0, ocupado: false, tieneNumero: false, debug: ''
+            };
 
-            // 1) Modal ZK de "sin registros"
+            const visible = (el) => {
+                if (!el) return false;
+                const st = window.getComputedStyle(el);
+                return st.display !== 'none' && st.visibility !== 'hidden';
+            };
+
+            // 1) Modal ZK de "sin registros". Se chequea PRIMERO: es un
+            //    resultado, no una espera. Ojo que trae su propia mascara
+            //    (.z-modal-mask), que no hay que confundir con "cargando".
             const modal = document.querySelector('.z-window-modal[role="dialog"][aria-modal="true"]');
-            if (modal) {
-                const style = window.getComputedStyle(modal);
-                if (style.display !== 'none' && style.visibility !== 'hidden') {
-                    const spanMensaje = modal.querySelector('.z-window-content .z-label');
-                    resultado.modalDetectado = true;
-                    resultado.modalMensaje = spanMensaje ? spanMensaje.textContent.trim() : 'Modal sin mensaje';
+            if (visible(modal)) {
+                const spanMensaje = modal.querySelector('.z-window-content .z-label');
+                resultado.modalDetectado = true;
+                resultado.modalMensaje = spanMensaje ? spanMensaje.textContent.trim() : 'Modal sin mensaje';
 
-                    const btnAceptar = modal.querySelector('.z-window-content .z-button');
-                    if (btnAceptar) btnAceptar.click();
+                const btnAceptar = modal.querySelector('.z-window-content .z-button');
+                if (btnAceptar) btnAceptar.click();
 
-                    return resultado;
-                }
+                return resultado;
             }
 
-            // 2) Cantidad de registros
+            // 2) ¿ZK esta esperando al servidor? zk.processing es la bandera
+            //    interna; las otras dos son el cartelito de carga.
+            const zkProcesando = (typeof window.zk !== 'undefined') && window.zk.processing === true;
+            const hayLoading = Array.from(document.querySelectorAll('.z-loading')).some(visible)
+                || visible(document.querySelector('#zk_showBusy'));
+            resultado.ocupado = zkProcesando || hayLoading;
+
+            // 3) Cantidad de registros
             const spans = Array.from(document.querySelectorAll('span.z-label'));
             const cantidadLabel = spans.find(span => span.textContent.trim() === 'Cantidad:');
 
             if (!cantidadLabel) {
-                resultado.debug = 'Label "Cantidad:" NO encontrado. ';
                 const similares = spans.map(s => s.textContent.trim()).filter(t => t.includes('antidad'));
-                resultado.debug += `Textos similares: ${similares.join(', ') || 'ninguno'}`;
+                resultado.debug = `Label "Cantidad:" NO encontrado. Similares: ${similares.join(', ') || 'ninguno'}`;
                 return resultado;
             }
 
@@ -588,9 +601,12 @@ async function esperarRespuestaConsulta(frame, estadoPrevio, timeout) {
                 const hermano = cantidadLabel.nextElementSibling;
                 if (hermano) {
                     const numero = parseInt(hermano.textContent.trim());
-                    resultado.cantidad = isNaN(numero) ? 0 : numero;
-                    resultado.refrescado = !isNaN(numero);
                     resultado.debug += `Hermano: "${hermano.textContent.trim()}". `;
+                    if (!isNaN(numero)) {
+                        resultado.cantidad = numero;
+                        resultado.tieneNumero = true;
+                        resultado.refrescado = true;
+                    }
                 }
                 return resultado;
             }
@@ -613,11 +629,13 @@ async function esperarRespuestaConsulta(frame, estadoPrevio, timeout) {
                 filas.length ? textoFila(filas[filas.length - 1]) : ''
             ].join('|');
 
-            resultado.debug = `Texto cantidad: "${texto}" (previo "${previo.texto}"). Filas: ${filas.length}.`;
+            resultado.debug = `cantidad:"${texto}" (previo "${previo.texto}") filas:${filas.length} ocupado:${resultado.ocupado}`;
 
             if (texto === '' || isNaN(numero)) return resultado;
 
             resultado.cantidad = numero;
+            resultado.tieneNumero = true;
+
             // Es nuevo si no habia consulta previa, si ZK re-renderizo el nodo
             // (perdio la marca), si cambio el numero o si cambio la grilla.
             const marca = hlayout.getAttribute('data-consulta-previa');
@@ -629,10 +647,44 @@ async function esperarRespuestaConsulta(frame, estadoPrevio, timeout) {
             return resultado;
         }, estadoPrevio);
 
-        if (ultimo.modalDetectado || ultimo.refrescado) return ultimo;
+        ultimo = lectura;
+
+        if (lectura.modalDetectado) {
+            return { ...lectura, indeterminado: false };
+        }
+
+        // Mientras ZK trabaja no se decide nada, por mas que el label ya tenga
+        // un numero: puede ser el de la consulta anterior.
+        if (lectura.ocupado) {
+            vioActividad = true;
+            continue;
+        }
+
+        if (!lectura.tieneNumero) continue;
+
+        // Terminado y con numero. Lo damos por bueno si vimos el ciclo completo
+        // de ZK, o si el numero/grilla cambian respecto de la consulta anterior.
+        if (vioActividad || lectura.refrescado) {
+            return { ...lectura, indeterminado: false };
+        }
+
+        // Ni actividad ni cambio: puede ser el mismo periodo consultado dos
+        // veces. Le damos un margen antes de aceptar lo que hay en pantalla.
+        if (Date.now() - inicio >= GRACIA_SIN_ACTIVIDAD_MS) {
+            return { ...lectura, indeterminado: false };
+        }
     }
 
-    return ultimo;
+    // Se acabo el tiempo sin una respuesta legible. Esto NO es cero registros:
+    // es "no pude leer". Devolvemos indeterminado para que el llamador falle
+    // fuerte en vez de saltear el periodo sin que nadie se entere.
+    return {
+        ...ultimo,
+        indeterminado: !ultimo.modalDetectado,
+        debug: `${ultimo.debug} | timeout ${timeout}ms, vioActividad:${vioActividad}`
+    };
 }
 
-module.exports = { descargarRetencionGenerico };
+// esperarRespuestaConsulta se exporta para poder testear la logica de espera
+// sin navegador (ver retenciones_espera.test.js).
+module.exports = { descargarRetencionGenerico, esperarRespuestaConsulta };

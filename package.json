@@ -1,6 +1,6 @@
 {
   "name": "afip_atm",
-  "version": "2.0.2",
+  "version": "2.3.0-Retenciones_MuchosRegistros",
   "main": "src/backend/home/main.js",
   "scripts": {
     "start": "electron .",

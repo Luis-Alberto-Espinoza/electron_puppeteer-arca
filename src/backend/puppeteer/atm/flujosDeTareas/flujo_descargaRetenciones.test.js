@@ -41,11 +41,14 @@ function cargarFlujoConStubs({ alDescargar } = {}) {
     stubModulo('../codigoXpagina/retenciones_generico.js', {
         descargarRetencionGenerico: async (config) => {
             descargas.push({ tipo: config.nombre, periodo: config.periodo, recargarAlFinal: config.recargarAlFinal });
-            if (alDescargar) alDescargar(config);
+            // alDescargar puede devolver un resultado propio para simular una
+            // consulta incompleta; si no devuelve nada, sale la normal.
+            const propio = alDescargar ? alDescargar(config) : null;
             return {
                 success: true, tipo: config.nombre, registros: 1, archivosDescargados: 2,
                 files: [`${config.periodo}.xls`, `${config.periodo}.txt`],
-                downloadDir: '/descargas', mensaje: 'Éxito'
+                downloadDir: '/descargas', mensaje: 'Éxito',
+                ...(propio || {})
             };
         }
     });
@@ -150,4 +153,74 @@ test('sin periodos avisa en vez de seguir', async () => {
         () => flujoDescargaRetenciones(CREDENCIALES, 'CLIENTE', '/descargas', () => {}, []),
         /ningún periodo/
     );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La cuenta dura: ATM entrega 2 archivos por cada consulta que informo
+// registros. Si la suma no da, el usuario TIENE que enterarse: el bug original
+// fue un Excel que no bajo con un cartel de exito en pantalla.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('avisa cuando ATM informo registros y falto un archivo', async () => {
+    let primera = true;
+    const { flujoDescargaRetenciones } = cargarFlujoConStubs({
+        alDescargar: (config) => {
+            if (!primera) return null;
+            primera = false;
+            // Esta consulta tuvo registros pero solo entrego el DIU.
+            return {
+                success: false, registros: 2468, archivosDescargados: 1,
+                files: [`${config.periodo}.txt`],
+                mensaje: 'No se pudo descargar: Excel (ATM no entrego el Excel en 1240s)'
+            };
+        }
+    });
+
+    const avisos = [];
+    const resultado = await sinEsperas(() =>
+        flujoDescargaRetenciones(CREDENCIALES, 'CLIENTE', '/descargas',
+            (tipo, mensaje) => avisos.push({ tipo, mensaje }), ['2025-07'])
+    );
+
+    assert.strictEqual(resultado.descargaIncompleta, true);
+    assert.strictEqual(resultado.archivosFaltantes, 1);
+    assert.strictEqual(resultado.archivosEsperados, TIPOS * 2);
+    assert.match(resultado.mensaje, /INCOMPLETA/);
+
+    const alerta = avisos.find(a => a.tipo === 'error' && /FALTAN 1 archivo/.test(a.mensaje));
+    assert.ok(alerta, `tenia que llegar un aviso de faltante. Avisos: ${JSON.stringify(avisos)}`);
+
+    const exitoso = avisos.find(a => a.tipo === 'exito');
+    assert.ok(!exitoso, 'no puede decir "proceso completado" si faltan archivos');
+});
+
+test('no avisa nada raro cuando la cuenta cierra', async () => {
+    const { flujoDescargaRetenciones } = cargarFlujoConStubs();
+
+    const avisos = [];
+    const resultado = await sinEsperas(() =>
+        flujoDescargaRetenciones(CREDENCIALES, 'CLIENTE', '/descargas',
+            (tipo, mensaje) => avisos.push({ tipo, mensaje }), ['2025-07'])
+    );
+
+    assert.strictEqual(resultado.descargaIncompleta, false);
+    assert.strictEqual(resultado.archivosFaltantes, 0);
+    assert.ok(avisos.some(a => a.tipo === 'exito'), 'tiene que cerrar con el aviso de exito');
+    assert.ok(!avisos.some(a => /FALTAN/.test(a.mensaje)), 'no puede inventar faltantes');
+});
+
+test('las consultas sin registros no cuentan para los archivos esperados', async () => {
+    const { flujoDescargaRetenciones } = cargarFlujoConStubs({
+        alDescargar: () => ({ registros: 0, archivosDescargados: 0, files: [], mensaje: 'Sin registros' })
+    });
+
+    const avisos = [];
+    const resultado = await sinEsperas(() =>
+        flujoDescargaRetenciones(CREDENCIALES, 'CLIENTE', '/descargas',
+            (tipo, mensaje) => avisos.push({ tipo, mensaje }), ['2025-07'])
+    );
+
+    assert.strictEqual(resultado.archivosEsperados, 0);
+    assert.strictEqual(resultado.descargaIncompleta, false);
+    assert.ok(!avisos.some(a => a.tipo === 'error'), 'un mes sin registros no es un error');
 });
