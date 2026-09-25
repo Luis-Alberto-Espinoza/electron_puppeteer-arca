@@ -36,7 +36,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // APIs para extraer tablas de PDF
     extraerTablasPDF: {
         seleccionarArchivo: () => ipcRenderer.invoke('extraerTablasPDF:seleccionar-archivo'),
-        procesarArchivo: (ruta) => ipcRenderer.invoke('extraerTablasPDF:procesar-archivo', ruta)
+        procesarArchivo: (ruta) => ipcRenderer.invoke('extraerTablasPDF:procesar-archivo', ruta),
+        seleccionarCarpeta: () => ipcRenderer.invoke('extraerTablasPDF:seleccionar-carpeta'),
+        procesarCarpeta: (ruta) => ipcRenderer.invoke('extraerTablasPDF:procesar-carpeta', ruta),
+        // Reusa el canal 'abrir-archivo' de home/main.js (en el hermano: 'shell:abrir-archivo')
+        abrirArchivo: (ruta) => ipcRenderer.invoke('abrir-archivo', ruta)
     },
 
     // APIs de Usuario
