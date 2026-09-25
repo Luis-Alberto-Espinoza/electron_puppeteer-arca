@@ -23,17 +23,29 @@ const DESCRIPCION = 'Grilla de conceptos facturados → resumen de Neto e IVA po
 
 // Cabeceras obligatorias (clave interna -> texto tal como viene en el original).
 // Se buscan por nombre normalizado, nunca por posición.
-const CABECERAS = {
+const OBLIGATORIAS = {
     mes: 'Año - mes',
     comprobante: 'Comprobante',
     codigo: 'Conc./Art.',
     actividad: 'Descripción',
     neto: 'Neto Ítem',
-    iva: 'IVA Insc. Ítem',
+    iva: 'IVA Insc. Ítem'
+};
+
+// Columnas auxiliares que el resumen necesita para agrupar por tipo de comprobante.
+// El original que baja el cliente NO las trae: si faltan, las agregamos nosotros al
+// final de la hoja, con las mismas fórmulas que usa el contador. Si ya vienen, se usan.
+const AUXILIARES = {
     tipoFcNc: 'Tipo (FC/NC)',
     letra: 'Letra',
     tipo: 'Tipo comprobante'
 };
+
+const CABECERAS = { ...OBLIGATORIAS, ...AUXILIARES };
+
+// Nombres por defecto de hoja que se renombran a "Datos", como en el resultado esperado.
+const NOMBRE_HOJA_DATOS = 'Datos';
+const NOMBRE_HOJA_GENERICO = /^(sheet|hoja)\s*\d*$/i;
 
 // ---- Formato copiado del ejemplo corregido --------------------------------
 const FUENTE = 'Calibri';
@@ -67,15 +79,23 @@ function vacio(v) {
     return v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 }
 
-// Si la celda de "Tipo comprobante" no trae resultado cacheado (archivo guardado
-// por un programa que no calcula), lo derivamos del Comprobante con la MISMA
-// lógica que las fórmulas del original: LEFT(D, primer espacio) & " " & letra.
-function derivarTipo(comprobante) {
+// Parte el Comprobante ("FC B 0015 - 00009032") con la MISMA lógica que las fórmulas
+// del contador: tipo = LEFT(D, primer espacio), letra = MID(D, primer espacio + 1, 1).
+function partirComprobante(comprobante) {
     if (typeof comprobante !== 'string') return null;
     const s = comprobante;
     const i = s.indexOf(' ');
     if (i < 1 || i + 1 >= s.length) return null;
-    return `${s.slice(0, i)} ${s.charAt(i + 1)}`;
+    const tipoFcNc = s.slice(0, i);
+    const letra = s.charAt(i + 1);
+    return { tipoFcNc, letra, tipo: `${tipoFcNc} ${letra}` };
+}
+
+// Si no hay columna "Tipo comprobante" o su celda no trae resultado cacheado
+// (archivo guardado por un programa que no calcula), se deriva del Comprobante.
+function derivarTipo(comprobante) {
+    const p = partirComprobante(comprobante);
+    return p ? p.tipo : null;
 }
 
 function textoMes(v) {
@@ -110,9 +130,13 @@ function nombreHojaLibre(libro, base) {
  *             columnas?: Object<string,number> }}
  */
 function reconocer(libro) {
+    // Se buscan TODAS (obligatorias + auxiliares) para ubicar también las auxiliares
+    // si vienen, pero solo las obligatorias deciden si el archivo sirve.
+    const textosObligatorios = new Set(Object.values(OBLIGATORIAS));
     let mejor = null;
     for (const hoja of libro.worksheets) {
         const r = buscarCabeceras(hoja, CABECERAS);
+        r.faltantes = r.faltantes.filter(f => textosObligatorios.has(f));
         if (!mejor || r.faltantes.length < mejor.faltantes.length) mejor = { ...r, hoja };
         if (!r.faltantes.length) break;
     }
@@ -120,9 +144,9 @@ function reconocer(libro) {
     if (!mejor || mejor.filaCabecera === null) {
         return {
             ok: false,
-            faltantes: Object.values(CABECERAS),
+            faltantes: Object.values(OBLIGATORIAS),
             mensaje: 'Este archivo no parece una grilla de conceptos facturados: no se encontró '
-                + 'ninguna de las columnas esperadas (' + Object.values(CABECERAS).join(', ') + ').'
+                + 'ninguna de las columnas esperadas (' + Object.values(OBLIGATORIAS).join(', ') + ').'
         };
     }
     if (mejor.faltantes.length) {
@@ -157,7 +181,7 @@ function leerRenglones(hoja, filaCabecera, col) {
 
     for (let r = filaCabecera + 1; r <= hoja.rowCount; r++) {
         const fila = hoja.getRow(r);
-        const leer = (k) => valorPlano(fila.getCell(col[k]));
+        const leer = (k) => (col[k] ? valorPlano(fila.getCell(col[k])) : null);
         const mes = leer('mes');
         const comprobante = leer('comprobante');
         const actividad = leer('actividad');
@@ -428,6 +452,54 @@ function construirHojaResumen(libro, nombreHoja, datos, ctx) {
 }
 
 /**
+ * Deja la hoja de datos como la espera el resumen (igual que el resultado esperado
+ * del contador): la renombra a "Datos" si tiene un nombre genérico ("Sheet1",
+ * "Hoja1") y agrega al final las columnas auxiliares que falten, con fórmulas vivas
+ * y su resultado ya calculado. Actualiza `col` con las columnas nuevas.
+ * Se llama recién cuando los controles dieron 0.
+ */
+function completarHojaDatos(libro, hoja, filaCabecera, ultimaFila, col) {
+    const libre = !libro.worksheets.some(h => h !== hoja && h.name.toLowerCase() === NOMBRE_HOJA_DATOS.toLowerCase());
+    if (NOMBRE_HOJA_GENERICO.test(hoja.name.trim()) && libre) hoja.name = NOMBRE_HOJA_DATOS;
+
+    // Solo hace falta agregar si no está "Tipo comprobante" (la que usa el resumen).
+    if (col.tipo) return;
+
+    const filaCab = hoja.getRow(filaCabecera);
+    let ultimaCol = 0;
+    filaCab.eachCell({ includeEmpty: false }, (_c, n) => { ultimaCol = Math.max(ultimaCol, n); });
+    const estiloCabecera = ultimaCol ? { ...filaCab.getCell(ultimaCol).style } : {};
+
+    for (const clave of Object.keys(AUXILIARES)) {
+        if (col[clave]) continue;
+        col[clave] = ++ultimaCol;
+        const celda = filaCab.getCell(col[clave]);
+        celda.value = AUXILIARES[clave];
+        celda.style = estiloCabecera;
+        hoja.getColumn(col[clave]).width = 20;
+    }
+
+    const D = letraColumna(col.comprobante);
+    const Z = letraColumna(col.tipoFcNc);
+    const AA = letraColumna(col.letra);
+    for (let r = filaCabecera + 1; r <= ultimaFila; r++) {
+        const fila = hoja.getRow(r);
+        const partes = partirComprobante(valorPlano(fila.getCell(col.comprobante)));
+        if (!partes) continue; // sin comprobante: la fórmula daría #VALUE!, se deja vacía
+        const formulas = {
+            tipoFcNc: `LEFT(${D}${r},FIND(" ",${D}${r})-1)`,
+            letra: `MID(${D}${r},FIND(" ",${D}${r})+1,1)`,
+            tipo: `${Z}${r}&" "&${AA}${r}`
+        };
+        for (const clave of Object.keys(AUXILIARES)) {
+            const celda = fila.getCell(col[clave]);
+            if (!vacio(valorPlano(celda))) continue; // si la columna ya venía, no se pisa
+            celda.value = { formula: formulas[clave], result: partes[clave] };
+        }
+    }
+}
+
+/**
  * Agrega al libro la(s) hoja(s) de resumen. Si algo no cierra, NO toca el libro.
  *
  * @param {import('exceljs').Workbook} libro
@@ -478,7 +550,8 @@ function transformar(libro) {
         return { ok: false, mensaje: 'Los controles no dan 0, no se generó el archivo.\n' + lineas.join('\n'), controles };
     }
 
-    // 2) Recién ahora escribir las hojas nuevas.
+    // 2) Recién ahora escribir: completar la hoja de datos y agregar las hojas nuevas.
+    completarHojaDatos(libro, hojaDatos, filaCabecera, ultimaFila, col);
     const ctx = { hojaDatos, col, desde: filaCabecera + 1, hasta: ultimaFila, multiMes };
     const nuevas = porMes.map(d =>
         construirHojaResumen(libro, nombreHojaLibre(libro, multiMes ? `Resumen ${d.mes}` : 'Resumen'), d, ctx));

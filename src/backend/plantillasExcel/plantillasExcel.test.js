@@ -156,6 +156,40 @@ test('genera el Resumen igual al ejemplo corregido, con controles en 0 y Datos i
     assert.deepEqual(firmasHoja(generado.getWorksheet('Datos')), firmasHoja(esperado.getWorksheet('Datos')));
 });
 
+test('original real: hoja "Sheet1" sin las columnas auxiliares → las agrega y renombra a Datos', async () => {
+    const dir = carpetaTemporal();
+    // Así llega el archivo del cliente: sin Tipo (FC/NC), Letra ni Tipo comprobante,
+    // y con la hoja llamada "Sheet1".
+    const entrada = await prepararEntrada(dir, 'original.xlsx', (ws) => {
+        ws.spliceColumns(26, 3);
+        ws.name = 'Sheet1';
+    });
+
+    const res = await procesarArchivo(ID, entrada);
+    assert.equal(res.success, true, res.mensaje);
+    for (const c of res.controles) assert.equal(c.diferencia, 0);
+
+    const esperado = await leer(FIXTURE);
+    const generado = await leer(res.archivoGenerado);
+    assert.deepEqual(generado.worksheets.map(h => h.name), ['Resumen', 'Datos']);
+
+    // Datos queda igual a la del resultado esperado, fórmulas auxiliares incluidas.
+    assert.deepEqual(firmasHoja(generado.getWorksheet('Datos')), firmasHoja(esperado.getWorksheet('Datos')));
+
+    // Y el Resumen, con las mismas fórmulas y resultados.
+    const resEsp = esperado.getWorksheet('Resumen');
+    const resGen = generado.getWorksheet('Resumen');
+    for (let r = 4; r <= 26; r++) {
+        for (const col of ['C', 'D', 'E', 'F']) {
+            const ce = resEsp.getCell(`${col}${r}`);
+            if (!ce.formula) continue;
+            const cg = resGen.getCell(`${col}${r}`);
+            assert.equal(cg.formula, ce.formula, `fórmula ${col}${r}`);
+            assert.equal(cg.result ?? 0, ce.result ?? 0, `resultado ${col}${r}`);
+        }
+    }
+});
+
 test('si el archivo de salida ya existe no se pisa: agrega (2)', async () => {
     const dir = carpetaTemporal();
     const entrada = await prepararEntrada(dir, 'grilla.xlsx');

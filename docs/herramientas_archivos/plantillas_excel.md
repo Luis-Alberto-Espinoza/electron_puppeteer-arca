@@ -1,6 +1,7 @@
 # Servicio nuevo "Plantillas Excel"
 
-Estado: idea, sin código. Charlado el 2026-09-24.
+Estado: plantilla 1 hecha y probada en la app con el original real (2026-09-25),
+rama `plantillas-excel`. Próximo: orquestador con detección automática (§2, §4).
 
 ## 1. Contexto
 
@@ -14,13 +15,22 @@ el programa genera el archivo que hace falta.
 
 ## 2. Flujo en el frontend
 
-1. Servicio nuevo "Plantillas Excel" en el menú.
-2. Un submenú con un botón por plantilla (el nombre del botón dice qué resuelve).
-   Ahí se irán sumando las plantillas futuras.
-3. Al tocar una plantilla se abre el administrador de archivos para elegir el
-   Excel original.
-4. El programa verifica que el archivo sea el esperado (umbral, ver §4) y lo
-   transforma según la plantilla.
+Entrada única con detección automática (como el servicio de tablas PDF), más la
+lista de plantillas como camino manual. Decidido el 2026-09-25.
+
+1. Servicio "Plantillas Excel" en el navbar.
+2. Botón principal **"Procesar Excel"**: abre el administrador de archivos para
+   elegir el Excel original del cliente.
+3. El **orquestador** le pasa el archivo a TODAS las plantillas del registro; cada
+   una devuelve un puntaje de parecido (ver §4). Según el resultado:
+   - **Coincide una sola** → se ejecuta directo.
+   - **Coinciden varias** → se muestran SOLO esas como botones y el usuario elige.
+     Pasa cuando el mismo formato de archivo sirve para salidas distintas (ej. otro
+     cliente manda la misma grilla pero quiere el resumen por razón social).
+   - **No coincide ninguna** → se muestra la plantilla más parecida y qué cabeceras
+     le faltan (el mensaje que ya existe hoy).
+4. Debajo, la **lista de plantillas** (un botón por plantilla, con su color): el
+   camino manual para forzar una plantilla. Mismo flujo: elegir archivo → procesar.
 5. Si todo da bien, deja un archivo **nuevo** al lado del original, con nombre
    descriptivo. El original no se toca.
 6. Si algo falla, un mensaje claro que diga qué falta o qué no cierra.
@@ -41,7 +51,8 @@ La hoja **Resumen** NO viene en el original: es lo que tenemos que generar.
 | I | Neto Ítem | Se suma en el resumen de neto |
 | K | IVA Insc. Ítem | Se suma en el resumen de IVA |
 
-Al final hay tres columnas con fórmulas: `Tipo (FC/NC)` = `LEFT(D, ...)`,
+En el resultado esperado, al final de Datos hay tres columnas con fórmulas que el
+original NO trae (las agrega la plantilla): `Tipo (FC/NC)` = `LEFT(D, ...)`,
 `Letra` = `MID(D, ...)`, `Tipo comprobante` = `Z & " " & AA`. El resumen agrupa
 por esta última.
 
@@ -61,14 +72,22 @@ suman tal cual, sin invertir.
 
 ## 4. El umbral (cuándo se da por bueno)
 
-Dos momentos:
+Tres momentos:
 
-1. **Antes de transformar:** buscar por NOMBRE las cabeceras necesarias
-   (Comprobante, Conc./Art., Descripción, Neto Ítem, IVA Insc. Ítem). Si falta
-   alguna, frenar y decir cuál. Nunca buscar por posición de columna (lección
-   de la DDJJ: las columnas se mueven). Normalizar la cabecera antes de comparar:
-   minúsculas, sin tildes, sin espacios de más (ojo: `Tasa IVA ` viene con un
-   espacio al final).
+0. **Detección (orquestador).** Cada plantilla, en su `reconocer`, devuelve un
+   **puntaje** = cabeceras obligatorias encontradas / total de obligatorias
+   (0 a 1), buscadas por nombre normalizado. **Coincide** = puntaje 1 (están
+   todas): es lo mínimo para poder transformar, así que el umbral no puede ser
+   menor. El puntaje menor a 1 sirve para ordenar y mostrar "la más parecida".
+   Diferencia con el PDF: allá se suman `palabrasClave` contra un `umbral` y gana
+   el que lo supera; acá no se elige "la que más suma" entre varias en 1, se le
+   pregunta al usuario, porque la plantilla se define por la SALIDA que quiere.
+1. **Antes de transformar:** buscar por NOMBRE las cabeceras obligatorias
+   (Año - mes, Comprobante, Conc./Art., Descripción, Neto Ítem, IVA Insc. Ítem).
+   Si falta alguna, frenar y decir cuál. Nunca buscar por posición de columna
+   (lección de la DDJJ: las columnas se mueven). Normalizar la cabecera antes de
+   comparar: minúsculas, sin tildes, sin espacios de más (ojo: `Tasa IVA ` viene
+   con un espacio al final).
 2. **Después de transformar:** los bloques de control. Si la diferencia de neto
    o de IVA no da 0, el archivo no se da por bueno.
 
@@ -81,8 +100,11 @@ Dos momentos:
 - **El original nunca se modifica.** Se escribe un archivo nuevo al lado.
 - **Actividades y tipos de comprobante salen de los datos**, no quedan fijos:
   el mes que viene puede aparecer una actividad o un tipo nuevo.
-- **Las columnas Tipo (FC/NC), Letra y Tipo comprobante vienen en el original.**
-  No las generamos; son cabeceras obligatorias más para el `reconocer`.
+- **Las columnas Tipo (FC/NC), Letra y Tipo comprobante NO vienen en el original**
+  (corregido 2026-09-25 al probar con el original real: la hoja viene como "Sheet1"
+  y sin esas columnas). Si faltan, la plantilla las agrega al final con las fórmulas
+  del contador (`LEFT`/`MID`/concatenación) + resultado calculado; si vienen, las usa.
+  Si la hoja tiene nombre genérico ("Sheet1", "Hoja1") se renombra a "Datos".
 - **El archivo nuevo = copia del original (hoja Datos intacta) + hoja Resumen.**
   Las fórmulas del Resumen leen de Datos, por eso tienen que viajar juntas.
 - **El Resumen lleva fórmulas vivas** (`SUMIFS`, `COUNTIFS`, `ROUND`), igual que
@@ -103,6 +125,15 @@ Dos momentos:
 - **Solo `.xlsx`.** Si llega un `.xls` viejo, mensaje claro pidiendo guardarlo
   como `.xlsx` (exceljs no abre `.xls`).
 - **Si un control no da 0, no se genera el archivo** y se muestra la diferencia.
+- **Orquestador híbrido** (§2): detección automática + lista manual. El orquestador
+  vive en el manager (`plantillasExcelManager.js`), recorre `registroPlantillas.js`
+  y no sabe nada de cada plantilla más allá de `reconocer`/`transformar`. Sumar una
+  plantilla sigue siendo: escribir el módulo y registrarlo.
+- **Color e ícono por plantilla, definidos en su módulo** (junto a `nombre` y
+  `descripcion`). El usuario NO los edita por ahora: con la detección automática
+  casi no va a buscar botones, y hacerlo editable implica guardar preferencias,
+  una pantalla para editarlas y resolver nombres repetidos. Se revisa si, con
+  muchas plantillas, los usuarios lo piden.
 
 ## 6. Preguntas abiertas
 
@@ -110,12 +141,17 @@ Ninguna.
 
 ## 7. Pasos en orden
 
-1. Conseguir un archivo ORIGINAL sin tocar (no el corregido) para probar.
-2. Backend: dominio nuevo con su `handlers.js` (elegir archivo, procesar), un
-   registro de plantillas y la primera plantilla con `reconocer`/`transformar`.
-3. Test con el archivo de ejemplo: el Resumen generado tiene que dar los mismos
-   totales que el corregido y diferencias en 0.
-4. Frontend: vista con el submenú de plantillas, usando el sistema de diseño
-   (`tokens.css`, `base.css`, clases `.ui-`).
-5. Probar en el portable de Windows (rutas con espacios y paréntesis, como el
+Hecho (2026-09-25): archivo original real conseguido; backend (dominio, registro,
+plantilla 1); tests contra el ejemplo y contra el original real; frontend con la
+lista de plantillas; probado en la app en Linux.
+
+Pendiente:
+1. `reconocer` devuelve `puntaje` (0 a 1) además de `ok`/`faltantes`.
+2. Manager: `detectarPlantilla(ruta)` → lista ordenada `{ id, nombre, puntaje,
+   faltantes }`; IPC nuevo `plantillasExcel:detectar` + preload.
+3. Metadatos `color` e `icono` en cada plantilla, expuestos en `listar`.
+4. Frontend: botón "Procesar Excel" con los 3 casos de §2.3 + lista manual debajo
+   con los colores.
+5. Tests: una coincide / varias coinciden (plantilla falsa de prueba) / ninguna.
+6. Probar en el portable de Windows (rutas con espacios y paréntesis, como el
    nombre del ejemplo).
