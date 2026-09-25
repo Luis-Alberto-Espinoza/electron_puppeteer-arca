@@ -3,7 +3,7 @@
 // Ver docs/herramientas_archivos/plantillas_excel.md
 
 const { listarPlantillas } = require('./registroPlantillas.js');
-const { procesarArchivo } = require('./plantillasExcelManager.js');
+const { procesarArchivo, detectarPlantilla } = require('./plantillasExcelManager.js');
 
 /**
  * @param {Electron.IpcMain} ipcMain
@@ -38,6 +38,16 @@ function setupPlantillasExcelHandlers(ipcMain, mainWindow, dialog) {
             }
             return { success: true, archivo: r.filePaths[0] };
         } catch (error) {
+            return { success: false, mensaje: error.message };
+        }
+    });
+
+    // Orquestador: ¿qué plantilla(s) sirven para este archivo? (ver detectarPlantilla)
+    ipcMain.handle('plantillasExcel:detectar', async (event, { archivo } = {}) => {
+        try {
+            return await detectarPlantilla(archivo);
+        } catch (error) {
+            console.error('[plantillasExcel:detectar] error:', error);
             return { success: false, mensaje: error.message };
         }
     });

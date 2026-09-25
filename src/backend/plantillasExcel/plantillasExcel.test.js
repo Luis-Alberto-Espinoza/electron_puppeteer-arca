@@ -12,8 +12,8 @@ const path = require('path');
 const crypto = require('crypto');
 const ExcelJS = require('exceljs');
 
-const { procesarArchivo, rutaSalidaLibre } = require('./plantillasExcelManager.js');
-const { listarPlantillas } = require('./registroPlantillas.js');
+const { procesarArchivo, detectarPlantilla, rutaSalidaLibre } = require('./plantillasExcelManager.js');
+const { listarPlantillas, todasLasPlantillas } = require('./registroPlantillas.js');
 const { normalizarCabecera, letraColumna } = require('./service/cabeceras.js');
 
 const FIXTURE = path.join(__dirname, '../../../test/fixtures/plantillasExcel/grilla_vinos_corregido.xlsx');
@@ -205,6 +205,53 @@ test('reconocer devuelve el puntaje: 1 completo, 5/6 si falta una, 0 si no tiene
     const otro = new ExcelJS.Workbook();
     otro.addWorksheet('Sheet1').addRow(['Cliente', 'Saldo', 'Vencimiento']);
     assert.equal(plantilla.reconocer(otro).puntaje, 0);
+});
+
+// Plantillas de prueba para el orquestador (no tocan el registro real).
+const plantillaFalsa = (id, puntaje) => ({
+    id, nombre: id, descripcion: '',
+    reconocer: () => ({ ok: puntaje === 1, puntaje, faltantes: puntaje === 1 ? [] : ['X'], mensaje: '' })
+});
+
+test('orquestador: una sola coincidencia (registro real)', async () => {
+    const dir = carpetaTemporal();
+    const entrada = await prepararEntrada(dir, 'grilla.xlsx');
+    const r = await detectarPlantilla(entrada);
+    assert.equal(r.success, true);
+    assert.deepEqual(r.coincidencias, [ID]);
+    assert.equal(r.candidatas[0].id, ID);
+    assert.equal(r.candidatas[0].puntaje, 1);
+});
+
+test('orquestador: varias coincidencias → las devuelve todas para que elija el usuario', async () => {
+    const dir = carpetaTemporal();
+    const entrada = await prepararEntrada(dir, 'grilla.xlsx');
+    const plantillas = [plantillaFalsa('parcial', 0.5), ...todasLasPlantillas(), plantillaFalsa('otraSalida', 1)];
+    const r = await detectarPlantilla(entrada, plantillas);
+    assert.deepEqual(r.coincidencias, [ID, 'otraSalida']);            // empate: orden del registro
+    assert.deepEqual(r.candidatas.map(c => c.id), [ID, 'otraSalida', 'parcial']);
+});
+
+test('orquestador: ninguna coincide → la más parecida primero, con sus faltantes', async () => {
+    const dir = carpetaTemporal();
+    const entrada = await prepararEntrada(dir, 'sin_iva.xlsx', (ws) => { ws.getCell('K1').value = 'IVA'; });
+    const r = await detectarPlantilla(entrada, [plantillaFalsa('nada', 0), ...todasLasPlantillas()]);
+    assert.deepEqual(r.coincidencias, []);
+    assert.equal(r.candidatas[0].id, ID);
+    assert.equal(r.candidatas[0].puntaje, 5 / 6);
+    assert.deepEqual(r.candidatas[0].faltantes, ['IVA Insc. Ítem']);
+});
+
+test('orquestador: una plantilla que explota no tumba a las demás; .xls da el mensaje claro', async () => {
+    const dir = carpetaTemporal();
+    const entrada = await prepararEntrada(dir, 'grilla.xlsx');
+    const rota = { id: 'rota', nombre: 'rota', reconocer: () => { throw new Error('boom'); } };
+    const r = await detectarPlantilla(entrada, [rota, ...todasLasPlantillas()]);
+    assert.deepEqual(r.coincidencias, [ID]);
+
+    const xls = await detectarPlantilla(path.join(dir, 'viejo.xls'));
+    assert.equal(xls.success, false);
+    assert.match(xls.mensaje, /Guardar como/);
 });
 
 test('si el archivo de salida ya existe no se pisa: agrega (2)', async () => {

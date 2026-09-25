@@ -19,4 +19,9 @@ function obtenerPlantilla(id) {
     return PLANTILLAS.find(p => p.id === id) || null;
 }
 
-module.exports = { listarPlantillas, obtenerPlantilla };
+/** Los módulos completos, en orden (para el orquestador). */
+function todasLasPlantillas() {
+    return PLANTILLAS;
+}
+
+module.exports = { listarPlantillas, obtenerPlantilla, todasLasPlantillas };

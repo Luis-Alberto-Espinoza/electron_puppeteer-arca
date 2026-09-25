@@ -136,6 +136,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     plantillasExcel: {
         listar: () => ipcRenderer.invoke('plantillasExcel:listar'),
         elegirArchivo: () => ipcRenderer.invoke('plantillasExcel:elegirArchivo'),
+        detectar: (archivo) => ipcRenderer.invoke('plantillasExcel:detectar', { archivo }),
         procesar: (idPlantilla, archivo) => ipcRenderer.invoke('plantillasExcel:procesar', { idPlantilla, archivo })
     },
 
@@ -228,4 +229,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onProgreso: (callback) => ipcRenderer.on('facturaCliente:progreso', (_event, datos) => callback(datos)),
         onResultado: (callback) => ipcRenderer.on('facturaCliente:resultado', (_event, datos) => callback(datos))
     },
-});
+});
