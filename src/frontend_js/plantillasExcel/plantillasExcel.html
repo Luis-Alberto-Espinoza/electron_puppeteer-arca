@@ -1,17 +1,26 @@
-<!-- Vista: Plantillas Excel. Un botón por plantilla; cada una transforma el Excel
+<!-- Vista: Plantillas Excel. Entrada única con detección automática ("Procesar Excel")
+     + lista de plantillas como camino manual. Cada plantilla transforma el Excel
      original de un cliente en un archivo nuevo al lado (el original no se toca).
      Se inyecta dinamicamente en #plantillasExcelDiv (ver controlador.js). -->
 <link rel="stylesheet" href="../plantillasExcel/plantillasExcel.css">
 
-<div class="ui-page">
+<div class="ui-page" id="pxRaiz">
     <div class="ui-page-header">
         <h1 class="ui-page-title">Plantillas Excel</h1>
-        <p class="ui-page-subtitle">Elegí qué querés generar y después el Excel original del cliente. Se crea un archivo nuevo al lado; el original no se toca.</p>
+        <p class="ui-page-subtitle">Elegí el Excel original del cliente y el programa detecta qué plantilla corresponde. Se crea un archivo nuevo al lado; el original no se toca.</p>
     </div>
 
+    <div class="ui-card px-principal">
+        <button type="button" class="ui-btn px-procesar" id="pxProcesar">📂 Procesar Excel</button>
+    </div>
+
+    <!-- Cuando el archivo sirve para varias plantillas: solo esas, para que elija el usuario -->
+    <div id="pxEleccion" class="ui-card px-eleccion" style="display:none;"></div>
+
+    <div id="pxEstado" class="ui-card px-estado" style="display:none;"></div>
+
+    <h2 class="px-subtitulo">O elegí una plantilla a mano</h2>
     <div id="pxLista" class="px-lista">
         <!-- Un botón por plantilla, lo arma plantillasExcel.js -->
     </div>
-
-    <div id="pxEstado" class="ui-card px-estado" style="display:none;"></div>
 </div>

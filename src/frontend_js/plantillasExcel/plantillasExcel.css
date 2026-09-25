@@ -8,13 +8,42 @@
     margin-bottom: 20px;
 }
 
-/* Cada plantilla es un botón grande con título + descripción. */
+/* Entrada principal: detección automática. */
+.px-principal {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.px-procesar {
+    font-size: 1.1rem;
+    padding: 16px 40px;
+}
+
+.px-eleccion {
+    margin-bottom: 20px;
+    border-left: 4px solid var(--c-primario-1);
+}
+
+.px-subtitulo {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--texto-2);
+    margin: 28px 0 12px;
+}
+
+/* Cada plantilla es un botón grande con título + descripción. El color de fondo
+   lo pone el JS con el color que define cada plantilla. */
 .px-plantilla {
     flex-direction: column;
     align-items: flex-start;
     text-align: left;
     gap: 6px;
     width: 100%;
+}
+
+.px-plantilla-nombre {
+    font-weight: 700;
 }
 
 .px-plantilla-desc {
@@ -24,6 +53,7 @@
 }
 
 .px-estado {
+    margin-bottom: 20px;
     white-space: pre-line;   /* los mensajes del backend vienen con \n */
     line-height: 1.5;
 }
