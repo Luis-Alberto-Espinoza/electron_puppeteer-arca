@@ -20,6 +20,9 @@ const {
 const ID = 'resumenConceptosFacturados';
 const NOMBRE = 'Resumen de conceptos facturados';
 const DESCRIPCION = 'Grilla de conceptos facturados → resumen de Neto e IVA por actividad y tipo de comprobante (ej. Vinos).';
+// Identidad visual del botón (la define la plantilla, el usuario no la edita por ahora).
+const COLOR = '#8e2c48';
+const ICONO = '🧾';
 
 // Cabeceras obligatorias (clave interna -> texto tal como viene en el original).
 // Se buscan por nombre normalizado, nunca por posición.
@@ -587,6 +590,8 @@ module.exports = {
     id: ID,
     nombre: NOMBRE,
     descripcion: DESCRIPCION,
+    color: COLOR,
+    icono: ICONO,
     cabeceras: CABECERAS,
     reconocer,
     transformar

@@ -221,6 +221,18 @@ test('orquestador: una sola coincidencia (registro real)', async () => {
     assert.deepEqual(r.coincidencias, [ID]);
     assert.equal(r.candidatas[0].id, ID);
     assert.equal(r.candidatas[0].puntaje, 1);
+    assert.equal(r.candidatas[0].color, '#8e2c48');
+    assert.equal(r.candidatas[0].icono, '🧾');
+});
+
+test('color e ícono: los de la plantilla, o uno neutro si no los define', () => {
+    const [p] = listarPlantillas();
+    assert.equal(p.color, '#8e2c48');
+    assert.equal(p.icono, '🧾');
+    const { fichaPlantilla } = require('./registroPlantillas.js');
+    const sinIdentidad = fichaPlantilla(plantillaFalsa('x', 1));
+    assert.equal(sinIdentidad.color, '#6b7280');
+    assert.equal(sinIdentidad.icono, '📄');
 });
 
 test('orquestador: varias coincidencias → las devuelve todas para que elija el usuario', async () => {

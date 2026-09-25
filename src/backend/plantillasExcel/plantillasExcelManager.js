@@ -14,7 +14,7 @@
 const fs = require('fs');
 const path = require('path');
 const ExcelJS = require('exceljs');
-const { obtenerPlantilla, todasLasPlantillas } = require('./registroPlantillas.js');
+const { obtenerPlantilla, todasLasPlantillas, fichaPlantilla } = require('./registroPlantillas.js');
 
 // Caracteres que Windows no admite en un nombre de archivo.
 function limpiarParaArchivo(texto) {
@@ -144,7 +144,7 @@ async function procesarArchivo(idPlantilla, rutaArchivo) {
  * @param {object[]} [plantillas]  por defecto, todas las del registro (los tests
  *                                 pasan plantillas de prueba)
  * @returns {Promise<{ success: boolean, mensaje?: string,
- *   candidatas?: Array<{ id, nombre, descripcion, puntaje, faltantes, mensaje }>,
+ *   candidatas?: Array<{ id, nombre, descripcion, color, icono, puntaje, faltantes, mensaje }>,
  *   coincidencias?: string[] }>}
  */
 async function detectarPlantilla(rutaArchivo, plantillas = todasLasPlantillas()) {
@@ -157,9 +157,7 @@ async function detectarPlantilla(rutaArchivo, plantillas = todasLasPlantillas())
         try {
             const r = p.reconocer(libro);
             candidatas.push({
-                id: p.id,
-                nombre: p.nombre,
-                descripcion: p.descripcion,
+                ...fichaPlantilla(p),
                 puntaje: r.puntaje ?? 0,
                 faltantes: r.faltantes || [],
                 mensaje: r.mensaje
