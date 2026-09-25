@@ -90,6 +90,22 @@ function buscarCabeceras(hoja, requeridas, filasARevisar = 20) {
     return mejor;
 }
 
+/**
+ * Puntaje de parecido de un archivo con una plantilla: cabeceras obligatorias
+ * encontradas / total de obligatorias (0 a 1). Todas las plantillas lo calculan con
+ * esta MISMA regla, así el orquestador puede comparar puntajes entre plantillas.
+ * 1 = están todas (la plantilla puede transformar el archivo).
+ *
+ * @param {Object<string,string>} obligatorias  clave interna -> texto de la cabecera
+ * @param {string[]} faltantes  textos de las obligatorias que no se encontraron
+ * @returns {number}
+ */
+function calcularPuntaje(obligatorias, faltantes) {
+    const total = Object.keys(obligatorias).length;
+    if (!total) return 0;
+    return (total - faltantes.length) / total;
+}
+
 /** Número de columna (1-based) -> letra de Excel (1 -> A, 28 -> AB). */
 function letraColumna(n) {
     let s = '';
@@ -112,6 +128,7 @@ module.exports = {
     valorPlano,
     esFormula,
     buscarCabeceras,
+    calcularPuntaje,
     letraColumna,
     refHoja
 };

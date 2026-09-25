@@ -190,6 +190,23 @@ test('original real: hoja "Sheet1" sin las columnas auxiliares → las agrega y 
     }
 });
 
+test('reconocer devuelve el puntaje: 1 completo, 5/6 si falta una, 0 si no tiene nada que ver', async () => {
+    const plantilla = require('./plantillas/resumenConceptosFacturados.js');
+
+    const completo = await leer(FIXTURE);
+    assert.equal(plantilla.reconocer(completo).puntaje, 1);
+
+    const sinIva = await leer(FIXTURE);
+    sinIva.getWorksheet('Datos').getCell('K1').value = 'IVA';
+    const r = plantilla.reconocer(sinIva);
+    assert.equal(r.ok, false);
+    assert.equal(r.puntaje, 5 / 6);
+
+    const otro = new ExcelJS.Workbook();
+    otro.addWorksheet('Sheet1').addRow(['Cliente', 'Saldo', 'Vencimiento']);
+    assert.equal(plantilla.reconocer(otro).puntaje, 0);
+});
+
 test('si el archivo de salida ya existe no se pisa: agrega (2)', async () => {
     const dir = carpetaTemporal();
     const entrada = await prepararEntrada(dir, 'grilla.xlsx');

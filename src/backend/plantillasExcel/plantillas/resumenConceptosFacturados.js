@@ -14,7 +14,7 @@
 // Ver docs/herramientas_archivos/plantillas_excel.md
 
 const {
-    valorPlano, buscarCabeceras, letraColumna, refHoja
+    valorPlano, buscarCabeceras, calcularPuntaje, letraColumna, refHoja
 } = require('../service/cabeceras.js');
 
 const ID = 'resumenConceptosFacturados';
@@ -123,9 +123,10 @@ function nombreHojaLibre(libro, base) {
 /**
  * ¿El libro es una grilla de conceptos facturados? Busca, hoja por hoja, la fila
  * de cabeceras con todas las columnas obligatorias. No modifica el libro.
+ * El `puntaje` (0 a 1) es lo que usa el orquestador para elegir plantilla.
  *
  * @param {import('exceljs').Workbook} libro
- * @returns {{ ok: boolean, mensaje: string, faltantes: string[],
+ * @returns {{ ok: boolean, puntaje: number, mensaje: string, faltantes: string[],
  *             hoja?: import('exceljs').Worksheet, filaCabecera?: number,
  *             columnas?: Object<string,number> }}
  */
@@ -144,14 +145,17 @@ function reconocer(libro) {
     if (!mejor || mejor.filaCabecera === null) {
         return {
             ok: false,
+            puntaje: 0,
             faltantes: Object.values(OBLIGATORIAS),
             mensaje: 'Este archivo no parece una grilla de conceptos facturados: no se encontró '
                 + 'ninguna de las columnas esperadas (' + Object.values(OBLIGATORIAS).join(', ') + ').'
         };
     }
+    const puntaje = calcularPuntaje(OBLIGATORIAS, mejor.faltantes);
     if (mejor.faltantes.length) {
         return {
             ok: false,
+            puntaje,
             faltantes: mejor.faltantes,
             hoja: mejor.hoja,
             mensaje: `En la hoja "${mejor.hoja.name}" faltan estas columnas: `
@@ -161,6 +165,7 @@ function reconocer(libro) {
     }
     return {
         ok: true,
+        puntaje,
         faltantes: [],
         hoja: mejor.hoja,
         filaCabecera: mejor.filaCabecera,
