@@ -94,7 +94,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv', 'plantillasExcelDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -139,6 +139,7 @@ const REGISTRO_VISTAS = {
     consultaComprobantes: { modulo: 'consultaComprobantesDiv', cargar: cargarModuloConsultaComprobantes },
     declaracionJurada: { modulo: 'declaracionJuradaDiv', cargar: cargarModuloDeclaracionJurada },
     historial: { modulo: 'historialDiv', cargar: cargarModuloHistorial },
+    plantillasExcel: { modulo: 'plantillasExcelDiv', cargar: cargarModuloPlantillasExcel },
 };
 
 // Recuerda qué vista está activa para poder recargarla sin perder el contexto.
@@ -732,6 +733,47 @@ async function cargarModuloHistorial() {
     } catch (error) {
         console.error('❌ Error cargando módulo Historial:', error);
         historialDiv.innerHTML = '<div style="color:red;">Error cargando el Historial.</div>';
+    }
+}
+
+/**
+ * Carga el módulo Plantillas Excel (un botón por plantilla; cada una transforma el
+ * Excel original de un cliente en un archivo nuevo). HTML + CSS + JS plano.
+ */
+async function cargarModuloPlantillasExcel() {
+    mostrarSoloModulo('plantillasExcelDiv');
+    const div = document.getElementById('plantillasExcelDiv');
+    if (!div) {
+        console.error('❌ No se encontró plantillasExcelDiv');
+        return;
+    }
+
+    div.innerHTML = ''; // loader idempotente
+
+    try {
+        const htmlPath = '../plantillasExcel/plantillasExcel.html';
+        const jsPath = '../plantillasExcel/plantillasExcel.js';
+
+        const response = await fetch(htmlPath);
+        if (!response.ok) throw new Error(`Error al cargar ${htmlPath}`);
+        div.innerHTML = await response.text();
+
+        const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+        if (oldScript) oldScript.remove();
+
+        const script = document.createElement('script');
+        script.src = jsPath;
+        script.onload = () => {
+            if (window.inicializarPlantillasExcel) {
+                window.inicializarPlantillasExcel();
+            } else {
+                console.error('❌ window.inicializarPlantillasExcel no está definida');
+            }
+        };
+        document.head.appendChild(script);
+    } catch (error) {
+        console.error('❌ Error cargando módulo Plantillas Excel:', error);
+        div.innerHTML = '<div style="color:red;">Error cargando Plantillas Excel.</div>';
     }
 }
 

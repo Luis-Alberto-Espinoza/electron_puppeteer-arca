@@ -1,0 +1,17 @@
+<!-- Vista: Plantillas Excel. Un botón por plantilla; cada una transforma el Excel
+     original de un cliente en un archivo nuevo al lado (el original no se toca).
+     Se inyecta dinamicamente en #plantillasExcelDiv (ver controlador.js). -->
+<link rel="stylesheet" href="../plantillasExcel/plantillasExcel.css">
+
+<div class="ui-page">
+    <div class="ui-page-header">
+        <h1 class="ui-page-title">Plantillas Excel</h1>
+        <p class="ui-page-subtitle">Elegí qué querés generar y después el Excel original del cliente. Se crea un archivo nuevo al lado; el original no se toca.</p>
+    </div>
+
+    <div id="pxLista" class="px-lista">
+        <!-- Un botón por plantilla, lo arma plantillasExcel.js -->
+    </div>
+
+    <div id="pxEstado" class="ui-card px-estado" style="display:none;"></div>
+</div>

@@ -76,6 +76,7 @@
                 </div>
                 <button class="nav-btn" data-clave="clientes">Clientes</button>
                 <button class="nav-btn" data-clave="pdf">PDF</button>
+                <button class="nav-btn" data-clave="plantillasExcel">Plantillas Excel</button>
                 <button class="nav-btn" data-clave="historial">Historial</button>
             </div>
             <div class="nav-right">

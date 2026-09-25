@@ -131,6 +131,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
         buscar: (texto, filtros) => ipcRenderer.invoke('historial:buscar', { texto, filtros })
     },
 
+    // Plantillas Excel: cada plantilla transforma el Excel original de un cliente en
+    // un archivo nuevo al lado. Ver docs/herramientas_archivos/plantillas_excel.md
+    plantillasExcel: {
+        listar: () => ipcRenderer.invoke('plantillasExcel:listar'),
+        elegirArchivo: () => ipcRenderer.invoke('plantillasExcel:elegirArchivo'),
+        procesar: (idPlantilla, archivo) => ipcRenderer.invoke('plantillasExcel:procesar', { idPlantilla, archivo })
+    },
+
     // APIs para Consulta de Deuda
     consultaDeuda: {
         consultar: (datos) => ipcRenderer.invoke('consultaDeuda:consultar', datos),

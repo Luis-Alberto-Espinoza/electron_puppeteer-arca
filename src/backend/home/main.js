@@ -47,6 +47,9 @@ const setupListasPlanesPagoHandlers = require('../afip/planesDePago/handlers_lis
 // Historial de acciones (bitacora persistente, un solo usuario)
 const setupHistorialHandlers = require('../historial/handlers.js');
 
+// Plantillas Excel (transformar el Excel original de un cliente en el archivo que hace falta)
+const setupPlantillasExcelHandlers = require('../plantillasExcel/handlers.js');
+
 // Carpeta de datos (ver/cambiar dónde viven los .json) — Fase 2
 const setupDatosHandlers = require('../comun/handlers.js');
 
@@ -400,6 +403,7 @@ app.whenReady().then(async () => {
         setupListasPlanesPagoHandlers(ipcMain);
 
         setupHistorialHandlers(ipcMain); // bitacora de acciones (solo lectura desde el front)
+        setupPlantillasExcelHandlers(ipcMain, mainWindow, dialog); // plantillas Excel (elegir archivo + procesar)
 
         // Handler para descargar el Excel modelo de carga masiva
         ipcMain.handle('descargar-plantilla-clientes', async () => {

@@ -1,0 +1,60 @@
+/* Vista Plantillas Excel. Usa los tokens del sistema de diseño (estilos/tokens.css).
+   Sin reglas sobre body: esta hoja se inyecta en el shell y se filtraría. */
+
+.px-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
+}
+
+/* Cada plantilla es un botón grande con título + descripción. */
+.px-plantilla {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    gap: 6px;
+    width: 100%;
+}
+
+.px-plantilla-desc {
+    font-size: 0.82rem;
+    font-weight: 400;
+    opacity: 0.9;
+}
+
+.px-estado {
+    white-space: pre-line;   /* los mensajes del backend vienen con \n */
+    line-height: 1.5;
+}
+
+.px-estado--ok { border-left: 4px solid var(--c-ok-1); }
+.px-estado--error { border-left: 4px solid var(--c-peligro-1); }
+.px-estado--proceso { border-left: 4px solid var(--c-primario-1); color: var(--texto-2); }
+
+.px-estado-titulo {
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.px-ruta {
+    font-family: monospace;
+    font-size: 0.85rem;
+    word-break: break-all;
+    background: var(--fondo-claro-2);
+    border-radius: var(--radio-sm);
+    padding: 6px 8px;
+    margin: 6px 0 10px;
+}
+
+.px-controles {
+    color: var(--texto-2);
+    font-size: 0.85rem;
+    margin-bottom: 10px;
+}
+
+.px-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
