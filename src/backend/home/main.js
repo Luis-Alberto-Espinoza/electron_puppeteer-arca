@@ -3,7 +3,6 @@ const path = require('path');
 // comunicacionConFactura y facturaManager movidos a afip/factura/handlers.js
 // comunicacionConLibroIVA movido a afip/libroIVA/handlers.js
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
-const procesarPdfConFallback = require('../extraerTablasPdf/extraerTablas_B_Manager.js'); // Importa la función orquestadora
 const fs = require('fs');
 
 // vepManager movido a afip/vep/handlers.js
@@ -49,6 +48,9 @@ const setupHistorialHandlers = require('../historial/handlers.js');
 
 // Plantillas Excel (transformar el Excel original de un cliente en el archivo que hace falta)
 const setupPlantillasExcelHandlers = require('../plantillasExcel/handlers.js');
+
+// Extraer Tablas PDF (motor copiado de tablas_pdf_a_csv)
+const setupTablasPdfHandlers = require('../tablasPdf/handlers.js');
 
 // Carpeta de datos (ver/cambiar dónde viven los .json) — Fase 2
 const setupDatosHandlers = require('../comun/handlers.js');
@@ -301,42 +303,6 @@ function setupIpcListeners() {
         }
     });
 
-    // Handler para seleccionar archivo PDF para extraer tablas
-    ipcMain.handle('extraerTablasPDF:seleccionar-archivo', async () => {
-        const result = await dialog.showOpenDialog(mainWindow, {
-            properties: ['openFile'],
-            filters: [
-                { name: 'Archivos PDF', extensions: ['pdf'] },
-                { name: 'Todos los archivos', extensions: ['*'] }
-            ],
-            title: 'Seleccionar archivo PDF para extraer tablas'
-        });
-        if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-            console.log('Ruta seleccionada (main):', result.filePaths[0]);
-            return result.filePaths;
-        }
-        return [];
-    });
-
-    // Handler para procesar el archivo PDF (asegúrate de que esté dentro de setupIpcListeners)
-    ipcMain.handle('extraerTablasPDF:procesar-archivo', async (event, rutaPDF) => {
-        console.log('Procesando archivo con el nuevo orquestador en main:', rutaPDF);
-        
-        // Pasa la ruta raíz de la app como una opción para asegurar la correcta resolución de módulos.
-        const appPath = app.getAppPath();
-        const resultado = await procesarPdfConFallback(rutaPDF, { projectRoot: appPath });
-
-        if (resultado.exito) {
-            console.log(`Procesamiento exitoso con el método: ${resultado.metodo}`);
-            console.log(`CSV del resultado guardado en: ${resultado.rutaCsv}`);
-        } else {
-            console.error('Error en el procesamiento PDF orquestado:', resultado.error);
-        }
-
-        // Devolvemos el objeto de resultado completo al frontend
-        return resultado;
-    });
-
     ipcMain.handle('abrir-archivo', async (_event, rutaArchivo) => {
         try {
             await shell.openPath(rutaArchivo);
@@ -404,6 +370,7 @@ app.whenReady().then(async () => {
 
         setupHistorialHandlers(ipcMain); // bitacora de acciones (solo lectura desde el front)
         setupPlantillasExcelHandlers(ipcMain, mainWindow, dialog); // plantillas Excel (elegir archivo + procesar)
+        setupTablasPdfHandlers(ipcMain, mainWindow, dialog); // herramienta Extraer Tablas PDF (motor copiado del hermano)
 
         // Handler para descargar el Excel modelo de carga masiva
         ipcMain.handle('descargar-plantilla-clientes', async () => {

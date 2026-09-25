@@ -1,8 +1,40 @@
-<div class="container">
-        <h2>Procesar PDF</h2>
+<!--
+  Extraer Tablas PDF — fragmento que controlador.js inyecta (fetch + innerHTML)
+  dentro de #extraerTablasPDFDiv. Viene del frontend del proyecto hermano
+  tablas_pdf_a_csv (src/frontend/index.html), adaptado: sin <html>/<body>, todo
+  bajo el contenedor .tpdf para que el CSS no se filtre al resto de la app.
+-->
+<div class="tpdf">
+    <!-- Sección para Archivo Individual -->
+    <div id="singleFileSection">
+        <h2>Procesar PDF Individual</h2>
         <button id="selectPdf_extraerTabla_Btn">Seleccionar PDF</button>
-        <input type="text" id="pdfPathInput" placeholder="Ruta del PDF seleccionado" readonly style="width:70%;margin:10px 0;">
+        <input type="text" id="pdfPathInput" class="file-path-input" placeholder="Ruta del PDF seleccionado" readonly>
         <button id="processPdf_extraerTablas_Btn" disabled>Procesar PDF</button>
-        <div id="statusMessage"></div>
+        <div id="statusMessage" class="message-area"></div>
         <!-- El div csvPathDiv se agrega dinámicamente por JS -->
     </div>
+
+    <!-- Sección para Procesamiento por Grupo (oculta por defecto) -->
+    <div id="batchSection" style="display: none;">
+        <h2>Procesar por Grupo</h2>
+        <button id="selectFolderBtn">Seleccionar Carpeta</button>
+        <input type="text" id="folderPathInput" class="file-path-input" placeholder="Ruta de la carpeta seleccionada" readonly>
+        <button id="processFolderBtn" disabled>Convertir</button>
+
+        <div id="batchProgressContainer" class="message-area" style="display: none;">
+            <div class="spinner-container">
+                <div class="spinner"></div>
+                <p class="spinner-message" id="batchStatusMessage">Procesando archivos...</p>
+            </div>
+        </div>
+
+        <div id="batchResultsDiv"></div>
+    </div>
+
+    <!-- Div para botones de cambio de modo -->
+    <div id="modeSwitcher">
+        <button id="switchToBatchBtn">Cambiar a Modo Grupo</button>
+        <button id="switchToSingleBtn" style="display: none;">Cambiar a Modo Individual</button>
+    </div>
+</div>
