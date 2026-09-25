@@ -228,4 +228,4 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onProgreso: (callback) => ipcRenderer.on('facturaCliente:progreso', (_event, datos) => callback(datos)),
         onResultado: (callback) => ipcRenderer.on('facturaCliente:resultado', (_event, datos) => callback(datos))
     },
-});
+});
