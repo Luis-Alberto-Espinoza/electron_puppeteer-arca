@@ -1,6 +1,6 @@
 {
   "name": "afip_atm",
-  "version": "2.3.0-Retenciones_MuchosRegistros",
+  "version": "2.3.0-plantillasYPDF",
   "main": "src/backend/home/main.js",
   "scripts": {
     "start": "electron .",
