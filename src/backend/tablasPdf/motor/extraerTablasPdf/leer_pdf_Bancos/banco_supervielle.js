@@ -266,11 +266,11 @@ function validarSaldos(movimientos, saldoInicial) {
 // los 254 movimientos. Escribiendo el workbook acá se fuerza REFERENCIA a texto.
 // Es el mismo motivo por el que banco_galicia.js también es Modo B.
 
-const FILL_TITULO = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-const FILL_HEADER = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
-const FONT_TITULO = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-const FMT_MONTO = '#,##0.00';
-const FMT_FECHA = 'dd/mm/yyyy';
+// Colores, fuentes y formatos compartidos por todos los Excel de salida.
+const {
+    FILL_TITULO, FONT_TITULO, FMT_MONTO, FMT_FECHA,
+    estilizarEncabezado, estilizarEtiqueta, aplicarCebra
+} = require('../../utils/estilosExcel');
 
 // "01/12/2025" -> Date (ExcelJS lo escribe como fecha real con FMT_FECHA)
 function fechaAObjeto(f) {
@@ -296,8 +296,7 @@ async function generarExcel({ meta, movimientos, impuestos }, rutaSalida) {
     for (const clave of Object.keys(meta)) {
         const celdaProp = hojaMeta.getCell(`A${fila}`);
         celdaProp.value = clave;
-        celdaProp.font = { bold: true };
-        celdaProp.fill = FILL_HEADER;
+        estilizarEtiqueta(celdaProp);
 
         const celdaVal = hojaMeta.getCell(`B${fila}`);
         const valor = meta[clave];
@@ -329,8 +328,7 @@ async function generarExcel({ meta, movimientos, impuestos }, rutaSalida) {
 
     const encabezado = hoja.getRow(1);
     encabezado.values = ['FECHA', 'DESCRIPCION', 'REFERENCIA', 'DEBITO', 'CREDITO', 'SALDO', 'DETALLE'];
-    encabezado.font = { bold: true };
-    encabezado.eachCell(c => { c.fill = FILL_HEADER; });
+    estilizarEncabezado(encabezado);
 
     movimientos.forEach(mov => {
         const r = hoja.addRow([
@@ -351,6 +349,7 @@ async function generarExcel({ meta, movimientos, impuestos }, rutaSalida) {
         [4, 5, 6].forEach(n => { r.getCell(n).numFmt = FMT_MONTO; });
     });
 
+    aplicarCebra(hoja, 2, hoja.rowCount, 7);
     hoja.views = [{ state: 'frozen', ySplit: 1 }];
     hoja.autoFilter = { from: 'A1', to: 'G1' };
 
@@ -364,13 +363,13 @@ async function generarExcel({ meta, movimientos, impuestos }, rutaSalida) {
         ];
         const encImp = hojaImp.getRow(1);
         encImp.values = ['CONCEPTO', 'PERIODO', 'IMPORTE'];
-        encImp.font = { bold: true };
-        encImp.eachCell(c => { c.fill = FILL_HEADER; });
+        estilizarEncabezado(encImp);
 
         impuestos.forEach(i => {
             const r = hojaImp.addRow([i.CONCEPTO, i.PERIODO, i.IMPORTE]);
             r.getCell(3).numFmt = FMT_MONTO;
         });
+        aplicarCebra(hojaImp, 2, hojaImp.rowCount, 3);
     }
 
     await workbook.xlsx.writeFile(rutaSalida);

@@ -164,7 +164,7 @@ const LAYOUTS_SECCION = {
         { nombre: 'TNA',            align: 'der', x: 230.8, end: 243.1, num: 'AR' },
         { nombre: 'TASA',           align: 'izq', x: 259.5, end: 275.9 },
         // La TEA viene con 4 decimales (32,5398), así que lleva su propio formato.
-        { nombre: 'TEA',            align: 'der', x: 308.6, end: 320.9, num: 'AR', fmt: '#,##0.0000' },
+        { nombre: 'TEA',            align: 'der', x: 308.6, end: 320.9, num: 'AR', fmt: '0.0000' },
         { nombre: 'VTO',            align: 'der', x: 357.7, end: 370.0 },
         { nombre: 'CTA. A DEBITAR', align: 'izq', x: 402.8, end: 460.1 }
     ]],
@@ -677,16 +677,16 @@ function aplanar(cuentas) {
 // ============================================================================
 //  GENERACIÓN DEL EXCEL (Modo B)
 // ============================================================================
-const FILL_TITULO = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-const FILL_HEADER = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
-const FONT_TITULO = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-const FMT_MONTO = '#,##0.00';
+// Colores, fuentes y formatos compartidos por todos los Excel de salida.
+const {
+    FILL_TITULO, FONT_TITULO, FILL_ENCABEZADO, FONT_ENCABEZADO, FMT_MONTO, FMT_FECHA,
+    estilizarEncabezado, estilizarEtiqueta, aplicarCebra
+} = require('../../utils/estilosExcel');
 // Para el importe que el PDF marca con "*" (remite a la nota al pie): se guarda
 // como número —así suma— y el asterisco se conserva en el formato de la celda.
-const FMT_MONTO_NOTA = '#,##0.00"*"';
+const FMT_MONTO_NOTA = '0.00"*"';
 // Tasas que el PDF escribe con el símbolo detrás ("37.00 %").
-const FMT_TASA_PCT = '#,##0.00"%"';
-const FMT_FECHA = 'dd/mm/yyyy';
+const FMT_TASA_PCT = '0.00"%"';
 
 // Leyenda que el PDF trae para las cuentas que no registraron movimientos.
 const LEYENDA_SIN_ACTIVIDAD = 'NO HUBO NINGUNA ACTIVIDAD DURANTE EL PERIODO DEL EXTRACTO';
@@ -723,7 +723,7 @@ async function generarExcel(procesado, rutaSalida) {
     };
     const propValor = (prop, val) => {
         const c1 = sheet.getCell(`A${row}`);
-        c1.value = prop; c1.font = { bold: true }; c1.fill = FILL_HEADER;
+        c1.value = prop; estilizarEtiqueta(c1);
         sheet.getCell(`B${row}`).value = val;
         row++;
     };
@@ -744,7 +744,7 @@ async function generarExcel(procesado, rutaSalida) {
         const headers = ['PRODUCTO', 'SUC', 'CUENTA', 'CBU', 'SALDO ANTERIOR', 'SALDO ACTUAL'];
         headers.forEach((h, idx) => {
             const c = sheet.getCell(row, idx + 1);
-            c.value = h; c.font = { bold: true }; c.fill = FILL_HEADER;
+            c.value = h; c.font = FONT_ENCABEZADO; c.fill = FILL_ENCABEZADO;
         });
         row++;
         for (const c of cabecera.cuentasResumen) {
@@ -768,7 +768,8 @@ async function generarExcel(procesado, rutaSalida) {
         const hoja = workbook.addWorksheet(nombre);
 
         hoja.getCell('A1').value = `${cuenta.producto} - NRO.: ${cuenta.nro}`;
-        hoja.getCell('A1').font = { bold: true };
+        hoja.getCell('A1').font = FONT_TITULO;
+        hoja.getCell('A1').fill = FILL_TITULO;
         hoja.mergeCells('A1:F1');
 
         let filaHeader = 2;
@@ -782,8 +783,7 @@ async function generarExcel(procesado, rutaSalida) {
 
         const headerRow = hoja.getRow(filaHeader);
         headerRow.values = ['FECHA', 'DESCRIPCION', 'NRO', 'DEBITO', 'CREDITO', 'SALDO'];
-        headerRow.font = { bold: true };
-        headerRow.fill = FILL_HEADER;
+        estilizarEncabezado(headerRow);
 
         hoja.columns = [
             { key: 'FECHA', width: 12, style: { numFmt: FMT_FECHA } },
@@ -795,6 +795,8 @@ async function generarExcel(procesado, rutaSalida) {
         ];
 
         cuenta.movimientos.forEach(mov => hoja.addRow(mov));
+        aplicarCebra(hoja, filaHeader + 1, hoja.rowCount, 6);
+        hoja.views = [{ state: 'frozen', ySplit: filaHeader }];
         nCuenta++;
     }
 
@@ -824,7 +826,7 @@ async function generarExcel(procesado, rutaSalida) {
                     cell.value = celda;
                     const fmt = formatos[idxFila] && formatos[idxFila][idx];
                     if (fmt) { cell.numFmt = fmt; cell.alignment = { horizontal: 'right' }; }
-                    if (esHeader.has(idxFila)) { cell.font = { bold: true }; cell.fill = FILL_HEADER; }
+                    if (esHeader.has(idxFila)) { cell.font = FONT_ENCABEZADO; cell.fill = FILL_ENCABEZADO; }
                 });
                 r++;
             });

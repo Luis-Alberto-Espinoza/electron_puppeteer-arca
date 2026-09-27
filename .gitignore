@@ -1,5 +1,5 @@
 # Reportes de pruebas (artefactos generados, no código)
-pruebas/reportes/
+pruebas/
 
 # Config de pilotos con credenciales reales (NO subir). Se versiona el .example.
 pruebas/*.config.js

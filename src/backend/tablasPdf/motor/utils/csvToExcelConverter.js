@@ -58,7 +58,7 @@ async function convertCsvToExcel(csvString, excelFilePath) {
 
                 // Optional: Apply number format for numeric cells
                 if (cellData.type === ExcelJS.ValueType.Number) {
-                    cell.numFmt = '#,##0.00'; // Example format: 123,456.78
+                    cell.numFmt = '0.00'; // Sin separador de miles: 123456.78
                 }
                 // Optional: Apply date format for date cells
                 if (cellData.type === ExcelJS.ValueType.Date) {

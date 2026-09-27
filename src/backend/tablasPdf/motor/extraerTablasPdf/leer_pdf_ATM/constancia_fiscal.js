@@ -39,8 +39,9 @@ const MAPA_DE_DISEÑO = {
             { nombre: "Concepto",           inicioX: 115, finX: 195 },
             { nombre: "Fecha Vencimiento",  inicioX: 195, finX: 250 },
             { nombre: "Estado",             inicioX: 250, finX: 300 },
-            { nombre: "Importe Original",   inicioX: 300, finX: 400 },
-            { nombre: "Saldo",              inicioX: 400, finX: 510 },
+            // Importes: se ubican por borde derecho (432 / 502 / 572 en el PDF)
+            { nombre: "Importe Original",   inicioX: 300, finX: 440 },
+            { nombre: "Saldo",              inicioX: 440, finX: 510 },
             { nombre: "Saldo Actualizado",  inicioX: 510, finX: 600 }
         ]
     },
@@ -72,6 +73,18 @@ function formatNumber(str) {
         return parteEntera + ',' + partes[1];
     }
     return str;
+}
+
+// Los importes vienen alineados a la derecha: su X inicial varía según la cantidad de dígitos
+// (un 760.00 arranca más a la derecha que un 1,011.00), pero el borde derecho es fijo.
+const PATRON_IMPORTE = /^-?[\d.,]*\d[.,]\d{2}$/;
+
+function obtenerXReferencia(item) {
+    const texto = item.str.trim();
+    if (PATRON_IMPORTE.test(texto) && item.width) {
+        return item.transform[4] + item.width;
+    }
+    return item.transform[4];
 }
 
 function encontrarColumnaPorLayout(itemX, layout) {
@@ -154,7 +167,7 @@ function convertirFilaAObjeto(lineaItems, layout) {
     layout.columnas.forEach(c => registro[c.nombre] = '');
 
     lineaItems.forEach(item => {
-        const colName = encontrarColumnaPorLayout(item.transform[4], layout);
+        const colName = encontrarColumnaPorLayout(obtenerXReferencia(item), layout);
         if (colName && item.str.trim()) {
             registro[colName] = (registro[colName] + ' ' + item.str.trim()).trim();
         }

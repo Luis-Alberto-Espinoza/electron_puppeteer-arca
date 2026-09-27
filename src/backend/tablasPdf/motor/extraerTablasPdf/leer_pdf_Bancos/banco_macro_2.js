@@ -1,6 +1,10 @@
 const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
+// Colores, fuentes y formatos compartidos por todos los Excel de salida.
+const {
+    FILL_TITULO, FONT_TITULO, estilizarEncabezado, aplicarCebra
+} = require('../../utils/estilosExcel');
 
 // --- AUXILIARES ---
 
@@ -275,18 +279,20 @@ async function generarExcel(procesado, rutaSalida) {
         { propiedad: 'Período', valor: metadatos.periodo },
         { propiedad: 'Sucursal', valor: metadatos.sucursal }
     ]);
+    estilizarEncabezado(sheetMetadatos.getRow(1));
+    aplicarCebra(sheetMetadatos, 2, sheetMetadatos.rowCount, 2);
 
     let numeroHoja = 1;
     for (const [numeroCuenta, datos] of Object.entries(registrosPorCuenta)) {
         const sheet = workbook.addWorksheet(`Cuenta ${numeroHoja}`);
         sheet.getCell('A1').value = `${datos.tipo} - NRO.: ${numeroCuenta}`;
-        sheet.getCell('A1').font = { bold: true };
+        sheet.getCell('A1').font = FONT_TITULO;
+        sheet.getCell('A1').fill = FILL_TITULO;
         sheet.mergeCells('A1:F1');
 
         const headerRow = sheet.getRow(2);
         headerRow.values = ['FECHA', 'DESCRIPCION', 'REFERENCIA', 'DEBITOS', 'CREDITOS', 'SALDO'];
-        headerRow.font = { bold: true };
-        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
+        estilizarEncabezado(headerRow);
 
         sheet.columns = [
             { key: 'FECHA', width: 12 },
@@ -298,6 +304,8 @@ async function generarExcel(procesado, rutaSalida) {
         ];
 
         datos.movimientos.forEach(mov => sheet.addRow(mov));
+        aplicarCebra(sheet, 3, sheet.rowCount, 6);
+        sheet.views = [{ state: 'frozen', ySplit: 2 }];
         numeroHoja++;
     }
 
@@ -309,9 +317,10 @@ async function generarExcel(procesado, rutaSalida) {
             { header: 'HASTA', key: 'HASTA', width: 12 },
             { header: 'IMPORTE', key: 'IMPORTE', width: 18 }
         ];
-        sheet.getRow(1).font = { bold: true };
-        sheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
+        estilizarEncabezado(sheet.getRow(1));
         retencionesIIBB.forEach(r => sheet.addRow(r));
+        aplicarCebra(sheet, 2, sheet.rowCount, 4);
+        sheet.views = [{ state: 'frozen', ySplit: 1 }];
     }
 
     await workbook.xlsx.writeFile(rutaSalida);

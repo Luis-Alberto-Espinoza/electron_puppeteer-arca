@@ -1,6 +1,7 @@
 const path = require('path');
 const { convertCsvToExcel } = require('../utils/csvToExcelConverter');
 const ExcelJS = require('exceljs');
+const estilos = require('../utils/estilosExcel');
 
 // FUNCIÓN DE LIMPIEZA CENTRALIZADA
 function cleanCellData(value) {
@@ -41,9 +42,19 @@ function cleanCellData(value) {
     // y que Excel muestre horas inesperadas. Mantener como cadena limpia.
     // Si en el futuro se requiere conversión a Date, hacerlo con manejo explícito de zonas horarias.
 
+    // Excel guarda solo 15 dígitos significativos: un nro. de operación o de
+    // referencia más largo (ej. 30 dígitos) se corrompería al pasarlo a número.
+    // Se deja como texto.
+    if ((cleaned.match(/\d/g) || []).length > 15) {
+        return cleaned;
+    }
+
     // Manejar números con signos + o - al inicio (con o sin espacio)
     // Ejemplos: "+ 123.45", "- 123.45", "+123.45", "-123.45"
-    const signedNumberMatch = cleaned.match(/^([+\-\u2212])\s*(.+)$/);
+    // También con el signo al final, como lo escriben algunos bancos: "99831,93-"
+    const signoAlFinal = cleaned.match(/^(.*\d)\s*([+\-\u2212])$/);
+    const signedNumberMatch = cleaned.match(/^([+\-\u2212])\s*(.+)$/)
+        || (signoAlFinal && [signoAlFinal[0], signoAlFinal[2], signoAlFinal[1]]);
     if (signedNumberMatch) {
         const sign = signedNumberMatch[1] === '+' ? '' : '-'; // El + no es necesario, el - sí
         const numberPart = signedNumberMatch[2];
@@ -135,16 +146,18 @@ async function convertStructuredDataToExcel(datosParaGuardar, suggestedFileName,
             const datosTabla = tabla.datos;
             if (!Array.isArray(datosTabla) || datosTabla.length === 0) return;
 
-            // Fila de título de la sección (en negrita)
+            // Fila de título de la sección
             const tituloRow = worksheet.addRow([tabla.titulo || `Tabla ${idx + 1}`]);
-            tituloRow.getCell(1).font = { bold: true };
-            tituloRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+            estilos.estilizarTitulo(tituloRow.getCell(1));
 
             // Filas de datos (Concepto en col A, Valor en col B, etc.)
+            const primeraFilaDatos = worksheet.rowCount + 1;
+            let colsSeccion = 1;
             datosTabla.forEach(fila => {
                 if (typeof fila !== 'object' || fila === null) return;
                 const valores = Object.keys(fila).map(k => cleanCellData(fila[k]));
                 maxCols = Math.max(maxCols, valores.length);
+                colsSeccion = Math.max(colsSeccion, valores.length);
                 const excelRow = worksheet.addRow(valores);
                 excelRow.eachCell((cell) => {
                     if (typeof cell.value === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(cell.value)) {
@@ -160,19 +173,25 @@ async function convertStructuredDataToExcel(datosParaGuardar, suggestedFileName,
                 });
             });
 
+            // Filas Concepto/Valor: la columna Valor mezcla montos con cantidades
+            // ("Cantidad de empleados: 5"), así que el formato se decide por celda:
+            // con decimales es monto; los enteros quedan como están.
+            const ultimaFilaDatos = worksheet.rowCount;
+            for (let r = primeraFilaDatos; r <= ultimaFilaDatos; r++) {
+                worksheet.getRow(r).eachCell(cell => {
+                    if (typeof cell.value === 'number' && !Number.isInteger(cell.value) && !cell.numFmt) {
+                        cell.numFmt = estilos.FMT_MONTO;
+                    }
+                });
+            }
+            estilos.aplicarCebra(worksheet, primeraFilaDatos, ultimaFilaDatos, colsSeccion);
+            for (let c = 1; c <= colsSeccion; c++) estilos.estilizarTitulo(tituloRow.getCell(c));
+
             // Fila en blanco de separación entre secciones
             worksheet.addRow([]);
         });
 
-        // Autoajustar el ancho de cada columna al contenido
-        for (let c = 1; c <= maxCols; c++) {
-            let maxLength = 10;
-            worksheet.getColumn(c).eachCell({ includeEmpty: false }, (cell) => {
-                const cellValue = cell.value ? cell.value.toString() : '';
-                maxLength = Math.max(maxLength, cellValue.length);
-            });
-            worksheet.getColumn(c).width = maxLength + 3;
-        }
+        estilos.autoajustarAnchos(worksheet, maxCols, { minimo: 10 });
 
         hayDatos = true;
     } else if (Array.isArray(datosParaGuardar.tablas) && datosParaGuardar.tablas.length > 0) {
@@ -187,28 +206,9 @@ async function convertStructuredDataToExcel(datosParaGuardar, suggestedFileName,
                     const nombreHojaLimpio = nombreHoja.replace(/[\"\/*?[\]]/g, '').substring(0, 31);
                     console.log(`  - Creando hoja: "${nombreHojaLimpio}" (${datosHoja.length} registros)`);
                     const worksheet = workbook.addWorksheet(nombreHojaLimpio);
-                    // Inicialmente sin ancho fijo
                     worksheet.columns = Object.keys(firstRow).map(key => ({ header: key, key: key }));
-
-                    // Alinear las cabeceras a la izquierda (son texto descriptivo)
-                    const headerRow = worksheet.getRow(1);
-                    headerRow.eachCell((cell) => {
-                        cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                        cell.font = { bold: true }; // Opcional: poner las cabeceras en negrita
-                    });
-
                     addRowsToSheet(worksheet, datosHoja); // Usar la función que limpia
-
-                    // Autoajustar el ancho de las columnas al contenido
-                    worksheet.columns.forEach((column, index) => {
-                        let maxLength = 0;
-                        column.eachCell({ includeEmpty: false }, (cell) => {
-                            const cellValue = cell.value ? cell.value.toString() : '';
-                            maxLength = Math.max(maxLength, cellValue.length);
-                        });
-                        // Añadir un pequeño margen (2 caracteres) para que no quede tan apretado
-                        column.width = maxLength + 2;
-                    });
+                    estilos.estilizarTabla(worksheet);
 
                     hayDatos = true;
                 }
@@ -221,28 +221,9 @@ async function convertStructuredDataToExcel(datosParaGuardar, suggestedFileName,
             const firstRow = datos.find(row => typeof row === 'object' && row !== null);
             if (firstRow) {
                 const worksheet = workbook.addWorksheet("Datos");
-                // Inicialmente sin ancho fijo
                 worksheet.columns = Object.keys(firstRow).map(key => ({ header: key, key: key }));
-
-                // Alinear las cabeceras a la izquierda (son texto descriptivo)
-                const headerRow = worksheet.getRow(1);
-                headerRow.eachCell((cell) => {
-                    cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                    cell.font = { bold: true }; // Opcional: poner las cabeceras en negrita
-                });
-
                 addRowsToSheet(worksheet, datos); // Usar la función que limpia
-
-                // Autoajustar el ancho de las columnas al contenido
-                worksheet.columns.forEach((column, index) => {
-                    let maxLength = 0;
-                    column.eachCell({ includeEmpty: false }, (cell) => {
-                        const cellValue = cell.value ? cell.value.toString() : '';
-                        maxLength = Math.max(maxLength, cellValue.length);
-                    });
-                    // Añadir un pequeño margen (2 caracteres) para que no quede tan apretado
-                    column.width = maxLength + 3;
-                });
+                estilos.estilizarTabla(worksheet);
 
                 hayDatos = true;
             }

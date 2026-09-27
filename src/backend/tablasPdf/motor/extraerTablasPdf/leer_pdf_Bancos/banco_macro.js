@@ -1,6 +1,11 @@
 const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
+// Colores, fuentes y formatos compartidos por todos los Excel de salida.
+const {
+    FILL_TITULO, FONT_TITULO, FILL_ENCABEZADO, FONT_ENCABEZADO, FMT_MONTO,
+    estilizarEncabezado, estilizarEtiqueta, aplicarCebra
+} = require('../../utils/estilosExcel');
 
 // --- FUNCIONES AUXILIARES ---
 
@@ -512,10 +517,6 @@ async function generarExcel(procesado, rutaSalida) {
         { key: 'f', width: 28 }
     ];
 
-    const FILL_TITULO     = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4472C4' } };
-    const FILL_ENCABEZADO = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
-    const FONT_TITULO     = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-
     const escribirTitulo = (row, texto, mergeHasta = 'B') => {
         const celda = sheet.getCell(`A${row}`);
         celda.value = texto;
@@ -527,8 +528,7 @@ async function generarExcel(procesado, rutaSalida) {
     const escribirPropValor = (row, prop, val) => {
         const c1 = sheet.getCell(`A${row}`);
         c1.value = prop;
-        c1.font = { bold: true };
-        c1.fill = FILL_ENCABEZADO;
+        estilizarEtiqueta(c1);
         sheet.getCell(`B${row}`).value = val;
     };
 
@@ -574,7 +574,7 @@ async function generarExcel(procesado, rutaSalida) {
         headers.forEach((h, idx) => {
             const cell = sheet.getCell(row, idx + 1);
             cell.value = h;
-            cell.font = { bold: true };
+            cell.font = FONT_ENCABEZADO;
             cell.fill = FILL_ENCABEZADO;
         });
         row++;
@@ -595,24 +595,26 @@ async function generarExcel(procesado, rutaSalida) {
         const nombreHoja = `Cuenta ${numeroHoja}`;
         const sheet = workbook.addWorksheet(nombreHoja);
         sheet.getCell('A1').value = `${datos.tipo} - NRO.: ${numeroCuenta}`;
-        sheet.getCell('A1').font = { bold: true };
+        sheet.getCell('A1').font = FONT_TITULO;
+        sheet.getCell('A1').fill = FILL_TITULO;
         sheet.mergeCells('A1:F1');
 
         const headerRow = sheet.getRow(2);
         headerRow.values = ['FECHA', 'DESCRIPCION', 'REFERENCIA', 'DEBITOS', 'CREDITOS', 'SALDO'];
-        headerRow.font = { bold: true };
-        headerRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
+        estilizarEncabezado(headerRow);
 
         sheet.columns = [
             { key: 'FECHA', width: 12 },
             { key: 'DESCRIPCION', width: 40 },
             { key: 'REFERENCIA', width: 15, style: { numFmt: '0' } },
-            { key: 'DEBITOS',    width: 15, style: { numFmt: '#,##0.00' } },
-            { key: 'CREDITOS',   width: 15, style: { numFmt: '#,##0.00' } },
-            { key: 'SALDO',      width: 15, style: { numFmt: '#,##0.00' } }
+            { key: 'DEBITOS',    width: 15, style: { numFmt: FMT_MONTO } },
+            { key: 'CREDITOS',   width: 15, style: { numFmt: FMT_MONTO } },
+            { key: 'SALDO',      width: 15, style: { numFmt: FMT_MONTO } }
         ];
 
         datos.movimientos.forEach(mov => sheet.addRow(mov));
+        aplicarCebra(sheet, 3, sheet.rowCount, 6);
+        sheet.views = [{ state: 'frozen', ySplit: 2 }];
         numeroHoja++;
     }
 
