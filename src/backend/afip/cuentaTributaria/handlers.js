@@ -28,22 +28,21 @@ async function obtenerCredenciales(repo, cuitAsociado) {
 
 /**
  * Devuelve un cliente enriquecido con `apellido` (y otros campos faltantes)
- * desde el storage. El frontend SCT pasa `{id, nombre, cuitLogin}` recortado;
- * el paso_12 (descarga PDF) necesita además `apellido` para armar la carpeta
- * canónica `${cuit}_${nombre}_${apellido}`. Si el cliente no se encuentra en
- * storage, se devuelve tal cual (fallback seguro).
+ * desde el repo. El frontend SCT pasa `{id, nombre, cuitLogin}` recortado; la
+ * carpeta se arma por CUIT y el nombre queda de respaldo. Si el cliente no se
+ * encuentra, se devuelve tal cual (fallback seguro).
  */
-function enriquecerCliente(userStorage, cliente) {
+async function enriquecerCliente(repo, cliente) {
     if (!cliente || !cliente.id) return cliente;
     try {
-        const dataBD = userStorage.loadData();
-        const u = dataBD.users.find(x => String(x.id) === String(cliente.id));
-        if (!u) return cliente;
+        const c = await repo.getById(cliente.id);
+        if (!c) return cliente;
         return {
             ...cliente,
-            nombre: cliente.nombre || u.nombre,
-            apellido: cliente.apellido || u.apellido,
-            cuitLogin: cliente.cuitLogin || u.cuit,
+            // Jurídica no tiene nombre: la razón social hace de nombre.
+            nombre: cliente.nombre || c.nombre || c.razonSocial,
+            apellido: cliente.apellido || c.apellido,
+            cuitLogin: cliente.cuitLogin || c.cuit,
         };
     } catch (_) {
         return cliente;
@@ -62,7 +61,7 @@ function claveItem(item) {
     return `${cliId}-${cuit}`;
 }
 
-function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
+function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
     const repo = getContribuyenteRepo();
 
     ipcMain.handle('cuentaTributaria:procesar', async (event, datos) => {
@@ -88,7 +87,7 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
                     let { cliente, cuitAsociado } = item;
-                    cliente = enriquecerCliente(userStorage, cliente);
+                    cliente = await enriquecerCliente(repo, cliente);
 
                     emitirUpdate(mainWindow, {
                         tipo: 'progreso',
@@ -175,7 +174,7 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
                     let { cliente, cuitAsociado, medioPago, seleccionFilas: selItem } = item;
-                    cliente = enriquecerCliente(userStorage, cliente);
+                    cliente = await enriquecerCliente(repo, cliente);
 
                     emitirUpdate(mainWindow, {
                         tipo: 'progreso',
@@ -272,7 +271,7 @@ function setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app) {
                 for (let i = 0; i < items.length; i++) {
                     const item = items[i];
                     let { cliente, cuitAsociado, deudasABuscar, medioPago } = item;
-                    cliente = enriquecerCliente(userStorage, cliente);
+                    cliente = await enriquecerCliente(repo, cliente);
 
                     emitirUpdate(mainWindow, {
                         tipo: 'progreso',

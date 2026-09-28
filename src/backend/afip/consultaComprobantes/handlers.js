@@ -8,10 +8,9 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
  * @param {Electron.IpcMain} ipcMain
- * @param {Object} userStorage  (legacy, ya no se usa acá)
  * @param {Electron.App} app
  */
-function setupConsultaComprobantesHandlers(ipcMain, userStorage, app) {
+function setupConsultaComprobantesHandlers(ipcMain, app) {
     const repo = getContribuyenteRepo();
 
     ipcMain.handle('consultaComprobantes:consultar', async (event, datos) => {

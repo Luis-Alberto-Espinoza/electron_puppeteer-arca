@@ -1,15 +1,8 @@
 const { proyectarUsersJson } = require('./proyeccionUsersJson.js');
 const { getContribuyenteRepo } = require('./contribuyenteStore.js');
 
-module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, dialog) {
+module.exports = function setupUserHandlers(ipcMain, mainWindow, dialog) {
     const repo = getContribuyenteRepo();
-
-    // PUENTE (write-side, plan C1): el CRUD escribe el modelo plano vía el repo;
-    // tras cada cambio regeneramos users.json (proyección) para que los 4 flujos
-    // aún no migrados (SCT/Planes/NC/empresa ABM) sigan leyendo datos frescos.
-    async function sincronizarUsersJson() {
-        userStorage.saveData(proyectarUsersJson(await repo.obtenerTodos()));
-    }
 
     // Estado nuevo (enum) a partir de si hay clave + si ya se verificó al crear.
     function estadoInicial(clave, verificado) {
@@ -49,7 +42,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 representanteAfipCuit: userData.representanteAfipCuit || null,
                 grupoId: userData.grupoId || null
             });
-            await sincronizarUsersJson();
             return { success: true, user: c };
         } catch (error) {
             const msg = error.code === 'CUIT_DUPLICADO' ? 'Ya existe un contribuyente con ese CUIT'
@@ -113,7 +105,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 // sí la manda). Así ningún otro camino que reuse user:update lo borra.
                 ...('grupoId' in updatedUser ? { grupoId: updatedUser.grupoId || null } : {})
             });
-            await sincronizarUsersJson();
             return { success: true, user: c };
         } catch (error) {
             return { success: false, error: error.message };
@@ -130,7 +121,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             if (r && r.ok === false) {
                 return { success: false, error: `No se puede borrar: es representante de ${r.dependientes.join(', ')}` };
             }
-            await sincronizarUsersJson();
             return { success: true, user: actual };
         } catch (error) {
             return { success: false, error: error.message };
@@ -156,7 +146,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
         console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);
 
         try {
-            // Crear un usuario temporal para verificar (sin guardarlo)
+            // Usuario temporal para verificar: vive solo en memoria, nunca se guarda.
             const tempUser = {
                 id: 'temp_' + Date.now(),
                 nombre: credenciales.nombre || 'Verificación Temporal',
@@ -166,11 +156,6 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 claveATM: credenciales.claveATM || null,
                 tipoContribuyente: credenciales.tipoContribuyente || null
             };
-
-            // Guardar usuario temporal
-            const data = userStorage.loadData();
-            data.users.push(tempUser);
-            userStorage.saveData(data);
 
             // Preparar jobs de verificación
             const verificationJobs = [];
@@ -187,8 +172,7 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 try {
                     // Cada servicio (AFIP/ATM) abre y cierra su propio navegador en serie:
                     // acá no pre-abrimos nada.
-                    const userIndex = data.users.findIndex(u => String(u.id) === String(tempUser.id));
-                    const usuario = data.users[userIndex];
+                    const usuario = tempUser;
                     const servicesToVerify = verificationJobs.map(j => j.service);
 
                     // Modo lite: si el frontend lo pidió, solo validar credenciales sin scraping.
@@ -271,25 +255,11 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 }
             });
 
-            // Eliminar usuario temporal
-            const updatedData = userStorage.loadData();
-            updatedData.users = updatedData.users.filter(u => String(u.id) !== String(tempUser.id));
-            userStorage.saveData(updatedData);
-
             console.log('[Verificación Manual] Verificación completada. Resultado:', result);
             return result;
 
         } catch (error) {
             console.error('[Verificación Manual] Error catastrófico:', error);
-
-            // Limpiar usuario temporal en caso de error
-            try {
-                const updatedData = userStorage.loadData();
-                updatedData.users = updatedData.users.filter(u => !String(u.id).startsWith('temp_'));
-                userStorage.saveData(updatedData);
-            } catch (cleanupError) {
-                console.error('[Verificación Manual] Error al limpiar usuario temporal:', cleanupError);
-            }
 
             return {
                 success: false,
@@ -310,7 +280,9 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
             return { success: false, error: 'No se proporcionaron trabajos de verificación.' };
         }
 
-        const data = userStorage.loadData();
+        // Proyección EN MEMORIA (mismo shape que user:getAll): la verificación trabaja
+        // sobre el objeto legacy y el resultado se persiste al plano vía el repo.
+        const data = proyectarUsersJson(await repo.obtenerTodos());
         const stats = { validados: 0, con_fallos: 0, no_encontrados: 0 };
         const updatedUsers = []; // Array para recolectar usuarios actualizados
 
@@ -517,9 +489,8 @@ module.exports = function setupUserHandlers(ipcMain, userStorage, mainWindow, di
                 });
             }
 
-            // No guardamos `data` (es la proyección): persistimos al plano (arriba)
-            // y reproyectamos users.json desde el repo.
-            await sincronizarUsersJson();
+            // No guardamos `data` (es la proyección en memoria): lo que importa ya se
+            // persistió al plano (arriba).
             return { success: true, stats, updatedUsers };
 
         } catch (error) {

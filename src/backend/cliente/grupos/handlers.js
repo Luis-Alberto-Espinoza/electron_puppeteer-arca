@@ -2,10 +2,6 @@
 //
 // Cablea gruposManager (administra grupos.json) con el contribuyenteRepo (para el
 // cascade al borrar). Ver docs/modelo_cliente/plan_grupos_estudios.
-//
-// NOTA: asignar/limpiar el grupo de un contribuyente NO reproyecta users.json:
-// grupoId es CRUD-only, la proyección no lo lleva. Por eso este módulo no toca el
-// puente ni necesita userStorage.
 
 const { gruposManager } = require('./gruposManager.js');
 const { getContribuyenteRepo } = require('../contribuyenteStore.js');

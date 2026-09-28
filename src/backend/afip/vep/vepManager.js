@@ -1,9 +1,7 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const flujo_generarVEP = require('../../puppeteer/afip/VEP/flujos/flujo_generarVEP.js');
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+const { app } = require('electron');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -24,24 +22,8 @@ async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSelecci
     console.log(`   Ruta de descargas: ${downloadsPath || 'NO ESPECIFICADA'}`);
 
     // Resolver downloadsPath antes de entrar al navegador
-    if (!downloadsPath) {
-        console.warn("⚠️ [VEP Manager] downloadsPath no especificado. Usando carpeta de descargas del sistema...");
-        const homeDir = os.homedir();
-        const posiblesRutas = [
-            path.join(homeDir, 'Downloads'),
-            path.join(homeDir, 'Descargas'),
-        ];
-        for (const ruta of posiblesRutas) {
-            if (fs.existsSync(ruta)) {
-                downloadsPath = ruta;
-                break;
-            }
-        }
-        if (!downloadsPath) {
-            downloadsPath = path.join(homeDir, 'Downloads');
-        }
-        console.log(`   Usando ruta de descargas: ${downloadsPath}`);
-    }
+    // Misma carpeta que usan los handlers: la que el sistema define como Descargas.
+    if (!downloadsPath) downloadsPath = app.getPath('downloads');
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
         // 1. Login

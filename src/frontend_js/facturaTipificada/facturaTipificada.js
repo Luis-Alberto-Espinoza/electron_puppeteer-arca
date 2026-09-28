@@ -523,10 +523,9 @@ function inicializarSelectorEmpresas() {
     selectEmpresa.appendChild(opt);
     selectEmpresa.disabled = true;   // nada que elegir: es el contribuyente
 
-    // El botón Refrescar hacía re-scrape de PDV en el modelo embed
-    // (analizarEmpresa escribía a users.json). En el plano los PDV salen del
-    // contribuyente cacheado; el refresh a nivel contribuyente queda pendiente
-    // (ver plan). Lo ocultamos.
+    // El botón Refrescar hacía re-scrape de PDV en el modelo embed. En el plano
+    // los PDV salen del contribuyente cacheado; el refresh a nivel contribuyente
+    // (empresa.analizarContribuyente) queda pendiente. Lo ocultamos.
     mostrarBtnRefrescarPdv(false);
 
     // Poblar PDV del contribuyente.

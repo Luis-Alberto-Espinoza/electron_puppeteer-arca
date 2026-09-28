@@ -931,7 +931,7 @@ function focusUserRow(userId) {
 async function loadUsers() {
     setLoading('loadLoading', true);
     try {
-        // getAll = proyección users.json (shape rico para la fila). listCrud = repo
+        // getAll = proyección legacy en memoria (shape rico para la fila). listCrud = repo
         // plano, ÚNICA fuente de grupoId (no viaja en la proyección: es CRUD-only).
         const [result, crud] = await Promise.all([
             window.electronAPI.user.getAll(),

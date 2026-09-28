@@ -4,9 +4,27 @@
 const { CuitsAsociadosStorage } = require('./storage_cuits.js');
 const planesDePagoManager = require('./planesDePagoManager.js');
 const consolidadoExcel = require('./consolidadoExcel.js');
+const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 
-function setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app) {
+/**
+ * Credenciales AFIP del representante, resueltas por el modelo plano (resolverAcceso).
+ * Si el representante no tiene clave propia pero sí representante, entra con la de él.
+ * @returns {Promise<{usuario, contrasena}|null>} null = sin acceso AFIP
+ */
+async function credencialesRepresentante(repo, representante) {
+    let cuit = representante && representante.cuit;
+    if (!cuit && representante && representante.id != null) {
+        const c = await repo.getById(representante.id);
+        cuit = c && c.cuit;
+    }
+    if (!cuit) return null;
+    const acceso = await repo.resolverAcceso(String(cuit), 'afip');
+    return acceso ? { usuario: acceso.loginCuit, contrasena: acceso.loginClave } : null;
+}
+
+function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
     const storage = new CuitsAsociadosStorage();
+    const repo = getContribuyenteRepo();
 
     // Obtener CUITs asociados de un representante
     ipcMain.handle('planesDePago:cuits:get', async (_event, cuitRepresentante) => {
@@ -59,17 +77,10 @@ function setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app) {
 
         try {
             // Obtener credenciales del representante
-            const dataBD = userStorage.loadData();
-            const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(representante.id));
-
-            if (!usuarioCompleto) {
+            const credenciales = await credencialesRepresentante(repo, representante);
+            if (!credenciales) {
                 return { success: false, message: 'No se encontraron las credenciales del representante' };
             }
-
-            const credenciales = {
-                usuario: usuarioCompleto.cuit || representante.cuit,
-                contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
-            };
 
             const downloadsPath = app.getPath('downloads');
             const resultados = [];
@@ -205,10 +216,9 @@ function setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app) {
 
             try {
                 // Obtener credenciales del representante
-                const dataBD = userStorage.loadData();
-                const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(representante.id));
+                const credenciales = await credencialesRepresentante(repo, representante);
 
-                if (!usuarioCompleto) {
+                if (!credenciales) {
                     const errorMsg = `No se encontraron las credenciales de ${representante.nombre}`;
                     resultadosGlobales.push({
                         representante,
@@ -228,11 +238,6 @@ function setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app) {
                     }
                     continue;
                 }
-
-                const credenciales = {
-                    usuario: usuarioCompleto.cuit || representante.cuit,
-                    contrasena: usuarioCompleto.claveAFIP || usuarioCompleto.clave
-                };
 
                 const downloadsPath = app.getPath('downloads');
 

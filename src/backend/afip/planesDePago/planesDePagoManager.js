@@ -4,9 +4,7 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const flujo = require('../../puppeteer/afip/planesDePago/flujos/flujo_planesDePago.js');
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+const { app } = require('electron');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -22,22 +20,8 @@ async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath
     console.log(`   Representante: ${usuario.nombre} (${credenciales.usuario})`);
     console.log(`   Consulta CUIT: ${cuitConsulta.cuit} (${cuitConsulta.alias})`);
 
-    if (!downloadsPath) {
-        const homeDir = os.homedir();
-        const posiblesRutas = [
-            path.join(homeDir, 'Downloads'),
-            path.join(homeDir, 'Descargas'),
-        ];
-        for (const ruta of posiblesRutas) {
-            if (fs.existsSync(ruta)) {
-                downloadsPath = ruta;
-                break;
-            }
-        }
-        if (!downloadsPath) {
-            downloadsPath = path.join(homeDir, 'Downloads');
-        }
-    }
+    // Misma carpeta que usan los handlers: la que el sistema define como Descargas.
+    if (!downloadsPath) downloadsPath = app.getPath('downloads');
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
         // 1. Login
@@ -74,22 +58,8 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
     console.log(`[PlanesDePago Manager] Iniciando proceso lote para ${usuario.nombre} (${credenciales.usuario})`);
     console.log(`   CUITs a procesar: ${cuitsAProcesar.length}`);
 
-    if (!downloadsPath) {
-        const homeDir = os.homedir();
-        const posiblesRutas = [
-            path.join(homeDir, 'Downloads'),
-            path.join(homeDir, 'Descargas'),
-        ];
-        for (const ruta of posiblesRutas) {
-            if (fs.existsSync(ruta)) {
-                downloadsPath = ruta;
-                break;
-            }
-        }
-        if (!downloadsPath) {
-            downloadsPath = path.join(homeDir, 'Downloads');
-        }
-    }
+    // Misma carpeta que usan los handlers: la que el sistema define como Descargas.
+    if (!downloadsPath) downloadsPath = app.getPath('downloads');
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
         // 1. Login (una sola vez para este representante)

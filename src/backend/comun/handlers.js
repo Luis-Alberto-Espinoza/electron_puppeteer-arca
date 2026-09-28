@@ -3,8 +3,8 @@
 // Deja al frontend: ver dónde viven los .json, abrir esa carpeta, elegir otra
 // (o volver al valor por defecto) y reiniciar para aplicar el cambio.
 //
-// Por qué reiniciar en vez de recargar en caliente: los stores (JsonStorage,
-// contribuyenteStore, etc.) resuelven su ruta una sola vez y quedan atados a ella.
+// Por qué reiniciar en vez de recargar en caliente: los stores
+// (contribuyenteStore, gruposStore, etc.) resuelven su ruta una sola vez y quedan atados a ella.
 // Un relaunch los re-crea contra la carpeta nueva; es más simple y seguro que
 // invalidar cachés y re-instanciar singletons por todos lados.
 

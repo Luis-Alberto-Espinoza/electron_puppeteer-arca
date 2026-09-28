@@ -5,13 +5,11 @@
 window.inicializarConsultaComprobantes = () => {
     console.log('🔵 [ConsultaComprobantes] Inicializando módulo...');
 
-    const selectEmpresa   = document.getElementById('cc-select-empresa');
     const selectPdv       = document.getElementById('cc-select-pdv');
     const selectTipo      = document.getElementById('cc-select-tipo');
     const btnRefrescarPdv = document.getElementById('cc-btn-refrescar-pdv');
     const pdvInfo         = document.getElementById('cc-pdv-info');
 
-    const DIAS_PDV_STALE = 30;
     const inputDesde      = document.getElementById('cc-fecha-desde');
     const inputHasta      = document.getElementById('cc-fecha-hasta');
     const btnConsultar    = document.getElementById('cc-btn-consultar');
@@ -107,63 +105,20 @@ window.inicializarConsultaComprobantes = () => {
         actualizarEstadoBoton();
     }
 
-    // ===== Cambio de empresa → poblar puntos de venta (lazy) =====
-    selectEmpresa.addEventListener('change', async () => {
-        const razonSocial = selectEmpresa.value;
-        resetPdv('Seleccione primero una empresa');
-        actualizarEstadoBoton();
-
-        if (!razonSocial) return;
-
-        const cliente = clienteSeleccionado;
-        const empresa = (cliente?.empresas || []).find(e => e.razonSocial === razonSocial);
-
-        // Si la empresa NO está en el modelo nuevo (cliente legacy sin migrar todavía),
-        // disparar descubrimiento sí o sí.
-        if (!empresa) {
-            await descubrirYPopularPdv(cliente.id, razonSocial);
-            return;
-        }
-
-        // Si ya tenemos pdv cacheados, popular directo.
-        if (empresa.puntosDeVentaActualizados && Array.isArray(empresa.puntosDeVenta) && empresa.puntosDeVenta.length > 0) {
-            popularPdv(empresa.puntosDeVenta);
-            const dias = diasDesde(empresa.puntosDeVentaActualizados);
-            const stale = dias >= DIAS_PDV_STALE;
-            const sufijo = stale
-                ? ` — desactualizado hace ${dias} días, conviene refrescar`
-                : '';
-            mostrarPdvInfo(`Cargados desde caché — última actualización ${formatearFecha(empresa.puntosDeVentaActualizados)}${sufijo}`, stale ? 'stale' : 'idle');
-            mostrarBtnRefrescar(true);
-            return;
-        }
-
-        // Lazy: pedir al backend
-        await descubrirYPopularPdv(cliente.id, razonSocial);
-    });
-
     // ===== Botón Refrescar PDV =====
+    // Vuelve a leer los PDV desde AFIP con el análisis del modelo plano (login por
+    // resolverAcceso, guarda en contribuyentes.json) y recarga la lista.
     btnRefrescarPdv.addEventListener('click', async () => {
-        const razonSocial = selectEmpresa.value;
-        const clienteId = clienteSeleccionado?.id;
-        if (!razonSocial || !clienteId) return;
-        await descubrirYPopularPdv(clienteId, razonSocial);
+        const cuit = clienteSeleccionado?.cuit;
+        if (!cuit) return;
+        await descubrirYPopularPdv(cuit);
     });
 
     function mostrarBtnRefrescar(visible) {
         btnRefrescarPdv.style.display = visible ? '' : 'none';
     }
 
-    function diasDesde(iso) {
-        try {
-            const ms = Date.now() - new Date(iso).getTime();
-            return Math.floor(ms / (1000 * 60 * 60 * 24));
-        } catch (_) {
-            return 0;
-        }
-    }
-
-    async function descubrirYPopularPdv(clienteId, razonSocial) {
+    async function descubrirYPopularPdv(cuit) {
         selectPdv.innerHTML = '<option value="">Descubriendo puntos de venta…</option>';
         selectPdv.disabled = true;
         btnRefrescarPdv.disabled = true;
@@ -172,7 +127,7 @@ window.inicializarConsultaComprobantes = () => {
         actualizarEstadoBoton();
 
         try {
-            const res = await window.electronAPI.empresa.descubrirPuntosDeVenta({ usuarioId: clienteId, razonSocial });
+            const res = await window.electronAPI.empresa.analizarContribuyente({ cuit });
             if (!res || !res.success) {
                 resetPdv('Error al descubrir puntos de venta');
                 mostrarPdvInfo(res?.message || 'Error al descubrir puntos de venta', 'error');
@@ -182,21 +137,15 @@ window.inicializarConsultaComprobantes = () => {
                 return;
             }
 
-            // Refrescar el cache local para que la próxima vez no haga llamada.
-            // clienteSeleccionado es el mismo objeto que guarda el componente en
-            // su lista interna, así que mutar la empresa persiste en la sesión.
-            const cliente = clienteSeleccionado;
-            const empresa = (cliente?.empresas || []).find(e => e.razonSocial === razonSocial);
-            if (empresa) {
-                empresa.puntosDeVenta = res.data.puntosDeVenta;
-                empresa.puntosDeVentaActualizados = res.data.puntosDeVentaActualizados;
-            }
+            // El análisis ya guardó los PDV en el contribuyente: los releemos de ahí.
+            const pdvRes = await window.electronAPI.contribuyente.puntosDeVenta(cuit);
+            const pdvs = (pdvRes && pdvRes.success) ? pdvRes.puntosDeVenta : [];
 
-            popularPdv(res.data.puntosDeVenta);
+            popularPdv(pdvs);
             // Solo pisamos el mensaje si vinieron PDV. Si vino lista vacía,
             // popularPdv() ya dejó el aviso rojo de "sin facturación habilitada".
-            if (Array.isArray(res.data.puntosDeVenta) && res.data.puntosDeVenta.length > 0) {
-                mostrarPdvInfo(`Actualizado ahora — ${res.data.puntosDeVenta.length} punto(s) de venta encontrado(s)`, 'idle');
+            if (Array.isArray(pdvs) && pdvs.length > 0) {
+                mostrarPdvInfo(`Actualizado ahora — ${pdvs.length} punto(s) de venta encontrado(s)`, 'idle');
             }
             mostrarBtnRefrescar(true);
             btnRefrescarPdv.disabled = false;
@@ -251,16 +200,6 @@ window.inicializarConsultaComprobantes = () => {
             : '';
         pdvInfo.className = 'cc-pdv-info' + sufijo;
         pdvInfo.style.display = 'block';
-    }
-
-    function formatearFecha(iso) {
-        if (!iso) return '';
-        try {
-            const d = new Date(iso);
-            return d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-        } catch (_) {
-            return iso;
-        }
     }
 
     // ===== Validar y habilitar botón =====

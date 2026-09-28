@@ -22,10 +22,9 @@ let ultimaEmpresaElegida = null;
 /**
  * Configura los handlers IPC para el dominio de facturacion
  * @param {Electron.IpcMain} ipcMain - Instancia de ipcMain
- * @param {Object} userStorage - Storage de usuarios
  * @param {Electron.BrowserWindow} mainWindow - Ventana principal
  */
-function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
+function setupFacturaHandlers(ipcMain, mainWindow) {
     const repo = getContribuyenteRepo();
 
     // ========================================
@@ -45,7 +44,7 @@ function setupFacturaHandlers(ipcMain, userStorage, mainWindow) {
             }
 
             // Guardamos el resultado en la variable para que el siguiente paso lo pueda usar
-            resultadoCodigo = comunicacionConFactura(data, userStorage);
+            resultadoCodigo = comunicacionConFactura(data);
             event.reply('codigoLocalStorageGenerado', resultadoCodigo);
         }
         usuarioSeleccionado = data.usuario;

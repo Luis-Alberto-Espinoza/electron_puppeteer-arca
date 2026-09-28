@@ -9,7 +9,7 @@
  * SQLite, sin tocar consumidores. Todos los métodos son async (firmas estables
  * aunque el store sea síncrono).
  *
- * NOTA: el binding al `users.json` real + la migración de datos es la Tarea 6.
+ * El binding al archivo real (`contribuyentes.json`) vive en contribuyenteStore.js.
  * Acá la lógica se prueba con stores en memoria (ver contribuyenteRepo.test.js).
  */
 
@@ -199,7 +199,7 @@ function crearContribuyenteRepo(store) {
         },
 
         // Lista COMPLETA normalizada (con claves) — backend-only. La usa el CRUD
-        // para proyectar users.json (puente write-side). NUNCA cruza al renderer.
+        // para la proyección legacy en memoria. NUNCA cruza al renderer.
         async obtenerTodos() {
             return cargarNormalizado();
         },
@@ -279,8 +279,7 @@ function crearContribuyenteRepo(store) {
 
         // Limpia el grupo de TODOS sus miembros (una pasada, un solo persistir).
         // Lo usa el borrado de un estudio: los clientes quedan "sin grupo", nunca
-        // se borran (decisión de diseño). No reproyecta users.json: grupoId es
-        // CRUD-only, la proyección no lo lleva.
+        // se borran (decisión de diseño).
         async desasignarGrupo(grupoId) {
             const objetivo = String(grupoId);
             const lista = cargarNormalizado();

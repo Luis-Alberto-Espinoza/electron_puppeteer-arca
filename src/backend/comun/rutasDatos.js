@@ -6,8 +6,9 @@
 //
 // Orden de resolución (ver docs/rutaArchivos/prompt_centralizar_rutas.md):
 //   1. Override del usuario: <userData>/config_datos.json → { carpetaDatos }.
-//   2. Default portable: PORTABLE_EXECUTABLE_DIR/datos (al lado del .exe en el pen).
-//   3. Fallback dev: app.getPath('userData')  ← Ubuntu de desarrollo no cambia en nada.
+//   2. Default: <padre>/gestor_afip_atm_datos, donde <padre> es
+//      PORTABLE_EXECUTABLE_DIR (al lado del .exe en el pen) o, si no es portable, userData.
+//      La 1ª vez migra la ubicación vieja (`datos/` o .json sueltos en userData).
 //
 // TRAMPA del portable: en un build `target: portable` el .exe se autoextrae a un TEMP,
 // así que __dirname / process.execPath / app.getPath('exe') apuntan al TEMP, NO al pen.
@@ -19,6 +20,20 @@ const path = require('path');
 const fs = require('fs');
 
 const NOMBRE_CONFIG = 'config_datos.json';
+
+// Nombre propio (no "datos") para no pisarnos con otro programa.
+const NOMBRE_CARPETA = 'gestor_afip_atm_datos';
+const NOMBRE_CARPETA_VIEJA = 'datos';
+
+// Lo que se mueve desde la ubicación vieja. Nombres exactos: nunca se toca otra cosa.
+const ARCHIVOS_DE_DATOS = [
+    'contribuyentes.json',
+    'grupos.json',
+    'historial.ndjson',
+    'listas_atm.json',
+    'listas_planes_pago.json',
+    'cuits_asociados_planes.json',
+];
 
 let carpetaCache = null;
 
@@ -53,6 +68,39 @@ function esEscribible(carpeta) {
 }
 
 /**
+ * Carpeta que CONTIENE a la de datos. La única diferencia entre builds: el portable
+ * (sin instalar) no tiene otro lugar que viaje con el pen que al lado del .exe; el
+ * resto usa userData. La carpeta de datos adentro es la misma en todos los casos.
+ */
+function carpetaPadre() {
+    return process.env.PORTABLE_EXECUTABLE_DIR || app.getPath('userData');
+}
+
+/**
+ * Migra la ubicación vieja a `nueva` (solo si `nueva` todavía no existe):
+ *   a) `<padre>/datos/` (portable viejo) → se renombra entera.
+ *   b) .json sueltos en `<padre>` (userData viejo, mezclados con la caché de Chromium)
+ *      → se MUEVEN adentro (mover, no copiar: no quedan duplicados).
+ * Mismo código en Windows y Linux; cada paso simplemente no hace nada si no aplica.
+ */
+function migrarUbicacionVieja(padre, nueva) {
+    const datosViejo = path.join(padre, NOMBRE_CARPETA_VIEJA);
+    if (fs.existsSync(datosViejo)) {
+        fs.renameSync(datosViejo, nueva);
+        console.log('[rutasDatos] migrado', datosViejo, '→', nueva);
+        return;
+    }
+    fs.mkdirSync(nueva, { recursive: true });
+    for (const archivo of ARCHIVOS_DE_DATOS) {
+        const origen = path.join(padre, archivo);
+        if (fs.existsSync(origen)) {
+            fs.renameSync(origen, path.join(nueva, archivo));
+            console.log('[rutasDatos] movido', origen, '→', nueva);
+        }
+    }
+}
+
+/**
  * Resuelve la carpeta de datos (lazy + cacheada: no cambia durante la ejecución).
  * Asegura que la carpeta exista (mkdir -p) antes de devolverla.
  */
@@ -61,20 +109,25 @@ function getCarpetaDatos() {
 
     let base = null;
 
-    // 1) Override del usuario, si es válido y escribible.
+    // 1) Override del usuario, si es válido y escribible. Se respeta tal cual.
     const override = leerOverride();
     if (override) {
         if (esEscribible(override)) base = override;
         else console.error('[rutasDatos] carpeta override no escribible, ignorada:', override);
     }
 
-    // 2) Default portable: al lado del .exe (solo en build portable de Windows).
-    if (!base && process.env.PORTABLE_EXECUTABLE_DIR) {
-        base = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'datos');
+    // 2) Default: <padre>/gestor_afip_atm_datos, migrando la ubicación vieja la 1ª vez.
+    if (!base) {
+        const padre = carpetaPadre();
+        base = path.join(padre, NOMBRE_CARPETA);
+        if (!fs.existsSync(base)) {
+            try {
+                migrarUbicacionVieja(padre, base);
+            } catch (e) {
+                console.error('[rutasDatos] no se pudo migrar la ubicación vieja:', e.message);
+            }
+        }
     }
-
-    // 3) Fallback dev / no-portable: userData (comportamiento histórico).
-    if (!base) base = app.getPath('userData');
 
     fs.mkdirSync(base, { recursive: true });
     carpetaCache = base;

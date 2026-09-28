@@ -33,7 +33,7 @@ async function obtenerCredenciales(repo, cliente) {
     };
 }
 
-function setupDeclaracionJuradaHandlers(ipcMain, userStorage, app) {
+function setupDeclaracionJuradaHandlers(ipcMain, app) {
     const repo = getContribuyenteRepo();
 
     ipcMain.handle('declaracionJurada:probarAcceso', async (event, datos) => {

@@ -180,7 +180,7 @@ function esEmpresaObjeto(e) {
  *  - borra `cuil` cuando viene vacío
  *
  * Idempotente: aplicar dos veces da el mismo resultado.
- * NO toca `nombre`/`apellido` (eso lo hace `normalizarUsuario` en storage.js).
+ * NO toca `nombre`/`apellido`.
  *
  * @param {Object} raw
  * @returns {Cliente}

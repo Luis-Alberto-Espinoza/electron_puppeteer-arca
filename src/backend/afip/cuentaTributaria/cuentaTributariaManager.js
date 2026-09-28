@@ -1,25 +1,15 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
-const os = require('os');
-const path = require('path');
-const fs = require('fs');
+const { app } = require('electron');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
  * Resuelve la carpeta de descargas si no fue provista.
+ * Misma carpeta que usan los handlers: la que el sistema define como Descargas.
  */
 function resolverDownloadsPath(downloadsPath) {
-    if (downloadsPath) return downloadsPath;
-    const homeDir = os.homedir();
-    const candidatos = [
-        path.join(homeDir, 'Downloads'),
-        path.join(homeDir, 'Descargas'),
-    ];
-    for (const ruta of candidatos) {
-        if (fs.existsSync(ruta)) return ruta;
-    }
-    return path.join(homeDir, 'Downloads');
+    return downloadsPath || app.getPath('downloads');
 }
 
 /**

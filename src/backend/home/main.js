@@ -9,10 +9,6 @@ const fs = require('fs');
 // consultaDeudaManager movido a afip/consultaDeuda/handlers.js
 // manejarEventoATM movido a atm/handlers.js
 
-// Importar el sistema de usuarios
-const { JsonStorage } = require('../cliente/service/storage.js');
-let userStorage;
-
 // Importar los handlers de usuario modularizados
 const setupUserHandlers = require('../cliente/handlers.js');
 const setupGruposHandlers = require('../cliente/grupos/handlers.js');
@@ -331,28 +327,24 @@ app.whenReady().then(async () => {
     try {
         console.log('🚀 Iniciando aplicación...');
 
-        // Initialize storage
-        userStorage = new JsonStorage();
-        console.log('✅ Storage inicializado');
-
         // Create window
         createWindow();
         console.log('✅ Ventana creada');
 
         // Setup handlers and listeners
-        setupUserHandlers(ipcMain, userStorage, mainWindow, dialog);
+        setupUserHandlers(ipcMain, mainWindow, dialog);
         setupGruposHandlers(ipcMain);
         setupContribuyenteHandlers(ipcMain); // modelo plano (listar, sin claves)
         setupDatosHandlers(ipcMain, app, dialog); // carpeta de datos (Fase 2)
         setupMercadoPagoHandlers(ipcMain, mainWindow, dialog);
-        setupFacturaHandlers(ipcMain, userStorage, mainWindow);
-        setupVepHandlers(ipcMain, userStorage, mainWindow, app);
-        setupConsultaDeudaHandlers(ipcMain, userStorage, app);
-        setupConsultaComprobantesHandlers(ipcMain, userStorage, app);
-        setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app);
-        setupEmpresaHandlers(ipcMain, userStorage);
-        setupCuentaTributariaHandlers(ipcMain, userStorage, mainWindow, app);
-        setupDeclaracionJuradaHandlers(ipcMain, userStorage, app);
+        setupFacturaHandlers(ipcMain, mainWindow);
+        setupVepHandlers(ipcMain, mainWindow, app);
+        setupConsultaDeudaHandlers(ipcMain, app);
+        setupConsultaComprobantesHandlers(ipcMain, app);
+        setupNotaCreditoDebitoHandlers(ipcMain, app);
+        setupEmpresaHandlers(ipcMain);
+        setupCuentaTributariaHandlers(ipcMain, mainWindow, app);
+        setupDeclaracionJuradaHandlers(ipcMain, app);
         setupLibroIvaHandlers(ipcMain);
         setupSesionAfipHandlers(ipcMain); // usa contribuyenteRepo (resolverAcceso)
 
@@ -365,7 +357,7 @@ app.whenReady().then(async () => {
         setupSesionAtmHandlers(ipcMain); // usa contribuyenteRepo (resolverAcceso)
 
         // Handlers de Planes de Pago AFIP
-        setupPlanesDePagoHandlers(ipcMain, userStorage, mainWindow, app);
+        setupPlanesDePagoHandlers(ipcMain, mainWindow, app);
         setupListasPlanesPagoHandlers(ipcMain);
 
         setupHistorialHandlers(ipcMain); // bitacora de acciones (solo lectura desde el front)

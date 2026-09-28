@@ -1,27 +1,19 @@
-// proyeccionUsersJson.js — PUENTE de transición (C0 del plan write-side).
+// proyeccionUsersJson.js — proyección legacy EN MEMORIA (ya no se escribe a disco).
 //
-// Proyecta el modelo plano (`contribuyentes.json`) al shape embed (`users.json`)
-// que TODAVÍA leen 4 flujos no migrados: SCT (nombre/apellido/cuit por id),
-// Planes (representante por id → claveAFIP), NC (usuarioCompleto por id) y la
-// empresa ABM (lee `empresas[]`). Es el inverso de `tools/migrar_contribuyentes.js`.
-//
-// El CRUD nuevo escribe el plano vía el repo y, tras cada guardado, llama a esto
-// para regenerar `users.json` y que esos flujos sigan vivos. Cuando se migren al
-// repo, el puente se retira y `users.json` muere (ver plan_crud_writeside).
+// Proyecta el modelo plano (`contribuyentes.json`) al shape embed viejo (el de
+// `users.json`, que ya no existe). Solo la consumen, en memoria:
+//   - `user:getAll` → el front que todavía lee el shape viejo (CRUD, selector de
+//     Planes, etc.).
+//   - `user:verify-credentials` → "Probar clave" trabaja sobre ese objeto.
+// Cuando esos consumidores lean el plano, este archivo se borra.
 //
 // Reglas de diseño:
-//  - Cada contribuyente → 1 entrada top-level findable por `id` (preserva `id`,
-//    Riesgo 2 del plan: los 4 flujos keyean por id).
+//  - Cada contribuyente → 1 entrada top-level findable por `id` (preserva `id`:
+//    el front keyea por id).
 //  - El representante lleva a sus representados (FK) como `empresas[]` (lo que
 //    consume la ABM).
-//  - El output debe SOBREVIVIR `normalizarCliente` (storage.loadData lo corre al
-//    leer): root no se toca; `empresas[]` se reconstruye con `crearEmpresa`, así
-//    que cada empresa va en su shape.
-//
-// Limitación conocida (cubierta por C3): no se reconstruye la "self-empresa" de
-// un cliente directo (sus propios PDV). La ABM a nivel directo se migra al plano
-// en C3; hasta entonces, este puente cubre el caso representado (el crítico para
-// SCT/Planes/NC).
+//  - El output debe SOBREVIVIR `normalizarCliente`: root no se toca; `empresas[]`
+//    se reconstruye con `crearEmpresa`, así que cada empresa va en su shape.
 
 const { nombreDe } = require('./resolverAcceso.js');
 
@@ -42,7 +34,7 @@ function empresaDesdeContribuyente(r) {
 
 /**
  * @param {Array} contribuyentes  lista plana (shape §4.1)
- * @returns {{ users: Array }}     objeto con el mismo shape que `users.json`
+ * @returns {{ users: Array }}     objeto con el shape del viejo `users.json`
  */
 function proyectarUsersJson(contribuyentes) {
     const lista = Array.isArray(contribuyentes) ? contribuyentes : [];
@@ -69,12 +61,10 @@ function proyectarUsersJson(contribuyentes) {
         const user = {
             id: c.id,
             cuit: c.cuit,
-            // Jurídica no tiene nombre/apellido → la razón social hace de nombre
-            // (SCT enriquece por id usando nombre/cuit).
+            // Jurídica no tiene nombre/apellido → la razón social hace de nombre.
             nombre: c.nombre || c.razonSocial || null,
             apellido: c.apellido || null,
             tipoContribuyente: c.tipoContribuyente || null,
-            // Planes lee claveAFIP del representante directo de acá.
             claveAFIP: c.claveAFIP || null,
             estado_afip: c.estado_afip || 'no_aplica',
             errorAfip: c.errorAfip || null,

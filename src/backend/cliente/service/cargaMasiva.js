@@ -1,8 +1,6 @@
 
 const xlsx = require('xlsx');
 const { getContribuyenteRepo } = require('../contribuyenteStore.js');
-const { proyectarUsersJson } = require('../proyeccionUsersJson.js');
-const { JsonStorage } = require('./storage.js');
 const { gruposManager } = require('../grupos/gruposManager.js');
 
 /** Tipo por prefijo de CUIT (30/33/34 = jurídica) — misma regla que la migración. */
@@ -66,7 +64,7 @@ function leerPuntosDeVenta(workbook) {
 
 /**
  * Carga masiva de contribuyentes desde un Excel (modelo plano, write-side C4).
- * Hace upsert por CUIT vía el repo (`crear`/`actualizar`) y reproyecta users.json.
+ * Hace upsert por CUIT vía el repo (`crear`/`actualizar`).
  *
  * Representación: SÍ se lee del Excel (columna cuitRepresentante). Un representado
  * queda ligado a su representante y —por el invariante del normalizador— sin clave
@@ -243,9 +241,6 @@ async function procesarArchivoUsuarios(fileBuffer) {
                 stats.listaErrores.push({ fila: usuarioExcel, error: e.message });
             }
         }
-
-        // 3. Reproyectar users.json (puente) para los flujos no migrados.
-        new JsonStorage().saveData(proyectarUsersJson(await repo.obtenerTodos()));
 
         return { success: true, ...stats, usuariosProcesados };
 

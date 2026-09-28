@@ -9,10 +9,9 @@ const clienteHist = historialRepo.clienteDesdeUsuario;
 /**
  * Configura los handlers IPC para el dominio de Consulta de Deuda
  * @param {Electron.IpcMain} ipcMain - Instancia de ipcMain
- * @param {Object} userStorage - Storage de usuarios (legacy, ya no se usa acá)
  * @param {Electron.App} app - Instancia de la app
  */
-function setupConsultaDeudaHandlers(ipcMain, userStorage, app) {
+function setupConsultaDeudaHandlers(ipcMain, app) {
     const repo = getContribuyenteRepo();
 
     // ========================================

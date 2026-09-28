@@ -12,16 +12,14 @@ const { listarExcelsConsulta } = require('./service/listarExcelsConsulta.js');
 const { leerExcelComprobantes } = require('./service/leerExcelComprobantes.js');
 const { armarNotaDesdeFactura } = require('./service/armarNotaDesdeFactura.js');
 const facturaManagerUnificado = require('../factura/facturaManagerUnificado.js');
-const { listarRazonesSociales } = require('../../cliente/model.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
  * @param {Electron.IpcMain} ipcMain
- * @param {Object} userStorage
  * @param {Electron.App} app
  */
-function setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app) {
+function setupNotaCreditoDebitoHandlers(ipcMain, app) {
     const repo = getContribuyenteRepo();
 
     // Lista los Excel de consulta del emisor (más reciente primero). Lista vacía
@@ -33,17 +31,16 @@ function setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario.' };
             }
 
-            const dataBD = userStorage.loadData();
-            const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
-            if (!usuarioCompleto) {
+            const contribuyente = await repo.getById(usuario.id);
+            if (!contribuyente) {
                 return { success: false, error: 'USER_NOT_FOUND', message: 'No se encontró el usuario en la base.' };
             }
 
             const downloadsPath = app.getPath('downloads');
             const excels = await listarExcelsConsulta(downloadsPath, {
-                cuit: usuarioCompleto.cuit,
-                nombre: usuarioCompleto.nombre,
-                apellido: usuarioCompleto.apellido
+                cuit: contribuyente.cuit,
+                nombre: contribuyente.nombre || contribuyente.razonSocial,
+                apellido: contribuyente.apellido
             });
 
             return { success: true, excels };
@@ -123,16 +120,18 @@ function setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app) {
                 return { success: false, message: 'No hay notas para generar.' };
             }
 
-            const dataBD = userStorage.loadData();
-            const usuarioCompleto = dataBD.users.find(u => String(u.id) === String(usuario.id));
-            if (!usuarioCompleto) {
+            const contribuyente = await repo.getById(usuario.id);
+            if (!contribuyente) {
                 return { success: false, error: 'USER_NOT_FOUND', message: 'No se encontró el usuario en la base.' };
             }
 
             // Modelo plano: el login lo resuelve el backend (representante si aplica).
-            // No se confía en la claveAFIP del objeto gordo — un representado como
-            // El Papi no tiene clave propia y entra por su representante (Debora).
-            const acceso = await repo.resolverAcceso(String(usuarioCompleto.cuit || usuarioCompleto.cuil), 'afip');
+            // Un representado como El Papi no tiene clave propia y entra por su
+            // representante (Debora).
+            const acceso = await repo.resolverAcceso(String(contribuyente.cuit), 'afip');
+            // El motor de factura usa cuit/tipoContribuyente/nombre (este último solo de
+            // respaldo para la carpeta). Jurídica no tiene nombre: va la razón social.
+            const usuarioFactura = { ...contribuyente, nombre: contribuyente.nombre || contribuyente.razonSocial };
             if (!acceso) {
                 return { success: false, message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
             }
@@ -179,15 +178,15 @@ function setupNotaCreditoDebitoHandlers(ipcMain, userStorage, app) {
                     // Modo prueba: solo la primera nota, sin confirmar.
                     const usarModoTest = idx === 1 && !!modoTest;
 
-                    const datosFactura = { ...data, usuarioSeleccionado: usuarioCompleto, modulo: 'facturaCliente' };
+                    const datosFactura = { ...data, usuarioSeleccionado: usuarioFactura, modulo: 'facturaCliente' };
 
                     const resultado = await facturaManagerUnificado.iniciarProceso(
                         URL_LOGIN_AFIP,
                         credenciales,
                         datosFactura,
                         usarModoTest,
-                        usuarioCompleto,
-                        factura.puntoVenta || listarRazonesSociales(usuarioCompleto)[0] || '0001'
+                        usuarioFactura,
+                        factura.puntoVenta || '0001'
                     );
 
                     if (usarModoTest) {

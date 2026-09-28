@@ -9,11 +9,10 @@ const clienteHist = historialRepo.clienteDesdeUsuario;
 /**
  * Configura los handlers IPC para el dominio de VEP
  * @param {Electron.IpcMain} ipcMain - Instancia de ipcMain
- * @param {Object} userStorage - Storage de usuarios (legacy, ya no se usa acá)
  * @param {Electron.BrowserWindow} mainWindow - Ventana principal
  * @param {Electron.App} app - Instancia de la app
  */
-function setupVepHandlers(ipcMain, userStorage, mainWindow, app) {
+function setupVepHandlers(ipcMain, mainWindow, app) {
     const repo = getContribuyenteRepo();
 
     // ========================================

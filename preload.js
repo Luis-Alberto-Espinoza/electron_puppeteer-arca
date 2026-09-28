@@ -165,9 +165,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // APIs para operaciones sobre Empresa (lectura on-demand desde AFIP)
     empresa: {
-        descubrirPuntosDeVenta: (datos) => ipcRenderer.invoke('empresa:descubrirPuntosDeVenta', datos),
-        analizarCliente: (datos) => ipcRenderer.invoke('empresa:analizarCliente', datos),
-        analizarEmpresa: (datos) => ipcRenderer.invoke('empresa:analizarEmpresa', datos),
         analizarContribuyente: (datos) => ipcRenderer.invoke('empresa:analizarContribuyente', datos),
         // Lote: un login por credencial. Progreso por grupo vía onAnalizarLoteProgreso.
         analizarLote: (cuits) => ipcRenderer.invoke('empresa:analizarLote', { cuits }),

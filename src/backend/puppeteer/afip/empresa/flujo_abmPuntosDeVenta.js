@@ -2,9 +2,8 @@
  * Flujo Puppeteer: descubrir los puntos de venta DETALLADOS de una empresa
  * vía el ABM de AFIP (/pvel/jsp/abmPuntosVenta.do).
  *
- * A diferencia de `flujo_descubrirPuntosDeVenta.js` (que va a "Comprobantes
- * en Línea" y lee un <select>), este flujo va al ABM oficial y extrae la
- * tabla #tblmiGrilla, que incluye número, sistema, domicilio y "Usado".
+ * Va al ABM oficial y extrae la tabla #tblmiGrilla, que incluye número,
+ * sistema, domicilio y "Usado".
  *
  * Sólo nos quedamos con los PDV "operables" para la app: sistema en
  *   { "Factura en Linea - Responsable Inscripto", "Factura en Linea - Monotributo" }.
