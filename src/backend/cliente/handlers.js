@@ -111,6 +111,24 @@ module.exports = function setupUserHandlers(ipcMain, mainWindow, dialog) {
         }
     });
 
+    // Cambia SOLO el tipo de contribuyente (B/C). Lo usa Factura Tipificada cuando
+    // el cliente no lo tiene cargado. No reusa user:update porque ese pisa el objeto
+    // entero (sin claves en el payload, las borra).
+    ipcMain.handle('user:setTipoContribuyente', async (event, { id, tipoContribuyente } = {}) => {
+        try {
+            if (tipoContribuyente !== 'B' && tipoContribuyente !== 'C') {
+                return { success: false, error: 'Tipo de contribuyente inválido (B o C)' };
+            }
+            const actual = await repo.getById(id);
+            if (!actual) return { success: false, error: 'Usuario no encontrado' };
+
+            const c = await repo.actualizar(actual.cuit, { tipoContribuyente });
+            return { success: true, tipoContribuyente: c.tipoContribuyente };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    });
+
     ipcMain.handle('user:delete', async (event, userId) => {
         try {
             const actual = await repo.getById(userId);

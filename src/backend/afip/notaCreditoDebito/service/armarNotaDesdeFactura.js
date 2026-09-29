@@ -116,6 +116,7 @@ function fechaHoy() {
  * @param {'credito'|'debito'} [opciones.tipoNota='credito']
  * @param {'Producto'|'Servicio'} [opciones.tipoActividad='Servicio']
  * @param {string} [opciones.puntoVenta] - PV del emisor para emitir la nota.
+ * @param {string} [opciones.cuitEmisor] - Para detectar receptor = emisor (Excels viejos).
  * @param {string} [opciones.fechaComprobante] - Fecha de la nota (DD/MM/YYYY); default hoy.
  * @param {number} [opciones.montoOverride] - Nuevo total (NC parcial); ≤ total original.
  * @param {string} [opciones.fechaDesde] @param {string} [opciones.fechaHasta]
@@ -246,7 +247,19 @@ function armarNotaDesdeFactura(factura, opciones = {}) {
         }
     }
 
-    const { tipoDocumento, numeroDocumento } = detectarDocumento(factura.cuitReceptor);
+    let { tipoDocumento, numeroDocumento } = detectarDocumento(factura.cuitReceptor);
+
+    // Excels viejos de Consulta de Comprobantes traen como receptor el CUIT del
+    // emisor en facturas a Consumidor Final (bug del parser ya corregido). AFIP
+    // rechaza "receptor = emisor", así que lo tratamos como Consumidor Final.
+    const cuitEmisor = String(opciones.cuitEmisor || '').replace(/\D/g, '');
+    if (cuitEmisor && numeroDocumento === cuitEmisor) {
+        warnings.push(
+            `La factura ${factura.puntoVenta}-${factura.comprobanteNumero} tiene como receptor el CUIT del ` +
+            `propio emisor (Excel generado con un parser viejo); la nota va a Consumidor Final.`
+        );
+        numeroDocumento = '';
+    }
 
     const data = {
         tipoActividad: opciones.tipoActividad || 'Servicio',

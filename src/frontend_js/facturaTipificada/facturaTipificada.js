@@ -676,6 +676,21 @@ function establecerTipoContribuyente() {
 
     const tipoContribuyente = window.usuarioSeleccionado.tipoContribuyente;
 
+    // Sin tipo no hay lista de comprobantes (ver poblarSelectTipoComprobante):
+    // en vez del "No especificado" mostramos un select obligatorio para elegirlo.
+    const faltaTipo = !tipoContribuyente;
+    const grupoInfo = document.getElementById('grupoTipoContribuyenteInfo');
+    const grupoElegir = document.getElementById('grupoElegirTipoContribuyente');
+    const selectElegir = document.getElementById('elegirTipoContribuyente');
+    if (grupoInfo) grupoInfo.style.display = faltaTipo ? 'none' : '';
+    if (grupoElegir) grupoElegir.style.display = faltaTipo ? '' : 'none';
+    if (selectElegir) {
+        selectElegir.required = faltaTipo; // bloquea el submit hasta elegir
+        selectElegir.disabled = false;
+        selectElegir.value = '';
+        selectElegir.onchange = onElegirTipoContribuyente;
+    }
+
     // Formatear el valor para mostrarlo de forma amigable
     let textoMostrar = tipoContribuyente;
     if (tipoContribuyente === 'B') {
@@ -686,6 +701,36 @@ function establecerTipoContribuyente() {
 
     input.value = textoMostrar || 'No especificado';
     console.log('✅ Tipo contribuyente establecido:', textoMostrar);
+}
+
+/**
+ * El usuario eligió el tipo (B/C) de un cliente que no lo tenía: se guarda en el
+ * cliente y se rearma la pantalla (lista de comprobantes incluida).
+ */
+async function onElegirTipoContribuyente(event) {
+    const select = event.target;
+    const tipo = select.value;
+    const aviso = document.getElementById('avisoTipoContribuyente');
+    const usuario = window.usuarioSeleccionado;
+    if (!tipo || !usuario) return;
+
+    select.disabled = true;
+    try {
+        const resp = await window.electronAPI.user.setTipoContribuyente(usuario.id, tipo);
+        if (!resp || !resp.success) throw new Error((resp && resp.error) || 'No se pudo guardar el tipo.');
+
+        // Se modifica el MISMO objeto (no se reemplaza): así también queda al día la
+        // lista de clientes cacheada del selector, que apunta a este objeto.
+        usuario.tipoContribuyente = resp.tipoContribuyente;
+
+        establecerTipoContribuyente();
+        poblarSelectTipoComprobante();
+        onCambioTipoComprobante();
+    } catch (e) {
+        select.disabled = false;
+        select.value = '';
+        if (aviso) { aviso.textContent = '❌ ' + e.message; aviso.style.color = '#c0392b'; }
+    }
 }
 
 /**

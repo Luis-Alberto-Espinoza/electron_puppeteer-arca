@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         listCrud: () => ipcRenderer.invoke('user:listCrud'),
         getById: (userId) => ipcRenderer.invoke('user:get-by-id', userId),
         update: (userData) => ipcRenderer.invoke('user:update', userData),
+        setTipoContribuyente: (id, tipoContribuyente) => ipcRenderer.invoke('user:setTipoContribuyente', { id, tipoContribuyente }),
         delete: (userId) => ipcRenderer.invoke('user:delete', userId),
         verifyOnCreate: (credenciales) => ipcRenderer.invoke('user:verify-on-create', credenciales),
         verifyBatch: (jobs) => ipcRenderer.invoke('user:verify-credentials', jobs),

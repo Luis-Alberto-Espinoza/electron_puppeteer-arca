@@ -202,8 +202,13 @@ async function parsearComprobantePdf(pdfPath) {
         /CUIT:\s*\d{11}/.test(f.texto) && /Apellido\s+y\s+Nombre|Raz[óo]n\s+Social/i.test(f.texto)
     );
     if (!filaReceptor) {
-        // Fallback: cualquier fila con "CUIT: NNNNNNNNNNN" inline
-        filaReceptor = filas.find(f => /CUIT:\s*\d{11}/.test(f.texto));
+        // Fallback: una fila con "CUIT: NNNNNNNNNNN" inline que NO sea la del emisor.
+        // El emisor es siempre el primer CUIT de la página (bloque de arriba). En una
+        // factura a Consumidor Final el receptor no tiene CUIT: sin este filtro el
+        // fallback agarraba el del emisor y la NC salía con receptor = emisor.
+        const filasCuit = filas.filter(f => /CUIT:\s*\d{11}/.test(f.texto));
+        const cuitEmisor = buscarValorEnFila(filasCuit[0], /CUIT:\s*(\d{11})/);
+        filaReceptor = filasCuit.find(f => buscarValorEnFila(f, /CUIT:\s*(\d{11})/) !== cuitEmisor);
     }
     if (filaReceptor) {
         datos.cuitReceptor = buscarValorEnFila(filaReceptor, /CUIT:\s*(\d{11})/);

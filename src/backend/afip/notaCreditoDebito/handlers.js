@@ -163,7 +163,8 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
                         tipoNota,
                         fechaComprobante,
                         montoOverride: nota.montoOverride,
-                        puntoVenta: factura.puntoVenta
+                        puntoVenta: factura.puntoVenta,
+                        cuitEmisor: contribuyente.cuit
                     });
                     if (warnings && warnings.length) {
                         console.warn(`[${idx}/${total}] Avisos al armar la nota:`, warnings);

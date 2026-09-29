@@ -80,9 +80,19 @@
                     </div>
 
                     <div class="form-row" id="filaTipoContribuyente">
-                        <div class="form-group">
+                        <div class="form-group" id="grupoTipoContribuyenteInfo">
                             <label for="tipoContribuyenteInfo">Tipo de Contribuyente</label>
                             <input type="text" id="tipoContribuyenteInfo" name="tipoContribuyenteInfo" readonly disabled>
+                        </div>
+                        <!-- Solo si el cliente no tiene tipo: se elige acá y se guarda en el cliente. -->
+                        <div class="form-group" id="grupoElegirTipoContribuyente" style="display: none;">
+                            <label for="elegirTipoContribuyente">Tipo de Contribuyente *</label>
+                            <select id="elegirTipoContribuyente">
+                                <option value="">Elegí el tipo...</option>
+                                <option value="B">B - Responsable Inscripto</option>
+                                <option value="C">C - Monotributista</option>
+                            </select>
+                            <p class="info-text" id="avisoTipoContribuyente">Este cliente no tiene cargado el tipo de contribuyente. Lo que elijas se guarda en el cliente.</p>
                         </div>
                     </div>
 
