@@ -376,6 +376,10 @@ function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
     botonesContainer.innerHTML = `
         <div class="auth-options">
             <h3>Selecciona el modo de Ingreso:</h3>
+            <label class="ui-switch">
+                <input type="checkbox" id="chk-visible-mp" checked>
+                Mostrar navegador
+            </label>
             <button id="testButtonMP" class="btn-test">
                 🧪 Abrir AFIP - Modo Test
             </button>
@@ -396,7 +400,8 @@ function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
     const authManager = new AuthManager();
     authManager.inicializar({
         loginButtonId: 'loginButtonMP',
-        testButtonId: 'testButtonMP'
+        testButtonId: 'testButtonMP',
+        visibleSwitchId: 'chk-visible-mp'
     });
 }
 

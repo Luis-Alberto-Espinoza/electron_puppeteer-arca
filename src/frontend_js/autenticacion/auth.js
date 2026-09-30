@@ -3,15 +3,18 @@ export class AuthManager {
     constructor() {
         this.loginButton = null;
         this.testButton = null;
+        this.visibleSwitchId = null;
     }
 
     // Inicializa los eventos de autenticación con selectores personalizables
     inicializar(config = {}) {
         const {
             loginButtonId = 'loginButton',
-            testButtonId = 'testButton'
+            testButtonId = 'testButton',
+            visibleSwitchId = 'chk-visible-factura'
         } = config;
 
+        this.visibleSwitchId = visibleSwitchId;
         this.loginButton = document.getElementById(loginButtonId);
         this.testButton = document.getElementById(testButtonId);
 
@@ -34,7 +37,7 @@ export class AuthManager {
         try {
             const credenciales = await this._obtenerCredenciales();
             const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
-            window.electronAPI.iniciarSesion(url, { ...credenciales, test: false });
+            window.electronAPI.iniciarSesion(url, { ...credenciales, test: false }, false, this._leerVisible());
         } catch (error) {
             console.error("Error en login normal:", error);
         }
@@ -45,10 +48,16 @@ export class AuthManager {
         try {
             const credenciales = await this._obtenerCredenciales();
             const url = "https://auth.afip.gob.ar/contribuyente_/login.xhtml";
-            window.electronAPI.iniciarSesion(url, credenciales, true);
+            window.electronAPI.iniciarSesion(url, credenciales, true, this._leerVisible());
         } catch (error) {
             console.error("Error en login test:", error);
         }
+    }
+
+    // Switch "Mostrar navegador" de la vista. Si no existe, visible (no se guarda).
+    _leerVisible() {
+        const chk = this.visibleSwitchId && document.getElementById(this.visibleSwitchId);
+        return chk ? chk.checked : true;
     }
 
     // Obtiene las credenciales del entorno

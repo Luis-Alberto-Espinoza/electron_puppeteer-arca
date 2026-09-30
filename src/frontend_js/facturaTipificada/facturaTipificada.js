@@ -1193,6 +1193,11 @@ function cancelarFormulario() {
 /**
  * Genera todas las facturas: las distintas ya guardadas + (si tiene datos) el form actual.
  */
+// Switch "Mostrar navegador" (facturas y NC/ND). Si no está en el DOM, visible.
+function visibleTipificada() {
+    return document.getElementById('chk-visible-tipificada')?.checked !== false;
+}
+
 async function manejarGenerar() {
     if (!window.usuarioSeleccionado) {
         mostrarError('No hay un usuario seleccionado');
@@ -1251,7 +1256,7 @@ async function manejarGenerar() {
         });
 
         // Enviar al backend a través de IPC (shape nuevo: { grupos }).
-        const resultado = await window.electronAPI.facturaTipificada.generarLote({ grupos: gruposParaEnviar });
+        const resultado = await window.electronAPI.facturaTipificada.generarLote({ grupos: gruposParaEnviar, visible: visibleTipificada() });
 
         console.log('📥 Resultado recibido:', resultado);
 
@@ -1318,7 +1323,7 @@ async function generarNotasDesdePicker() {
         notas.push({ factura, montoOverride: (monto != null ? monto : null) });
     }
 
-    const payload = { usuario, nombreEmpresa, tipoNota: modoNotaActivo, fechaComprobante, modoTest, notas };
+    const payload = { usuario, nombreEmpresa, tipoNota: modoNotaActivo, fechaComprobante, modoTest, notas, visible: visibleTipificada() };
 
     const btnGenerar = document.getElementById('btnGenerar');
     try {

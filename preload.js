@@ -12,7 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // manejo de seciones claves .env
-    iniciarSesion: (url, credenciales, test) => ipcRenderer.send('iniciar-proceso-afip', { url, credenciales, test }),
+    iniciarSesion: (url, credenciales, test, visible) => ipcRenderer.send('iniciar-proceso-afip', { url, credenciales, test, visible }),
     
     // no se para que se usa y si se usa 
     enviarNumeroEliminar: (data) => ipcRenderer.send('numero-eliminar', data),

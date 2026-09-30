@@ -19,6 +19,7 @@ const loginManager =  require('../../puppeteer/afip/archivosComunes/login/login_
 const { procesarDatosFactura } = require('./service/procesarFactura.js');
 const { procesarDatosFacturaCliente } = require('./service/procesarFacturaCliente.js');
 const { ejecutar_FacturacionUnificado } = require('../../puppeteer/afip/facturas/codigo/hacerFacturas/flujos/flujo_FacturacionUnificado.js');
+const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -32,6 +33,8 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
  * @param {Object} usuarioSeleccionado - Usuario completo
  * @param {string} empresa - Empresa elegida
  * @param {Function} enviarProgreso - Callback para reportar progreso (opcional)
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
  * @returns {Promise<Object>} Resultado del proceso
  */
 async function iniciarProceso(
@@ -41,7 +44,8 @@ async function iniciarProceso(
     test = false,
     usuarioSeleccionado,
     empresa,
-    enviarProgreso = null
+    enviarProgreso = null,
+    { visible } = {}
 ) {
     console.log("\n╔════════════════════════════════════════════════════╗");
     console.log("║  MANAGER DE FACTURACION UNIFICADO                  ║");
@@ -192,7 +196,7 @@ async function iniciarProceso(
 
         return resultado;
 
-    }, { headless: false });
+    }, { headless: resolverHeadless(visible) });
 }
 
 // ==========================================

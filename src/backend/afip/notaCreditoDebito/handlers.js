@@ -111,7 +111,7 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
     // procesa solo la primera sin confirmar (igual que el modoTest de facturas).
     ipcMain.handle('notaCreditoDebito:generarNotas', async (event, datos) => {
         try {
-            const { usuario, nombreEmpresa, tipoNota, fechaComprobante, modoTest, notas } = datos || {};
+            const { usuario, nombreEmpresa, tipoNota, fechaComprobante, modoTest, notas, visible } = datos || {};
 
             if (!usuario || !usuario.id) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario.' };
@@ -187,7 +187,9 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
                         datosFactura,
                         usarModoTest,
                         usuarioFactura,
-                        factura.puntoVenta || '0001'
+                        factura.puntoVenta || '0001',
+                        null,
+                        { visible } // una sola elección para todo el lote
                     );
 
                     if (usarModoTest) {

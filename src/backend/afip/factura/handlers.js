@@ -88,7 +88,9 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                 resultadoCodigo,  // datos ya procesados
                 data.test,
                 usuarioSeleccionado,
-                empresaElegida
+                empresaElegida,
+                null,
+                { visible: data.visible } // false = navegador oculto
             );
             event.reply('login-automatizado', resultado);
 
@@ -288,7 +290,9 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                         usarModoTest,
                         datosComunes.usuarioSeleccionado,
                         // Priorizar el puntoVenta elegido en el selector frontend.
-                        datosComunes.puntoVenta || listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || '0001'
+                        datosComunes.puntoVenta || listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || '0001',
+                        null,
+                        { visible: datos.visible } // una sola elección para todo el lote
                     );
 
                     // Si es modo test, cortar despues del primer comprobante
