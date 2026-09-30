@@ -628,7 +628,8 @@ window.inicializarModuloLoteATM = () => {
             userDiv.appendChild(messageContainer);
         }
 
-        const isFinalStatus = ['exito_final', 'error', 'exito'].includes(estadoFinal);
+        const isFinalStatus = ['exito_final', 'error', 'exito', 'no_habilitado'].includes(estadoFinal);
+        const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado';
         const messageContainer = userDiv.querySelector('.message-container');
         messageContainer.innerHTML = `<div class="progreso-item">[${new Date().toLocaleTimeString()}] ${mensaje}</div>`;
 
@@ -640,10 +641,12 @@ window.inicializarModuloLoteATM = () => {
 
             let badge = estadoFinal === 'error'
                 ? '<span class="badge bg-danger">FALLO</span>'
-                : `<span class="badge bg-success">Éxito - ${files.length || (archivoPdf ? 1 : 0)} archivo(s)</span>`;
+                : estadoFinal === 'no_habilitado'
+                    ? '<span class="badge bg-warning text-dark">NO HABILITADO</span>'
+                    : `<span class="badge bg-success">Éxito - ${files.length || (archivoPdf ? 1 : 0)} archivo(s)</span>`;
             userDiv.querySelector('h4').innerHTML = `${nombre} ${badge}`;
 
-            if (estadoFinal !== 'error') {
+            if (!esFallo) {
                 const archivosParaMostrar = files.length > 0 ? files : (archivoPdf ? [archivoPdf] : []);
 
                 // Resumen de deudas (retenciones)

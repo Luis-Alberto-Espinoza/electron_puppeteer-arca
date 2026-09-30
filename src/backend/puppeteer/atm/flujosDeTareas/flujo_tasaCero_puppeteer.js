@@ -12,7 +12,7 @@ const fs = require('fs/promises');
 const os = require('os');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js');
 const { loginATM } = require('../codigoXpagina/login_atm.js');
-const { navegarATasaCero } = require('../codigoXpagina/aplicativos-tasaCero.js');
+const { navegarATasaCero, SERVICIO_NO_HABILITADO } = require('../codigoXpagina/aplicativos-tasaCero.js');
 const {
     ejecutarFlujoTasaCero,
     ejecutarFlujoReimpresion
@@ -169,6 +169,15 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
             console.log(`[Flujo Tasa Cero - ${nombreCliente}] Navegación a Tasa Cero exitosa`);
             enviarProgreso('info', 'Acceso al formulario de Tasa Cero exitoso.');
         } catch (error) {
+            // No es una falla del programa: el cliente no tiene el servicio. El manager
+            // lo reporta con estado propio; acá no mandamos 'error' (el lote lo toma como final).
+            if (error.code === SERVICIO_NO_HABILITADO) {
+                return {
+                    exito: false,
+                    noHabilitado: true,
+                    mensaje: error.message
+                };
+            }
             enviarProgreso('error', `No se pudo acceder al servicio de Tasa Cero: ${error.message}`);
             return {
                 exito: false,

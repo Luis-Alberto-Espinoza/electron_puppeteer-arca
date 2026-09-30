@@ -17,12 +17,43 @@ const SELECTORES = {
 
     // XPath alternativo para buscar por texto
     xpathMenuAplicativos: '//a[contains(text(), "Aplicativos") or contains(@title, "Aplicativos")]',
-    xpathOpcionTasaCero: '//a[contains(text(), "Tasa Cero") or contains(@title, "Tasa Cero")]',
+    // La opción real es un <li onclick="navigateTo(...6050...)">, no un <a>: buscamos ambos.
+    xpathOpcionTasaCero: '//*[self::a or self::li][contains(normalize-space(.), "Tasa Cero") or contains(@title, "Tasa Cero")]',
+
+    // Opciones del menú Aplicativos (sirve para distinguir "no habilitado" de "cambió la página")
+    opcionesAplicativos: '#secAplicativos li[onclick]',
 
     // Timeouts
     tiempoEsperaNavegacion: 30000,
     tiempoEsperaSelector: 10000,
 };
+
+const SERVICIO_NO_HABILITADO = 'SERVICIO_NO_HABILITADO';
+
+/**
+ * Arma el error para cuando "Tasa Cero" no aparece en Aplicativos.
+ * Si el menú abrió y lista OTRAS opciones, el cliente no tiene el servicio
+ * (error con code SERVICIO_NO_HABILITADO). Si no lista nada, lo más probable
+ * es que ATM haya cambiado la página: error común para revisar los selectores.
+ *
+ * @param {import('puppeteer').Page} pagina
+ * @returns {Promise<Error>}
+ */
+async function errorOpcionNoEncontrada(pagina) {
+    const opciones = await pagina.$$eval(SELECTORES.opcionesAplicativos,
+        items => items.map(li => li.textContent.trim().replace(/\s+/g, ' ')).filter(Boolean)
+    ).catch(() => []);
+
+    if (opciones.length > 0) {
+        console.warn(`[navegarATasaCero] Aplicativos lista ${opciones.length} opción(es) pero no Tasa Cero: ${opciones.join(' | ')}`);
+        const error = new Error('Tasa Cero no aparece en Aplicativos de ATM: el cliente no tiene el servicio habilitado.');
+        error.code = SERVICIO_NO_HABILITADO;
+        return error;
+    }
+
+    console.warn('[navegarATasaCero] El menú Aplicativos no lista ninguna opción: posible cambio en la página de ATM.');
+    return new Error('No se encontró la opción "Tasa Cero" y el menú Aplicativos vino vacío. Puede que ATM haya cambiado la página.');
+}
 
 /**
  * Navega al menú "Aplicativos" y luego hace clic en "Tasa Cero"
@@ -57,7 +88,8 @@ async function navegarATasaCero(pagina, navegador) {
 
         // Si no se encontró con CSS, intentar con XPath
         if (!botonAplicativos) {
-            const elementosXPath = await pagina.$x(SELECTORES.xpathMenuAplicativos);
+            // Puppeteer 22+ eliminó page.$x(): el XPath va con el prefijo "xpath/".
+            const elementosXPath = await pagina.$$(`xpath/${SELECTORES.xpathMenuAplicativos}`);
             if (elementosXPath.length > 0) {
                 botonAplicativos = elementosXPath[0];
             } else {
@@ -92,11 +124,11 @@ async function navegarATasaCero(pagina, navegador) {
 
         // Si no se encontró con CSS, intentar con XPath
         if (!botonTasaCero) {
-            const elementosXPath = await pagina.$x(SELECTORES.xpathOpcionTasaCero);
+            const elementosXPath = await pagina.$$(`xpath/${SELECTORES.xpathOpcionTasaCero}`);
             if (elementosXPath.length > 0) {
                 botonTasaCero = elementosXPath[0];
             } else {
-                throw new Error('No se encontró la opción "Tasa Cero" en el menú');
+                throw await errorOpcionNoEncontrada(pagina);
             }
         }
 
@@ -158,6 +190,8 @@ async function navegarATasaCero(pagina, navegador) {
 
     } catch (error) {
         console.error('❌ [navegarATasaCero] Error durante la navegación:', error.message);
+        // El "no habilitado" ya trae un mensaje para la operadora: no lo envolvemos.
+        if (error.code === SERVICIO_NO_HABILITADO) throw error;
         throw new Error(`No se pudo navegar a Tasa Cero: ${error.message}`);
     }
 }
@@ -174,5 +208,6 @@ function actualizarSelectores(nuevosSelectores) {
 module.exports = {
     navegarATasaCero,
     actualizarSelectores,
-    SELECTORES
+    SELECTORES,
+    SERVICIO_NO_HABILITADO
 };

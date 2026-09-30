@@ -103,6 +103,13 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso, visible) 
                 resumen: `Comprobante Tasa Cero descargado${resultadoFlujo.periodo ? ' ' + resultadoFlujo.periodo : ''}`,
                 detalle: { periodo: resultadoFlujo.periodo, archivo: resultadoFlujo.rutaArchivo, caso: resultadoFlujo.caso }
             });
+        } else if (resultadoFlujo?.noHabilitado) {
+            enviarProgresoCliente('no_habilitado', resultadoFlujo.mensaje);
+            historialRepo.registrar({
+                dominio: 'tasaCero', accion: 'generar', estado: 'error',
+                cliente: clienteHist,
+                resumen: 'Tasa Cero no habilitado', error: resultadoFlujo.mensaje
+            });
         } else {
             const msg = resultadoFlujo?.mensaje || 'Error desconocido al procesar Tasa Cero.';
             enviarProgresoCliente('error', msg);
