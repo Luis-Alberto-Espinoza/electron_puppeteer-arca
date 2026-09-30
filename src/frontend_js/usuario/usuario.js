@@ -2418,6 +2418,7 @@ window.probarClaveDesdeListado = async function (userId, servicios, { visible } 
  * (sin abrir el formulario de edición).
  */
 window.analizarClienteDesdeListado = async function (userId, nombre) {
+    const visible = visibleListado(); // switch de la barra de la lista
     const display = nombre || `cliente ${userId}`;
     // Modelo plano: analizar por CUIT. El cuit está en la fila ya cargada.
     const u = (window.allUsers || []).find(x => String(x.id) === String(userId));
@@ -2428,7 +2429,7 @@ window.analizarClienteDesdeListado = async function (userId, nombre) {
     progreso.actualizar(1, display, { exitosos: 0, fallidos: 0 });
 
     try {
-        const response = await window.electronAPI.empresa.analizarContribuyente({ cuit });
+        const response = await window.electronAPI.empresa.analizarContribuyente({ cuit, visible });
         progreso.cerrar();
         if (response.success) {
             const pdvs = (response.data && response.data.puntosDeVenta) || [];
@@ -2613,6 +2614,8 @@ function usarHandlerProgresoLote(handler) {
  * @param {{icono:string, mensajeConfirmacion:string, textoConfirmar:string}} opciones
  */
 async function procesarLoteAnalisis(clientes, opciones) {
+    // Leer el switch YA, antes de que el modal/recarga re-rendericen la barra.
+    const visible = visibleListado();
     if (clientes.length === 0) {
         return showAlert('No hay clientes que procesar.', 'info');
     }
@@ -2652,7 +2655,7 @@ async function procesarLoteAnalisis(clientes, opciones) {
     });
 
     try {
-        const res = await window.electronAPI.empresa.analizarLote(cuits);
+        const res = await window.electronAPI.empresa.analizarLote(cuits, { visible });
         progreso.cerrar();
         if (typeof loadUsers === 'function') await loadUsers();
 

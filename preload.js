@@ -168,7 +168,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     empresa: {
         analizarContribuyente: (datos) => ipcRenderer.invoke('empresa:analizarContribuyente', datos),
         // Lote: un login por credencial. Progreso por grupo vía onAnalizarLoteProgreso.
-        analizarLote: (cuits) => ipcRenderer.invoke('empresa:analizarLote', { cuits }),
+        analizarLote: (cuits, opciones = {}) => ipcRenderer.invoke('empresa:analizarLote', { cuits, ...opciones }),
         onAnalizarLoteProgreso: (callback) => ipcRenderer.on('empresa:analizarLote:progreso', (_event, data) => callback(data))
     },
 

@@ -10,6 +10,7 @@
  */
 
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
+const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 const loginManager     = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const {
     abrirAbmPuntosVenta,
@@ -153,12 +154,13 @@ function vincularConRepresentante(filaPrevia, loginCuit) {
  *
  * @param {Object} repo  contribuyenteRepo (resolverAcceso + actualizar)
  * @param {string} cuit  CUIT del contribuyente a analizar
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] false = navegador oculto; si no llega, visible
  */
 async function analizarContribuyente(repo, cuit, opciones = {}) {
-    // dejarAbiertoEnError: en el análisis de a UNO conviene dejar el navegador abierto
-    // para inspeccionar qué falló. En LOTE se apaga (ver analizarLote): 5 logins malos
-    // = 5 Chrome zombis comiéndose la RAM.
-    const { dejarAbiertoEnError = true } = opciones;
+    // El navegador se cierra SIEMPRE al terminar (éxito o error, visible u oculto):
+    // antes quedaba abierto en error para inspeccionar, pero dejaba Chrome zombis.
+    const { visible } = opciones;
     const acceso = await repo.resolverAcceso(String(cuit), 'afip');
     if (!acceso) {
         return { success: false, error: 'NO_ACCESO', message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante).' };
@@ -368,7 +370,7 @@ async function analizarContribuyente(repo, cuit, opciones = {}) {
                 resultados
             }
         };
-    }, { headless: false, dejarAbiertoEnError });
+    }, { headless: resolverHeadless(visible) });
 }
 
 /**
@@ -386,9 +388,11 @@ async function analizarContribuyente(repo, cuit, opciones = {}) {
  * @param {Object} repo
  * @param {Array<string>} cuits contribuyentes objetivo del lote
  * @param {(p:Object)=>void} [onProgreso] callback de progreso POR GRUPO (login)
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] false = navegadores ocultos (una elección para todo el lote)
  * @returns {Promise<Object>} resumen agregado
  */
-async function analizarLote(repo, cuits, onProgreso = () => {}) {
+async function analizarLote(repo, cuits, onProgreso = () => {}, { visible } = {}) {
     // 1) Agrupar por credencial. resolverAcceso es puro repo (sin navegador) → barato.
     const grupos = new Map();      // loginCuit -> [cuits objetivo]
     const sinAcceso = [];
@@ -411,7 +415,7 @@ async function analizarLote(repo, cuits, onProgreso = () => {}) {
         i++;
         onProgreso({ status: 'processing', indice: i, total: totalGrupos, loginCuit, targets });
         try {
-            const r = await analizarContribuyente(repo, loginCuit, { dejarAbiertoEnError: false });
+            const r = await analizarContribuyente(repo, loginCuit, { visible });
             resultados.push({ loginCuit, targets, success: !!r.success, message: r.message, error: r.error, data: r.data });
             onProgreso({ status: r.success ? 'ok' : 'fallo', indice: i, total: totalGrupos, loginCuit, targets, message: r.message, error: r.error });
         } catch (e) {

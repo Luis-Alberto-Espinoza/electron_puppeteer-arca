@@ -127,7 +127,7 @@ window.inicializarConsultaComprobantes = () => {
         actualizarEstadoBoton();
 
         try {
-            const res = await window.electronAPI.empresa.analizarContribuyente({ cuit });
+            const res = await window.electronAPI.empresa.analizarContribuyente({ cuit, visible: document.getElementById('chk-visible-cc')?.checked !== false });
             if (!res || !res.success) {
                 resetPdv('Error al descubrir puntos de venta');
                 mostrarPdvInfo(res?.message || 'Error al descubrir puntos de venta', 'error');
