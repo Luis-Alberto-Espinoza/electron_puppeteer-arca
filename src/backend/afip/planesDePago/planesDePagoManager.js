@@ -4,6 +4,7 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const flujo = require('../../puppeteer/afip/planesDePago/flujos/flujo_planesDePago.js');
+const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 const { app } = require('electron');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
@@ -14,8 +15,10 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
  * @param {Object} usuario - Datos del representante
  * @param {Object} cuitConsulta - { cuit, alias } del CUIT a consultar
  * @param {string} downloadsPath - Ruta para descargas
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
  */
-async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath = null) {
+async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath = null, { visible } = {}) {
     console.log('[PlanesDePago Manager] Iniciando proceso...');
     console.log(`   Representante: ${usuario.nombre} (${credenciales.usuario})`);
     console.log(`   Consulta CUIT: ${cuitConsulta.cuit} (${cuitConsulta.alias})`);
@@ -43,7 +46,7 @@ async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath
         const resultado = await flujo.ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath);
         return resultado;
 
-    }, { headless: false });
+    }, { headless: resolverHeadless(visible) });
 }
 
 /**
@@ -53,8 +56,10 @@ async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath
  * @param {Array} cuitsAProcesar - Array de { cuit, alias }
  * @param {string} downloadsPath - Ruta para descargas
  * @param {Function} onProgreso - Callback(datos) para informar progreso por CUIT
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
  */
-async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloadsPath, onProgreso) {
+async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloadsPath, onProgreso, { visible } = {}) {
     console.log(`[PlanesDePago Manager] Iniciando proceso lote para ${usuario.nombre} (${credenciales.usuario})`);
     console.log(`   CUITs a procesar: ${cuitsAProcesar.length}`);
 
@@ -171,7 +176,7 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
             resultados
         };
 
-    }, { headless: false });
+    }, { headless: resolverHeadless(visible) });
 }
 
 module.exports = { iniciarProceso, iniciarProcesoLote };

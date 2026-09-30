@@ -535,6 +535,12 @@
     text-align: center;
 }
 
+/* Switch "Mostrar navegador": la vista es oscura, el gris de base.css no se lee */
+.planes-procesar .ui-switch {
+    color: #e0e0e0;
+    margin-right: 16px;
+}
+
 .planes-btn-obtener {
     padding: 14px 40px;
     background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);

@@ -847,7 +847,8 @@ window.inicializarModuloPlanesDePago = () => {
 
         try {
             const resultado = await window.electronAPI.planesDePago.generarLote({
-                loteRepresentantes
+                loteRepresentantes,
+                visible: document.getElementById('chk-visible-planes')?.checked !== false
             });
 
             if (resultado.success) {

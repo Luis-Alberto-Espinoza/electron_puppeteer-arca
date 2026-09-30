@@ -69,7 +69,8 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
     // ========================================
     ipcMain.handle('planesDePago:generar', async (_event, datos) => {
         console.log('[PlanesDePago Handler] Solicitud recibida');
-        const { representante, cuitsAProcesar } = datos;
+        // `visible` se elige una vez para todo el lote (false = navegador oculto).
+        const { representante, cuitsAProcesar, visible } = datos;
 
         if (!cuitsAProcesar || cuitsAProcesar.length === 0) {
             return { success: false, message: 'No se recibieron CUITs para procesar' };
@@ -107,7 +108,8 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                         credenciales,
                         representante,
                         cuitConsulta,
-                        downloadsPath
+                        downloadsPath,
+                        { visible }
                     );
 
                     resultados.push({
@@ -188,7 +190,8 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
     // ========================================
     ipcMain.handle('planesDePago:generarLote', async (_event, datos) => {
         console.log('[PlanesDePago Handler Lote] Solicitud recibida');
-        const { loteRepresentantes } = datos;
+        // `visible` se elige una vez para todo el lote (false = navegador oculto).
+        const { loteRepresentantes, visible } = datos;
 
         if (!loteRepresentantes || loteRepresentantes.length === 0) {
             return { success: false, message: 'No se recibieron representantes para procesar' };
@@ -258,7 +261,8 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                     representante,
                     cuitsAProcesar,
                     downloadsPath,
-                    onProgreso
+                    onProgreso,
+                    { visible }
                 );
 
                 resultadosGlobales.push({
