@@ -29,7 +29,8 @@ function cargarFlujoConStubs({ alDescargar } = {}) {
         launchBrowserAndPage: async () => ({
             browser: { close: async () => {} },
             page: { goto: async () => {}, reload: async () => {} }
-        })
+        }),
+        resolverHeadless: () => false
     });
     stubModulo('../codigoXpagina/login_atm.js', { loginATM: async () => {} });
     stubModulo('../codigoXpagina/home-oficinaVirtual.js', {

@@ -2,7 +2,7 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarARetenciones } = require('../codigoXpagina/oficina_retenciones.js');
 const { descargarRetencionGenerico } = require('../codigoXpagina/retenciones_generico.js');
-const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js');
 
 /**
  * Flujo completo para descargar retenciones desde ATM
@@ -17,9 +17,11 @@ const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/brows
  * @param {string} downloadsPath - Ruta base de descargas (app.getPath('downloads'))
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  * @param {string|string[]} periodos - Periodo o lista de periodos en formato YYYY-MM
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
  * @returns {Promise<Object>} Resultado del flujo {exito, mensaje, files?, downloadDir?}
  */
-async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso, periodos) {
+async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso, periodos, { visible } = {}) {
     let browser;
 
     // Acepta un periodo suelto (formato viejo) o una lista de periodos.
@@ -55,9 +57,9 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
 
     try {
         enviarProgreso('info', `Iniciando navegador... (periodos: ${rangoTexto})`);
-        // Modo visible para debugging. launchBrowserAndPage reusa la pestaña inicial
-        // (sin about:blank de más) y aplica el viewport por defecto.
-        const lanzado = await launchBrowserAndPage({ headless: false });
+        // launchBrowserAndPage reusa la pestaña inicial (sin about:blank de más)
+        // y aplica el viewport por defecto.
+        const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         browser = lanzado.browser;
         const page = lanzado.page;
 

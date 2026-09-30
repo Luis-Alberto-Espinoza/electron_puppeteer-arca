@@ -2,15 +2,15 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarAConstanciaFiscal } = require('../codigoXpagina/oficina_constanciaFiscal.js');
 const { gestionarConstanciaFiscal } = require('../codigoXpagina/constanciaFiscal.js');
-const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
+const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
 
-async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso) {
+async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso, { visible } = {}) {
     let browser;
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        const lanzado = await launchBrowserAndPage({ headless: false }); // TEMP debug: visible para ver el iframe
+        const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         browser = lanzado.browser;
         const page = lanzado.page;
 
@@ -80,7 +80,7 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
         throw error; // Lanzar para que el worker lo capture
     } finally {
         if (browser) {
-            // await browser.close();
+            await browser.close();
             enviarProgreso('info', 'Navegador cerrado.');
         }
     }

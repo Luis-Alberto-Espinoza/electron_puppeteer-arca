@@ -8,7 +8,8 @@ window.inicializarModuloLoteATM = () => {
         constancias: {
             label:         'Constancias',
             tienePeriodo:  false,
-            ejecutar:      (clientes) => window.electronAPI.atm.constanciaFiscal.generarLote({ usuarios: clientes })
+            eligeVisibilidad: true,
+            ejecutar:      (clientes, { visible }) => window.electronAPI.atm.constanciaFiscal.generarLote({ usuarios: clientes, visible })
         },
         planesPago: {
             label:         'Planes de Pago',
@@ -27,7 +28,8 @@ window.inicializarModuloLoteATM = () => {
             tienePeriodo:  true,
             rangoPeriodo:  true,         // permite descargar un rango de meses de una sola pasada
             periodoDefault: 'previous',  // índice 1 → mes anterior
-            ejecutar:      (clientes) => window.electronAPI.atm.retenciones.generarLote({ usuarios: clientes })
+            eligeVisibilidad: true,
+            ejecutar:      (clientes, { visible }) => window.electronAPI.atm.retenciones.generarLote({ usuarios: clientes, visible })
         }
     };
 

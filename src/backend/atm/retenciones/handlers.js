@@ -13,7 +13,8 @@ function setupRetencionesHandlers(ipcMain, mainWindow, app) {
 
     // Handler para descargar retenciones en lote
     ipcMain.handle('atm:retenciones:generarLote', async (event, datos) => {
-        const { usuarios } = datos;
+        // `visible` se elige una vez para todo el lote (false = navegador oculto).
+        const { usuarios, visible } = datos;
         const downloadsPath = app.getPath('downloads');
 
         console.log(`[ATM:Retenciones] Iniciando lote para ${usuarios.length} usuario(s)`);
@@ -26,7 +27,7 @@ function setupRetencionesHandlers(ipcMain, mainWindow, app) {
         };
 
         try {
-            await procesarLote({ usuarios, downloadsPath }, enviarProgreso);
+            await procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso);
             return { success: true, mensaje: 'Proceso de Descarga de Retenciones iniciado.' };
         } catch (error) {
             console.error('[ATM:Retenciones] Error:', error);

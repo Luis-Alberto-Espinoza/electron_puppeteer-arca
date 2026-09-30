@@ -10,9 +10,10 @@ const { historialRepo } = require('../../historial/historialRepo.js');
  * @param {Object} params - Parámetros del lote
  * @param {Array} params.usuarios - Lista de usuarios a procesar (cada uno con su periodo)
  * @param {string} params.downloadsPath - Ruta de descargas
+ * @param {boolean} [params.visible] - false = navegador oculto; si no llega, visible
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
-async function procesarLote({ usuarios, downloadsPath }, enviarProgreso) {
+async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso) {
     enviarProgreso({
         status: 'general',
         mensaje: `Iniciando proceso de Descarga de Retenciones para ${usuarios.length} usuario(s).`
@@ -20,7 +21,7 @@ async function procesarLote({ usuarios, downloadsPath }, enviarProgreso) {
 
     for (let i = 0; i < usuarios.length; i++) {
         const usuario = usuarios[i];
-        await procesarUsuario(usuario, downloadsPath, enviarProgreso);
+        await procesarUsuario(usuario, downloadsPath, enviarProgreso, visible);
 
         // Pausa entre usuarios para no sobrecargar el sistema
         if (i < usuarios.length - 1) {
@@ -37,7 +38,7 @@ async function procesarLote({ usuarios, downloadsPath }, enviarProgreso) {
 /**
  * Procesa un único usuario
  */
-async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
+async function procesarUsuario(usuario, downloadsPath, enviarProgreso, visible) {
     const { cuit, nombre = '', apellido = '', id, periodo = '', periodos } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -79,7 +80,8 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso) {
             nombreParaArchivos,
             downloadsPath,
             enviarProgresoUsuario,
-            listaPeriodos
+            listaPeriodos,
+            { visible }
         );
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
