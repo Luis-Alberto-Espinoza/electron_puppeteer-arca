@@ -7,23 +7,8 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
 const { prepararTablaIngresosBrutos, descargarFilaVigentePorIndice, contarFilasVigentes } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
-const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
+const { convertirPdfAExcel } = require('../../../tablasPdf/convertirPdfAExcel.js');
 const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
-
-// --- Helper para encontrar la fecha de vencimiento en los datos del PDF ---
-function encontrarFechaVencimiento(datosPdf) {
-    if (!datosPdf || !datosPdf.datos || !Array.isArray(datosPdf.datos)) return 'SinFecha';
-    for (const fila of datosPdf.datos) {
-        for (const key in fila) {
-            if (key.toLowerCase().includes('vencimiento') || key.toLowerCase().includes('vto')) {
-                const valor = fila[key];
-                const match = String(valor).match(/\d{2}[\/\-]\d{2}[\/\-]\d{4}/);
-                if (match) return match[0].replace(/\//g, '-');
-            }
-        }
-    }
-    return 'SinFecha';
-}
 
 function encontrarNumeroDeBoleto(datosPdf) {
     // El orquestador ahora devuelve las filas crudas en la propiedad 'allFilas'
@@ -54,7 +39,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        const lanzado = await launchBrowserAndPage({ headless: true });
+        const lanzado = await launchBrowserAndPage({ headless: false }); // TEMP debug: visible para revisar el flujo
         browser = lanzado.browser;
         const page = lanzado.page;
 
@@ -95,9 +80,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         await new Promise(resolve => setTimeout(resolve, 5000)); // Aumentar espera si es necesario
 
         const finalFilePaths = [];
-        const mesConsulta = new Date().toISOString().slice(0, 7);
         const diaConsulta = new Date().toISOString().slice(0, 10);
-        const anioConsulta = new Date().toISOString().slice(0, 4);
 
         for (const tempDir of tempDirs) {
             const archivos = await fs.readdir(tempDir);
@@ -107,19 +90,34 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
             }
             const tempFilePath = path.join(tempDir, archivos[0]);
 
-            const datosPdf = await procesarPdfConFallback(tempFilePath);
-            const fechaVenc = encontrarFechaVencimiento(datosPdf);
-            const numeroBoleto = encontrarNumeroDeBoleto(datosPdf);
-            const nuevoNombre = `PlanPago_${credencialesATM.cuit}_boleto_${numeroBoleto}_Consulta_${diaConsulta}.pdf`;
+            // Mismo conversor que el servicio Tablas PDF: el .xlsx queda en el
+            // temporal y se mueve junto con el PDF, con el mismo nombre.
+            // Si la conversión falla, el PDF se guarda igual.
+            let extraccion = null;
+            let rutaExcelTemp = null;
+            try {
+                ({ rutaExcel: rutaExcelTemp, extraccion } = await convertirPdfAExcel(tempFilePath));
+            } catch (error) {
+                console.error(`[PlanDePago] No se pudo convertir ${archivos[0]} a Excel:`, error);
+                enviarProgreso('warn', `No se pudo generar el Excel del plan de pago: ${error.message}`);
+            }
+
+            const numeroBoleto = encontrarNumeroDeBoleto(extraccion);
+            const baseNombre = `PlanPago_${credencialesATM.cuit}_boleto_${numeroBoleto}_Consulta_${diaConsulta}`;
 
             const destinoDir = await getDownloadPathContribuyente(downloadsPath, credencialesATM.cuit, nombreUsuario, 'archivos_atm');
-            const destinoPath = path.join(destinoDir, nuevoNombre);
+            const destinoPath = path.join(destinoDir, `${baseNombre}.pdf`);
             await moverArchivo(tempFilePath, destinoPath);
-
             finalFilePaths.push(destinoPath);
+
+            if (rutaExcelTemp) {
+                const destinoExcel = path.join(destinoDir, `${baseNombre}.xlsx`);
+                await moverArchivo(rutaExcelTemp, destinoExcel);
+                finalFilePaths.push(destinoExcel);
+            }
         }
         
-        enviarProgreso('exito', `Proceso completado. Se descargaron y procesaron ${finalFilePaths.length} archivos.`);
+        enviarProgreso('exito', `Proceso completado. Se guardaron ${finalFilePaths.length} archivo(s) (PDF + Excel de cada plan).`);
         return {
             success: true,
             files: finalFilePaths,

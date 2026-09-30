@@ -13,8 +13,7 @@
 // Diferencia con el hermano: NO se pasa projectRoot al motor. El motor ubica el
 // worker y las fuentes de pdfjs con require.resolve, que anda en dev y empaquetado.
 
-const procesarPdfConFallback = require('./motor/extraerTablasPdf/extraerTablas_B_Manager.js');
-const { convertStructuredDataToExcel } = require('./motor/services/fileProcessingService.js');
+const { convertirPdfAExcel } = require('./convertirPdfAExcel.js');
 const { processBatch } = require('./motor/utils/batchProcessor.js');
 
 function setupTablasPdfHandlers(ipcMain, mainWindow, dialog) {
@@ -30,27 +29,8 @@ function setupTablasPdfHandlers(ipcMain, mainWindow, dialog) {
     ipcMain.handle('extraerTablasPDF:procesar-archivo', async (event, filePath) => {
         console.log(`[tablasPdf] Procesando: ${filePath}`);
         try {
-            // 1. Extraer datos estructurados
-            const resultadoExtraccion = await procesarPdfConFallback(filePath);
-            if (!resultadoExtraccion.exito) {
-                throw new Error(resultadoExtraccion.error || 'Error desconocido durante el procesamiento del PDF.');
-            }
-
-            // 2. Si el especialista ya generó su propio Excel (multi-hoja), usarlo tal cual.
-            if (resultadoExtraccion.excelPath) {
-                return { exito: true, rutaExcel: resultadoExtraccion.excelPath };
-            }
-
-            // 3. Si no, convertidor genérico.
-            const resultadoConversion = await convertStructuredDataToExcel(
-                resultadoExtraccion,
-                resultadoExtraccion.suggestedFileName,
-                filePath
-            );
-            if (!resultadoConversion.exito) {
-                throw new Error(resultadoConversion.error || 'Error desconocido durante la conversión a Excel.');
-            }
-            return { exito: true, rutaExcel: resultadoConversion.rutaExcel };
+            const { rutaExcel } = await convertirPdfAExcel(filePath);
+            return { exito: true, rutaExcel };
         } catch (error) {
             console.error(`[tablasPdf] Fallo en 'procesar-archivo': ${error.message}`);
             throw error;
