@@ -46,6 +46,12 @@
             <!-- Selector de usuarios (genérico) -->
             <div id="selector-usuarios-ct"></div>
 
+            <!-- Visible u oculto: se elige una vez para todo el lote (consulta + pago). No se guarda. -->
+            <label class="ui-switch">
+                <input type="checkbox" id="chk-visible-ct" checked>
+                Mostrar navegador
+            </label>
+
             <!-- Botón consultar (primera pasada) -->
             <button
                 id="btn-consultar-deuda-ct"
@@ -112,6 +118,12 @@
 
             <!-- Formulario por (cliente, CUIT) — se renderiza dinámicamente -->
             <div id="formularios-directo-ct" class="formularios-directo-ct"></div>
+
+            <!-- Visible u oculto: se elige en cada lote. No se guarda. -->
+            <label class="ui-switch">
+                <input type="checkbox" id="chk-visible-ct-directo" checked>
+                Mostrar navegador
+            </label>
 
             <!-- Botón Generar (deshabilitado hasta que haya entradas válidas) -->
             <button

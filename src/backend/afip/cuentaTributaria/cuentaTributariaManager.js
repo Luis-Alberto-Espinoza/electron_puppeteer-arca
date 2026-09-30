@@ -1,5 +1,6 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
+const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 const { app } = require('electron');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
@@ -25,9 +26,11 @@ function resolverDownloadsPath(downloadsPath) {
  * @param {Object} payload                   Datos especificos del modo (ver handlers.js).
  * @param {string} modo                      'consultarA' | 'pagarA' | 'pagarDirectoB'
  * @param {string} downloadsPath
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible]       false = navegador oculto; si no llega, visible
  * @returns {Promise<Object>}                Resultado dependiente del modo.
  */
-async function iniciarProcesoCuentaTributaria(url, credenciales, payload, modo, downloadsPath = null) {
+async function iniciarProcesoCuentaTributaria(url, credenciales, payload, modo, downloadsPath = null, { visible } = {}) {
     console.log(`[CuentaTributaria Manager] Iniciando proceso modo=${modo}`);
     downloadsPath = resolverDownloadsPath(downloadsPath);
 
@@ -58,7 +61,13 @@ async function iniciarProcesoCuentaTributaria(url, credenciales, payload, modo, 
             message: `Modo no reconocido: ${modo}`
         };
 
-    }, { headless: false, dejarAbiertoEnError: true, dejarAbiertoSiempre: false });
+    }, {
+        headless: resolverHeadless(visible),
+        // En error se deja abierto para inspeccionar, pero SOLO si se ve: un navegador
+        // oculto abierto no sirve para nada (para inspeccionar, reintentar visible).
+        dejarAbiertoEnError: visible !== false,
+        dejarAbiertoSiempre: false
+    });
 }
 
 module.exports = {

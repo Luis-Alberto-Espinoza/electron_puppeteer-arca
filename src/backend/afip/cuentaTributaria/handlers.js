@@ -66,7 +66,8 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
 
     ipcMain.handle('cuentaTributaria:procesar', async (event, datos) => {
         console.log('[CuentaTributaria] Solicitud recibida. modo=', datos && datos.modo);
-        const { modo, items, seleccionFilas } = datos || {};
+        // `visible` se elige una vez para todo el lote (false = navegador oculto).
+        const { modo, items, seleccionFilas, visible } = datos || {};
 
         if (!Array.isArray(items) || items.length === 0) {
             return { success: false, message: 'No se recibieron items para procesar' };
@@ -106,7 +107,8 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             credenciales,
                             { cliente, cuitAsociado },
                             'consultarA',
-                            downloadsPath
+                            downloadsPath,
+                            { visible }
                         );
 
                         if (!r || r.success === false) {
@@ -212,7 +214,8 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             credenciales,
                             { cliente, cuitAsociado, medioPago, idsSeleccionadas: ids },
                             'pagarA',
-                            downloadsPath
+                            downloadsPath,
+                            { visible }
                         );
 
                         if (!r || r.success === false) {
@@ -306,7 +309,8 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             credenciales,
                             { cliente, cuitAsociado, deudasABuscar, medioPago },
                             'pagarDirectoB',
-                            downloadsPath
+                            downloadsPath,
+                            { visible }
                         );
 
                         if (!r || r.success === false) {

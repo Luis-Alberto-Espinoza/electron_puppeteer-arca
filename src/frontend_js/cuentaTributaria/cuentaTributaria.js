@@ -410,6 +410,7 @@ async function ejecutarConsultaPrimeraPasada() {
 
     EstadoCT.reset();
     EstadoCT.setItemsOriginales(items);
+    EstadoCT.visible = document.getElementById('chk-visible-ct')?.checked !== false;
     limpiarTodosLosGrupos();
     ocultarSeccionArchivos();
 
@@ -419,7 +420,8 @@ async function ejecutarConsultaPrimeraPasada() {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
             modo: 'consulta-con-seleccion',
             items,
-            seleccionFilas: null
+            seleccionFilas: null,
+            visible: EstadoCT.visible
         });
 
         ocultarModalProgreso();
@@ -475,7 +477,8 @@ async function ejecutarConsultaSegundaPasada() {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
             modo: 'consulta-con-seleccion',
             items,
-            seleccionFilas: { por: 'ids' }   // marcador — el id real va en cada item
+            seleccionFilas: { por: 'ids' },   // marcador — el id real va en cada item
+            visible: EstadoCT.visible         // misma elección que la consulta
         });
 
         ocultarModalProgreso();
@@ -527,7 +530,8 @@ async function ejecutarGenerarDirecto() {
     try {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
             modo: 'generar-directo',
-            items
+            items,
+            visible: document.getElementById('chk-visible-ct-directo')?.checked !== false
         });
 
         ocultarModalProgreso();
@@ -585,7 +589,8 @@ async function reintentarGrupo({ clienteId, cuitAsociado }) {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
             modo: 'consulta-con-seleccion',
             items: [original],
-            seleccionFilas: null
+            seleccionFilas: null,
+            visible: EstadoCT.visible   // el reintento es parte del mismo lote
         });
 
         ocultarModalProgreso();

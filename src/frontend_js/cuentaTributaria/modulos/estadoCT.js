@@ -28,6 +28,10 @@ const EstadoCT = {
     // Items originales enviados a la primera pasada (para reconstrucción / reintentos)
     itemsOriginales: [],
 
+    // Bandera visible/oculto del lote: la pasada de pago y los reintentos usan la misma
+    // que la consulta (primera pasada). No se guarda.
+    visible: true,
+
     /** Inicializa el estado con los resultados del backend. */
     setResultados(resultados) {
         this.procesadosAuto = resultados.procesadosAuto || [];
@@ -218,6 +222,7 @@ const EstadoCT = {
         this.gruposExcluidos.clear();
         this.medioPagoDefault = null;
         this.itemsOriginales = [];
+        this.visible = true;
         console.log('🔄 EstadoCT reseteado');
     },
 
