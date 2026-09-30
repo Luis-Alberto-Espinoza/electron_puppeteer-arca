@@ -8,7 +8,7 @@ const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.j
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
 const { prepararTablaIngresosBrutos, descargarFilaVigentePorIndice, contarFilasVigentes } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
 const { convertirPdfAExcel } = require('../../../tablasPdf/convertirPdfAExcel.js');
-const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
+const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 
 function encontrarNumeroDeBoleto(datosPdf) {
     // El orquestador ahora devuelve las filas crudas en la propiedad 'allFilas'
@@ -33,13 +33,13 @@ function encontrarNumeroDeBoleto(datosPdf) {
     return 'SinBoleto';
 }
 
-async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso) {
+async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso, { visible } = {}) {
     let browser;
     const tempDirs = [];
 
     try {
         enviarProgreso('info', 'Iniciando navegador...');
-        const lanzado = await launchBrowserAndPage({ headless: false }); // TEMP debug: visible para revisar el flujo
+        const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         browser = lanzado.browser;
         const page = lanzado.page;
 

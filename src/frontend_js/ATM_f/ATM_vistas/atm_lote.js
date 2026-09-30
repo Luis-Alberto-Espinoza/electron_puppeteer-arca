@@ -13,7 +13,8 @@ window.inicializarModuloLoteATM = () => {
         planesPago: {
             label:         'Planes de Pago',
             tienePeriodo:  false,
-            ejecutar:      (clientes) => window.electronAPI.atm.planDePago.generarLote({ usuarios: clientes })
+            eligeVisibilidad: true,      // muestra el switch "Mostrar navegador"
+            ejecutar:      (clientes, { visible }) => window.electronAPI.atm.planDePago.generarLote({ usuarios: clientes, visible })
         },
         tasaCero: {
             label:         'Tasa Cero',
@@ -59,6 +60,8 @@ window.inicializarModuloLoteATM = () => {
     const btnGuardar          = document.getElementById('btnGuardarLista');
     const btnLimpiar          = document.getElementById('btnLimpiarSeleccion');
     const btnProcesar         = document.getElementById('btnProcesar');
+    const switchVisible       = document.getElementById('switch-visible-lote');
+    const chkVisible          = document.getElementById('chk-visible-lote');
     const matchResultado      = document.getElementById('match-resultado');
     const procesandoContainer = document.getElementById('lote-procesando-ahora');
     const finalizadosContainer= document.getElementById('lote-finalizados-container');
@@ -236,6 +239,11 @@ window.inicializarModuloLoteATM = () => {
         // Mostrar/ocultar periodo
         const config = CONFIG_SUB[sub];
         panelPeriodo.style.display = config.tienePeriodo ? 'block' : 'none';
+
+        // Switch visible/oculto: solo en los subservicios que ya lo soportan. Vuelve a
+        // "visible" al cambiar de subservicio (no se guarda preferencia).
+        switchVisible.style.display = config.eligeVisibilidad ? '' : 'none';
+        chkVisible.checked = true;
 
         // Poblar periodo si aún no fue poblado
         if (config.tienePeriodo) {
@@ -580,7 +588,7 @@ window.inicializarModuloLoteATM = () => {
         prepararUIParaProceso();
 
         try {
-            await config.ejecutar(clientes);
+            await config.ejecutar(clientes, { visible: chkVisible.checked });
         } catch (error) {
             procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         }

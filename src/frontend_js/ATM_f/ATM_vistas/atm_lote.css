@@ -498,6 +498,12 @@
     text-align: center;
 }
 
+/* Switch "Mostrar navegador": la vista es oscura, el gris de base.css no se lee */
+.lote-procesar .ui-switch {
+    color: #e2e8f0;
+    margin-right: 16px;
+}
+
 .btn-procesar {
     padding: 14px 40px;
     background-color: #276749;
