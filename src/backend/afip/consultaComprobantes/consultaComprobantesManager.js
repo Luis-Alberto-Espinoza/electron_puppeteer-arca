@@ -9,6 +9,7 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const { ejecutarFlujoConsultaComprobantes } = require('../../puppeteer/afip/facturas/codigo/consultarFacturas/flujo_consultaComprobantes.js');
+const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -20,8 +21,10 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
  *                          Vacío/null = AFIP trae todos.
  * @param {Object} usuarioParaArchivo - { cuit, nombre, apellido } para nombre de carpeta/Excel
  * @param {string} downloadsPath - ruta base de descargas
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
  */
-async function iniciarConsultaComprobantes(url, credenciales, datos, usuarioParaArchivo, downloadsPath) {
+async function iniciarConsultaComprobantes(url, credenciales, datos, usuarioParaArchivo, downloadsPath, { visible } = {}) {
     console.log('🔵 [Consulta Comprobantes Manager] Iniciando proceso...');
     console.log('   Empresa:', datos.nombreEmpresa);
     console.log('   Punto de venta:', datos.puntoDeVenta);
@@ -59,7 +62,7 @@ async function iniciarConsultaComprobantes(url, credenciales, datos, usuarioPara
         console.log('✅ [Manager] Proceso finalizado');
         return resultado;
 
-    }, { headless: false });
+    }, { headless: resolverHeadless(visible) });
 }
 
 module.exports = {

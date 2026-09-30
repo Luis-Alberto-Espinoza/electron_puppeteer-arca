@@ -240,7 +240,8 @@ window.inicializarConsultaComprobantes = () => {
             // Opcional: texto exacto del tipo de comprobante. Vacío = no filtrar
             // (AFIP trae todos). La automatización matchea este texto contra las
             // <option> reales del select de AFIP.
-            tipoComprobante: selectTipo.value
+            tipoComprobante: selectTipo.value,
+            visible: document.getElementById('chk-visible-cc')?.checked !== false
         };
 
         try {

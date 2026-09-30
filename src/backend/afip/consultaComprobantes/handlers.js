@@ -17,7 +17,7 @@ function setupConsultaComprobantesHandlers(ipcMain, app) {
         console.log('BACKEND: Recibida solicitud consultaComprobantes:consultar');
 
         try {
-            const { cuit, puntoDeVenta, fechaDesde, fechaHasta, tipoComprobante } = datos || {};
+            const { cuit, puntoDeVenta, fechaDesde, fechaHasta, tipoComprobante, visible } = datos || {};
 
             if (!cuit) {
                 return { success: false, error: 'MISSING_CUIT', message: 'Falta el contribuyente.' };
@@ -65,7 +65,8 @@ function setupConsultaComprobantesHandlers(ipcMain, app) {
                 credenciales,
                 datosManager,
                 usuarioParaArchivo,
-                downloadsPath
+                downloadsPath,
+                { visible } // false = navegador oculto
             );
 
             return resultado;
