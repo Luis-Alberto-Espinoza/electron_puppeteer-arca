@@ -13,7 +13,8 @@ function setupTasaCeroHandlers(ipcMain, mainWindow, app) {
 
     // Handler para generar comprobantes de Tasa Cero en lote
     ipcMain.handle('atm:tasaCero:generarLote', async (event, datos) => {
-        const { clientes } = datos;
+        // `visible` se elige una vez para todo el lote (false = navegador oculto).
+        const { clientes, visible } = datos;
         const downloadsPath = app.getPath('downloads');
 
         console.log(`[ATM:TasaCero] Iniciando lote para ${clientes.length} cliente(s)`);
@@ -26,7 +27,7 @@ function setupTasaCeroHandlers(ipcMain, mainWindow, app) {
         };
 
         try {
-            await procesarLote({ clientes, downloadsPath }, enviarProgreso);
+            await procesarLote({ clientes, downloadsPath, visible }, enviarProgreso);
             return { exito: true, mensaje: 'Proceso de Tasa Cero iniciado.' };
         } catch (error) {
             console.error('[ATM:TasaCero] Error:', error);

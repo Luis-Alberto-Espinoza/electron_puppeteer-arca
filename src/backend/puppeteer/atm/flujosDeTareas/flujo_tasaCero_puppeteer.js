@@ -10,7 +10,7 @@
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
-const { launchBrowserAndPage } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js');
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { navegarATasaCero } = require('../codigoXpagina/aplicativos-tasaCero.js');
 const {
@@ -89,6 +89,7 @@ function generarNombreArchivo(nombreEmpresa, cuit, estado, periodo) {
  * @param {string} opciones.periodo - Periodo a procesar en formato YYYY-MM (ej: "2025-12")
  * @param {Function} opciones.enviarProgreso - Callback para reportar progreso
  * @param {Object} opciones.constants - Constantes de configuración (opcional)
+ * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
  *
  * @returns {Promise<Object>} - Resultado del flujo {exito, rutaArchivo?, periodo?, caso?, mensaje?}
  */
@@ -100,7 +101,8 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         downloadsPath,
         nombreUsuario,
         periodo,
-        enviarProgreso
+        enviarProgreso,
+        visible
     } = opciones;
 
     let navegador;
@@ -123,7 +125,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // El navegador ya arranca con un perfil temporal nuevo por lanzamiento (ver
         // browserLauncher), así que NO hace falta un contexto incógnito extra para aislar
         // la sesión: cada cliente corre en su propio navegador efímero.
-        const lanzado = await launchBrowserAndPage({ headless: false }); // Modo visible para debugging
+        const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         navegador = lanzado.browser;
         paginaLogin = lanzado.page;
 

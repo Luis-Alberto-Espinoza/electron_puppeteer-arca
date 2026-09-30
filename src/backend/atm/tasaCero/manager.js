@@ -15,9 +15,10 @@ const CONSTANTS = {
  * @param {Object} params - Parámetros del lote
  * @param {Array} params.clientes - Lista de clientes a procesar (cada uno con su periodo)
  * @param {string} params.downloadsPath - Ruta de descargas
+ * @param {boolean} [params.visible] - false = navegador oculto; si no llega, visible
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
-async function procesarLote({ clientes, downloadsPath }, enviarProgreso) {
+async function procesarLote({ clientes, downloadsPath, visible }, enviarProgreso) {
     enviarProgreso({
         estado: 'general',
         mensaje: `Iniciando proceso de Tasa Cero para ${clientes.length} cliente(s).`
@@ -31,7 +32,7 @@ async function procesarLote({ clientes, downloadsPath }, enviarProgreso) {
             mensaje: `Procesando cliente ${i + 1} de ${clientes.length}...`
         });
 
-        await procesarCliente(cliente, downloadsPath, enviarProgreso);
+        await procesarCliente(cliente, downloadsPath, enviarProgreso, visible);
 
         // Pausa entre clientes para no sobrecargar el sistema
         if (i < clientes.length - 1) {
@@ -48,7 +49,7 @@ async function procesarLote({ clientes, downloadsPath }, enviarProgreso) {
 /**
  * Procesa un único cliente
  */
-async function procesarCliente(cliente, downloadsPath, enviarProgreso) {
+async function procesarCliente(cliente, downloadsPath, enviarProgreso, visible) {
     const { cuit, nombre = '', apellido = '', id, periodo } = cliente;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -83,7 +84,8 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso) {
             nombreUsuario: nombreParaArchivos,
             periodo: periodo,
             enviarProgreso: enviarProgresoCliente,
-            constants: CONSTANTS
+            constants: CONSTANTS,
+            visible
         });
 
         const clienteHist = historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit });

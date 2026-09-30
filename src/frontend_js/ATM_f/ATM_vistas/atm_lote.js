@@ -21,7 +21,8 @@ window.inicializarModuloLoteATM = () => {
             label:         'Tasa Cero',
             tienePeriodo:  true,
             periodoDefault: 'current',   // índice 0 → mes actual
-            ejecutar:      (clientes) => window.electronAPI.atm.tasaCero.generarLote({ clientes })
+            eligeVisibilidad: true,
+            ejecutar:      (clientes, { visible }) => window.electronAPI.atm.tasaCero.generarLote({ clientes, visible })
         },
         retenciones: {
             label:         'Retenciones',
