@@ -18,7 +18,8 @@ function setupConsultaDeudaHandlers(ipcMain, app) {
     // HANDLER: consultaDeuda:consultar
     // Consulta la deuda de uno o mas usuarios
     // ========================================
-    ipcMain.handle('consultaDeuda:consultar', async (event, consultasData) => {
+    // `opciones.visible` se elige una vez para todo el lote (false = navegador oculto).
+    ipcMain.handle('consultaDeuda:consultar', async (event, consultasData, opciones = {}) => {
         console.log('BACKEND: Recibida solicitud para consultar deuda');
         console.log('Datos recibidos:', JSON.stringify(consultasData, null, 2));
 
@@ -68,7 +69,7 @@ function setupConsultaDeudaHandlers(ipcMain, app) {
                         fechaCalculo
                     };
 
-                    const resultado = await consultaDeudaManager.iniciarConsulta(url, credenciales, consultaData, downloadsPath);
+                    const resultado = await consultaDeudaManager.iniciarConsulta(url, credenciales, consultaData, downloadsPath, { visible: opciones.visible });
 
                     if (resultado.success) {
                         console.log(`  ${usuario.nombre} completado - Archivo: ${resultado.archivoExcel}`);

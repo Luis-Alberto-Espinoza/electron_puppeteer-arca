@@ -140,4 +140,11 @@ async function launchBrowserAndPage({ headless = true } = {}) {
   return { browser, page };
 }
 
-module.exports = { launchBrowser, launchBrowserAndPage };
+// Traduce la bandera `visible` que manda el frontend a la opción `headless` de Puppeteer.
+// Si la bandera no llega (undefined), el navegador se abre VISIBLE: así los servicios
+// que todavía no mandan la bandera siguen igual que antes.
+function resolverHeadless(visible) {
+  return visible === false;
+}
+
+module.exports = { launchBrowser, launchBrowserAndPage, resolverHeadless };

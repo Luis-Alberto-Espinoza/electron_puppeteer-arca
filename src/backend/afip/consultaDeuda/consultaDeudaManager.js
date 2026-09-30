@@ -1,6 +1,7 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const flujo_consultaDeuda = require('../../puppeteer/afip/consultaDeuda/flujos/flujo_consultaDeuda.js');
+const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 const { app } = require('electron');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
@@ -11,9 +12,11 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
  * @param {Object} credenciales - Credenciales del usuario
  * @param {Object} consultaData - Datos de la consulta (usuario, períodos, fecha)
  * @param {string} downloadsPath - Ruta base para guardar los archivos Excel
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
  * @returns {Object} Resultado del proceso
  */
-async function iniciarConsultaDeuda(url, credenciales, consultaData, downloadsPath = null) {
+async function iniciarConsultaDeuda(url, credenciales, consultaData, downloadsPath = null, { visible } = {}) {
     console.log("🔵 [Consulta Deuda Manager] Iniciando proceso de consulta de deuda...");
     console.log(`   Usuario: ${consultaData.usuario.nombre}`);
     console.log(`   CUIT: ${consultaData.usuario.cuit}`);
@@ -54,7 +57,7 @@ async function iniciarConsultaDeuda(url, credenciales, consultaData, downloadsPa
 
         return resultado;
 
-    }, { headless: true });
+    }, { headless: resolverHeadless(visible) });
 }
 
 module.exports = {

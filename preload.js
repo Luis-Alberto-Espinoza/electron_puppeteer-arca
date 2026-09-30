@@ -147,7 +147,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // APIs para Consulta de Deuda
     consultaDeuda: {
-        consultar: (datos) => ipcRenderer.invoke('consultaDeuda:consultar', datos),
+        consultar: (datos, opciones) => ipcRenderer.invoke('consultaDeuda:consultar', datos, opciones),
         onConsultaDeudaUpdate: (callback) => ipcRenderer.on('consultaDeuda:update', (_event, datos) => callback(datos))
     },
 

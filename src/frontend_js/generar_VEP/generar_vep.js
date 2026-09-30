@@ -1198,7 +1198,8 @@ async function ejecutarConsultaDeuda() {
         mostrarProgreso(true);
 
         const api = window.electronAPI || window.api;
-        const resultado = await api.consultaDeuda.consultar(payload);
+        const visible = document.getElementById('chk-visible-consulta-deuda')?.checked !== false;
+        const resultado = await api.consultaDeuda.consultar(payload, { visible });
 
         mostrarProgreso(false);
 
