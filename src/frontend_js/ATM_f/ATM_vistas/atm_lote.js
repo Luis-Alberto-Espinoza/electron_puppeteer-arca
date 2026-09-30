@@ -8,20 +8,17 @@ window.inicializarModuloLoteATM = () => {
         constancias: {
             label:         'Constancias',
             tienePeriodo:  false,
-            eligeVisibilidad: true,
             ejecutar:      (clientes, { visible }) => window.electronAPI.atm.constanciaFiscal.generarLote({ usuarios: clientes, visible })
         },
         planesPago: {
             label:         'Planes de Pago',
             tienePeriodo:  false,
-            eligeVisibilidad: true,      // muestra el switch "Mostrar navegador"
             ejecutar:      (clientes, { visible }) => window.electronAPI.atm.planDePago.generarLote({ usuarios: clientes, visible })
         },
         tasaCero: {
             label:         'Tasa Cero',
             tienePeriodo:  true,
             periodoDefault: 'current',   // índice 0 → mes actual
-            eligeVisibilidad: true,
             ejecutar:      (clientes, { visible }) => window.electronAPI.atm.tasaCero.generarLote({ clientes, visible })
         },
         retenciones: {
@@ -29,7 +26,6 @@ window.inicializarModuloLoteATM = () => {
             tienePeriodo:  true,
             rangoPeriodo:  true,         // permite descargar un rango de meses de una sola pasada
             periodoDefault: 'previous',  // índice 1 → mes anterior
-            eligeVisibilidad: true,
             ejecutar:      (clientes, { visible }) => window.electronAPI.atm.retenciones.generarLote({ usuarios: clientes, visible })
         }
     };
@@ -63,7 +59,6 @@ window.inicializarModuloLoteATM = () => {
     const btnGuardar          = document.getElementById('btnGuardarLista');
     const btnLimpiar          = document.getElementById('btnLimpiarSeleccion');
     const btnProcesar         = document.getElementById('btnProcesar');
-    const switchVisible       = document.getElementById('switch-visible-lote');
     const chkVisible          = document.getElementById('chk-visible-lote');
     const matchResultado      = document.getElementById('match-resultado');
     const procesandoContainer = document.getElementById('lote-procesando-ahora');
@@ -243,9 +238,8 @@ window.inicializarModuloLoteATM = () => {
         const config = CONFIG_SUB[sub];
         panelPeriodo.style.display = config.tienePeriodo ? 'block' : 'none';
 
-        // Switch visible/oculto: solo en los subservicios que ya lo soportan. Vuelve a
-        // "visible" al cambiar de subservicio (no se guarda preferencia).
-        switchVisible.style.display = config.eligeVisibilidad ? '' : 'none';
+        // Switch visible/oculto: vuelve a "visible" al cambiar de subservicio
+        // (no se guarda preferencia).
         chkVisible.checked = true;
 
         // Poblar periodo si aún no fue poblado

@@ -57,13 +57,6 @@ const { generarPlantillaClientes, generarExcelContribuyentes } = require('../cli
 const { getContribuyenteRepo } = require('../cliente/contribuyenteStore.js');
 const { gruposManager } = require('../cliente/grupos/gruposManager.js');
 
-// Lanzador de navegador y verificador de ATM para la validación manual
-const { launchBrowserAndPage } = require('../puppeteer/archivos_comunes/navegador/browserLauncher');
-const verificarCredencialesATM = require('../puppeteer/atm/flujosDeTareas/flujo_verificaCredenciales_atm');
-
-
-// importar sistema de credenciales
-const verificarYObtenerDatosAFIP = require('../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP');      
 
 let mainWindow;
 let puppeteerWindow;
@@ -234,70 +227,6 @@ function setupIpcListeners() {
         }
     });
 
-    // Handler exclusivo para verificación de credenciales
-    ipcMain.handle('user:verifyCredentials', async (event, credenciales) => {
-        let browser;
-        console.log('[Verificación Manual] Iniciando para CUIT:', credenciales.cuit || credenciales.cuil);
-
-        try {
-            const { browser: b, page } = await launchBrowserAndPage({ headless: true });
-            browser = b;
-
-            let finalResult = {
-                success: false, // Será true si CUALQUIER credencial es válida
-                empresas: [],
-                empresasDisponible: [], // alias retrocompat
-                cuitAsociados: [],
-                error: null
-            };
-
-            // --- Verificación AFIP ---
-            if (credenciales.claveAFIP) {
-                console.log('[Verificación Manual] Verificando credenciales de AFIP...');
-                const afipResult = await verificarYObtenerDatosAFIP(page, credenciales);
-                if (afipResult.success) {
-                    finalResult.success = true;
-                    const empresas = afipResult.data.empresasArray || [];
-                    finalResult.empresas = empresas;
-                    finalResult.empresasDisponible = empresas; // alias retrocompat
-                    finalResult.cuitAsociados = afipResult.data.cuitAsociados || [];
-                    console.log('[Verificación Manual] AFIP: Éxito.');
-                } else {
-                    finalResult.error = afipResult.error || 'Credenciales AFIP inválidas.';
-                    console.log('[Verificación Manual] AFIP: Fallo.');
-                }
-            }
-
-            // --- Verificación ATM ---
-            if (credenciales.claveATM) {
-                console.log('[Verificación Manual] Verificando credenciales de ATM...');
-                const atmPage = await browser.newPage();
-                const cuit = credenciales.cuit || credenciales.cuil;
-                const atmResult = await verificarCredencialesATM(atmPage, cuit, credenciales.claveATM);
-                await atmPage.close();
-
-                if (atmResult.success) {
-                    finalResult.success = true; // Si ATM es válido, el resultado general es un éxito
-                    console.log('[Verificación Manual] ATM: Éxito.');
-                } else if (!finalResult.success) { // Solo registrar error de ATM si AFIP no fue exitoso o no se probó
-                    finalResult.error = atmResult.message || 'Credenciales ATM inválidas.';
-                    console.log('[Verificación Manual] ATM: Fallo.');
-                }
-            }
-
-            console.log('[Verificación Manual] Verificación completada. Resultado:', finalResult);
-            return finalResult;
-
-        } catch (error) {
-            console.error('❌ Error catastrófico en la verificación manual:', error);
-            return { success: false, error: error.message || 'Error inesperado en la verificación.' };
-        } finally {
-            if (browser) {
-                await browser.close();
-                console.log('[Verificación Manual] Navegador cerrado.');
-            }
-        }
-    });
 
     ipcMain.handle('abrir-archivo', async (_event, rutaArchivo) => {
         try {
