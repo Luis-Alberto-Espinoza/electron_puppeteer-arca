@@ -12,9 +12,10 @@ const { crearEmpresa } = require('../model.js');
  * @param {object} [opciones]
  * @param {boolean} [opciones.soloLogin=false] Si true, AFIP solo valida login sin scrapear empresas.
  *                                             En este modo NO se reescribe usuario.empresas.
+ * @param {boolean} [opciones.visible] false = navegadores (AFIP y ATM) ocultos; si no llega, visibles.
  */
 async function gestionarValidacion(usuario, servicesToVerify = null, opciones = {}) {
-    const { soloLogin = false } = opciones;
+    const { soloLogin = false, visible } = opciones;
     console.log(`[MANAGER] ==> Entrando a gestionarValidacion para CUIT: ${usuario.cuit}`);
 
     // Determinar qué servicios verificar
@@ -43,7 +44,7 @@ async function gestionarValidacion(usuario, servicesToVerify = null, opciones = 
         console.log('[MANAGER] -> Iniciando flujo AFIP...');
         try {
             // El flujo AFIP abre y cierra su propio navegador (no recibe page).
-            const resultadoAFIP = await verificarYObtenerDatosAFIP(null, usuario, { soloLogin });
+            const resultadoAFIP = await verificarYObtenerDatosAFIP(null, usuario, { soloLogin, visible });
             if (resultadoAFIP.success) {
                 usuario.claveAfipValida = true;
                 usuario.errorAfip = null;
@@ -106,7 +107,7 @@ async function gestionarValidacion(usuario, servicesToVerify = null, opciones = 
         console.log('[MANAGER] -> Iniciando flujo ATM...');
         try {
             // El flujo ATM abre y cierra su propio navegador (no recibe page).
-            const resultadoATM = await verificarCredencialesATM(null, usuario.cuit, usuario.claveATM);
+            const resultadoATM = await verificarCredencialesATM(null, usuario.cuit, usuario.claveATM, { visible });
             if (resultadoATM.success) {
                 usuario.claveAtmValida = true;
                 usuario.errorAtm = null;

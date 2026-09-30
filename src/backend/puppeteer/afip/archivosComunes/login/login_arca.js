@@ -15,6 +15,17 @@
 // tiempo máximo de espera antes de rendirse y marcar CAPTCHA_BLOQUEO. Ajustable.
 const ESPERA_CAPTCHA_MANUAL_MS = 180000; // 3 minutos
 
+// ¿El navegador corre oculto? Se detecta acá (y no con una bandera) para que ningún
+// servicio tenga que acordarse de pasarla. OJO: browser.version() NO sirve (el headless
+// nuevo reporta "Chrome/..."); el user agent sí dice "HeadlessChrome".
+async function navegadorOculto(page) {
+  try {
+    return /HeadlessChrome/i.test(await page.browser().userAgent());
+  } catch (_) {
+    return false; // ante la duda, asumir visible (comportamiento de siempre)
+  }
+}
+
 async function hacerLogin(page, url, credenciales) {
   try {
     // Validación y normalización de entrada
@@ -108,6 +119,17 @@ async function hacerLogin(page, url, credenciales) {
     // porque el mismo #F1:msg muestra "clave incorrecta" y "captcha incorrecto": decidimos
     // por PRESENCIA del input del captcha, no por el mensaje.
     if (winner !== 'navigation' && await hayCaptchaAfip(page)) {
+      // Oculto nadie puede resolverlo: no esperamos los 3 minutos, cortamos ya.
+      if (await navegadorOculto(page)) {
+        console.log('🧩 [Login ARCA] AFIP interpuso un captcha con el navegador OCULTO. Se corta sin esperar.');
+        return {
+          success: false,
+          error: 'CAPTCHA_BLOQUEO',
+          message: 'AFIP pidió un captcha y el navegador está oculto. ' +
+                   'Reintentá con "Mostrar navegador" activado para resolverlo a mano. ' +
+                   'No indica que la clave sea inválida.'
+        };
+      }
       // Modo manual: dejamos la ventana abierta y esperamos a que el usuario resuelva el
       // captcha a mano. La ventana no se cierra porque seguimos DENTRO del callback de
       // puppeteer-manager (que cierra recién cuando este login retorna).

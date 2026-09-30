@@ -1,4 +1,5 @@
 const puppeteerManager = require('../archivos_comunes/navegador/puppeteer-manager');
+const { resolverHeadless } = require('../archivos_comunes/navegador/browserLauncher');
 const { listarEmpresas } = require('../afip/archivosComunes/empresasDisponibles');
 const { hacerLogin } = require('../afip/archivosComunes/login/login_arca');
 const { buscarEnAfip } = require('../afip/archivosComunes/buscadorAfip');
@@ -45,6 +46,7 @@ async function leerNombreTitularAfip(page) {
  * @param {object} usuario - { cuit, claveAFIP, ... }
  * @param {object} [opciones]
  * @param {boolean} [opciones.soloLogin=false]  si true, vuelve después del login
+ * @param {boolean} [opciones.visible]  false = navegador oculto; si no llega, visible
  * @returns {Promise<{success: boolean, data?: object, error?: string}>}
  */
 async function verificarYObtenerDatosAFIP(page, usuario, opciones = {}) {
@@ -150,7 +152,7 @@ async function verificarYObtenerDatosAFIP(page, usuario, opciones = {}) {
             data: responseData
         };
 
-    }, { headless: false });
+    }, { headless: resolverHeadless(opciones.visible) });
 }
 
 module.exports = verificarYObtenerDatosAFIP;

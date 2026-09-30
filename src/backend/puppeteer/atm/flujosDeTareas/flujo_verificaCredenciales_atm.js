@@ -1,5 +1,6 @@
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const puppeteerManager = require('../../archivos_comunes/navegador/puppeteer-manager');
+const { resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher');
 
 /**
  * Lee el nombre del titular desde el encabezado de "Mis Trámites" de ATM. El nombre es
@@ -26,16 +27,18 @@ async function leerNombreTitularAtm(page) {
 /**
  * Flujo de trabajo para verificar las credenciales de ATM.
  *
- * Abre su PROPIO navegador (visible), loguea y lo cierra al terminar. Simétrico al
+ * Abre su PROPIO navegador (visible u oculto según `opciones.visible`), loguea y lo cierra al terminar. Simétrico al
  * flujo AFIP: cada servicio gestiona su navegador de punta a punta, así nunca quedan
  * dos ventanas abiertas a la vez (antes reusaba un navegador ya abierto por el manager).
  *
  * @param {import('puppeteer').Page} _page IGNORADO (se mantiene por compatibilidad de firma).
  * @param {string} cuit El CUIT del usuario.
  * @param {string} clave La clave del usuario.
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.visible] false = navegador oculto; si no llega, visible
  * @returns {Promise<{success: boolean, error?: string, message?: string}>} El resultado de la operación de login.
  */
-async function verificarCredencialesATM(_page, cuit, clave) {
+async function verificarCredencialesATM(_page, cuit, clave, { visible } = {}) {
     console.log(`[Flujo ATM] ==> Iniciando verificación para CUIT: ${cuit}`);
 
     // ejecutar() abre el navegador al entrar y lo cierra en el finally (éxito o error),
@@ -52,7 +55,7 @@ async function verificarCredencialesATM(_page, cuit, clave) {
         console.log(`[Flujo ATM] <== Finalizada verificación. Resultado: ${resultadoLogin.success ? 'Éxito' : 'Fallo (' + resultadoLogin.error + ')'}`);
 
         return resultadoLogin;
-    }, { headless: false });
+    }, { headless: resolverHeadless(visible) });
 }
 
 module.exports = verificarCredencialesATM;

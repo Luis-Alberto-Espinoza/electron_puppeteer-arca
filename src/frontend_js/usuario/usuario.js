@@ -1200,6 +1200,10 @@ function displayUsers(users) {
                         <button data-probar-lote="atm">Solo ATM</button>
                     </div>
                 </div>
+                <label class="ui-switch" title="Aplica a Probar (lote y por fila) y a la verificación de la carga masiva. El alta verifica siempre visible.">
+                    <input type="checkbox" id="chk-visible-listado" checked>
+                    Mostrar navegador
+                </label>
                 <button class="btn btn-warning" id="btnAnalizarLote" style="display:none"></button>
                 <button class="btn btn-info" id="btnReanalizarTodos" style="display:none"></button>
             </div>
@@ -1833,7 +1837,7 @@ function inicializarUsuarioFrontend() {
         // Disparador "Probar ambas", "Solo AFIP" o "Solo ATM": todos llevan data-probar.
         const btnProbar = e.target.closest('[data-probar]');
         if (btnProbar) {
-            window.probarClaveDesdeListado(btnProbar.dataset.userId, btnProbar.dataset.probar.split(','));
+            window.probarClaveDesdeListado(btnProbar.dataset.userId, btnProbar.dataset.probar.split(','), { visible: visibleListado() });
             return;
         }
 
@@ -1965,6 +1969,8 @@ function togglePasswordVisibility(input, button) {
  * Verifica las credenciales de los usuarios que fueron cargados desde el Excel
  */
 async function verificarUsuariosCargados() {
+    // Leer el switch al entrar, antes de cualquier re-render de la lista.
+    const visible = visibleListado();
     const usuarios = window.usuariosCargaMasiva || [];
 
     if (usuarios.length === 0) {
@@ -2067,7 +2073,7 @@ async function verificarUsuariosCargados() {
     window.electronAPI.user.onVerificationProgress(progressHandler);
 
     try {
-        const result = await window.electronAPI.user.verifyBatch({ verificationJobs });
+        const result = await window.electronAPI.user.verifyBatch({ verificationJobs, visible });
 
         if (result.success) {
             const validados = result.stats.validados || 0;
@@ -2373,7 +2379,7 @@ function mostrarModalProgreso(total) {
  *        Si se omite, prueba TODAS las claves cargadas (comportamiento histórico).
  *        Poder pedir ['atm'] solo es lo que permite validar ATM sin loguear AFIP.
  */
-window.probarClaveDesdeListado = async function (userId, servicios) {
+window.probarClaveDesdeListado = async function (userId, servicios, { visible } = {}) {
     const u = (window.allUsers || []).find(x => String(x.id) === String(userId));
     if (!u) { showAlert('No se encontró el cliente.', 'error'); return; }
 
@@ -2392,7 +2398,7 @@ window.probarClaveDesdeListado = async function (userId, servicios) {
     markRowAsVerifying(userId, jobs.map(j => j.service));
 
     try {
-        const result = await window.electronAPI.user.verifyBatch({ verificationJobs: jobs });
+        const result = await window.electronAPI.user.verifyBatch({ verificationJobs: jobs, visible });
         if (result.success) {
             const v = result.stats?.validados || 0;
             const f = result.stats?.con_fallos || 0;
@@ -2451,7 +2457,15 @@ window.analizarClienteDesdeListado = async function (userId, nombre) {
  *
  * @param {string[]} servicios p.ej. ['atm'] o ['afip','atm']
  */
+// Switch "Mostrar navegador" de la barra de la lista. Si no está en el DOM, visible.
+// No se guarda: se re-renderiza con la lista y vuelve a visible.
+function visibleListado() {
+    return document.getElementById('chk-visible-listado')?.checked !== false;
+}
+
 async function ejecutarProbarLote(servicios) {
+    // Leer el switch YA: reorderUsersBySelection() re-renderiza la barra y lo resetea a visible.
+    const visible = visibleListado();
     const usersList = document.getElementById('usersList');
     const btnMain = document.getElementById('btnVerificarSeleccionados');
 
@@ -2540,7 +2554,7 @@ async function ejecutarProbarLote(servicios) {
     window.electronAPI.user.onVerificationProgress(progressHandler);
 
     try {
-        const result = await window.electronAPI.user.verifyBatch({ verificationJobs });
+        const result = await window.electronAPI.user.verifyBatch({ verificationJobs, visible });
 
         if (result.success) {
             const validados = result.stats.validados || 0;

@@ -293,7 +293,8 @@ module.exports = function setupUserHandlers(ipcMain, mainWindow, dialog) {
         }
     });
 
-    ipcMain.handle('user:verify-credentials', async (event, { verificationJobs }) => {
+    // `visible` se elige una vez para todo el lote (false = navegadores ocultos).
+    ipcMain.handle('user:verify-credentials', async (event, { verificationJobs, visible }) => {
         if (!verificationJobs || verificationJobs.length === 0) {
             return { success: false, error: 'No se proporcionaron trabajos de verificación.' };
         }
@@ -388,7 +389,7 @@ module.exports = function setupUserHandlers(ipcMain, mainWindow, dialog) {
                 // Llama a la función de validación modular.
                 // soloLogin: este handler es "Probar clave" → solo confirma que el login
                 // anda. El scraping de empresas/PDV lo hace "Analizar" (empresa:analizar).
-                await gestionarValidacion(usuario, serviciosAValidar, { soloLogin: true });
+                await gestionarValidacion(usuario, serviciosAValidar, { soloLogin: true, visible });
 
                 // Si este cliente topó el captcha, activamos el breaker para los siguientes.
                 if (usuario.claveAfipBloqueadaCaptcha) {
