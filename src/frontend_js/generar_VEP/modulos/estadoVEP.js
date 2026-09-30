@@ -16,6 +16,7 @@ const EstadoVEP = {
 
     // Datos originales
     usuariosOriginales: [],
+    visible: true, // bandera del lote: la segunda pasada usa la misma que la primera
 
     /**
      * Inicializa el estado con los resultados del backend
@@ -181,6 +182,7 @@ const EstadoVEP = {
         this.periodosSeleccionados = {};
         this.clientesExcluidos.clear();
         this.usuariosOriginales = [];
+        this.visible = true;
 
         console.log('🔄 Estado reseteado');
     },

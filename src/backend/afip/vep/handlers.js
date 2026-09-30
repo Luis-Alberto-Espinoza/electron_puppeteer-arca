@@ -23,7 +23,8 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
         console.log('BACKEND: Recibida solicitud para generar VEP');
         console.log('Datos recibidos:', JSON.stringify(datos, null, 2));
 
-        const { usuarios, periodosSeleccionados, clientesSeleccionadosParaProcesar } = datos;
+        // `visible` se elige una vez para todo el lote (false = navegador oculto).
+        const { usuarios, periodosSeleccionados, clientesSeleccionadosParaProcesar, visible } = datos;
 
         if (!usuarios || !Array.isArray(usuarios) || usuarios.length === 0) {
             return {
@@ -73,7 +74,7 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
 
                         // Llamar al VEP Manager SIN periodos seleccionados
                         const downloadsPath = app.getPath('downloads');
-                        const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, null, downloadsPath);
+                        const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, null, downloadsPath, { visible });
 
                         if (resultado.requiereSeleccion) {
                             // Cliente con multiples periodos
@@ -228,7 +229,7 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
 
                     // Llamar con los periodos seleccionados
                     const downloadsPath = app.getPath('downloads');
-                    const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, periodosCliente, downloadsPath);
+                    const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, periodosCliente, downloadsPath, { visible });
 
                     if (resultado.success) {
                         console.log(`  ${usuario.nombre} completado`);

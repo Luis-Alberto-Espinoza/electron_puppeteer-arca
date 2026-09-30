@@ -301,11 +301,13 @@ async function generarVEP() {
         })),
         periodosSeleccionados: EstadoVEP.periodosSeleccionados.length > 0
             ? EstadoVEP.periodosSeleccionados
-            : null
+            : null,
+        visible: document.getElementById('chk-visible-vep')?.checked !== false
     };
 
     // Guardar para segunda pasada si es necesario
     EstadoVEP.usuariosOriginales = payload.usuarios;
+    EstadoVEP.visible = payload.visible;
 
     console.log('📤 Enviando solicitud VEP (primera pasada):', payload);
 
@@ -441,7 +443,8 @@ async function confirmarYContinuar() {
     // Preparar payload para segunda pasada
     const payload = {
         usuarios: EstadoVEP.usuariosOriginales,
-        periodosSeleccionados: periodosSeleccionados
+        periodosSeleccionados: periodosSeleccionados,
+        visible: EstadoVEP.visible
     };
 
     console.log('📤 Enviando solicitud VEP (segunda pasada):', payload);
