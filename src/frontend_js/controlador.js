@@ -308,16 +308,13 @@ async function mostrarSelectorUsuario() {
             servicio: 'facturacion',
 
             // Igual que el lanzador: por default solo los habilitados; la casilla muestra el
-            // resto. Los que solo tienen la clave sin validar se pueden elegir (si está mal,
-            // falla al facturar), y el botón "Clave" la corrige sin ir a Clientes. La clave de
-            // facturación es la de AFIP (la del representante, si es representado).
-            permitirSinValidar: true,
-            permitirInvalidos: true,
-            filtroHabilitados: true,
-            accionFila: window.crearAccionActualizarClave
-                ? window.crearAccionActualizarClave('afip', () => selectorUsuariosAfip,
-                    'Clave guardada: se valida al facturar')
-                : null,
+            // resto. Los de clave sin validar se pueden elegir (se valida al facturar) y el botón
+            // "Clave" la corrige sin ir a Clientes. Facturación usa la clave AFIP (la del
+            // representante, si es representado). Ver actualizarClave.js.
+            ...(window.opcionesClaveEnSelector
+                ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosAfip,
+                    { mensajeOk: 'Clave guardada: se valida al facturar' })
+                : {}),
 
             onCambioSeleccion: (usuariosSeleccionados) => {
                 // Solo permitir 1 usuario - tomar el ÚLTIMO (el recién clickeado)

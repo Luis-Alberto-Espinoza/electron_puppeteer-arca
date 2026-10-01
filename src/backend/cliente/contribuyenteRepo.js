@@ -119,9 +119,9 @@ function normalizarContribuyente(raw) {
 function accesoAfip(c, lista) {
     if (c.claveAFIP) {
         const ok = c.estado_afip === 'validado';
-        const motivo = ok ? null
-            : (c.estado_afip === 'invalido' ? 'clave AFIP incorrecta' : 'clave AFIP sin validar');
-        return { hay: true, validado: ok, motivo };
+        const incorrecta = c.estado_afip === 'invalido';
+        const motivo = ok ? null : (incorrecta ? 'clave AFIP incorrecta' : 'clave AFIP sin validar');
+        return { hay: true, validado: ok, motivo, incorrecta };
     }
     if (c.representanteAfipCuit) {
         const rep = lista.find(x => x.cuit === String(c.representanteAfipCuit));
@@ -129,9 +129,9 @@ function accesoAfip(c, lista) {
             return { hay: false, validado: false, motivo: 'representante sin acceso AFIP' };
         }
         const ok = rep.estado_afip === 'validado';
-        const motivo = ok ? null
-            : (rep.estado_afip === 'invalido' ? 'clave del representante incorrecta' : 'representante sin validar');
-        return { hay: true, validado: ok, motivo };
+        const incorrecta = rep.estado_afip === 'invalido';
+        const motivo = ok ? null : (incorrecta ? 'clave del representante incorrecta' : 'representante sin validar');
+        return { hay: true, validado: ok, motivo, incorrecta };
     }
     return { hay: false, validado: false, motivo: 'sin acceso AFIP' };
 }
@@ -142,16 +142,19 @@ function accesoAfip(c, lista) {
  *   y no hay otro bloqueo, como falta de PDV). Usarla la valida (lanzador, facturar).
  * `problemaClave`: el bloqueo es la clave (falta, sin validar o incorrecta) → tiene
  *   sentido ofrecer "actualizar clave".
+ * `claveIncorrecta`: el último login real con esa clave la rechazó. Los lotes no la
+ *   dejan elegir (fallaría seguro y suma intentos fallidos hacia el captcha).
  */
 function evaluarOperabilidad(c, servicio, lista) {
-    const ok = { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true, problemaClave: false };
+    const ok = { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true, problemaClave: false, claveIncorrecta: false };
     if (!servicio) return ok;
 
     if (servicio === 'atm') {
-        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM', tieneAcceso: false, problemaClave: true };
+        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM', tieneAcceso: false, problemaClave: true, claveIncorrecta: false };
         if (c.estado_atm !== 'validado') {
-            const motivo = c.estado_atm === 'invalido' ? 'clave ATM incorrecta' : 'clave ATM sin validar';
-            return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: true, problemaClave: true };
+            const incorrecta = c.estado_atm === 'invalido';
+            const motivo = incorrecta ? 'clave ATM incorrecta' : 'clave ATM sin validar';
+            return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: true, problemaClave: true, claveIncorrecta: incorrecta };
         }
         return ok;
     }
@@ -162,10 +165,10 @@ function evaluarOperabilidad(c, servicio, lista) {
     const faltaPdv = servicio === 'facturacion' && !tienePdv;
     if (!a.hay || !a.validado) {
         // Sin PDV no hay forma de facturar aunque se arregle la clave: no se deja elegir.
-        return { puedeOperar: false, motivoNoOpera: a.motivo, tieneAcceso: a.hay && !faltaPdv, problemaClave: true };
+        return { puedeOperar: false, motivoNoOpera: a.motivo, tieneAcceso: a.hay && !faltaPdv, problemaClave: true, claveIncorrecta: !!a.incorrecta };
     }
     if (faltaPdv) {
-        return { puedeOperar: false, motivoNoOpera: 'sin facturación habilitada (sin puntos de venta)', tieneAcceso: false, problemaClave: false };
+        return { puedeOperar: false, motivoNoOpera: 'sin facturación habilitada (sin puntos de venta)', tieneAcceso: false, problemaClave: false, claveIncorrecta: false };
     }
     return ok;
 }
@@ -203,6 +206,7 @@ function aListItem(c, servicio, lista) {
         motivoNoOpera: op.motivoNoOpera,
         tieneAcceso: op.tieneAcceso,
         problemaClave: op.problemaClave,
+        claveIncorrecta: op.claveIncorrecta,
         esRepresentado: !c.claveAFIP && !!c.representanteAfipCuit
     };
 }

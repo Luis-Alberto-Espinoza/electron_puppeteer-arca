@@ -165,11 +165,8 @@
             servicio: servicio,         // 'afip' | 'atm' → computa puedeOperar
             seleccionUnica: true,
             mostrarTablaSeleccionados: false,
-            permitirSinValidar: true,
-            permitirInvalidos: true,
-            filtroHabilitados: true,
-            accionFila: window.crearAccionActualizarClave(servicio, () => selector,
-                'Clave guardada: hacé click para probarla'),
+            ...window.opcionesClaveEnSelector(servicio, () => selector,
+                { mensajeOk: 'Clave guardada: hacé click para probarla' }),
             onCambioSeleccion: (sel) => {
                 const cliente = sel[0];
                 if (!cliente) return;   // el propio quitarSeleccion de abajo vuelve a llamar acá

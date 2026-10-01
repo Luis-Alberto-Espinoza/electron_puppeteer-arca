@@ -56,6 +56,9 @@ window.inicializarModuloPlanesDePago = () => {
         // el resto de AFIP. Solo se listan operables → no hace falta columna Estado.
         fuente: 'contribuyentes',
         servicio: 'afip',
+        // Lote: elegibles los de clave sin validar, NO los de clave incorrecta
+        // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
+        ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorUsuarios, { lote: true }) : {}),
         onCambioSeleccion: (seleccionados) => {
             actualizarPanelesCuits(seleccionados);
         }
@@ -100,11 +103,15 @@ window.inicializarModuloPlanesDePago = () => {
 
         // Seleccionar representantes por ID
         const noEncontrados = [];
+        const noHabilitados = [];
         if (Array.isArray(lista.representantes)) {
             lista.representantes.forEach(rep => {
-                const existe = selectorUsuarios.todosLosUsuarios.some(u => String(u.id) === String(rep.id));
-                if (existe) {
+                const cliente = selectorUsuarios.todosLosUsuarios.find(u => String(u.id) === String(rep.id));
+                if (cliente) {
                     selectorUsuarios.toggleSeleccion(rep.id);
+                    // El selector no deja elegir a los que no pueden operar (ej. clave incorrecta).
+                    const quedo = selectorUsuarios.obtenerSeleccionados().some(u => String(u.id) === String(rep.id));
+                    if (!quedo) noHabilitados.push(`${rep.nombre || rep.id}: ${cliente.motivoNoOpera || 'no habilitado'}`);
                 } else {
                     noEncontrados.push(rep.nombre || rep.id);
                 }
@@ -123,11 +130,11 @@ window.inicializarModuloPlanesDePago = () => {
             }, 300);
         }
 
+        const avisos = [...noHabilitados];
         if (noEncontrados.length > 0) {
-            mostrarMatchResultado([],
-                [`${noEncontrados.length} representante(s) guardado(s) ya no existen en la base de datos`]
-            );
+            avisos.push(`${noEncontrados.length} representante(s) guardado(s) ya no existen en la base de datos`);
         }
+        if (avisos.length > 0) mostrarMatchResultado([], avisos);
     });
 
     // =========================================================================
@@ -147,6 +154,7 @@ window.inicializarModuloPlanesDePago = () => {
         matchResultado.style.display = 'none';
 
         const noEncontrados = [];
+        const noHabilitados = [];
 
         terminos.forEach(termino => {
             const terminoNorm = normalizar(termino);
@@ -160,14 +168,19 @@ window.inicializarModuloPlanesDePago = () => {
                 noEncontrados.push(termino);
             } else {
                 matches.forEach(u => {
-                    const yaSeleccionado = selectorUsuarios.obtenerSeleccionados().some(s => String(s.id) === String(u.id));
-                    if (!yaSeleccionado) selectorUsuarios.toggleSeleccion(u.id);
+                    const estaElegido = () => selectorUsuarios.obtenerSeleccionados().some(s => String(s.id) === String(u.id));
+                    if (!estaElegido()) selectorUsuarios.toggleSeleccion(u.id);
+                    // El selector no deja elegir a los que no pueden operar: avisarlo en vez de callarlo.
+                    if (!estaElegido()) noHabilitados.push(`${u.nombre || u.cuit}: ${u.motivoNoOpera || 'no habilitado'}`);
                 });
             }
         });
 
         const seleccionados = selectorUsuarios.obtenerSeleccionados();
-        mostrarMatchResultado(seleccionados, noEncontrados.map(t => `"${t}" — sin coincidencias`));
+        mostrarMatchResultado(seleccionados, [
+            ...noEncontrados.map(t => `"${t}" — sin coincidencias`),
+            ...noHabilitados
+        ]);
     });
 
     function mostrarMatchResultado(seleccionados, advertencias) {

@@ -362,6 +362,9 @@ function montarSelectorUsuarios() {
         // propio o por representante). El representado aparece como fila propia.
         fuente: 'contribuyentes',
         servicio: 'afip',
+        // Un cliente por vez: elegibles los de clave sin validar (usarlo la valida)
+        // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
+        ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosDDJJ) : {}),
 
         onCambioSeleccion: (seleccionados) => {
             if (!seleccionados || seleccionados.length === 0) {

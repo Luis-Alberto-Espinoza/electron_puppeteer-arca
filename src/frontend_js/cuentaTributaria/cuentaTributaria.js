@@ -88,6 +88,9 @@ function montarSelectorUsuariosA() {
     selectorUsuariosCT = new SelectorUsuarios('selector-usuarios-ct', {
         fuente: 'contribuyentes',   // modelo plano: El Papi/LANDES aparecen vía su representante
         servicio: 'afip',
+        // Lote: elegibles los de clave sin validar, NO los de clave incorrecta
+        // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
+        ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosCT, { lote: true }) : {}),
         mostrarColumnaCUIT: false,
 
         onCambioSeleccion: (seleccionados) => {
@@ -120,6 +123,9 @@ function montarSelectorUsuariosB() {
     selectorUsuariosCT_B = new SelectorUsuarios('selector-usuarios-ct-b', {
         fuente: 'contribuyentes',   // modelo plano
         servicio: 'afip',
+        // Lote: elegibles los de clave sin validar, NO los de clave incorrecta
+        // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
+        ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosCT_B, { lote: true }) : {}),
         mostrarColumnaCUIT: false,
 
         onCambioSeleccion: (seleccionados) => {

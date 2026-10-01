@@ -195,6 +195,9 @@ window.inicializarModuloLoteATM = () => {
         // campoCredencial/campoEstado del objeto gordo.
         fuente: 'contribuyentes',
         servicio: 'atm',
+        // Lote: elegibles los de clave sin validar, NO los de clave incorrecta
+        // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
+        ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('atm', () => selectorUsuarios, { lote: true }) : {}),
         renderizarColumnasExtras: (usuario) => {
             const operable = usuario.puedeOperar !== false;
             const badge = operable ? '✅ Operable' : (usuario.motivoNoOpera || 'No operable');
@@ -316,19 +319,23 @@ window.inicializarModuloLoteATM = () => {
         selectorUsuarios.limpiarSeleccion();
         if (Array.isArray(lista.clienteIds) && lista.clienteIds.length > 0) {
             const noEncontrados = [];
+            const noHabilitados = [];
             lista.clienteIds.forEach(id => {
-                const existe = selectorUsuarios.todosLosUsuarios.some(u => String(u.id) === String(id));
-                if (existe) {
+                const cliente = selectorUsuarios.todosLosUsuarios.find(u => String(u.id) === String(id));
+                if (cliente) {
                     selectorUsuarios.toggleSeleccion(id);
+                    // El selector no deja elegir a los que no pueden operar (ej. clave incorrecta).
+                    const quedo = selectorUsuarios.obtenerSeleccionados().some(u => String(u.id) === String(id));
+                    if (!quedo) noHabilitados.push(`${cliente.nombre || cliente.cuit}: ${cliente.motivoNoOpera || 'no habilitado'}`);
                 } else {
                     noEncontrados.push(id);
                 }
             });
+            const avisos = [...noHabilitados];
             if (noEncontrados.length > 0) {
-                mostrarMatchResultado([],
-                    [`${noEncontrados.length} cliente(s) guardado(s) ya no existen en la base de datos`]
-                );
+                avisos.push(`${noEncontrados.length} cliente(s) guardado(s) ya no existen en la base de datos`);
             }
+            if (avisos.length > 0) mostrarMatchResultado([], avisos);
         }
     });
 
@@ -495,6 +502,7 @@ window.inicializarModuloLoteATM = () => {
         matchResultado.style.display = 'none';
 
         const noEncontrados = [];
+        const noHabilitados = [];
 
         terminos.forEach(termino => {
             const terminoNorm = normalizar(termino);
@@ -508,14 +516,19 @@ window.inicializarModuloLoteATM = () => {
                 noEncontrados.push(termino);
             } else {
                 matches.forEach(u => {
-                    const yaSeleccionado = selectorUsuarios.obtenerSeleccionados().some(s => String(s.id) === String(u.id));
-                    if (!yaSeleccionado) selectorUsuarios.toggleSeleccion(u.id);
+                    const estaElegido = () => selectorUsuarios.obtenerSeleccionados().some(s => String(s.id) === String(u.id));
+                    if (!estaElegido()) selectorUsuarios.toggleSeleccion(u.id);
+                    // El selector no deja elegir a los que no pueden operar: avisarlo en vez de callarlo.
+                    if (!estaElegido()) noHabilitados.push(`${u.nombre || u.cuit}: ${u.motivoNoOpera || 'no habilitado'}`);
                 });
             }
         });
 
         const seleccionados = selectorUsuarios.obtenerSeleccionados();
-        mostrarMatchResultado(seleccionados, noEncontrados.map(t => `"${t}" — sin coincidencias`));
+        mostrarMatchResultado(seleccionados, [
+            ...noEncontrados.map(t => `"${t}" — sin coincidencias`),
+            ...noHabilitados
+        ]);
     });
 
     function mostrarMatchResultado(seleccionados, advertencias) {

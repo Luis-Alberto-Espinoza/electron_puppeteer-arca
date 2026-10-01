@@ -140,6 +140,29 @@
         };
     }
 
+    /**
+     * Todo lo que una pantalla necesita para sumar al buscador: filtro de habilitados,
+     * clientes con clave sin validar elegibles (usarlos la valida) y botón "Clave".
+     * Uso: new SelectorUsuarios(id, { ...otras, ...opcionesClaveEnSelector('afip', () => sel) })
+     *
+     * @param {'afip'|'atm'} canal
+     * @param {() => SelectorUsuarios} obtenerSelector
+     * @param {{ lote?: boolean, mensajeOk?: string }} [opts]
+     *   lote: true en servicios que procesan varios clientes → no deja elegir los que
+     *   tienen la clave marcada como incorrecta (fallarían seguro y acercan el captcha).
+     */
+    function opcionesClaveEnSelector(canal, obtenerSelector, { lote = false, mensajeOk } = {}) {
+        return {
+            permitirSinValidar: true,
+            permitirInvalidos: true,
+            filtroHabilitados: true,
+            bloquearClaveIncorrecta: lote,
+            accionFila: crearAccionActualizarClave(canal, obtenerSelector,
+                mensajeOk || 'Clave guardada: se valida al usarla')
+        };
+    }
+
     window.abrirActualizarClave = abrirActualizarClave;
+    window.opcionesClaveEnSelector = opcionesClaveEnSelector;
     window.crearAccionActualizarClave = crearAccionActualizarClave;
 })();

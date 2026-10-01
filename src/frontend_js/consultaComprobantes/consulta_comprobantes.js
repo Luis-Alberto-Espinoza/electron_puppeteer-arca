@@ -62,9 +62,12 @@ window.inicializarConsultaComprobantes = () => {
             setTimeout(montarSelectorClientes, 100);
             return;
         }
-        new SelectorUsuarios('cc-selector-cliente', {
+        const selectorCC = new SelectorUsuarios('cc-selector-cliente', {
             fuente: 'contribuyentes',     // modelo plano: El Papi aparece como fila propia
             servicio: 'facturacion',      // operable = acceso AFIP validado + tiene PDV
+            // Un cliente por vez: elegibles los de clave sin validar (usarlo la valida)
+            // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
+            ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorCC) : {}),
             seleccionUnica: true,
             mostrarTablaSeleccionados: false,
             mostrarColumnaCUIT: false,

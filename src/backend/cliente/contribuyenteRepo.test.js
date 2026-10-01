@@ -198,3 +198,19 @@ test('listar(facturacion): clave OK pero sin PDV → no es problema de clave', a
         .find(i => i.cuit === '30718609700');
     assert.strictEqual(papi.problemaClave, false);
 });
+
+test('listar(afip): representante con clave incorrecta → el representado tiene claveIncorrecta', async () => {
+    const datos = datosBase();
+    datos[0].estado_afip = 'invalido';
+    const items = await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'afip' });
+    const papi = items.find(i => i.cuit === '30718609700');
+    assert.strictEqual(papi.claveIncorrecta, true);
+    assert.match(papi.motivoNoOpera, /representante incorrecta/);
+});
+
+test('listar(afip): clave pendiente → no es incorrecta', async () => {
+    const datos = datosBase();
+    datos[0].estado_afip = 'pendiente';
+    const items = await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'afip' });
+    assert.strictEqual(items[0].claveIncorrecta, false);
+});

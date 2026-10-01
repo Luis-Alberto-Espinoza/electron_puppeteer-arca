@@ -95,6 +95,10 @@ class SelectorUsuarios {
             // visibles aunque dejen de estar habilitadas (ej. la clave acaba de fallar).
             filtroHabilitados: false,
 
+            // Con permitirSinValidar: igual NO dejar elegir los que tienen la clave marcada
+            // como incorrecta (para lotes: fallarían seguro y suman intentos hacia el captcha).
+            bloquearClaveIncorrecta: false,
+
             ...opciones
         };
 
@@ -133,7 +137,8 @@ class SelectorUsuarios {
         if (usuario && usuario._fuenteContribuyentes) {
             if (usuario.puedeOperar) return { estado: 'validado', mensaje: null, esSeleccionable: true };
             // permitirSinValidar: si hay clave (aunque no validada) se deja elegir; usarla la valida.
-            if (this.opciones.permitirSinValidar && usuario.tieneAcceso) {
+            const bloqueada = this.opciones.bloquearClaveIncorrecta && usuario.claveIncorrecta;
+            if (this.opciones.permitirSinValidar && usuario.tieneAcceso && !bloqueada) {
                 return { estado: 'sin_validar', mensaje: usuario.motivoNoOpera, esSeleccionable: true };
             }
             return { estado: 'invalido', mensaje: usuario.motivoNoOpera || 'No puede operar en este servicio', esSeleccionable: false };
@@ -326,6 +331,7 @@ class SelectorUsuarios {
                 motivoNoOpera: it.motivoNoOpera,
                 tieneAcceso: it.tieneAcceso,
                 problemaClave: it.problemaClave,
+                claveIncorrecta: it.claveIncorrecta,
                 esRepresentado: it.esRepresentado,
                 _fuenteContribuyentes: true
             }));
@@ -700,8 +706,11 @@ class SelectorUsuarios {
             this.ocultosQueCoinciden = 0;
             return;
         }
+        // También quedan a la vista los seleccionados: si no, uno elegido con la casilla
+        // prendida desaparecería al apagarla y seguiría entrando al lote sin que se vea.
+        const seleccionados = new Set(this.usuariosSeleccionados.map(u => String(u.id)));
         this.usuariosFiltrados = coinciden.filter(u =>
-            this.esHabilitado(u) || this.filasTocadas.has(String(u.id)));
+            this.esHabilitado(u) || this.filasTocadas.has(String(u.id)) || seleccionados.has(String(u.id)));
         this.ocultosQueCoinciden = coinciden.length - this.usuariosFiltrados.length;
     }
 

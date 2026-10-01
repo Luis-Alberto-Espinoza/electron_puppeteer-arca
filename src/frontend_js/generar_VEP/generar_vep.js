@@ -72,6 +72,9 @@ function inicializarVEP() {
         // ya computó puedeOperar; no se usan campoCredencial/campoEstado.
         fuente: 'contribuyentes',
         servicio: 'afip',
+        // Lote: elegibles los de clave sin validar, NO los de clave incorrecta
+        // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
+        ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorUsuarios, { lote: true }) : {}),
 
         // Ocultar columna CUIT por defecto (usaremos "CUIT a Usar")
         mostrarColumnaCUIT: false,
