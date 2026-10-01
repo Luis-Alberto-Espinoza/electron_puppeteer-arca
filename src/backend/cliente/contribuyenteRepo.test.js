@@ -132,3 +132,51 @@ test('borrar funciona si no representa a nadie', async () => {
     assert.strictEqual(r.ok, true);
     assert.strictEqual(await repo.getByCuit('30718609700'), null);
 });
+
+// ── actualizar clave desde afuera de Clientes (lanzador) ─────────────────────
+test('actualizarClave(afip) de un representado guarda en el REPRESENTANTE, no en él', async () => {
+    const store = storeMemoria(datosBase());
+    const repo = crearContribuyenteRepo(store);
+    const info = await repo.actualizarClave('30718609700', 'afip', 'nuevaDebora');
+    assert.strictEqual(info.esRepresentante, true);
+    assert.strictEqual(info.titular.cuit, '27334617977');
+    const [debora, papi] = store.dump();
+    assert.strictEqual(debora.claveAFIP, 'nuevaDebora');
+    assert.strictEqual(debora.estado_afip, 'pendiente');   // hasta que un login la confirme
+    assert.strictEqual(papi.claveAFIP, null);              // invariante intacto
+});
+
+test('actualizarClave(atm) siempre es la propia', async () => {
+    const store = storeMemoria(datosBase());
+    const repo = crearContribuyenteRepo(store);
+    const info = await repo.actualizarClave('30718609700', 'atm', 'nuevaPapi');
+    assert.strictEqual(info.esRepresentante, false);
+    assert.strictEqual(store.dump()[1].claveATM, 'nuevaPapi');
+    assert.strictEqual(store.dump()[1].estado_atm, 'pendiente');
+});
+
+test('actualizarClave rechaza clave vacía', async () => {
+    const repo = crearContribuyenteRepo(storeMemoria(datosBase()));
+    await assert.rejects(repo.actualizarClave('27334617977', 'afip', '  '), { code: 'CLAVE_VACIA' });
+});
+
+test('listar(atm): clave sin validar → no opera pero tieneAcceso; invalida → motivo "incorrecta"', async () => {
+    const datos = datosBase();
+    datos[0].estado_atm = 'pendiente';
+    datos[1].estado_atm = 'invalido';
+    const items = await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'atm' });
+    const [debora, papi] = items;
+    assert.strictEqual(debora.puedeOperar, false);
+    assert.strictEqual(debora.tieneAcceso, true);
+    assert.match(papi.motivoNoOpera, /incorrecta/);
+});
+
+test('registrarVerificacion marca el estado del titular', async () => {
+    const datos = datosBase();
+    datos[0].estado_afip = 'pendiente';
+    const store = storeMemoria(datos);
+    const repo = crearContribuyenteRepo(store);
+    await repo.registrarVerificacion('27334617977', 'afip', 'validado');
+    assert.strictEqual(store.dump()[0].estado_afip, 'validado');
+    assert.strictEqual(store.dump()[0].claveAFIP, 'deboraAFIP');  // no toca la clave
+});

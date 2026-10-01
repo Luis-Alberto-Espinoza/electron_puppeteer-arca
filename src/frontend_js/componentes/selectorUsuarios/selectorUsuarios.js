@@ -82,6 +82,19 @@ class SelectorUsuarios {
             // Servicio para computar operabilidad en modo contribuyentes: 'facturacion'|'afip'|'atm'
             servicio: null,
 
+            // ====== ACCIÓN POR FILA (opt-in) ======
+            // Botón chico a la derecha de cada fila, ej. "Actualizar clave".
+            // { texto, titulo?, mostrar(usuario, marca) → bool, onClick(usuario) }
+            // Se combina con marcarFila(): la pantalla marca la fila que falló y el botón aparece ahí.
+            accionFila: null,
+
+            // ====== FILTRO DE HABILITADOS (opt-in) ======
+            // Si true: por default solo se ven los que pueden operar, y una casilla
+            // "Mostrar no habilitados (N)" muestra el resto. Requiere que el consumidor
+            // cargue todos (permitirInvalidos). Las filas marcadas con marcarFila() siguen
+            // visibles aunque dejen de estar habilitadas (ej. la clave acaba de fallar).
+            filtroHabilitados: false,
+
             ...opciones
         };
 
@@ -90,6 +103,12 @@ class SelectorUsuarios {
         this.usuariosFiltrados = [];
         this.usuariosSeleccionados = [];
         this.textoBusqueda = '';
+        // Mensajes puestos desde afuera sobre filas puntuales: id → { mensaje, tipo: 'error'|'ok' }
+        this.marcas = new Map();
+        // Filtro de habilitados: estado de la casilla + filas tocadas en esta sesión.
+        this.mostrarNoHabilitados = false;
+        this.filasTocadas = new Set();
+        this.ocultosQueCoinciden = 0;
 
         this.inicializar();
     }
@@ -97,6 +116,7 @@ class SelectorUsuarios {
     async inicializar() {
         console.log('🔵 SelectorUsuarios: Iniciando...');
         await this.cargarUsuarios();
+        this.calcularFiltrados();
         console.log(`🔵 SelectorUsuarios: ${this.todosLosUsuarios.length} usuarios cargados, renderizando...`);
         this.renderizar();
         this.agregarEventos();
@@ -111,9 +131,12 @@ class SelectorUsuarios {
     obtenerEstadoValidacion(usuario) {
         // Modo contribuyentes: el backend ya decidió (puedeOperar/motivoNoOpera).
         if (usuario && usuario._fuenteContribuyentes) {
-            return usuario.puedeOperar
-                ? { estado: 'validado', mensaje: null, esSeleccionable: true }
-                : { estado: 'invalido', mensaje: usuario.motivoNoOpera || 'No puede operar en este servicio', esSeleccionable: false };
+            if (usuario.puedeOperar) return { estado: 'validado', mensaje: null, esSeleccionable: true };
+            // permitirSinValidar: si hay clave (aunque no validada) se deja elegir; usarla la valida.
+            if (this.opciones.permitirSinValidar && usuario.tieneAcceso) {
+                return { estado: 'sin_validar', mensaje: usuario.motivoNoOpera, esSeleccionable: true };
+            }
+            return { estado: 'invalido', mensaje: usuario.motivoNoOpera || 'No puede operar en este servicio', esSeleccionable: false };
         }
 
         // Si no hay configuración de validación, todos son válidos
@@ -301,14 +324,15 @@ class SelectorUsuarios {
                 tipoContribuyente: it.tipoContribuyente,
                 puedeOperar: it.puedeOperar,
                 motivoNoOpera: it.motivoNoOpera,
+                tieneAcceso: it.tieneAcceso,
                 esRepresentado: it.esRepresentado,
                 _fuenteContribuyentes: true
             }));
 
             // Por default ocultamos a los que no pueden operar (igual que el legacy).
-            // Si el consumidor permite inválidos/sin validar, se muestran con su mensaje.
-            if (!this.opciones.permitirInvalidos && !this.opciones.permitirSinValidar) {
-                items = items.filter(i => i.puedeOperar);
+            // permitirSinValidar suma los que tienen clave sin validar; permitirInvalidos muestra todos.
+            if (!this.opciones.permitirInvalidos) {
+                items = items.filter(i => i.puedeOperar || (this.opciones.permitirSinValidar && i.tieneAcceso));
             }
 
             this.todosLosUsuarios = items.sort((a, b) =>
@@ -345,6 +369,14 @@ class SelectorUsuarios {
                             ✕ Limpiar
                         </button>
                     </div>
+                    ${this.opciones.filtroHabilitados ? `
+                        <label class="filtro-habilitados">
+                            <input type="checkbox" id="${this.contenedorId}-chk-no-habilitados"
+                                ${this.mostrarNoHabilitados ? 'checked' : ''}>
+                            Mostrar no habilitados
+                            (<span class="filtro-habilitados-cant">${this.contarNoHabilitados()}</span>)
+                        </label>
+                    ` : ''}
                 </div>
 
                 <!-- Lista de disponibles -->
@@ -392,8 +424,17 @@ class SelectorUsuarios {
     renderizarListaDisponibles() {
         console.log(`🔵 Renderizando lista disponibles: ${this.usuariosFiltrados.length} usuarios`);
 
+        // Hay clientes que coinciden con la búsqueda pero están ocultos por no estar habilitados:
+        // se ofrece mostrarlos en vez de un "no se encontraron" que confunde.
+        const avisoOcultos = (this.ocultosQueCoinciden > 0 && this.textoBusqueda) ? `
+            <button type="button" class="btn-mostrar-ocultos">
+                ${this.ocultosQueCoinciden === 1
+                    ? 'Hay 1 cliente no habilitado que coincide: mostrarlo'
+                    : `Hay ${this.ocultosQueCoinciden} clientes no habilitados que coinciden: mostrarlos`}
+            </button>` : '';
+
         if (this.usuariosFiltrados.length === 0) {
-            return `
+            return avisoOcultos || `
                 <div class="tabla-vacia">
                     ${this.textoBusqueda ? 'No se encontraron usuarios' : 'No hay usuarios disponibles'}
                 </div>
@@ -401,10 +442,9 @@ class SelectorUsuarios {
         }
 
         return this.usuariosFiltrados.map((usuario, index) => {
-            // Obtener índice ORIGINAL para color fijo (comparar como string)
-            const indiceOriginal = this.todosLosUsuarios.findIndex(u => String(u.id) === String(usuario.id));
+            // Cebra por posición en la lista VISIBLE: al filtrar se re-alterna y no quedan filas pegadas del mismo color.
             const estaSeleccionado = this.usuariosSeleccionados.some(u => String(u.id) === String(usuario.id));
-            const claseColor = indiceOriginal % 2 === 0 ? 'par' : 'impar';
+            const claseColor = index % 2 === 0 ? 'par' : 'impar';
             const claseSeleccionado = estaSeleccionado ? 'seleccionado' : '';
 
             // Obtener estado de validación
@@ -424,9 +464,17 @@ class SelectorUsuarios {
                 icono = '⏳';
             }
 
+            // Una marca puesta desde afuera (ej. "clave incorrecta" recién devuelto por el login)
+            // le gana al mensaje de estado: es lo más reciente que sabemos de esa fila.
+            const marca = this.marcas.get(String(usuario.id)) || null;
+            const mensaje = marca ? marca.mensaje : estadoValidacion.mensaje;
+            const claseMarca = marca ? `marca-${marca.tipo}` : '';
+            const accion = this.opciones.accionFila;
+            const mostrarAccion = accion && (!accion.mostrar || accion.mostrar(usuario, marca));
+
             return `
                 <div
-                    class="usuario-fila ${claseColor} ${claseSeleccionado} ${claseEstado} ${claseDeshabilitado}"
+                    class="usuario-fila ${claseColor} ${claseSeleccionado} ${claseEstado} ${claseDeshabilitado} ${claseMarca}"
                     data-usuario-id="${usuario.id}"
                     data-seleccionable="${estadoValidacion.esSeleccionable}"
                 >
@@ -434,17 +482,19 @@ class SelectorUsuarios {
                         ${icono}
                     </span>
                     <div class="usuario-info">
-                        <div class="usuario-nombre">${this.formatearNombreCompleto(usuario) || 'Sin nombre'}</div>
+                        <div class="usuario-linea">
+                            <span class="usuario-nombre">${this.formatearNombreCompleto(usuario) || 'Sin nombre'}</span>
+                            ${mensaje ? `<span class="usuario-mensaje-estado">${mensaje}</span>` : ''}
+                        </div>
                         <div class="usuario-cuit">${usuario.cuit || usuario.cuil || 'N/A'}</div>
-                        ${estadoValidacion.mensaje ? `
-                            <div class="usuario-mensaje-estado">
-                                ${estadoValidacion.mensaje}
-                            </div>
-                        ` : ''}
                     </div>
+                    ${mostrarAccion ? `
+                        <button type="button" class="usuario-accion" data-accion-id="${usuario.id}"
+                            title="${accion.titulo || accion.texto}">${accion.texto}</button>
+                    ` : ''}
                 </div>
             `;
-        }).join('');
+        }).join('') + avisoOcultos;
     }
 
     renderizarSeccionSeleccionados() {
@@ -549,6 +599,19 @@ class SelectorUsuarios {
 
         // Delegación de eventos para clicks
         this._clickHandler = (e) => {
+            // Botón de acción de la fila: va ANTES que la fila (está adentro) para no seleccionarla.
+            const btnAccion = e.target.closest('.usuario-accion');
+            if (btnAccion) {
+                const usuario = this.todosLosUsuarios.find(u => String(u.id) === btnAccion.dataset.accionId);
+                if (usuario && this.opciones.accionFila) this.opciones.accionFila.onClick(usuario);
+                return;
+            }
+
+            if (e.target.closest('.btn-mostrar-ocultos')) {
+                this.setMostrarNoHabilitados(true);
+                return;
+            }
+
             // Click en fila de usuario disponible
             const fila = e.target.closest('.usuario-fila');
             if (fila) {
@@ -577,6 +640,10 @@ class SelectorUsuarios {
 
         // Delegación de eventos para inputs
         this._inputHandler = (e) => {
+            if (e.target.id === `${this.contenedorId}-chk-no-habilitados`) {
+                this.setMostrarNoHabilitados(e.target.checked);
+                return;
+            }
             if (e.target.id === `${this.contenedorId}-buscador`) {
                 console.log('🔵 Filtrar:', e.target.value);
                 this.filtrar(e.target.value);
@@ -597,25 +664,51 @@ class SelectorUsuarios {
 
     filtrar(texto) {
         this.textoBusqueda = texto.toLowerCase();
+        this.calcularFiltrados();
+        this.renderizarSoloListaDisponibles();
+    }
 
-        if (!this.textoBusqueda) {
-            this.usuariosFiltrados = [...this.todosLosUsuarios];
-        } else {
-            this.usuariosFiltrados = this.todosLosUsuarios.filter(u => {
-                // Nombre completo combinado: permite buscar "juan salas" aunque el
-                // nombre y el apellido estén en campos separados.
-                const nombreCompleto = `${u.nombre || ''} ${u.apellido || ''}`.toLowerCase();
-                return (
-                    u.nombre?.toLowerCase().includes(this.textoBusqueda) ||
-                    u.apellido?.toLowerCase().includes(this.textoBusqueda) ||
-                    nombreCompleto.includes(this.textoBusqueda) ||
-                    String(u.cuit || '').includes(this.textoBusqueda) ||
-                    String(u.cuil || '').includes(this.textoBusqueda) ||
-                    u.razonSocial?.toLowerCase().includes(this.textoBusqueda)
-                );
-            });
+    /** Habilitado = puede operar en el servicio (lo que se ve por default con filtroHabilitados). */
+    esHabilitado(usuario) {
+        return this.obtenerEstadoValidacion(usuario).estado === 'validado';
+    }
+
+    contarNoHabilitados() {
+        return this.todosLosUsuarios.filter(u => !this.esHabilitado(u)).length;
+    }
+
+    /** Aplica búsqueda + filtro de habilitados sobre todosLosUsuarios. */
+    calcularFiltrados() {
+        const t = this.textoBusqueda;
+        const coinciden = !t ? [...this.todosLosUsuarios] : this.todosLosUsuarios.filter(u => {
+            // Nombre completo combinado: permite buscar "juan salas" aunque el
+            // nombre y el apellido estén en campos separados.
+            const nombreCompleto = `${u.nombre || ''} ${u.apellido || ''}`.toLowerCase();
+            return (
+                u.nombre?.toLowerCase().includes(t) ||
+                u.apellido?.toLowerCase().includes(t) ||
+                nombreCompleto.includes(t) ||
+                String(u.cuit || '').includes(t) ||
+                String(u.cuil || '').includes(t) ||
+                u.razonSocial?.toLowerCase().includes(t)
+            );
+        });
+
+        if (!this.opciones.filtroHabilitados || this.mostrarNoHabilitados) {
+            this.usuariosFiltrados = coinciden;
+            this.ocultosQueCoinciden = 0;
+            return;
         }
+        this.usuariosFiltrados = coinciden.filter(u =>
+            this.esHabilitado(u) || this.filasTocadas.has(String(u.id)));
+        this.ocultosQueCoinciden = coinciden.length - this.usuariosFiltrados.length;
+    }
 
+    setMostrarNoHabilitados(valor) {
+        this.mostrarNoHabilitados = !!valor;
+        const chk = document.getElementById(`${this.contenedorId}-chk-no-habilitados`);
+        if (chk) chk.checked = this.mostrarNoHabilitados;
+        this.calcularFiltrados();
         this.renderizarSoloListaDisponibles();
     }
 
@@ -714,6 +807,8 @@ class SelectorUsuarios {
         if (contador) {
             contador.textContent = `${this.contarUsuariosSeleccionables()} seleccionables de ${this.usuariosFiltrados.length}`;
         }
+        const cantNoHab = this.contenedor.querySelector('.filtro-habilitados-cant');
+        if (cantNoHab) cantNoHab.textContent = this.contarNoHabilitados();
     }
 
     renderizarSoloListaSeleccionados() {
@@ -725,6 +820,25 @@ class SelectorUsuarios {
     }
 
     // Métodos públicos para uso externo
+
+    /** Pone un mensaje en la fila de un usuario. tipo: 'error' | 'ok'. */
+    marcarFila(usuarioId, mensaje, tipo = 'error') {
+        this.marcas.set(String(usuarioId), { mensaje, tipo });
+        this.filasTocadas.add(String(usuarioId));   // que no la esconda el filtro de habilitados
+        this.calcularFiltrados();
+        this.renderizarSoloListaDisponibles();
+    }
+
+    limpiarMarcaFila(usuarioId) {
+        if (this.marcas.delete(String(usuarioId))) this.renderizarSoloListaDisponibles();
+    }
+
+    /** Vuelve a pedir la lista al backend (ej. tras cambiar una clave) conservando búsqueda y marcas. */
+    async recargar() {
+        await this.cargarUsuarios();
+        this.filtrar(this.textoBusqueda);
+    }
+
     obtenerSeleccionados() {
         return this.usuariosSeleccionados;
     }

@@ -16,9 +16,11 @@ async function abrirSesion(credenciales) {
     return await puppeteerManager.ejecutar(async (browser, page) => {
         const resultadoLogin = await loginATM(page, credenciales);
         if (!resultadoLogin.success) {
+            // Se respeta el código del login (ej. INVALID_CREDENTIALS): el front lo usa
+            // para ofrecer "actualizar clave" solo cuando la clave está mal.
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: resultadoLogin.error || 'LOGIN_FAILED',
                 message: resultadoLogin.message
             };
         }

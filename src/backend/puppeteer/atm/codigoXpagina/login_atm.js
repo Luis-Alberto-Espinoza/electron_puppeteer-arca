@@ -86,6 +86,29 @@ async function escribirVerificado(page, selector, valor, etiqueta, opciones = {}
     return true;
 }
 
+/**
+ * Traduce los errores técnicos de Puppeteer (en inglés) a un mensaje que el usuario entienda.
+ * Si no reconoce el error, devuelve el original: mejor un mensaje técnico que uno inventado.
+ * @param {Error} error
+ * @returns {string}
+ */
+function mensajeErrorLogin(error) {
+    const msg = String((error && error.message) || error || '');
+    if (/detached|Execution context was destroyed/i.test(msg)) {
+        return 'La página de ATM se recargó en medio del login. Probá de nuevo; si se repite, revisá la clave.';
+    }
+    if (/Target closed|Session closed|Protocol error|browser has disconnected/i.test(msg)) {
+        return 'Se cerró el navegador antes de terminar el login.';
+    }
+    if (/timeout|timed out/i.test(msg)) {
+        return 'ATM tardó demasiado en responder. Probá de nuevo en un rato.';
+    }
+    if (/net::ERR_/i.test(msg)) {
+        return 'No se pudo conectar con ATM. Revisá la conexión a internet.';
+    }
+    return msg;
+}
+
 /** Deja solo los dígitos: sirve para comparar contra un campo con máscara (30-61822230-2). */
 const soloDigitos = (v) => String(v).replace(/\D/g, '');
 
@@ -260,8 +283,14 @@ async function loginATM(page, credencialesATM) {
         }
         console.log(`[loginATM] Contraseña ingresada`);
 
-        // Preparamos la "carrera" de promesas
-        const navigationPromise = page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 });
+        // Preparamos la "carrera" de promesas.
+        // Con clave incorrecta ATM muestra un alert y RECARGA la página: esa recarga hace fallar
+        // waitForNavigation con "Navigating frame was detached". Si la dejábamos rechazar, le ganaba
+        // la carrera al diálogo y el usuario veía ese error en inglés en vez de "clave incorrecta".
+        // Por eso la navegación nunca rechaza: devuelve { errorNavegacion } y se decide abajo.
+        const navigationPromise = page
+            .waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 })
+            .then(() => null, (err) => ({ errorNavegacion: err }));
 
         // Guardamos la referencia al handler para poder desregistrarlo si gana la navegación:
         // si queda vivo, atrapa diálogos de pasos posteriores (ej: el del cambio de clave).
@@ -269,12 +298,15 @@ async function loginATM(page, credencialesATM) {
         // interno, así que page.off(evt, nuestroHandler) NO lo encuentra y no lo remueve.
         // Con page.on, el handler queda bajo su propia referencia y el off del finally sí lo saca.
         let loginDialogHandler;
+        let resultadoDialogo = null;
         const dialogPromise = new Promise(resolve => {
             loginDialogHandler = async dialog => {
                 console.log('🚨 [loginATM] Dialog nativo detectado:', dialog.message());
+                // Resolvemos ANTES de aceptar: aceptar dispara la recarga de la página, y el
+                // resultado del diálogo tiene que quedar registrado antes de que eso pase.
+                resultadoDialogo = { success: false, error: 'INVALID_CREDENTIALS', message: dialog.message() };
+                resolve(resultadoDialogo);
                 await aceptarDialog(dialog);
-                // El diálogo de error gana la carrera y resuelve con un objeto de error
-                resolve({ success: false, error: 'INVALID_CREDENTIALS', message: dialog.message() });
             };
             page.on('dialog', loginDialogHandler);
         });
@@ -292,6 +324,20 @@ async function loginATM(page, credencialesATM) {
         } finally {
             // Gane quien gane, el listener de la carrera ya cumplió su función
             page.off('dialog', loginDialogHandler);
+        }
+
+        // La navegación falló (típico: la recarga tras el alert de clave incorrecta).
+        // Le damos un instante al diálogo por si todavía no se registró; si apareció, manda él.
+        if (result && result.errorNavegacion) {
+            const dialogoTardio = resultadoDialogo || await Promise.race([
+                dialogPromise,
+                new Promise(resolve => setTimeout(() => resolve(null), 1500))
+            ]);
+            if (dialogoTardio) {
+                console.log(`🔴 [loginATM] Navegación cortada por el diálogo: ${dialogoTardio.message}`);
+                return dialogoTardio;
+            }
+            throw result.errorNavegacion;
         }
 
         // Si el diálogo ganó, 'result' será el objeto de error y lo retornamos
@@ -501,7 +547,7 @@ async function loginATM(page, credencialesATM) {
     } catch (error) {
         // El catch ahora solo se activará para errores inesperados o timeouts de navegación reales
         console.error('❌ [loginATM] Error inesperado durante el login:', error.message);
-        return { success: false, error: 'UNEXPECTED_ERROR', message: error.message };
+        return { success: false, error: 'UNEXPECTED_ERROR', message: mensajeErrorLogin(error) };
     }
 }
 

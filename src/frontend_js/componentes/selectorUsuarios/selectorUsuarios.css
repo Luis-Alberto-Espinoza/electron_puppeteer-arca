@@ -11,8 +11,8 @@
     --sel-buscador: color-mix(in srgb, var(--sel-tono), #fff 72%);
     --sel-fila-par: color-mix(in srgb, var(--sel-tono), #fff 84%);
     --sel-fila-impar: color-mix(in srgb, var(--sel-tono), #fff 70%);
-    --sel-fila-hover: color-mix(in srgb, var(--sel-tono), #fff 55%);
-    --sel-fila-elegida: color-mix(in srgb, var(--sel-tono), #fff 45%);
+    --sel-fila-hover: color-mix(in srgb, var(--sel-tono), #fff 40%);
+    --sel-fila-elegida: color-mix(in srgb, var(--sel-tono), #000 10%);
     --sel-linea: color-mix(in srgb, var(--sel-tono), #fff 50%);
     width: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -80,6 +80,43 @@
 
 .btn-limpiar:hover {
     background: #dc2626;
+}
+
+/* Casilla "Mostrar no habilitados" (opción filtroHabilitados) */
+.filtro-habilitados {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    user-select: none;
+}
+.filtro-habilitados input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--sel-tono);
+    cursor: pointer;
+}
+
+/* "Hay N clientes no habilitados que coinciden: mostrarlos" */
+.btn-mostrar-ocultos {
+    display: block;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    border-top: 1px dashed var(--sel-linea);
+    background: var(--sel-buscador);
+    color: var(--texto-1);
+    font-size: 13px;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+}
+.btn-mostrar-ocultos:hover {
+    background: var(--sel-fila-hover);
 }
 
 /* ========================================
@@ -150,7 +187,7 @@
     user-select: none;
 }
 
-/* Colores alternados FIJOS por índice */
+/* Colores alternados por posición en la lista visible */
 .usuario-fila.par {
     background-color: var(--sel-fila-par);
 }
@@ -162,13 +199,21 @@
 /* Estado SELECCIONADO sobrescribe el color base */
 .usuario-fila.seleccionado {
     background-color: var(--sel-fila-elegida) !important;
-    border-left: 4px solid var(--sel-tono);
-    padding-left: 12px;
+    border-left: 6px solid var(--c-acento);
+    padding-left: 10px;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15);
+}
+.usuario-fila.seleccionado .usuario-nombre,
+.usuario-fila.seleccionado .usuario-cuit,
+.usuario-fila.seleccionado .usuario-check {
+    color: #fff;
+    font-weight: 600;
 }
 
-/* Hover (solo si NO está seleccionado) */
-.usuario-fila:not(.seleccionado):hover {
-    background-color: var(--sel-fila-hover);
+/* Hover (solo filas elegibles y no seleccionadas). !important para ganarle
+   también a los fondos de estado (amarillo/naranja); el borde izquierdo conserva el aviso. */
+.usuario-fila:not(.seleccionado):not(.deshabilitado):hover {
+    background-color: var(--sel-fila-hover) !important;
     transform: translateX(2px);
 }
 
@@ -210,16 +255,49 @@
     background-color: inherit !important;
 }
 
-/* Mensaje de estado (error o advertencia) */
+/* Mensaje de estado (error o advertencia): va AL LADO del nombre, no abajo */
 .usuario-mensaje-estado {
-    font-size: 11px;
-    color: #dc2626;
-    font-style: italic;
-    margin-top: 4px;
-    padding: 4px 8px;
-    background-color: rgba(254, 226, 226, 0.6);
-    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #b91c1c;
+    padding: 2px 8px;
+    background-color: #fee2e2;
+    border-radius: 10px;
     line-height: 1.3;
+}
+
+/* Marcas puestas desde afuera (ej. resultado del login en el lanzador) */
+.usuario-fila.marca-error {
+    border-left: 4px solid var(--c-peligro-2);
+}
+.usuario-fila.marca-error .usuario-mensaje-estado {
+    color: #fff;
+    background-color: var(--c-peligro-2);
+}
+.usuario-fila.marca-ok .usuario-mensaje-estado {
+    color: #fff;
+    background-color: var(--c-ok-2);
+}
+
+/* Botón de acción por fila (ej. "Actualizar clave") */
+.usuario-accion {
+    flex-shrink: 0;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--sel-tono);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+.usuario-accion:hover {
+    filter: brightness(1.12);
+    transform: translateY(-1px);
+}
+.usuario-fila.deshabilitado .usuario-accion {
+    cursor: pointer;   /* la fila no se puede elegir, pero el botón sí funciona */
 }
 
 .usuario-fila.estado-sin_validar .usuario-mensaje-estado {
@@ -261,12 +339,19 @@
     align-items: flex-start;
 }
 
+.usuario-linea {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
 .usuario-nombre {
     font-weight: 500;
     font-size: 14px;
     color: #1f2937;
     text-align: left;
-    width: 100%;
 }
 
 .usuario-cuit {

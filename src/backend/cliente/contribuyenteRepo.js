@@ -119,7 +119,9 @@ function normalizarContribuyente(raw) {
 function accesoAfip(c, lista) {
     if (c.claveAFIP) {
         const ok = c.estado_afip === 'validado';
-        return { hay: true, validado: ok, motivo: ok ? null : 'clave AFIP sin validar' };
+        const motivo = ok ? null
+            : (c.estado_afip === 'invalido' ? 'clave AFIP incorrecta' : 'clave AFIP sin validar');
+        return { hay: true, validado: ok, motivo };
     }
     if (c.representanteAfipCuit) {
         const rep = lista.find(x => x.cuit === String(c.representanteAfipCuit));
@@ -127,28 +129,51 @@ function accesoAfip(c, lista) {
             return { hay: false, validado: false, motivo: 'representante sin acceso AFIP' };
         }
         const ok = rep.estado_afip === 'validado';
-        return { hay: true, validado: ok, motivo: ok ? null : 'representante sin validar' };
+        const motivo = ok ? null
+            : (rep.estado_afip === 'invalido' ? 'clave del representante incorrecta' : 'representante sin validar');
+        return { hay: true, validado: ok, motivo };
     }
     return { hay: false, validado: false, motivo: 'sin acceso AFIP' };
 }
 
-/** Computa puedeOperar/motivoNoOpera para un servicio dado (§2 listar). */
+/**
+ * Computa puedeOperar/motivoNoOpera para un servicio dado (§2 listar).
+ * `tieneAcceso`: hay una clave con la que intentar entrar, aunque no esté validada.
+ * Lo usa el lanzador: abrir el navegador ES la forma de validarla.
+ */
 function evaluarOperabilidad(c, servicio, lista) {
-    if (!servicio) return { puedeOperar: true, motivoNoOpera: null };
+    if (!servicio) return { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true };
 
     if (servicio === 'atm') {
-        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM' };
-        if (c.estado_atm !== 'validado') return { puedeOperar: false, motivoNoOpera: 'clave ATM sin validar' };
-        return { puedeOperar: true, motivoNoOpera: null };
+        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM', tieneAcceso: false };
+        if (c.estado_atm !== 'validado') {
+            const motivo = c.estado_atm === 'invalido' ? 'clave ATM incorrecta' : 'clave ATM sin validar';
+            return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: true };
+        }
+        return { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true };
     }
 
     // 'afip' | 'facturacion'
     const a = accesoAfip(c, lista);
-    if (!a.hay || !a.validado) return { puedeOperar: false, motivoNoOpera: a.motivo };
+    if (!a.hay || !a.validado) return { puedeOperar: false, motivoNoOpera: a.motivo, tieneAcceso: a.hay };
     if (servicio === 'facturacion' && !(Array.isArray(c.puntosDeVenta) && c.puntosDeVenta.length > 0)) {
-        return { puedeOperar: false, motivoNoOpera: 'sin facturación habilitada (sin puntos de venta)' };
+        return { puedeOperar: false, motivoNoOpera: 'sin facturación habilitada (sin puntos de venta)', tieneAcceso: true };
     }
-    return { puedeOperar: true, motivoNoOpera: null };
+    return { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true };
+}
+
+/**
+ * ¿De quién es la clave con la que se entra a este contribuyente por este canal?
+ * ATM: siempre la propia. AFIP: la del representante si lo tiene (invariante: un
+ * representado no tiene clave AFIP propia), si no la propia.
+ * @returns {{ titular: Object|null, esRepresentante: boolean }}
+ */
+function titularDeClave(c, canal, lista) {
+    if (canal === 'afip' && c.representanteAfipCuit) {
+        const rep = lista.find(x => x.cuit === String(c.representanteAfipCuit)) || null;
+        return { titular: rep, esRepresentante: true };
+    }
+    return { titular: c, esRepresentante: false };
 }
 
 function aListItem(c, servicio, lista) {
@@ -168,6 +193,7 @@ function aListItem(c, servicio, lista) {
         tipoContribuyente: c.tipoContribuyente,
         puedeOperar: op.puedeOperar,
         motivoNoOpera: op.motivoNoOpera,
+        tieneAcceso: op.tieneAcceso,
         esRepresentado: !c.claveAFIP && !!c.representanteAfipCuit
     };
 }
@@ -214,6 +240,50 @@ function crearContribuyenteRepo(store) {
         async resolverAcceso(cuit, canal) {
             // Le inyecta su propio getByCuit al resolver (la costura).
             return resolverAcceso(cuit, canal, { buscarPorCuit: (c) => repo.getByCuit(c) });
+        },
+
+        /**
+         * Datos para el diálogo de actualizar clave (SIN la clave): a quién pertenece.
+         * @returns {Promise<{objetivo:{cuit,nombre}, titular:{cuit,nombre}, esRepresentante:boolean}|null>}
+         */
+        async titularClave(cuit, canal) {
+            const lista = cargarNormalizado();
+            const c = lista.find(x => x.cuit === String(cuit));
+            if (!c) return null;
+            const { titular, esRepresentante } = titularDeClave(c, canal, lista);
+            if (!titular) throw repoError('REPRESENTANTE_NO_ENCONTRADO', `No se encontró al representante ${c.representanteAfipCuit}`);
+            return {
+                objetivo: { cuit: c.cuit, nombre: nombreDe(c) },
+                titular: { cuit: titular.cuit, nombre: nombreDe(titular) },
+                esRepresentante
+            };
+        },
+
+        /**
+         * Guarda una clave nueva en el TITULAR (no en el objetivo si es representado).
+         * Pasa por actualizar(): el estado vuelve a 'pendiente' hasta que un login la confirme.
+         */
+        async actualizarClave(cuit, canal, clave) {
+            if (canal !== 'afip' && canal !== 'atm') throw repoError('CANAL_INVALIDO', `Canal desconocido: ${canal}`);
+            if (!clave || !String(clave).trim()) throw repoError('CLAVE_VACIA', 'La clave no puede estar vacía');
+            const info = await repo.titularClave(cuit, canal);
+            if (!info) throw repoError('NO_ENCONTRADO', `No existe el contribuyente ${cuit}`);
+            const campo = canal === 'afip' ? 'claveAFIP' : 'claveATM';
+            await repo.actualizar(info.titular.cuit, { [campo]: String(clave) });
+            return info;
+        },
+
+        /**
+         * Registra el resultado de un login real (lo usa el lanzador) en el titular de la clave.
+         * Solo para resultados concluyentes: 'validado' o 'invalido'. Un captcha o un corte de
+         * red no dicen nada de la clave y NO se registran.
+         */
+        async registrarVerificacion(cuitTitular, canal, estado, error = null) {
+            const ahora = new Date().toISOString();
+            const cambios = canal === 'afip'
+                ? { estado_afip: estado, errorAfip: error, fechaVerificacionAfip: ahora }
+                : { estado_atm: estado, errorAtm: error, fechaVerificacionAtm: ahora };
+            return repo.actualizar(cuitTitular, cambios);
         },
 
         async crear(datos) {

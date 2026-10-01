@@ -11,6 +11,7 @@
 
 const sesionAfipManager = require('./sesionAfipManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { registrarResultadoLogin } = require('../../cliente/registrarResultadoLogin.js');
 
 function setupSesionAfipHandlers(ipcMain) {
     const repo = getContribuyenteRepo();
@@ -28,6 +29,7 @@ function setupSesionAfipHandlers(ipcMain) {
             }
             const credenciales = { usuario: acceso.loginCuit, contrasena: acceso.loginClave };
             const r = await sesionAfipManager.abrirSesion(credenciales);
+            await registrarResultadoLogin(repo, acceso.loginCuit, 'afip', r);
             // Le pasamos al front si tiene que elegir empresa (caso representado).
             return {
                 ...r,

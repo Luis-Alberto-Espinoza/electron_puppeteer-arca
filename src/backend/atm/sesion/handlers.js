@@ -10,6 +10,7 @@
 
 const sesionAtmManager = require('./sesionAtmManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { registrarResultadoLogin } = require('../../cliente/registrarResultadoLogin.js');
 
 function setupSesionAtmHandlers(ipcMain) {
     const repo = getContribuyenteRepo();
@@ -27,7 +28,9 @@ function setupSesionAtmHandlers(ipcMain) {
             }
             // loginATM espera { cuit, clave }.
             const credenciales = { cuit: acceso.loginCuit, clave: acceso.loginClave };
-            return await sesionAtmManager.abrirSesion(credenciales);
+            const r = await sesionAtmManager.abrirSesion(credenciales);
+            await registrarResultadoLogin(repo, acceso.loginCuit, 'atm', r);
+            return r;
         } catch (error) {
             console.error('[SesionATM] Error:', error.message);
             return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };

@@ -184,7 +184,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Modelo plano de contribuyente (Tareas 3-7). `listar` NO devuelve claves.
     contribuyente: {
         listar: (opts) => ipcRenderer.invoke('contribuyente:listar', opts),
-        puntosDeVenta: (cuit) => ipcRenderer.invoke('contribuyente:puntosDeVenta', cuit)
+        puntosDeVenta: (cuit) => ipcRenderer.invoke('contribuyente:puntosDeVenta', cuit),
+        // Actualizar clave sin ir a Clientes. titularClave dice de quién es (sin devolverla).
+        titularClave:    (datos) => ipcRenderer.invoke('contribuyente:titularClave', datos),
+        actualizarClave: (datos) => ipcRenderer.invoke('contribuyente:actualizarClave', datos)
     },
 
     // Lanzador de sesión: elige un contribuyente y abre el navegador ya logueado.

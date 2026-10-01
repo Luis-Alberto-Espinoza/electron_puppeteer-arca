@@ -68,6 +68,9 @@
                     <button class="lanzador-tab" data-modo="manual">✍️ Ingresar a mano</button>
                 </div>
 
+                <!-- Arriba, no al final: con una lista larga el mensaje quedaba fuera de vista. -->
+                <div class="lanzador-estado" id="lanzador-estado"></div>
+
                 <div class="lanzador-panel" data-modo="cliente">
                     <p class="lanzador-ayuda">Hacé click en un cliente y se abre el navegador ya logueado para operar a mano.</p>
                     <div id="lanzador-selector"></div>
@@ -88,7 +91,6 @@
                     </label>
                 </div>
 
-                <div class="lanzador-estado" id="lanzador-estado"></div>
                 <div class="lanzador-acciones" hidden>
                     <button class="lanzador-btn-abrir" id="lanzador-btn-abrir" disabled>Abrir navegador</button>
                 </div>
@@ -154,19 +156,47 @@
 
         // Elegir un cliente de la lista ES la acción: abre el navegador sin botón intermedio.
         // La selección se descarta al toque: no queda tildado y un nuevo click vuelve a abrir.
+        //
+        // Por default solo los habilitados. La casilla "Mostrar no habilitados" suma los que tienen
+        // clave sin validar (abrir el navegador la valida) y los que no tienen clave, con el botón
+        // "Clave" para cargarla/corregirla desde acá.
         const selector = new SelectorUsuarios('lanzador-selector', {
             fuente: 'contribuyentes',   // modelo plano
             servicio: servicio,         // 'afip' | 'atm' → computa puedeOperar
             seleccionUnica: true,
             mostrarTablaSeleccionados: false,
+            permitirSinValidar: true,
+            permitirInvalidos: true,
+            filtroHabilitados: true,
+            accionFila: {
+                texto: '🔑 Clave',
+                titulo: 'Actualizar la clave de este cliente',
+                mostrar: (usuario, marca) => !usuario.puedeOperar || (marca && marca.tipo === 'error'),
+                onClick: (usuario) => actualizarClave(usuario)
+            },
             onCambioSeleccion: (sel) => {
                 const cliente = sel[0];
                 if (!cliente) return;   // el propio quitarSeleccion de abajo vuelve a llamar acá
                 selector.quitarSeleccion(cliente.id);
                 if (abriendo) return;
-                lanzar(window.electronAPI.sesion[servicio](cliente.cuit));
+                lanzar(window.electronAPI.sesion[servicio](cliente.cuit), cliente);
             }
         });
+
+        async function actualizarClave(usuario) {
+            if (typeof window.abrirActualizarClave !== 'function') {
+                console.error('[Lanzador] window.abrirActualizarClave no está disponible');
+                return;
+            }
+            const r = await window.abrirActualizarClave({ cuit: usuario.cuit, servicio });
+            if (r.error) {
+                selector.marcarFila(usuario.id, r.error, 'error');
+                return;
+            }
+            if (!r.actualizada) return;
+            await selector.recargar();   // el estado cambió (y si era representante, el de varios)
+            selector.marcarFila(usuario.id, 'Clave guardada: hacé click para probarla', 'ok');
+        }
 
         btnAbrir.addEventListener('click', () => {
             const cuit = inputCuit.value.trim();
@@ -175,14 +205,17 @@
             lanzar(window.electronAPI.sesion[`${servicio}Manual`]({ cuit, clave }));
         });
 
-        async function lanzar(promesa) {
+        // cliente: la fila de donde salió (null en modo manual). El resultado se muestra en esa fila.
+        async function lanzar(promesa, cliente = null) {
             abriendo = true;
+            if (cliente) selector.limpiarMarcaFila(cliente.id);
             contSelector.classList.add('lanzador-bloqueado');
             btnAbrir.disabled = true;
             estado.textContent = '⏳ Abriendo navegador e iniciando sesión…';
             estado.className = 'lanzador-estado cargando';
+            let r = null;
             try {
-                const r = await promesa;
+                r = await promesa;
                 if (r && r.success) {
                     const extra = r.requiereElegirEmpresa
                         ? ' Entrás como su representante: elegí la empresa en la pantalla de AFIP.'
@@ -194,12 +227,24 @@
                     estado.className = 'lanzador-estado error';
                 }
             } catch (err) {
+                r = { success: false, message: err.message };
                 estado.textContent = '❌ ' + err.message;
                 estado.className = 'lanzador-estado error';
             } finally {
                 abriendo = false;
                 contSelector.classList.remove('lanzador-bloqueado');
                 recomputarBoton();
+            }
+
+            // El resultado también va en la fila del cliente: ahí está el botón para corregir la clave.
+            if (cliente) {
+                // El backend registró si la clave anduvo o no: refrescamos los estados.
+                await selector.recargar();
+                if (r && r.success) {
+                    selector.marcarFila(cliente.id, 'Sesión abierta', 'ok');
+                } else {
+                    selector.marcarFila(cliente.id, (r && r.message) || 'No se pudo iniciar sesión', 'error');
+                }
             }
         }
     }
