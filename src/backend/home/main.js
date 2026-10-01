@@ -13,6 +13,8 @@ const fs = require('fs');
 const setupUserHandlers = require('../cliente/handlers.js');
 const setupGruposHandlers = require('../cliente/grupos/handlers.js');
 const setupContribuyenteHandlers = require('../cliente/contribuyenteHandlers.js');
+const observadorLogin = require('../puppeteer/archivos_comunes/login/observadorLogin.js');
+const { crearRegistradorLogin } = require('../cliente/registrarResultadoLogin.js');
 const setupMercadoPagoHandlers = require('../afip/extraerDemercadoPago/handlers.js');
 
 // Importar handlers de AFIP por dominio
@@ -264,6 +266,8 @@ app.whenReady().then(async () => {
         setupUserHandlers(ipcMain, mainWindow, dialog);
         setupGruposHandlers(ipcMain);
         setupContribuyenteHandlers(ipcMain); // modelo plano (listar, sin claves)
+        // Todo login real (cualquier servicio) deja asentado si la clave guardada anda.
+        observadorLogin.suscribir(crearRegistradorLogin(getContribuyenteRepo()));
         setupDatosHandlers(ipcMain, app, dialog); // carpeta de datos (Fase 2)
         setupMercadoPagoHandlers(ipcMain, mainWindow, dialog);
         setupFacturaHandlers(ipcMain, mainWindow);

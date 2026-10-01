@@ -316,7 +316,7 @@ async function mostrarSelectorUsuario() {
             filtroHabilitados: true,
             accionFila: window.crearAccionActualizarClave
                 ? window.crearAccionActualizarClave('afip', () => selectorUsuariosAfip,
-                    'Clave guardada (queda sin validar)')
+                    'Clave guardada: se valida al facturar')
                 : null,
 
             onCambioSeleccion: (usuariosSeleccionados) => {

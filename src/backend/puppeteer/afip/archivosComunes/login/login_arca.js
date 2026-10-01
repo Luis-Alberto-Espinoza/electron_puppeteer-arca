@@ -10,6 +10,8 @@
  *   // continuar con el flujo...
  */
 
+const observadorLogin = require('../../../archivos_comunes/login/observadorLogin.js');
+
 // Cuando AFIP interpone un captcha, dejamos la ventana abierta y ESPERAMOS a que el
 // usuario lo resuelva a mano (es más rápido y confiable que automatizarlo). Este es el
 // tiempo máximo de espera antes de rendirse y marcar CAPTCHA_BLOQUEO. Ajustable.
@@ -26,7 +28,7 @@ async function navegadorOculto(page) {
   }
 }
 
-async function hacerLogin(page, url, credenciales) {
+async function hacerLoginSinAviso(page, url, credenciales) {
   try {
     // Validación y normalización de entrada
     if (!credenciales?.usuario || !credenciales?.contrasena) {
@@ -243,6 +245,21 @@ async function detectarCambioClaveAfip(page) {
     // Ante cualquier error de evaluación preferimos no bloquear el login.
     return false;
   }
+}
+
+/**
+ * Login en ARCA + aviso al observadorLogin (registra si la clave guardada anda).
+ * Es lo que usan todos los flujos; el login en sí está en hacerLoginSinAviso.
+ */
+async function hacerLogin(page, url, credenciales) {
+    const resultado = await hacerLoginSinAviso(page, url, credenciales);
+    await observadorLogin.notificar({
+        canal: 'afip',
+        cuit: credenciales && credenciales.usuario,
+        clave: credenciales && credenciales.contrasena,
+        resultado
+    });
+    return resultado;
 }
 
 module.exports = { hacerLogin };

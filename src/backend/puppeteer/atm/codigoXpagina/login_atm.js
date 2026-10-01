@@ -1,3 +1,5 @@
+const observadorLogin = require('../../archivos_comunes/login/observadorLogin.js');
+
 /**
  * Acepta un dialog nativo sin romper el flujo si ya fue manejado.
  * Un dialog solo puede aceptarse una vez: si otro listener llegó primero (o la página
@@ -251,7 +253,7 @@ async function manejarModalActualizacionEmail(page) {
  * @param {import('puppeteer').Page} page - La instancia de la página de Puppeteer.
  * @param {Object} credencialesATM - Las credenciales del usuario.
  */
-async function loginATM(page, credencialesATM) {
+async function loginATMSinAviso(page, credencialesATM) {
     const { cuit, clave } = credencialesATM;
     const url = 'https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp';
 
@@ -549,6 +551,21 @@ async function loginATM(page, credencialesATM) {
         console.error('❌ [loginATM] Error inesperado durante el login:', error.message);
         return { success: false, error: 'UNEXPECTED_ERROR', message: mensajeErrorLogin(error) };
     }
+}
+
+/**
+ * Login en ATM + aviso al observadorLogin (registra si la clave guardada anda).
+ * Es lo que usan todos los flujos; el login en sí está en loginATMSinAviso.
+ */
+async function loginATM(page, credencialesATM) {
+    const resultado = await loginATMSinAviso(page, credencialesATM);
+    await observadorLogin.notificar({
+        canal: 'atm',
+        cuit: credencialesATM && credencialesATM.cuit,
+        clave: credencialesATM && credencialesATM.clave,
+        resultado
+    });
+    return resultado;
 }
 
 /**
