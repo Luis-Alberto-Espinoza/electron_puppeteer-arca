@@ -18,7 +18,10 @@ const SELECTORES = {
     // XPath alternativo para buscar por texto
     xpathMenuAplicativos: '//a[contains(text(), "Aplicativos") or contains(@title, "Aplicativos")]',
     // La opción real es un <li onclick="navigateTo(...6050...)">, no un <a>: buscamos ambos.
-    xpathOpcionTasaCero: '//*[self::a or self::li][contains(normalize-space(.), "Tasa Cero") or contains(@title, "Tasa Cero")]',
+    // Solo elementos clickeables (@onclick/@href): la página tiene <li> de AYUDA que
+    // nombran "Tasa Cero" en su texto y clickearlos no abre nada.
+    // El not(...) descarta los contenedores: nos quedamos con el elemento más interno.
+    xpathOpcionTasaCero: '//*[self::a or self::li][@onclick or @href][contains(normalize-space(.), "Tasa Cero") or contains(@title, "Tasa Cero")][not(.//*[self::a or self::li][@onclick or @href][contains(normalize-space(.), "Tasa Cero")])]',
 
     // Opciones del menú Aplicativos (sirve para distinguir "no habilitado" de "cambió la página")
     opcionesAplicativos: '#secAplicativos li[onclick]',
@@ -125,9 +128,15 @@ async function navegarATasaCero(pagina, navegador) {
         // Si no se encontró con CSS, intentar con XPath
         if (!botonTasaCero) {
             const elementosXPath = await pagina.$$(`xpath/${SELECTORES.xpathOpcionTasaCero}`);
-            if (elementosXPath.length > 0) {
-                botonTasaCero = elementosXPath[0];
-            } else {
+            // Solo sirve uno visible: ATM puede tener el texto en nodos ocultos y
+            // clickearlos revienta con "Node is either not clickable or not an Element".
+            for (const elemento of elementosXPath) {
+                const visible = await elemento.isVisible().catch(() => false);
+                const descripcion = await elemento.evaluate(n => `<${n.tagName.toLowerCase()}> "${n.textContent.trim().replace(/\s+/g, ' ').slice(0, 200)}"`).catch(() => '?');
+                console.log(`[navegarATasaCero] XPath encontró ${descripcion} (visible: ${visible})`);
+                if (visible && !botonTasaCero) botonTasaCero = elemento;
+            }
+            if (!botonTasaCero) {
                 throw await errorOpcionNoEncontrada(pagina);
             }
         }
