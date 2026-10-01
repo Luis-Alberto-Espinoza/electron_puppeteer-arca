@@ -908,10 +908,10 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
         // está, seguimos. Tope de 8s por si la carga falla.
         console.log('[Reimpresión] Esperando frame "listado" con tabla (id=Gx1)...');
 
-        // OJO: no alcanza con que #Gx1 exista en el DOM; abajo llamamos el.onclick()
-        // para abrir el PDF, así que necesitamos que su handler onclick ya esté
-        // enganchado (la página termina de cablear su JS un instante después de
-        // pintar la tabla). Esperar solo a que exista hacía que onclick() no abriera nada.
+        // OJO: no alcanza con que #Gx1 tenga onclick: un onclick escrito en el HTML es
+        // función apenas se pinta la fila, pero llama a Imprimir(), que define un
+        // <script> que corre DESPUÉS de la tabla. Clickear antes daba
+        // "Imprimir is not defined". Esperamos a que exista la función.
         // OJO 2: el frame "listado" YA existe de antes con la URL inscripcion_lista.jsp,
         // y esa página vieja también tiene un #Gx1. Si solo esperamos "frame llamado
         // listado + Gx1", lo encontramos al instante (el viejo) y hacemos clic en la
@@ -923,8 +923,7 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
             frameListado = paginaTasaCero.frames().find(frame => frame.name() === 'listado');
             if (frameListado && frameListado.url().includes('solicitud_consultar')) {
                 const gx1Listo = await frameListado.evaluate(() => {
-                    const el = document.getElementById('Gx1');
-                    return !!(el && typeof el.onclick === 'function');
+                    return !!document.getElementById('Gx1') && typeof window.Imprimir === 'function';
                 }).catch(() => false);
                 if (gx1Listo) break;
             }
@@ -937,27 +936,62 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
         console.log(`[Reimpresión] Frame "listado" listo tras ${Date.now() - inicioTabla}ms`);
 
         // ====================================================================
-        // PASO 3: Hacer clic en la primera celda (id="Gx1")
+        // PASO 3: Buscar la fila del periodo y su botón Imprimir (id="Gx{n}")
         // ====================================================================
-        console.log('[Reimpresión] Buscando primera celda de la tabla (id=Gx1)...');
+        // Tabla "Listado de Solicitudes Presentadas", más reciente arriba. Por fila n:
+        //   Dx{n} = Vigencia "01/06/2026 - 30/06/2026" (puede abarcar varios meses)
+        //   Ex{n} = Estado visible, Fx{n} = estado oculto ('A' aprobada, 'R', 'P')
+        //   Gx{n} = botón Imprimir; Imprimir() solo hace algo si Fx{n} === 'A'
+        // La fila 1 NO es necesariamente el periodo pedido: hay que buscarla.
+        const [anioPedido, mesPedido] = String(periodo).split('-').map(Number);
+        console.log(`[Reimpresión] Buscando la fila del periodo ${String(mesPedido).padStart(2, '0')}/${anioPedido}...`);
 
-        const primeraCelda = await frameListado.evaluateHandle(() => {
-            return document.getElementById('Gx1');
-        });
+        const busqueda = await frameListado.evaluate((anio, mes) => {
+            // "dd/mm/aaaa" → número comparable aaaamm
+            const aMes = (fecha) => {
+                const [, m, a] = fecha.trim().split('/').map(Number);
+                return a * 100 + m;
+            };
+            const objetivo = anio * 100 + mes;
+            const coincidencias = [];
+            for (let n = 1; document.getElementById('Gx' + n); n++) {
+                const vigencia = (document.getElementById('Dx' + n)?.innerText || '').trim();
+                const partes = vigencia.split('-');
+                if (partes.length !== 2) continue;
+                if (aMes(partes[0]) <= objetivo && objetivo <= aMes(partes[1])) {
+                    coincidencias.push({
+                        fila: n,
+                        vigencia,
+                        estado: (document.getElementById('Ex' + n)?.innerText || '').trim(),
+                        codigo: (document.getElementById('Fx' + n)?.innerText || '').trim()
+                    });
+                }
+            }
+            return coincidencias;
+        }, anioPedido, mesPedido);
 
-        const tienePrimeraCelda = await primeraCelda.evaluate(el => el ? true : false);
-        if (!tienePrimeraCelda) {
-            throw new Error('No se encontró la primera celda (id=Gx1) en la tabla');
+        const etiquetaPeriodo = `${String(mesPedido).padStart(2, '0')}/${anioPedido}`;
+        if (busqueda.length === 0) {
+            throw new Error(`No se encontró la solicitud del periodo ${etiquetaPeriodo} en Estado Solicitudes`);
         }
+        const filaAprobada = busqueda.find(c => c.codigo === 'A');
+        if (!filaAprobada) {
+            const estados = [...new Set(busqueda.map(c => c.estado))].join('/');
+            throw new Error(`La solicitud del periodo ${etiquetaPeriodo} figura ${estados}: no hay constancia aprobada para reimprimir`);
+        }
+        console.log(`[Reimpresión] ✅ Fila ${filaAprobada.fila}: vigencia ${filaAprobada.vigencia}, ${filaAprobada.estado}`);
 
-        console.log('[Reimpresión] ✅ Primera celda encontrada. Ejecutando onclick...');
+        const botonImprimir = await frameListado.$(`#Gx${filaAprobada.fila}`);
+        if (!botonImprimir) {
+            throw new Error(`No se encontró el botón Imprimir (id=Gx${filaAprobada.fila})`);
+        }
 
         // Capturar la cantidad de páginas antes del clic
         const paginasAntes = await navegador.pages();
         console.log(`[Reimpresión] Páginas abiertas antes del clic: ${paginasAntes.length}`);
 
         // Ejecutar el onclick (abre nueva ventana con PDF)
-        await primeraCelda.evaluate(el => el.onclick());
+        await botonImprimir.evaluate(el => el.onclick());
 
         // Esperar a que aparezca la nueva ventana Y a que su URL deje de estar en blanco
         // (si leyéramos url() apenas se crea la pestaña, sería "about:blank" y el flujo
