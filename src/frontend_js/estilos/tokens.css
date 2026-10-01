@@ -26,6 +26,21 @@
   --c-peligro-2: #dc2626;
   --grad-peligro: linear-gradient(135deg, var(--c-peligro-1) 0%, var(--c-peligro-2) 100%);
 
+  /* Versiones aclaradas de los gradientes (menús desplegables del navbar).
+     Misma proporción de blanco en las dos: cambiando --aclarado se ajustan juntas. */
+  --aclarado: 25%;
+  --grad-primario-suave: linear-gradient(135deg,
+      color-mix(in srgb, var(--c-primario-1), #fff var(--aclarado)) 0%,
+      color-mix(in srgb, var(--c-primario-2), #fff var(--aclarado)) 100%);
+
+  /* ===== Servicio ATM (verde que ya usaban lanzador y botones ATM) ===== */
+  --c-atm-1: #1e8e6f;
+  --c-atm-2: #16a085;
+  --grad-atm: linear-gradient(135deg, var(--c-atm-1) 0%, var(--c-atm-2) 100%);
+  --grad-atm-suave: linear-gradient(135deg,
+      color-mix(in srgb, var(--c-atm-1), #fff var(--aclarado)) 0%,
+      color-mix(in srgb, var(--c-atm-2), #fff var(--aclarado)) 100%);
+
   --c-accion: #007bff;        /* azul de botones de acción */
   --c-accion-hover: #0056b3;
 
@@ -42,6 +57,9 @@
   --fondo-claro-2: #f3f4f6;
   --borde: #e5e7eb;
   --borde-2: #e2e8f0;
+  /* Superficies CON color (para salir del blanco): un tono medio por servicio. */
+  --sup-afip: #c3c9f4;        /* lavanda, familia del primario */
+  --sup-atm: #b3e0cf;         /* verde agua, familia de ATM */
 
   /* ===== Forma ===== */
   --radio: 12px;

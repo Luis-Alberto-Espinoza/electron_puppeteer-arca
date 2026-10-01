@@ -69,7 +69,7 @@
                 </div>
 
                 <div class="lanzador-panel" data-modo="cliente">
-                    <p class="lanzador-ayuda">Elegí un cliente y abrí el navegador ya logueado para operar a mano.</p>
+                    <p class="lanzador-ayuda">Hacé click en un cliente y se abre el navegador ya logueado para operar a mano.</p>
                     <div id="lanzador-selector"></div>
                 </div>
 
@@ -89,7 +89,7 @@
                 </div>
 
                 <div class="lanzador-estado" id="lanzador-estado"></div>
-                <div class="lanzador-acciones">
+                <div class="lanzador-acciones" hidden>
                     <button class="lanzador-btn-abrir" id="lanzador-btn-abrir" disabled>Abrir navegador</button>
                 </div>
             </div>`;
@@ -100,21 +100,19 @@
         const inputCuit = overlay.querySelector('#lanzador-manual-cuit');
         const inputClave = overlay.querySelector('#lanzador-manual-clave');
         const btnVerClave = overlay.querySelector('#lanzador-ver-clave');
-        let clienteSel = null;
+        const contSelector = overlay.querySelector('#lanzador-selector');
+        const acciones = overlay.querySelector('.lanzador-acciones');
         let modoActivo = 'cliente';
+        let abriendo = false;   // bloquea la lista mientras se abre un navegador (evita doble apertura)
 
         function limpiarEstado() {
             estado.textContent = '';
             estado.className = 'lanzador-estado';
         }
 
-        // Habilita "Abrir navegador" según el modo activo.
+        // El botón solo existe en modo manual; en modo cliente el click en la lista abre directo.
         function recomputarBoton() {
-            if (modoActivo === 'cliente') {
-                btnAbrir.disabled = !clienteSel;
-            } else {
-                btnAbrir.disabled = !(inputCuit.value.trim() && inputClave.value);
-            }
+            btnAbrir.disabled = abriendo || !(inputCuit.value.trim() && inputClave.value);
         }
 
         // Cerrar al clickear el fondo o la X.
@@ -129,6 +127,7 @@
                     t.classList.toggle('activo', t === tab));
                 overlay.querySelectorAll('.lanzador-panel').forEach(p =>
                     p.hidden = p.dataset.modo !== modoActivo);
+                acciones.hidden = modoActivo !== 'manual';
                 limpiarEstado();
                 recomputarBoton();
             });
@@ -153,30 +152,32 @@
             return;
         }
 
-        new SelectorUsuarios('lanzador-selector', {
+        // Elegir un cliente de la lista ES la acción: abre el navegador sin botón intermedio.
+        // La selección se descarta al toque: no queda tildado y un nuevo click vuelve a abrir.
+        const selector = new SelectorUsuarios('lanzador-selector', {
             fuente: 'contribuyentes',   // modelo plano
             servicio: servicio,         // 'afip' | 'atm' → computa puedeOperar
             seleccionUnica: true,
             mostrarTablaSeleccionados: false,
             onCambioSeleccion: (sel) => {
-                clienteSel = sel[0] || null;
-                limpiarEstado();
-                recomputarBoton();
+                const cliente = sel[0];
+                if (!cliente) return;   // el propio quitarSeleccion de abajo vuelve a llamar acá
+                selector.quitarSeleccion(cliente.id);
+                if (abriendo) return;
+                lanzar(window.electronAPI.sesion[servicio](cliente.cuit));
             }
         });
 
-        btnAbrir.addEventListener('click', async () => {
-            let promesa;
-            if (modoActivo === 'cliente') {
-                if (!clienteSel) return;
-                promesa = window.electronAPI.sesion[servicio](clienteSel.cuit);
-            } else {
-                const cuit = inputCuit.value.trim();
-                const clave = inputClave.value;
-                if (!cuit || !clave) return;
-                promesa = window.electronAPI.sesion[`${servicio}Manual`]({ cuit, clave });
-            }
+        btnAbrir.addEventListener('click', () => {
+            const cuit = inputCuit.value.trim();
+            const clave = inputClave.value;
+            if (!cuit || !clave || abriendo) return;
+            lanzar(window.electronAPI.sesion[`${servicio}Manual`]({ cuit, clave }));
+        });
 
+        async function lanzar(promesa) {
+            abriendo = true;
+            contSelector.classList.add('lanzador-bloqueado');
             btnAbrir.disabled = true;
             estado.textContent = '⏳ Abriendo navegador e iniciando sesión…';
             estado.className = 'lanzador-estado cargando';
@@ -196,9 +197,11 @@
                 estado.textContent = '❌ ' + err.message;
                 estado.className = 'lanzador-estado error';
             } finally {
+                abriendo = false;
+                contSelector.classList.remove('lanzador-bloqueado');
                 recomputarBoton();
             }
-        });
+        }
     }
 
     window.abrirLanzadorSesion = abrirLanzadorSesion;

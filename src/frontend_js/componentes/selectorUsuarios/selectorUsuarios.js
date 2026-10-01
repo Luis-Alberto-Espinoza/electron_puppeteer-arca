@@ -324,7 +324,7 @@ class SelectorUsuarios {
 
     renderizar() {
         this.contenedor.innerHTML = `
-            <div class="selector-usuarios-container">
+            <div class="selector-usuarios-container${this.opciones.servicio === 'atm' ? ' servicio-atm' : ''}">
                 <!-- Buscador -->
                 <div class="buscador-section">
                     <div class="buscador-titulo">

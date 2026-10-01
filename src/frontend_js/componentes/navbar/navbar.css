@@ -69,12 +69,16 @@ body {
     top: calc(100% + 6px);
     left: 0;
     min-width: 220px;
-    background: var(--card);
-    border: 1px solid var(--borde);
+    background: var(--grad-primario-suave);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: var(--radio-sm);
     box-shadow: var(--sombra);
     padding: 6px;
     z-index: 1001;
+}
+
+.app-navbar .nav-dropdown-atm .nav-dropdown-menu {
+    background: var(--grad-atm-suave);
 }
 
 .app-navbar .nav-dropdown-menu.abierto {
@@ -86,7 +90,7 @@ body {
     width: 100%;
     text-align: left;
     background: transparent;
-    color: var(--texto-1);
+    color: #fff;
     border: none;
     border-radius: var(--radio-sm);
     padding: 10px 12px;
@@ -95,7 +99,7 @@ body {
 }
 
 .app-navbar .nav-drop-item:hover {
-    background: var(--fondo-claro);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* Zona derecha: usuario + recargar */

@@ -3,11 +3,23 @@
    Componente genérico reutilizable
    ======================================== */
 
-/* Contenedor principal */
+/* Contenedor principal.
+   --sel-tono es el color base de todo el selector (violeta AFIP; verde si servicio='atm').
+   Los fondos salen de mezclarlo con blanco: menos % de blanco = más color. */
 .selector-usuarios-container {
+    --sel-tono: var(--c-primario-1);
+    --sel-buscador: color-mix(in srgb, var(--sel-tono), #fff 72%);
+    --sel-fila-par: color-mix(in srgb, var(--sel-tono), #fff 84%);
+    --sel-fila-impar: color-mix(in srgb, var(--sel-tono), #fff 70%);
+    --sel-fila-hover: color-mix(in srgb, var(--sel-tono), #fff 55%);
+    --sel-fila-elegida: color-mix(in srgb, var(--sel-tono), #fff 45%);
+    --sel-linea: color-mix(in srgb, var(--sel-tono), #fff 50%);
     width: 100%;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     color: #1f2937;
+}
+.selector-usuarios-container.servicio-atm {
+    --sel-tono: var(--c-atm-1);
 }
 
 /* ========================================
@@ -15,8 +27,8 @@
    ======================================== */
 .buscador-section {
     padding: 20px;
-    background: #f3f4f6;
-    border-bottom: 2px solid #d1d5db;
+    background: var(--sel-buscador);
+    border-bottom: 2px solid var(--sel-linea);
     border-radius: 8px 8px 0 0;
 }
 
@@ -39,7 +51,7 @@
     flex: 1;
     padding: 10px 14px;
     font-size: 14px;
-    border: 2px solid #d1d5db;
+    border: 2px solid var(--sel-linea);
     border-radius: 6px;
     transition: all 0.2s;
     outline: none;
@@ -79,25 +91,29 @@
 
 .lista-header {
     padding: 12px 16px;
-    background: #e5e7eb;
+    background: var(--grad-primario-suave);
     font-weight: 600;
     font-size: 14px;
-    color: #374151;
+    color: #fff;
     border-radius: 6px 6px 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
+.servicio-atm .lista-header {
+    background: var(--grad-atm-suave);
+}
+
 .lista-contador {
     font-weight: 400;
-    color: #6b7280;
+    color: rgba(255, 255, 255, 0.9);
 }
 
 .lista-usuarios-disponibles {
     max-height: 400px;
     overflow-y: auto;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--sel-linea);
     border-top: none;
     border-radius: 0 0 6px 6px;
 }
@@ -108,16 +124,16 @@
 }
 
 .lista-usuarios-disponibles::-webkit-scrollbar-track {
-    background: #f3f4f6;
+    background: var(--sel-fila-par);
 }
 
 .lista-usuarios-disponibles::-webkit-scrollbar-thumb {
-    background: #d1d5db;
+    background: var(--sel-linea);
     border-radius: 4px;
 }
 
 .lista-usuarios-disponibles::-webkit-scrollbar-thumb:hover {
-    background: #9ca3af;
+    background: var(--sel-tono);
 }
 
 /* ========================================
@@ -125,7 +141,7 @@
    ======================================== */
 .usuario-fila {
     padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--sel-linea);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -136,23 +152,23 @@
 
 /* Colores alternados FIJOS por índice */
 .usuario-fila.par {
-    background-color: #ffffff;
+    background-color: var(--sel-fila-par);
 }
 
 .usuario-fila.impar {
-    background-color: #f9fafb;
+    background-color: var(--sel-fila-impar);
 }
 
 /* Estado SELECCIONADO sobrescribe el color base */
 .usuario-fila.seleccionado {
-    background-color: #dbeafe !important;
-    border-left: 4px solid #3b82f6;
+    background-color: var(--sel-fila-elegida) !important;
+    border-left: 4px solid var(--sel-tono);
     padding-left: 12px;
 }
 
 /* Hover (solo si NO está seleccionado) */
 .usuario-fila:not(.seleccionado):hover {
-    background-color: #f3f4f6;
+    background-color: var(--sel-fila-hover);
     transform: translateX(2px);
 }
 
@@ -233,7 +249,7 @@
     width: 20px;
     height: 20px;
     font-size: 16px;
-    color: #3b82f6;
+    color: var(--sel-tono);
     flex-shrink: 0;
 }
 
@@ -255,7 +271,7 @@
 
 .usuario-cuit {
     font-size: 12px;
-    color: #6b7280;
+    color: #4b5563;
     text-align: left;
     width: 100%;
 }
@@ -316,7 +332,7 @@
 .tabla-seleccionados thead {
     position: sticky;
     top: 0;
-    background: #f9fafb;
+    background: var(--sel-buscador);
     z-index: 10;
 }
 
@@ -341,11 +357,11 @@
 
 /* Colores alternados en tabla seleccionados */
 .tabla-seleccionados tbody tr.par {
-    background-color: #ffffff;
+    background-color: var(--sel-fila-par);
 }
 
 .tabla-seleccionados tbody tr.impar {
-    background-color: #f9fafb;
+    background-color: var(--sel-fila-impar);
 }
 
 /* Fila sin medio de pago */
@@ -355,7 +371,7 @@
 }
 
 .tabla-seleccionados tbody tr:hover {
-    background-color: #f3f4f6;
+    background-color: var(--sel-fila-hover);
 }
 
 .tabla-seleccionados td {

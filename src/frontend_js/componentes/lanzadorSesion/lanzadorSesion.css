@@ -11,7 +11,7 @@
 }
 
 .lanzador-caja {
-    background: #ffffff;
+    background: var(--sup-afip);
     border-radius: 12px;
     width: min(640px, 95vw);
     max-height: 88vh;
@@ -20,7 +20,7 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
     border-top: 6px solid #667eea;
 }
-.lanzador-caja.lanzador-atm { border-top-color: #1e8e6f; }
+.lanzador-caja.lanzador-atm { background: var(--sup-atm); border-top-color: var(--c-atm-1); }
 
 .lanzador-header {
     display: flex;
@@ -45,8 +45,14 @@
 }
 .lanzador-cerrar:hover { background: #f0f0f0; color: #2c3e50; }
 
+/* Mientras se abre un navegador la lista no acepta clicks (evita abrir dos). */
+.lanzador-bloqueado {
+    pointer-events: none;
+    opacity: 0.55;
+}
+
 .lanzador-ayuda {
-    color: #7f8c8d;
+    color: var(--texto-1);
     font-size: 0.95rem;
     margin: 0 0 16px;
 }
@@ -64,7 +70,7 @@
     border-bottom: 3px solid transparent;
     padding: 8px 14px;
     font-size: 0.95rem;
-    color: #7f8c8d;
+    color: var(--texto-1);
     cursor: pointer;
     margin-bottom: -1px;
 }

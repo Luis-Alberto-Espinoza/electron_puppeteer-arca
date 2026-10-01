@@ -67,10 +67,11 @@
                         ${SERVICIOS_AFIP.map(s => `<button class="nav-drop-item" data-clave="${s.clave}">${s.label}</button>`).join('')}
                     </div>
                 </div>
-                <div class="nav-dropdown">
+                <div class="nav-dropdown nav-dropdown-atm">
                     <button class="nav-btn nav-dropdown-toggle">ATM ▾</button>
                     <div class="nav-dropdown-menu">
                         <button class="nav-drop-item" data-clave="atm">Inicio ATM</button>
+                        <button class="nav-drop-item" data-lanzador="atm">Lanzador</button>
                         ${SUBSERVICIOS_ATM.map(s => `<button class="nav-drop-item" data-sub="${s.sub}">${s.label}</button>`).join('')}
                     </div>
                 </div>
