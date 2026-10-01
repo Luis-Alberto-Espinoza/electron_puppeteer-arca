@@ -568,37 +568,6 @@
 }
 
 /* ========================================
-   BADGES DE ESTADO (tabla de seleccionados)
-   ======================================== */
-.estado-cell {
-    text-align: center;
-}
-
-.badge {
-    padding: 4px 12px;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    white-space: nowrap;
-    display: inline-block;
-}
-
-.badge-validado {
-    background: #d1fae5;
-    color: #059669;
-}
-
-.badge-invalido {
-    background: #fee2e2;
-    color: #dc2626;
-}
-
-.badge-sin-validar {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-/* ========================================
    RESULTADOS
    ======================================== */
 .planes-resultado {

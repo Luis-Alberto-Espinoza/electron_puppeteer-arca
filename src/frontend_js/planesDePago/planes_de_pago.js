@@ -51,21 +51,11 @@ window.inicializarModuloPlanesDePago = () => {
 
     selectorUsuarios = new SelectorUsuarios('selector-representantes-planes', {
         mostrarTablaSeleccionados: true,
-        campoCredencial: 'claveAFIP',
-        campoEstado: 'estado_afip',
-        campoError: 'errorAfip',
-        permitirInvalidos: false,
-        permitirSinValidar: false,
-        mensajeSinValidar: 'Debe validar las credenciales AFIP primero',
-        renderizarColumnasExtras: (usuario) => {
-            let badge = '';
-            let cssClass = '';
-            if (usuario.estado_afip === 'validado')      { badge = 'Validado';    cssClass = 'badge-validado'; }
-            else if (usuario.estado_afip === 'invalido') { badge = 'Invalido';    cssClass = 'badge-invalido'; }
-            else                                          { badge = 'Sin validar'; cssClass = 'badge-sin-validar'; }
-            return `<td class="estado-cell"><span class="badge ${cssClass}">${badge}</span></td>`;
-        },
-        headersColumnasExtras: ['Estado'],
+        // Modelo plano: el backend ya computó puedeOperar para 'afip' (acceso
+        // propio o por representante), así el representado aparece igual que en
+        // el resto de AFIP. Solo se listan operables → no hace falta columna Estado.
+        fuente: 'contribuyentes',
+        servicio: 'afip',
         onCambioSeleccion: (seleccionados) => {
             actualizarPanelesCuits(seleccionados);
         }
