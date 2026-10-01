@@ -138,28 +138,36 @@ function accesoAfip(c, lista) {
 
 /**
  * Computa puedeOperar/motivoNoOpera para un servicio dado (§2 listar).
- * `tieneAcceso`: hay una clave con la que intentar entrar, aunque no esté validada.
- * Lo usa el lanzador: abrir el navegador ES la forma de validarla.
+ * `tieneAcceso`: lo ÚNICO que falta es validar la clave (hay una con la que intentar
+ *   y no hay otro bloqueo, como falta de PDV). Usarla la valida (lanzador, facturar).
+ * `problemaClave`: el bloqueo es la clave (falta, sin validar o incorrecta) → tiene
+ *   sentido ofrecer "actualizar clave".
  */
 function evaluarOperabilidad(c, servicio, lista) {
-    if (!servicio) return { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true };
+    const ok = { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true, problemaClave: false };
+    if (!servicio) return ok;
 
     if (servicio === 'atm') {
-        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM', tieneAcceso: false };
+        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM', tieneAcceso: false, problemaClave: true };
         if (c.estado_atm !== 'validado') {
             const motivo = c.estado_atm === 'invalido' ? 'clave ATM incorrecta' : 'clave ATM sin validar';
-            return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: true };
+            return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: true, problemaClave: true };
         }
-        return { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true };
+        return ok;
     }
 
     // 'afip' | 'facturacion'
     const a = accesoAfip(c, lista);
-    if (!a.hay || !a.validado) return { puedeOperar: false, motivoNoOpera: a.motivo, tieneAcceso: a.hay };
-    if (servicio === 'facturacion' && !(Array.isArray(c.puntosDeVenta) && c.puntosDeVenta.length > 0)) {
-        return { puedeOperar: false, motivoNoOpera: 'sin facturación habilitada (sin puntos de venta)', tieneAcceso: true };
+    const tienePdv = Array.isArray(c.puntosDeVenta) && c.puntosDeVenta.length > 0;
+    const faltaPdv = servicio === 'facturacion' && !tienePdv;
+    if (!a.hay || !a.validado) {
+        // Sin PDV no hay forma de facturar aunque se arregle la clave: no se deja elegir.
+        return { puedeOperar: false, motivoNoOpera: a.motivo, tieneAcceso: a.hay && !faltaPdv, problemaClave: true };
     }
-    return { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true };
+    if (faltaPdv) {
+        return { puedeOperar: false, motivoNoOpera: 'sin facturación habilitada (sin puntos de venta)', tieneAcceso: false, problemaClave: false };
+    }
+    return ok;
 }
 
 /**
@@ -194,6 +202,7 @@ function aListItem(c, servicio, lista) {
         puedeOperar: op.puedeOperar,
         motivoNoOpera: op.motivoNoOpera,
         tieneAcceso: op.tieneAcceso,
+        problemaClave: op.problemaClave,
         esRepresentado: !c.claveAFIP && !!c.representanteAfipCuit
     };
 }

@@ -325,6 +325,7 @@ class SelectorUsuarios {
                 puedeOperar: it.puedeOperar,
                 motivoNoOpera: it.motivoNoOpera,
                 tieneAcceso: it.tieneAcceso,
+                problemaClave: it.problemaClave,
                 esRepresentado: it.esRepresentado,
                 _fuenteContribuyentes: true
             }));

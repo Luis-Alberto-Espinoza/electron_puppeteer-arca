@@ -112,5 +112,34 @@
         });
     }
 
+    /**
+     * Arma la opción `accionFila` del SelectorUsuarios con el botón "Clave" ya cableado:
+     * aparece en filas con problema de clave (o recién marcadas con error), abre el diálogo,
+     * recarga la lista y deja un mensaje en la fila. Es lo que reusan lanzador, facturas, etc.
+     *
+     * @param {'afip'|'atm'} canal           clave a actualizar (facturación usa 'afip')
+     * @param {() => SelectorUsuarios} obtenerSelector  función: el selector se crea DESPUÉS
+     * @param {string} [mensajeOk]           texto de la fila tras guardar
+     */
+    function crearAccionActualizarClave(canal, obtenerSelector, mensajeOk = 'Clave guardada') {
+        return {
+            texto: '🔑 Clave',
+            titulo: 'Actualizar la clave de este cliente',
+            mostrar: (usuario, marca) => !!usuario.problemaClave || !!(marca && marca.tipo === 'error'),
+            onClick: async (usuario) => {
+                const selector = obtenerSelector();
+                const r = await abrirActualizarClave({ cuit: usuario.cuit, servicio: canal });
+                if (r.error) {
+                    selector.marcarFila(usuario.id, r.error, 'error');
+                    return;
+                }
+                if (!r.actualizada) return;
+                await selector.recargar();   // cambió el estado (si era representante, el de varios)
+                selector.marcarFila(usuario.id, mensajeOk, 'ok');
+            }
+        };
+    }
+
     window.abrirActualizarClave = abrirActualizarClave;
+    window.crearAccionActualizarClave = crearAccionActualizarClave;
 })();

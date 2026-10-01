@@ -168,12 +168,8 @@
             permitirSinValidar: true,
             permitirInvalidos: true,
             filtroHabilitados: true,
-            accionFila: {
-                texto: '🔑 Clave',
-                titulo: 'Actualizar la clave de este cliente',
-                mostrar: (usuario, marca) => !usuario.puedeOperar || (marca && marca.tipo === 'error'),
-                onClick: (usuario) => actualizarClave(usuario)
-            },
+            accionFila: window.crearAccionActualizarClave(servicio, () => selector,
+                'Clave guardada: hacé click para probarla'),
             onCambioSeleccion: (sel) => {
                 const cliente = sel[0];
                 if (!cliente) return;   // el propio quitarSeleccion de abajo vuelve a llamar acá
@@ -182,21 +178,6 @@
                 lanzar(window.electronAPI.sesion[servicio](cliente.cuit), cliente);
             }
         });
-
-        async function actualizarClave(usuario) {
-            if (typeof window.abrirActualizarClave !== 'function') {
-                console.error('[Lanzador] window.abrirActualizarClave no está disponible');
-                return;
-            }
-            const r = await window.abrirActualizarClave({ cuit: usuario.cuit, servicio });
-            if (r.error) {
-                selector.marcarFila(usuario.id, r.error, 'error');
-                return;
-            }
-            if (!r.actualizada) return;
-            await selector.recargar();   // el estado cambió (y si era representante, el de varios)
-            selector.marcarFila(usuario.id, 'Clave guardada: hacé click para probarla', 'ok');
-        }
 
         btnAbrir.addEventListener('click', () => {
             const cuit = inputCuit.value.trim();

@@ -180,3 +180,21 @@ test('registrarVerificacion marca el estado del titular', async () => {
     assert.strictEqual(store.dump()[0].estado_afip, 'validado');
     assert.strictEqual(store.dump()[0].claveAFIP, 'deboraAFIP');  // no toca la clave
 });
+
+test('listar(facturacion): clave sin validar + sin PDV → no se deja elegir (tieneAcceso false)', async () => {
+    const datos = datosBase();
+    datos[0].estado_afip = 'pendiente';
+    datos[1].puntosDeVenta = [];
+    const papi = (await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'facturacion' }))
+        .find(i => i.cuit === '30718609700');
+    assert.strictEqual(papi.tieneAcceso, false);
+    assert.strictEqual(papi.problemaClave, true);
+});
+
+test('listar(facturacion): clave OK pero sin PDV → no es problema de clave', async () => {
+    const datos = datosBase();
+    datos[1].puntosDeVenta = [];
+    const papi = (await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'facturacion' }))
+        .find(i => i.cuit === '30718609700');
+    assert.strictEqual(papi.problemaClave, false);
+});

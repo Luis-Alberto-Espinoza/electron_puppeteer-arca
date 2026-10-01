@@ -239,10 +239,9 @@ async function mostrarSelectorUsuario() {
 
     // Si ya está inyectado, solo mostrar y recargar usuarios
     if (selectorUsuariosAfip) {
-        // Recargar la lista de usuarios para que esté actualizada
-        if (selectorUsuariosAfip.cargarUsuarios) {
-            await selectorUsuariosAfip.cargarUsuarios();
-        }
+        // recargar() también vuelve a pintar la lista (cargarUsuarios solo traía los datos,
+        // y la lista seguía mostrando los estados viejos).
+        await selectorUsuariosAfip.recargar();
         return;
     }
 
@@ -307,6 +306,18 @@ async function mostrarSelectorUsuario() {
             // campoEstado/requiereAnalisis: eso era del objeto gordo legacy.
             fuente: 'contribuyentes',
             servicio: 'facturacion',
+
+            // Igual que el lanzador: por default solo los habilitados; la casilla muestra el
+            // resto. Los que solo tienen la clave sin validar se pueden elegir (si está mal,
+            // falla al facturar), y el botón "Clave" la corrige sin ir a Clientes. La clave de
+            // facturación es la de AFIP (la del representante, si es representado).
+            permitirSinValidar: true,
+            permitirInvalidos: true,
+            filtroHabilitados: true,
+            accionFila: window.crearAccionActualizarClave
+                ? window.crearAccionActualizarClave('afip', () => selectorUsuariosAfip,
+                    'Clave guardada (queda sin validar)')
+                : null,
 
             onCambioSeleccion: (usuariosSeleccionados) => {
                 // Solo permitir 1 usuario - tomar el ÚLTIMO (el recién clickeado)
