@@ -35,7 +35,7 @@ async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath
             console.error('[PlanesDePago Manager] Login falló:', resultadoLogin.message);
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: resultadoLogin.error || 'LOGIN_FAILED',
                 message: resultadoLogin.message
             };
         }
@@ -75,7 +75,7 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
             console.error('[PlanesDePago Manager Lote] Login falló:', resultadoLogin.message);
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: resultadoLogin.error || 'LOGIN_FAILED',
                 message: resultadoLogin.message
             };
         }

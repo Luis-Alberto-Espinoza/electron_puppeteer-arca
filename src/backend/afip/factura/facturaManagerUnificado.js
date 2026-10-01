@@ -149,7 +149,7 @@ async function iniciarProceso(
             console.error("✗ El login fallo:", loginResult.message);
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: loginResult.error || 'LOGIN_FAILED',
                 message: loginResult.message
             };
         }

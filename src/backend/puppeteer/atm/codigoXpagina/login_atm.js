@@ -551,6 +551,33 @@ async function loginATM(page, credencialesATM) {
     }
 }
 
+/**
+ * loginATM + corte si falla. Para los flujos que hacen login y siguen navegando:
+ * si la clave está mal, no tiene sentido seguir (antes seguían de largo y fallaban
+ * minutos después esperando pantallas que nunca aparecían, con un error que no
+ * mencionaba la clave). Lanza un Error con mensaje claro y `.code` = error del login,
+ * que el manager del lote atrapa para ese cliente y sigue con el siguiente.
+ * @returns {Promise<Object>} el resultado del login si salió bien
+ */
+async function exigirLoginATM(page, credencialesATM) {
+    const resultado = await loginATM(page, credencialesATM);
+    if (resultado && resultado.success) return resultado;
+
+    const mensajes = {
+        INVALID_CREDENTIALS: 'Clave ATM incorrecta',
+        CAMPO_INCOMPLETO: 'No se pudo completar el formulario de login de ATM',
+        PASSWORD_UPDATE_FAILED: 'ATM pidió cambiar la clave y no se pudo',
+        PASSWORD_UPDATE_ERROR: 'ATM pidió cambiar la clave y no se pudo',
+        EMAIL_UPDATE_MODAL_ERROR: 'No se pudo cerrar el aviso de actualización de email de ATM'
+    };
+    const codigo = (resultado && resultado.error) || 'LOGIN_FAILED';
+    const detalle = resultado && resultado.message;
+    const base = mensajes[codigo] || 'No se pudo iniciar sesión en ATM';
+    const error = new Error(detalle && detalle !== base ? `${base}: ${detalle}` : base);
+    error.code = codigo;
+    throw error;
+}
+
 // === FUNCIÓN AUXILIAR PARA DEBUG ===
 async function debugPopupElements(page) {
   console.log('🔍 Analizando elementos emergentes en la página...');
@@ -596,4 +623,4 @@ process.on('uncaughtException', (error) => {
   console.error('Uncaught Exception:', error);
 });
 
-module.exports = { loginATM, debugPopupElements, manejarModalActualizacionEmail };
+module.exports = { loginATM, exigirLoginATM, debugPopupElements, manejarModalActualizacionEmail };

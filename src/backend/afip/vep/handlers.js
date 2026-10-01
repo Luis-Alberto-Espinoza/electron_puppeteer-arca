@@ -3,6 +3,7 @@
 
 const vepManager = require('./vepManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { crearCorteCaptchaAfip } = require('../corteCaptchaAfip.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const clienteHist = historialRepo.clienteDesdeUsuario;
 
@@ -35,6 +36,8 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
 
         try {
             const url = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
+            // Si AFIP pide captcha en un cliente, el resto del lote se saltea (ver corteCaptchaAfip).
+            const corte = crearCorteCaptchaAfip();
 
             // ==============================================
             // PRIMERA PASADA: Procesar TODOS los clientes
@@ -57,6 +60,7 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
                         // y el objetivo. El objetivo se enhebra como `usuario` →
                         // paso_1b selecciona ese CUIT en AFIP (seleccionaCuit) y la
                         // carpeta queda en el objetivo (no en el login).
+                        if (corte.activo) throw new Error(corte.mensaje);
                         const acceso = await repo.resolverAcceso(String(usuario.cuit), 'afip');
                         if (!acceso) {
                             throw new Error('El contribuyente no tiene acceso AFIP (ni clave propia ni representante)');
@@ -75,6 +79,7 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
                         // Llamar al VEP Manager SIN periodos seleccionados
                         const downloadsPath = app.getPath('downloads');
                         const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, null, downloadsPath, { visible });
+                        corte.registrar(resultado);
 
                         if (resultado.requiereSeleccion) {
                             // Cliente con multiples periodos
@@ -212,6 +217,7 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
                 console.log(`\nProcesando ${usuario.nombre} con ${periodosCliente.length} periodo(s)`);
 
                 try {
+                    if (corte.activo) throw new Error(corte.mensaje);
                     const acceso = await repo.resolverAcceso(String(usuario.cuit), 'afip');
                     if (!acceso) {
                         throw new Error('El contribuyente no tiene acceso AFIP (ni clave propia ni representante)');
@@ -230,6 +236,7 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
                     // Llamar con los periodos seleccionados
                     const downloadsPath = app.getPath('downloads');
                     const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, periodosCliente, downloadsPath, { visible });
+                    corte.registrar(resultado);
 
                     if (resultado.success) {
                         console.log(`  ${usuario.nombre} completado`);

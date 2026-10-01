@@ -46,7 +46,7 @@ async function iniciarConsultaComprobantes(url, credenciales, datos, usuarioPara
             console.error('❌ [Manager] Login falló:', loginResult.message);
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: loginResult.error || 'LOGIN_FAILED',
                 message: loginResult.message
             };
         }

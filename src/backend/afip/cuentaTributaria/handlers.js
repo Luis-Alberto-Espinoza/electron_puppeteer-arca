@@ -13,6 +13,7 @@
 
 const cuentaTributariaManager = require('./cuentaTributariaManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { crearCorteCaptchaAfip } = require('../corteCaptchaAfip.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -75,6 +76,8 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
 
         const downloadsPath = app.getPath('downloads');
         const url = URL_LOGIN_AFIP;
+        // Si AFIP pide captcha en un cliente, el resto del lote se saltea (ver corteCaptchaAfip).
+        const corte = crearCorteCaptchaAfip();
 
         try {
             // ============================================================
@@ -101,6 +104,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                     });
 
                     try {
+                        if (corte.activo) throw new Error(corte.mensaje);
                         const credenciales = await obtenerCredenciales(repo, cuitAsociado);
                         const r = await cuentaTributariaManager.iniciarProceso(
                             url,
@@ -110,6 +114,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             downloadsPath,
                             { visible }
                         );
+                        corte.registrar(r);
 
                         if (!r || r.success === false) {
                             errores.push({
@@ -208,6 +213,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                     }
 
                     try {
+                        if (corte.activo) throw new Error(corte.mensaje);
                         const credenciales = await obtenerCredenciales(repo, cuitAsociado);
                         const r = await cuentaTributariaManager.iniciarProceso(
                             url,
@@ -217,6 +223,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             downloadsPath,
                             { visible }
                         );
+                        corte.registrar(r);
 
                         if (!r || r.success === false) {
                             resultados.push({
@@ -303,6 +310,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                     }
 
                     try {
+                        if (corte.activo) throw new Error(corte.mensaje);
                         const credenciales = await obtenerCredenciales(repo, cuitAsociado);
                         const r = await cuentaTributariaManager.iniciarProceso(
                             url,
@@ -312,6 +320,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             downloadsPath,
                             { visible }
                         );
+                        corte.registrar(r);
 
                         if (!r || r.success === false) {
                             resultados.push({

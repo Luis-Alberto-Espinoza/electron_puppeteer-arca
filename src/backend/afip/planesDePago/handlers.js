@@ -5,6 +5,7 @@ const { CuitsAsociadosStorage } = require('./storage_cuits.js');
 const planesDePagoManager = require('./planesDePagoManager.js');
 const consolidadoExcel = require('./consolidadoExcel.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { crearCorteCaptchaAfip } = require('../corteCaptchaAfip.js');
 
 /**
  * Credenciales AFIP del representante, resueltas por el modelo plano (resolverAcceso).
@@ -85,6 +86,11 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
 
             const downloadsPath = app.getPath('downloads');
             const resultados = [];
+            // Todos los CUITs entran con la MISMA clave (la del representante): si AFIP la
+            // rechaza una vez, va a rechazarla en todos, y cada intento extra acerca el captcha.
+            // Igual con el captcha: una vez que salta, el resto del lote se saltea.
+            const corte = crearCorteCaptchaAfip();
+            let claveRechazada = null;
 
             for (let i = 0; i < cuitsAProcesar.length; i++) {
                 const cuitConsulta = cuitsAProcesar[i];
@@ -104,6 +110,10 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                 }
 
                 try {
+                    if (corte.activo) throw new Error(corte.mensaje);
+                    if (claveRechazada) {
+                        throw new Error(`Salteado: AFIP rechazó la clave del representante (${claveRechazada}).`);
+                    }
                     const resultado = await planesDePagoManager.iniciarProceso(
                         credenciales,
                         representante,
@@ -111,6 +121,10 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                         downloadsPath,
                         { visible }
                     );
+                    corte.registrar(resultado);
+                    if (resultado && resultado.error === 'INVALID_CREDENTIALS') {
+                        claveRechazada = resultado.message || 'clave incorrecta';
+                    }
 
                     resultados.push({
                         cuitConsulta,
@@ -198,6 +212,8 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
         }
 
         const resultadosGlobales = [];
+        // Un login por representante: si AFIP pide captcha en uno, se saltean los que siguen.
+        const corte = crearCorteCaptchaAfip();
 
         for (let r = 0; r < loteRepresentantes.length; r++) {
             const { representante, cuitsAProcesar } = loteRepresentantes[r];
@@ -218,6 +234,8 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
             }
 
             try {
+                if (corte.activo) throw new Error(corte.mensaje);
+
                 // Obtener credenciales del representante
                 const credenciales = await credencialesRepresentante(repo, representante);
 
@@ -264,6 +282,7 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                     onProgreso,
                     { visible }
                 );
+                corte.registrar(resultado);
 
                 resultadosGlobales.push({
                     representante,

@@ -38,7 +38,7 @@ async function iniciarConsultaDeuda(url, credenciales, consultaData, downloadsPa
             console.error("❌ [Consulta Deuda Manager] El login falló:", resultadoLogin.message);
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: resultadoLogin.error || 'LOGIN_FAILED',
                 message: resultadoLogin.message
             };
         }

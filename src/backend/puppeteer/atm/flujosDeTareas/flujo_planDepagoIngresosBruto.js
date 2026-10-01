@@ -3,7 +3,7 @@ const fs = require('fs/promises');
 const os = require('os');
 const { getDownloadPath, moverArchivo } = require('../../../utils/fileManager.js');
 const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
-const { loginATM } = require('../codigoXpagina/login_atm.js');
+const { exigirLoginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
 const { prepararTablaIngresosBrutos, descargarFilaVigentePorIndice, contarFilasVigentes } = require('../codigoXpagina/planDePago_ingresosBrutos.js');
@@ -47,7 +47,8 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         await page.goto('https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp');
 
         enviarProgreso('info', 'Iniciando sesión en ATM...');
-        await loginATM(page, credencialesATM);
+        // Si el login falla corta acá (antes seguía de largo y fallaba después sin decir por qué).
+        await exigirLoginATM(page, credencialesATM);
 
         enviarProgreso('info', 'Navegando a la oficina virtual...');
         const oficinaVirtualPage = await entrarOficinaVirtual(page);

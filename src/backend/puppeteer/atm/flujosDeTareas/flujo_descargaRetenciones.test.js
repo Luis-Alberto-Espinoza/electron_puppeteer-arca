@@ -32,7 +32,10 @@ function cargarFlujoConStubs({ alDescargar } = {}) {
         }),
         resolverHeadless: () => false
     });
-    stubModulo('../codigoXpagina/login_atm.js', { loginATM: async () => {} });
+    stubModulo('../codigoXpagina/login_atm.js', {
+        loginATM: async () => ({ success: true }),
+        exigirLoginATM: async () => ({ success: true })
+    });
     stubModulo('../codigoXpagina/home-oficinaVirtual.js', {
         entrarOficinaVirtual: async () => ({ reload: async () => {} })
     });

@@ -37,7 +37,7 @@ async function iniciarProcesoVEP(url, credenciales, usuarioData, periodosSelecci
             console.error("❌ [VEP Manager] El login fallo:", resultadoLogin.message);
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: resultadoLogin.error || 'LOGIN_FAILED',
                 message: resultadoLogin.message
             };
         }

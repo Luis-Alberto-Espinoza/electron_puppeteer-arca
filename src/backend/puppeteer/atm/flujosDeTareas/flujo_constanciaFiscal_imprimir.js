@@ -1,4 +1,4 @@
-const { loginATM } = require('../codigoXpagina/login_atm.js');
+const { exigirLoginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarAConstanciaFiscal } = require('../codigoXpagina/oficina_constanciaFiscal.js');
 const { gestionarConstanciaFiscal } = require('../codigoXpagina/constanciaFiscal.js');
@@ -18,7 +18,8 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
         await page.goto(urlATM);
 
         enviarProgreso('info', 'Iniciando sesión en ATM...');
-        await loginATM(page, credencialesATM);
+        // Si el login falla corta acá (antes seguía de largo y fallaba después sin decir por qué).
+        await exigirLoginATM(page, credencialesATM);
 
         enviarProgreso('info', 'Navegando a la oficina virtual...');
         const oficinaVirtualPage = await entrarOficinaVirtual(page);

@@ -1,4 +1,4 @@
-const { loginATM } = require('../codigoXpagina/login_atm.js');
+const { exigirLoginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { navegarARetenciones } = require('../codigoXpagina/oficina_retenciones.js');
 const { descargarRetencionGenerico } = require('../codigoXpagina/retenciones_generico.js');
@@ -69,7 +69,8 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
 
         // PASO 2: Login en ATM
         enviarProgreso('info', 'Iniciando sesión en ATM...');
-        await loginATM(page, credencialesATM);
+        // Si el login falla corta acá (antes seguía de largo y fallaba después sin decir por qué).
+        await exigirLoginATM(page, credencialesATM);
 
         // PASO 3: Entrar a la Oficina Virtual
         enviarProgreso('info', 'Navegando a la oficina virtual...');

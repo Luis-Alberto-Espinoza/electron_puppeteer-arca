@@ -39,7 +39,7 @@ async function iniciarProcesoCuentaTributaria(url, credenciales, payload, modo, 
         if (!resultadoLogin.success) {
             return {
                 success: false,
-                error: 'LOGIN_FAILED',
+                error: resultadoLogin.error || 'LOGIN_FAILED',
                 message: resultadoLogin.message
             };
         }

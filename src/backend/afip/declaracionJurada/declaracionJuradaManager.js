@@ -83,7 +83,7 @@ async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo,
     return await puppeteerManager.ejecutar(async (browser, page) => {
         const resultadoLogin = await loginManager.hacerLogin(page, url || URL_LOGIN_AFIP, credenciales);
         if (!resultadoLogin.success) {
-            return { success: false, error: 'LOGIN_FAILED', message: resultadoLogin.message };
+            return { success: false, error: resultadoLogin.error || 'LOGIN_FAILED', message: resultadoLogin.message };
         }
 
         if (modo === 'probarAcceso') {
