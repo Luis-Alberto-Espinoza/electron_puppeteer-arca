@@ -47,11 +47,11 @@ function generarHtmlQueNoSeRompe(data) {
     html += '  </div>';
     
     // Título
-    html += '<h2 style="color: #3498db; margin-top: 0;">Resumen de Procesamiento</h2>';
+    html += '<h2 style="color: var(--v-txt-info, #3498db); margin-top: 0;">Resumen de Procesamiento</h2>';
     
     // Datos básicos
     html += '<div style="background-color: #34495e; padding: 15px; border-radius: 5px; margin-bottom: 15px;">';
-    html += '<h3 style="color: #e74c3c; margin-top: 0;">Información General</h3>';
+    html += '<h3 style="color: var(--v-txt-error, #e74c3c); margin-top: 0;">Información General</h3>';
     html += '<p><strong>Tipo de Actividad:</strong> ' + (data.tipoActividad || 'No especificado') + '</p>';
     html += '<p><strong>Tipo de Contribuyente:</strong> ' + (data.tipoContribuyente || 'No especificado') + '</p>';
     html += '<p><strong>Total de Facturas:</strong> ' + totalFacturas + '</p>';
@@ -60,7 +60,7 @@ function generarHtmlQueNoSeRompe(data) {
     // Solo agregar tabla si hay facturas
     if (totalFacturas > 0 && data.montoResultados?.facturasGeneradas) {
         html += '<div style="background-color: #34495e; padding: 15px; border-radius: 5px;">';
-        html += '<h3 style="color: #e74c3c; margin-top: 0;">Facturas Generadas (' + totalFacturas + ' elementos)</h3>';
+        html += '<h3 style="color: var(--v-txt-error, #e74c3c); margin-top: 0;">Facturas Generadas (' + totalFacturas + ' elementos)</h3>';
         // Usa un id único para el contenedor expandible
         html += `
             <div class="tabla-scroll tabla-colapsada" id="tabla-facturas-afip-content">
@@ -84,10 +84,10 @@ function generarTablaSimple(array) {
 
     // Encabezados - 4 columnas: Fecha | Monto | Fecha | Monto
     tabla += '<tr style="background-color: #e74c3c;">';
-    tabla += '<th style="border: 1px solid #fff; padding: 12px; color: white; width: 25%; text-align: left;">📅 Fecha</th>';
-    tabla += '<th style="border: 1px solid #fff; padding: 12px; color: white; width: 25%; text-align: right;">💰 Monto</th>';
-    tabla += '<th style="border: 1px solid #fff; padding: 12px; color: white; width: 25%; text-align: left;">📅 Fecha</th>';
-    tabla += '<th style="border: 1px solid #fff; padding: 12px; color: white; width: 25%; text-align: right;">💰 Monto</th>';
+    tabla += '<th style="border: 1px solid var(--v-borde, #fff); padding: 12px; color: white; width: 25%; text-align: left;">📅 Fecha</th>';
+    tabla += '<th style="border: 1px solid var(--v-borde, #fff); padding: 12px; color: white; width: 25%; text-align: right;">💰 Monto</th>';
+    tabla += '<th style="border: 1px solid var(--v-borde, #fff); padding: 12px; color: white; width: 25%; text-align: left;">📅 Fecha</th>';
+    tabla += '<th style="border: 1px solid var(--v-borde, #fff); padding: 12px; color: white; width: 25%; text-align: right;">💰 Monto</th>';
     tabla += '</tr>';
 
     // Procesar los datos de a pares (fecha, monto) y mostrar dos pares por fila
@@ -97,14 +97,14 @@ function generarTablaSimple(array) {
         // Primer par
         let fecha1 = array[i]?.[0] ?? '';
         let monto1 = `$ `+ array[i]?.[1] ?? '';
-        tabla += `<td style="border: 1px solid #fff; padding: 10px; color: white; font-size: 13px;">${fecha1}</td>`;
-        tabla += `<td style="border: 1px solid #fff; padding: 10px; color: #2ecc71; font-size: 13px; text-align: right; font-weight: bold;">${monto1}</td>`;
+        tabla += `<td style="border: 1px solid var(--v-borde, #fff); padding: 10px; color: white; font-size: 13px;">${fecha1}</td>`;
+        tabla += `<td style="border: 1px solid var(--v-borde, #fff); padding: 10px; color: #2ecc71; font-size: 13px; text-align: right; font-weight: bold;">${monto1}</td>`;
 
         // Segundo par (si existe)
         let fecha2 = array[i+1]?.[0] ?? '';
         let monto2 = `$ ` + array[i+1]?.[1] ?? '';
-        tabla += `<td style="border: 1px solid #fff; padding: 10px; color: white; font-size: 13px;">${fecha2}</td>`;
-        tabla += `<td style="border: 1px solid #fff; padding: 10px; color: #2ecc71; font-size: 13px; text-align: right; font-weight: bold;">${monto2}</td>`;
+        tabla += `<td style="border: 1px solid var(--v-borde, #fff); padding: 10px; color: white; font-size: 13px;">${fecha2}</td>`;
+        tabla += `<td style="border: 1px solid var(--v-borde, #fff); padding: 10px; color: #2ecc71; font-size: 13px; text-align: right; font-weight: bold;">${monto2}</td>`;
 
         tabla += '</tr>';
     }
@@ -140,7 +140,7 @@ export function implementarSeguro(elementoId, data) {
         // Plan de emergencia total
         const elemento = document.getElementById(elementoId);
         if (elemento) {
-            elemento.innerHTML = '<div style="padding: 20px; background: #f8f9fa; border: 2px solid #28a745; border-radius: 5px;"><h3>✅ Datos procesados correctamente</h3><p>Tipo: ' + (data.tipoActividad || 'N/A') + '</p><p>Contribuyente: ' + (data.tipoContribuyente || 'N/A') + '</p><p>Facturas: ' + (data.montoResultados?.facturasGeneradas?.length || 0) + '</p></div>';
+            elemento.innerHTML = '<div style="padding: 20px; background: var(--v-panel-2, #f8f9fa); border: 2px solid #28a745; border-radius: 5px;"><h3>✅ Datos procesados correctamente</h3><p>Tipo: ' + (data.tipoActividad || 'N/A') + '</p><p>Contribuyente: ' + (data.tipoContribuyente || 'N/A') + '</p><p>Facturas: ' + (data.montoResultados?.facturasGeneradas?.length || 0) + '</p></div>';
         }
         return false;
     }

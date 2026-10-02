@@ -241,7 +241,7 @@ async function extraerDataNotas() {
         facturasDelExcel = [];
         notasSeleccionadas.clear();
         const cont = document.getElementById('notasTablaContainer');
-        if (cont) cont.innerHTML = `<p class="info-text" style="color:#c0392b;">❌ ${_escaparHtml(e.message)}</p>`;
+        if (cont) cont.innerHTML = `<p class="info-text" style="color:var(--v-txt-error, #c0392b);">❌ ${_escaparHtml(e.message)}</p>`;
         actualizarSeleccionInfo();
     } finally {
         if (btnExtraer) { btnExtraer.disabled = false; btnExtraer.textContent = '📤 Extraer data'; }
@@ -1001,7 +1001,7 @@ function agregarLineaAFactura(numeroFactura) {
                 <div class="form-group">
                     <label for="unidadMedida_f${numeroFactura}_l${numeroLinea}">Unidad de Medida *</label>
                     <select id="unidadMedida_f${numeroFactura}_l${numeroLinea}" name="unidadMedida_f${numeroFactura}_l${numeroLinea}" required>
-                        <option value="7" style="color:#888;">seleccionar...</option>
+                        <option value="7" style="color:var(--v-texto-2, #888);">seleccionar...</option>
                         <option value="1"> kilogramos</option>
                         <option value="2"> metros</option>
                         <option value="3"> metros cuadrados</option>

@@ -318,7 +318,7 @@ window.inicializarConsultaComprobantes = () => {
         tablaBody.innerHTML = '';
         if (comprobantes.length === 0) {
             const tr = document.createElement('tr');
-            tr.innerHTML = '<td colspan="9" style="text-align:center; color:#7f8c8d; padding:20px;">No se encontraron comprobantes en el rango</td>';
+            tr.innerHTML = '<td colspan="9" style="text-align:center; color:var(--v-texto-2, #7f8c8d); padding:20px;">No se encontraron comprobantes en el rango</td>';
             tablaBody.appendChild(tr);
         } else {
             comprobantes.forEach((c, i) => {

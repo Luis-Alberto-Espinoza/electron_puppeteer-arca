@@ -45,7 +45,7 @@ export function renderizarArchivosDescargados(resultados) {
 
     if (archivosDescargados.length === 0) {
         listaArchivos.innerHTML = `
-            <div style="text-align: center; padding: 40px; color: #6b7280;">
+            <div style="text-align: center; padding: 40px; color: var(--v-texto-2, #6b7280);">
                 <p>No se descargaron archivos</p>
             </div>
         `;

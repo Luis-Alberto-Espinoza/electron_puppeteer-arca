@@ -253,7 +253,7 @@ async function mostrarSelectorUsuario() {
             <div class="selector-usuario">
                 <h2>Seleccione el Cliente para Facturar</h2>
                 <div id="selector-usuarios-afip"></div>
-                <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                <p style="color: var(--v-texto-2, #666); font-size: 14px; margin-top: 10px;">
                     Una vez seleccionado el cliente, podrá acceder a los módulos de Facturas y MercadoPago
                 </p>
             </div>

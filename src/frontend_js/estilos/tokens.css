@@ -62,6 +62,21 @@
   --sup-afip: #c3c9f4;        /* lavanda, familia del primario */
   --sup-atm: #b3e0cf;         /* verde agua, familia de ATM */
 
+  /* ===== Tonos por servicio de AFIP (ver estilos/tema_afip.css) =====
+     Todos de la familia violeta del primario, con un escalón de diferencia entre
+     servicios: se nota cuándo cambiás de servicio sin saltar a otro color.
+     Son tonos MEDIOS (letra blanca encima). Para ajustar uno, se cambia acá. */
+  --tono-afip-inicio:     hsl(262 46% 42%);
+  --tono-facturacion:     hsl(252 52% 40%);
+  --tono-tipificada:      hsl(252 42% 47%);   /* "un tono menor" que Facturación */
+  --tono-mercadopago:     hsl(242 46% 44%);
+  --tono-libroiva:        hsl(246 36% 44%);
+  --tono-vep:             hsl(270 48% 40%);
+  --tono-cuenta-trib:     hsl(280 44% 39%);
+  --tono-comprobantes:    hsl(234 46% 42%);
+  --tono-ddjj:            hsl(290 38% 39%);
+  --tono-planes:          hsl(264 36% 46%);
+
   /* ===== Forma ===== */
   --radio: 12px;
   --radio-sm: 6px;

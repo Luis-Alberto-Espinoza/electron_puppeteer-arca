@@ -57,7 +57,7 @@
         overlay.id = 'lanzador-sesion-overlay';
         overlay.className = 'lanzador-overlay';
         overlay.innerHTML = `
-            <div class="lanzador-caja lanzador-${servicio}">
+            <div class="lanzador-caja lanzador-${servicio} tema-vista">
                 <div class="lanzador-header">
                     <h3>🚀 ${TITULOS[servicio]}</h3>
                     <button class="lanzador-cerrar" title="Cerrar">✕</button>

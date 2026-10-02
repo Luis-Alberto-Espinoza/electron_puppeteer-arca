@@ -15,13 +15,13 @@
 }
 
 .factura-tipificada-container .header h2 {
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     font-size: 28px;
     margin-bottom: 10px;
 }
 
 .factura-tipificada-container .header .descripcion {
-    color: #6c757d;
+    color: var(--v-texto-2, #6c757d);
     font-size: 14px;
     margin: 0;
 }
@@ -59,7 +59,7 @@
 
 /* ===== FORMULARIO ===== */
 .formulario-container {
-    background: white;
+    background: var(--v-panel, white);
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     padding: 30px;
@@ -69,7 +69,7 @@
 .seccion-form {
     margin-bottom: 35px;
     padding-bottom: 25px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--v-borde, #e9ecef);
 }
 
 .seccion-form:last-of-type {
@@ -77,7 +77,7 @@
 }
 
 .seccion-form h3 {
-    color: #495057;
+    color: var(--v-texto-2, #495057);
     font-size: 20px;
     margin-bottom: 20px;
     padding-left: 10px;
@@ -99,7 +99,7 @@
 
 .form-group label {
     font-weight: 600;
-    color: #495057;
+    color: var(--v-texto-2, #495057);
     margin-bottom: 8px;
     font-size: 14px;
 }
@@ -108,7 +108,7 @@
 .form-group input[type="text"],
 .form-group select {
     padding: 10px 12px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--v-borde, #ced4da);
     border-radius: 4px;
     font-size: 14px;
     transition: all 0.3s ease;
@@ -122,16 +122,16 @@
 }
 
 .form-group input[type="text"]::placeholder {
-    color: #adb5bd;
+    color: var(--v-texto-2, #adb5bd);
 }
 
 /* ===== INPUT READONLY/DISABLED ===== */
 .form-group input[type="text"]:disabled,
 .form-group input[type="text"][readonly] {
-    background-color: #e9ecef;
+    background-color: var(--v-panel-2, #e9ecef);
     cursor: not-allowed;
-    color: #6c757d;
-    border-color: #ced4da;
+    color: var(--v-texto-2, #6c757d);
+    border-color: var(--v-borde, #ced4da);
 }
 
 /* ===== CHECKBOXES GRID ===== */
@@ -140,7 +140,7 @@
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 12px;
     padding: 15px;
-    background: #f8f9fa;
+    background: var(--v-panel-2, #f8f9fa);
     border-radius: 6px;
     margin-top: 10px;
 }
@@ -155,7 +155,7 @@
 }
 
 .checkbox-label:hover {
-    background-color: #e9ecef;
+    background-color: var(--v-panel-2, #e9ecef);
 }
 
 .checkbox-label input[type="checkbox"] {
@@ -167,7 +167,7 @@
 
 .checkbox-label span {
     font-size: 14px;
-    color: #495057;
+    color: var(--v-texto-2, #495057);
 }
 
 /* ===== LÍNEAS DE DETALLE ===== */
@@ -176,12 +176,12 @@
 }
 
 .linea-detalle {
-    background: #f8f9fa;
+    background: var(--v-panel-2, #f8f9fa);
     padding: 20px;
     border-radius: 6px;
     margin-bottom: 15px;
     position: relative;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--v-borde, #dee2e6);
 }
 
 .linea-detalle .linea-header {
@@ -193,7 +193,7 @@
 
 .linea-detalle .linea-header h4 {
     margin: 0;
-    color: #495057;
+    color: var(--v-texto-2, #495057);
     font-size: 16px;
 }
 
@@ -215,7 +215,7 @@
 .linea-detalle textarea {
     width: 100%;
     padding: 10px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--v-borde, #ced4da);
     border-radius: 4px;
     font-size: 14px;
     font-family: inherit;
@@ -257,7 +257,7 @@
     gap: 15px;
     margin-top: 30px;
     padding-top: 20px;
-    border-top: 2px solid #e9ecef;
+    border-top: 2px solid var(--v-borde, #e9ecef);
 }
 
 .btn-cancelar {
@@ -311,37 +311,37 @@
     margin-top: 30px;
     padding: 20px;
     border-radius: 8px;
-    background: #f8f9fa;
+    background: var(--v-panel-2, #f8f9fa);
 }
 
 .area-resultados h3 {
-    color: #495057;
+    color: var(--v-texto-2, #495057);
     font-size: 18px;
     margin-bottom: 15px;
 }
 
 .area-resultados .mensaje-exito {
-    background-color: #d4edda;
+    background-color: var(--v-ok-bg, #d4edda);
     border: 1px solid #c3e6cb;
-    color: #155724;
+    color: var(--v-txt-ok, #155724);
     padding: 15px;
     border-radius: 6px;
     margin-bottom: 10px;
 }
 
 .area-resultados .mensaje-error {
-    background-color: #f8d7da;
+    background-color: var(--v-error-bg, #f8d7da);
     border: 1px solid #f5c6cb;
-    color: #721c24;
+    color: var(--v-txt-error, #721c24);
     padding: 15px;
     border-radius: 6px;
     margin-bottom: 10px;
 }
 
 .area-resultados .mensaje-info {
-    background-color: #d1ecf1;
+    background-color: var(--v-info-bg, #d1ecf1);
     border: 1px solid #bee5eb;
-    color: #0c5460;
+    color: var(--v-txt-info, #0c5460);
     padding: 15px;
     border-radius: 6px;
     margin-bottom: 10px;
@@ -359,7 +359,7 @@
     height: 20px;
     border: 3px solid rgba(255,255,255,.3);
     border-radius: 50%;
-    border-top-color: white;
+    border-top-color: var(--v-borde, white);
     animation: spin 1s ease-in-out infinite;
 }
 
@@ -410,17 +410,17 @@
 /* ===== TOOLTIPS/AYUDA ===== */
 .help-text {
     font-size: 12px;
-    color: #6c757d;
+    color: var(--v-texto-2, #6c757d);
     margin-top: 5px;
     font-style: italic;
 }
 /* ===== FACTURAS MÚLTIPLES ===== */
 .factura-item {
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--v-borde, #e0e0e0);
     border-radius: 10px;
     padding: 20px;
     margin-bottom: 20px;
-    background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+    background: linear-gradient(to bottom, var(--v-panel, #ffffff), var(--v-panel-2, #f8f9fa));
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     transition: all 0.3s ease;
 }
@@ -436,12 +436,12 @@
     align-items: center;
     margin-bottom: 20px;
     padding-bottom: 15px;
-    border-bottom: 2px solid #e9ecef;
+    border-bottom: 2px solid var(--v-borde, #e9ecef);
 }
 
 .factura-header h4 {
     margin: 0;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     font-size: 20px;
     font-weight: 600;
 }
@@ -490,7 +490,7 @@
 
 .linea-header h5 {
     font-size: 16px;
-    color: #495057;
+    color: var(--v-texto-2, #495057);
     margin: 0;
 }
 
@@ -511,7 +511,7 @@
 
 /* ===== ÁREA DE PROGRESO ===== */
 .area-progreso {
-    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    background: linear-gradient(135deg, var(--v-panel-2, #f5f7fa) 0%, #c3cfe2 100%);
     padding: 30px;
     border-radius: 15px;
     margin: 30px 0;
@@ -519,14 +519,14 @@
 }
 
 .area-progreso h3 {
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     margin: 0 0 20px 0;
     text-align: center;
     font-size: 24px;
 }
 
 .progreso-general {
-    background: white;
+    background: var(--v-panel, white);
     padding: 20px;
     border-radius: 10px;
     margin-bottom: 20px;
@@ -537,14 +537,14 @@
     text-align: center;
     font-size: 18px;
     font-weight: 600;
-    color: #495057;
+    color: var(--v-texto-2, #495057);
     margin-bottom: 15px;
 }
 
 .barra-progreso {
     width: 100%;
     height: 30px;
-    background-color: #e9ecef;
+    background-color: var(--v-panel-2, #e9ecef);
     border-radius: 15px;
     overflow: hidden;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
@@ -568,7 +568,7 @@
 }
 
 .item-progreso {
-    background: white;
+    background: var(--v-panel, white);
     padding: 15px;
     border-radius: 8px;
     margin-bottom: 10px;
@@ -593,7 +593,7 @@
 .texto-factura {
     flex: 1;
     font-weight: 500;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
 }
 
 .estado-texto {
@@ -601,44 +601,44 @@
     font-weight: 600;
     padding: 5px 12px;
     border-radius: 12px;
-    background-color: #f8f9fa;
+    background-color: var(--v-panel-2, #f8f9fa);
 }
 
 /* ===== RESUMEN DE LOTE ===== */
 .resumen-lote {
-    background: white;
+    background: var(--v-panel, white);
     padding: 25px;
     border-radius: 10px;
     border-left: 5px solid #007bff;
 }
 
 .resumen-lote h4 {
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     margin: 0 0 15px 0;
     font-size: 22px;
 }
 
 .resumen-lote h5 {
-    color: #495057;
+    color: var(--v-texto-2, #495057);
     margin: 20px 0 10px 0;
     font-size: 18px;
-    border-bottom: 2px solid #e9ecef;
+    border-bottom: 2px solid var(--v-borde, #e9ecef);
     padding-bottom: 10px;
 }
 
 .resumen-lote p {
     margin: 8px 0;
     font-size: 16px;
-    color: #495057;
+    color: var(--v-texto-2, #495057);
 }
 
 .resumen-lote strong {
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
 }
 
 .resumen-lote hr {
     border: 0;
-    border-top: 2px solid #e9ecef;
+    border-top: 2px solid var(--v-borde, #e9ecef);
     margin: 20px 0;
 }
 
@@ -659,15 +659,15 @@
 }
 
 .resultado-exitoso {
-    background-color: #d4edda;
+    background-color: var(--v-ok-bg, #d4edda);
     border-left: 4px solid #28a745;
-    color: #155724;
+    color: var(--v-txt-ok, #155724);
 }
 
 .resultado-error {
-    background-color: #f8d7da;
+    background-color: var(--v-error-bg, #f8d7da);
     border-left: 4px solid #dc3545;
-    color: #721c24;
+    color: var(--v-txt-error, #721c24);
 }
 
 .lista-resultados small {
@@ -680,7 +680,7 @@
 
 /* ===== INFO TEXT ===== */
 .info-text {
-    color: #6c757d;
+    color: var(--v-texto-2, #6c757d);
     font-size: 14px;
     margin: 10px 0;
     font-style: italic;
@@ -714,16 +714,16 @@
    ============================================================ */
 
 .facturas-distintas-section {
-    border: 2px solid #c3d9ff;
+    border: 2px solid var(--v-borde, #c3d9ff);
     border-radius: 10px;
     padding: 18px 20px;
     margin-bottom: 20px;
-    background: #f5f9ff;
+    background: var(--v-panel-2, #f5f9ff);
 }
 
 .facturas-distintas-section h3 {
     margin: 0 0 6px 0;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     font-size: 18px;
 }
 
@@ -732,17 +732,17 @@
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    border: 1px solid #d6e2f5;
+    border: 1px solid var(--v-borde, #d6e2f5);
     border-radius: 8px;
     padding: 12px 16px;
     margin-top: 10px;
-    background: #ffffff;
+    background: var(--v-panel, #ffffff);
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .grupo-card-editando {
     border-color: #ffb74d;
-    background: #fff8ee;
+    background: var(--v-warn-bg, #fff8ee);
 }
 
 .grupo-card-info {
@@ -752,18 +752,18 @@
 }
 
 .grupo-card-info strong {
-    color: #007bff;
+    color: var(--v-txt-info, #007bff);
     font-size: 14px;
 }
 
 .grupo-cliente {
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
 }
 
 .grupo-meta {
     font-size: 0.85em;
-    color: #6c757d;
+    color: var(--v-texto-2, #6c757d);
 }
 
 .grupo-card-acciones {
@@ -826,7 +826,7 @@
 
 .notas-tabla th,
 .notas-tabla td {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--v-borde, #e2e8f0);
     padding: 6px 8px;
     text-align: left;
     white-space: nowrap;
@@ -835,13 +835,13 @@
 .notas-tabla thead th {
     position: sticky;
     top: 0;
-    background: #f1f5f9;
-    color: #1f2937;
+    background: var(--v-panel-2, #f1f5f9);
+    color: var(--v-texto, #1f2937);
     z-index: 1;
 }
 
 .notas-tabla tbody tr:nth-child(even) {
-    background: #fafafa;
+    background: var(--v-panel, #fafafa);
 }
 
 .notas-tabla td.num {
@@ -872,8 +872,8 @@
     display: inline-block;
     padding: 2px 8px;
     border-radius: 10px;
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--v-warn-bg, #fef3c7);
+    color: var(--v-txt-warn, #92400e);
     font-weight: 600;
     font-size: 0.9em;
 }

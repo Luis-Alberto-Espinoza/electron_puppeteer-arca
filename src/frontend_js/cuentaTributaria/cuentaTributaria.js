@@ -188,7 +188,7 @@ function renderizarColumnaCuitsGeneric(usuario, estadoCuits, claseCheckbox) {
     const seleccionadosUsuario = estadoCuits[usuario.id] || new Set();
 
     if (cuits.length === 0) {
-        return `<td style="text-align:center; color:#9ca3af; font-size:12px;">Sin CUITs</td>`;
+        return `<td style="text-align:center; color:var(--v-texto-2, #9ca3af); font-size:12px;">Sin CUITs</td>`;
     }
 
     const opciones = cuits.map(cuit => {
@@ -202,7 +202,7 @@ function renderizarColumnaCuitsGeneric(usuario, estadoCuits, claseCheckbox) {
                        value="${cuit}"
                        ${checked}
                        style="accent-color:#667eea;" />
-                ${cuit}${esPrincipal ? ' <span style="color:#10b981; font-size:10px;">(principal)</span>' : ''}
+                ${cuit}${esPrincipal ? ' <span style="color:var(--v-txt-ok, #10b981); font-size:10px;">(principal)</span>' : ''}
             </label>
         `;
     }).join('');

@@ -12,7 +12,7 @@
 .contenedor-principal-vep {
     max-width: var(--ancho-max);
     margin: 0 auto;
-    background: white;
+    background: var(--v-panel, white);
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
     padding: 30px;
@@ -24,25 +24,25 @@
 .header-vep {
     margin-bottom: 30px;
     padding-bottom: 20px;
-    border-bottom: 2px solid var(--borde);
+    border-bottom: 2px solid var(--v-borde, var(--borde));
 }
 
 .breadcrumb {
     font-size: 13px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
     margin-bottom: 12px;
 }
 
 .titulo-principal {
     font-size: 28px;
     font-weight: 700;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     margin-bottom: 8px;
 }
 
 .descripcion-principal {
     font-size: 14px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
     font-weight: 400;
 }
 
@@ -53,16 +53,16 @@
     display: flex;
     gap: 12px;
     margin: 20px 0;
-    border-bottom: 2px solid var(--borde);
+    border-bottom: 2px solid var(--v-borde, var(--borde));
     padding-bottom: 0;
 }
 
 .tab-btn {
     padding: 12px 24px;
-    background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%) !important;
-    border: 2px solid #c7d2fe !important;
+    background: linear-gradient(135deg, var(--v-panel-2, #e0e7ff) 0%, var(--v-panel-2, #ddd6fe) 100%) !important;
+    border: 2px solid var(--v-borde, #c7d2fe) !important;
     border-radius: 8px 8px 0 0 !important;
-    color: #4c1d95 !important;
+    color: var(--v-texto, #4c1d95) !important;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
@@ -71,7 +71,7 @@
 }
 
 .tab-btn:hover {
-    background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%) !important;
+    background: linear-gradient(135deg, #c7d2fe 0%, var(--v-panel-2, #ddd6fe) 100%) !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
 }
@@ -96,8 +96,8 @@
     flex: 1;
     padding: 14px 24px;
     background: transparent;
-    color: var(--texto-2);
-    border: 2px solid #d1d5db;
+    color: var(--v-texto-2, var(--texto-2));
+    border: 2px solid var(--v-borde, #d1d5db);
     border-radius: 8px;
     font-size: 15px;
     font-weight: 600;
@@ -106,9 +106,9 @@
 }
 
 .tab-modulo:hover {
-    background: var(--fondo-claro-2);
+    background: var(--v-panel-2, var(--fondo-claro-2));
     border-color: var(--texto-3);
-    color: #374151;
+    color: var(--v-texto, #374151);
 }
 
 .tab-modulo.tab-activo {
@@ -140,7 +140,7 @@
 }
 
 .modal-contenido {
-    background: white;
+    background: var(--v-panel, white);
     padding: 40px;
     border-radius: 12px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -150,14 +150,14 @@
 
 .modal-contenido h3 {
     font-size: 20px;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     margin-bottom: 20px;
 }
 
 .progreso-barra {
     width: 100%;
     height: 8px;
-    background: var(--borde);
+    background: var(--v-panel-2, var(--borde));
     border-radius: 4px;
     overflow: hidden;
     margin-bottom: 16px;
@@ -172,7 +172,7 @@
 
 #progreso-texto {
     font-size: 14px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
 }
 
 /* ========================================
@@ -219,25 +219,25 @@ th br {
 .select-medio-pago {
     padding: 5px 8px;
     font-size: 13px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--v-borde, #cbd5e1);
     border-radius: 6px;
-    background: var(--card);
+    background: var(--v-panel, var(--card));
     /* Color explícito: el select hereda el texto blanco de la tabla y, con
        fondo blanco, quedaba invisible (blanco sobre blanco). */
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     cursor: pointer;
     min-width: 150px;
 }
 
 /* Las <option> también: en algunos navegadores heredan el color del contexto. */
 .select-medio-pago option {
-    color: var(--texto-1);
-    background: var(--card);
+    color: var(--v-texto, var(--texto-1));
+    background: var(--v-panel, var(--card));
 }
 
 .select-medio-pago:disabled {
-    background: #f1f5f9;
-    color: #94a3b8;
+    background: var(--v-panel-2, #f1f5f9);
+    color: var(--v-texto-2, #94a3b8);
     cursor: not-allowed;
 }
 
@@ -329,7 +329,7 @@ th br {
 }
 
 .modal-contenido-periodos {
-    background: white;
+    background: var(--v-panel, white);
     border-radius: 12px;
     width: 90%;
     max-width: 800px;
@@ -353,7 +353,7 @@ th br {
 
 .modal-cabecera {
     padding: 25px 30px;
-    border-bottom: 2px solid #e1e8ed;
+    border-bottom: 2px solid var(--v-borde, #e1e8ed);
     background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
     color: white;
     border-radius: 12px 12px 0 0;
@@ -383,7 +383,7 @@ th br {
 }
 
 .tabla-periodos thead {
-    background: #f8f9fa;
+    background: var(--v-panel-2, #f8f9fa);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -393,8 +393,8 @@ th br {
     padding: 12px;
     text-align: left;
     font-weight: 600;
-    color: #2c3e50;
-    border-bottom: 2px solid #dee2e6;
+    color: var(--v-texto, #2c3e50);
+    border-bottom: 2px solid var(--v-borde, #dee2e6);
     font-size: 0.9rem;
 }
 
@@ -421,21 +421,21 @@ th br {
 }
 
 .tabla-periodos tbody tr {
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--v-borde, #e9ecef);
     transition: background-color 0.2s ease;
 }
 
 .tabla-periodos tbody tr:hover {
-    background-color: #f8f9fa;
+    background-color: var(--v-panel-2, #f8f9fa);
 }
 
 .fila-periodo {
-    background-color: #e3f2fd;
+    background-color: var(--v-panel-2, #e3f2fd);
     font-weight: 600;
 }
 
 .fila-detalle {
-    background-color: white;
+    background-color: var(--v-panel, white);
 }
 
 .celda-checkbox {
@@ -459,31 +459,31 @@ th br {
 .celda-periodo-titulo {
     padding: 15px;
     font-size: 1.1rem;
-    color: #1976d2;
+    color: var(--v-txt-info, #1976d2);
     font-weight: 600;
 }
 
 .celda-impuesto,
 .celda-categoria {
     padding: 10px 15px;
-    color: #5a6c7d;
+    color: var(--v-texto-2, #5a6c7d);
 }
 
 .celda-importe {
     padding: 10px 15px;
     text-align: right;
     font-weight: 600;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     font-family: monospace;
 }
 
 .modal-acciones {
     padding: 20px 30px;
-    border-top: 1px solid #e1e8ed;
+    border-top: 1px solid var(--v-borde, #e1e8ed);
     display: flex;
     gap: 15px;
     justify-content: flex-end;
-    background: #f8f9fa;
+    background: var(--v-panel-2, #f8f9fa);
     border-radius: 0 0 12px 12px;
 }
 
@@ -576,7 +576,7 @@ th br {
 .seccion-resultados {
     margin-top: 40px;
     padding-top: 30px;
-    border-top: 3px solid var(--borde);
+    border-top: 3px solid var(--v-borde, var(--borde));
     animation: fadeIn 0.4s ease;
 }
 
@@ -587,13 +587,13 @@ th br {
 .resultados-header h2 {
     font-size: 24px;
     font-weight: 700;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     margin-bottom: 8px;
 }
 
 .resultados-descripcion {
     font-size: 14px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
 }
 
 /* ========================================
@@ -666,7 +666,7 @@ th br {
 
 .grupo-contenido {
     padding: 20px;
-    background: var(--fondo-claro);
+    background: var(--v-panel-2, var(--fondo-claro));
 }
 
 /* ========================================
@@ -674,7 +674,7 @@ th br {
    ======================================== */
 
 .tarjeta-cliente {
-    background: white;
+    background: var(--v-panel, white);
     border-radius: 8px;
     margin-bottom: 16px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -707,7 +707,7 @@ th br {
 /* Estado excluido */
 .tarjeta-cliente.excluido {
     opacity: 0.5;
-    background: var(--fondo-claro-2);
+    background: var(--v-panel-2, var(--fondo-claro-2));
 }
 
 .tarjeta-cliente.excluido .tarjeta-body {
@@ -720,8 +720,8 @@ th br {
 
 .tarjeta-header {
     padding: 16px 20px;
-    background: #fafbfc;
-    border-bottom: 1px solid var(--borde);
+    background: var(--v-panel-2, #fafbfc);
+    border-bottom: 1px solid var(--v-borde, var(--borde));
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -752,7 +752,7 @@ th br {
 
 .checkbox-label {
     font-size: 13px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
     font-weight: 500;
 }
 
@@ -766,14 +766,14 @@ th br {
 .cliente-nombre {
     font-size: 16px;
     font-weight: 600;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
 }
 
 .cliente-cuit {
     font-size: 13px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
     font-family: monospace;
-    background: var(--fondo-claro-2);
+    background: var(--v-panel-2, var(--fondo-claro-2));
     padding: 2px 8px;
     border-radius: 4px;
 }
@@ -807,10 +807,10 @@ th br {
     align-items: center;
     gap: 10px;
     padding: 12px;
-    background: #ecfdf5;
+    background: var(--v-ok-bg, #ecfdf5);
     border-radius: 6px;
     font-size: 14px;
-    color: #065f46;
+    color: var(--v-txt-ok, #065f46);
 }
 
 .icono-exito {
@@ -825,7 +825,7 @@ th br {
     align-items: flex-start;
     gap: 10px;
     padding: 12px;
-    background: #fef2f2;
+    background: var(--v-error-bg, #fef2f2);
     border-radius: 6px;
     margin-bottom: 12px;
 }
@@ -840,7 +840,7 @@ th br {
 .error-texto {
     flex: 1;
     font-size: 14px;
-    color: #991b1b;
+    color: var(--v-txt-error, #991b1b);
     line-height: 1.5;
 }
 
@@ -883,15 +883,15 @@ th br {
 }
 
 .tabla-periodos-cliente thead {
-    background: var(--fondo-claro);
+    background: var(--v-panel-2, var(--fondo-claro));
 }
 
 .tabla-periodos-cliente th {
     padding: 10px 12px;
     text-align: left;
     font-weight: 600;
-    color: #374151;
-    border-bottom: 2px solid var(--borde);
+    color: var(--v-texto, #374151);
+    border-bottom: 2px solid var(--v-borde, var(--borde));
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -916,12 +916,12 @@ th br {
 }
 
 .tabla-periodos-cliente tbody tr {
-    border-bottom: 1px solid var(--fondo-claro-2);
+    border-bottom: 1px solid var(--v-borde, var(--fondo-claro-2));
     transition: background-color 0.15s;
 }
 
 .tabla-periodos-cliente tbody tr:hover {
-    background: #fafbfc;
+    background: var(--v-panel-2, #fafbfc);
 }
 
 .tabla-periodos-cliente td {
@@ -930,11 +930,11 @@ th br {
 
 /* Fila seleccionada */
 .fila-periodo.seleccionada {
-    background: #eff6ff !important;
+    background: var(--v-panel-2, #eff6ff) !important;
 }
 
 .fila-periodo.seleccionada:hover {
-    background: #dbeafe !important;
+    background: var(--v-panel-2, #dbeafe) !important;
 }
 
 .checkbox-periodo {
@@ -961,16 +961,16 @@ th br {
 .detalle-impuesto,
 .detalle-categoria {
     padding: 2px 8px;
-    background: var(--fondo-claro-2);
+    background: var(--v-panel-2, var(--fondo-claro-2));
     border-radius: 4px;
-    color: #4b5563;
+    color: var(--v-texto-2, #4b5563);
     font-weight: 500;
 }
 
 .detalle-importe {
     font-family: monospace;
     font-weight: 600;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     margin-left: auto;
 }
 
@@ -981,7 +981,7 @@ th br {
 .resultados-acciones {
     margin-top: 30px;
     padding: 20px;
-    background: var(--fondo-claro);
+    background: var(--v-panel-2, var(--fondo-claro));
     border-radius: 8px;
     display: flex;
     gap: 12px;
@@ -1011,22 +1011,22 @@ th br {
 }
 
 .btn-confirmar:disabled {
-    background: var(--texto-3);
+    background: var(--v-panel-2, var(--texto-3));
     cursor: not-allowed;
     box-shadow: none;
     transform: none;
 }
 
 .btn-cancelar {
-    background: white;
-    color: var(--texto-2);
-    border: 2px solid #d1d5db;
+    background: var(--v-panel, white);
+    color: var(--v-texto-2, var(--texto-2));
+    border: 2px solid var(--v-borde, #d1d5db);
 }
 
 .btn-cancelar:hover {
-    background: var(--fondo-claro);
+    background: var(--v-panel-2, var(--fondo-claro));
     border-color: var(--texto-3);
-    color: #374151;
+    color: var(--v-texto, #374151);
 }
 
 /* ========================================
@@ -1100,7 +1100,7 @@ th br {
 .seccion-archivos-descargados {
     margin-top: 30px;
     padding: 24px;
-    background: var(--fondo-claro);
+    background: var(--v-panel-2, var(--fondo-claro));
     border-radius: 12px;
     border: 2px solid var(--c-ok-1);
 }
@@ -1117,7 +1117,7 @@ th br {
 }
 
 .archivos-descripcion {
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
     font-size: 14px;
 }
 
@@ -1133,9 +1133,9 @@ th br {
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    background: white;
+    background: var(--v-panel, white);
     border-radius: 8px;
-    border: 1px solid var(--borde);
+    border: 1px solid var(--v-borde, var(--borde));
     transition: all 0.2s ease;
 }
 
@@ -1161,14 +1161,14 @@ th br {
 
 .archivo-usuario {
     font-weight: 600;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     font-size: 15px;
     margin-bottom: 4px;
 }
 
 .archivo-nombre {
     font-size: 12px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
     font-family: 'Courier New', monospace;
 }
 
@@ -1228,7 +1228,7 @@ th br {
     display: flex;
     justify-content: center;
     padding-top: 16px;
-    border-top: 1px solid var(--borde);
+    border-top: 1px solid var(--v-borde, var(--borde));
 }
 
 .btn-nuevo-proceso {
@@ -1261,7 +1261,7 @@ th br {
 }
 
 .card-formulario-deuda {
-    background: white;
+    background: var(--v-panel, white);
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     overflow: hidden;
@@ -1275,9 +1275,9 @@ th br {
 }
 
 .card-header-deuda {
-    background: linear-gradient(135deg, var(--fondo-claro) 0%, var(--fondo-claro-2) 100%);
+    background: linear-gradient(135deg, var(--v-panel-2, var(--fondo-claro)) 0%, var(--v-panel-2, var(--fondo-claro-2)) 100%);
     padding: 16px 20px;
-    border-bottom: 2px solid var(--borde);
+    border-bottom: 2px solid var(--v-borde, var(--borde));
 }
 
 .cliente-info-deuda {
@@ -1296,17 +1296,17 @@ th br {
 .cliente-nombre-deuda {
     font-size: 16px;
     font-weight: 600;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
 }
 
 .cliente-cuit-deuda {
     font-size: 13px;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
     font-family: monospace;
-    background: white;
+    background: var(--v-panel, white);
     padding: 4px 10px;
     border-radius: 6px;
-    border: 1px solid var(--borde);
+    border: 1px solid var(--v-borde, var(--borde));
 }
 
 .card-body-deuda {
@@ -1328,20 +1328,20 @@ th br {
 .campo-formulario-deuda label {
     font-size: 13px;
     font-weight: 600;
-    color: #374151;
+    color: var(--v-texto, #374151);
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 
 .campo-formulario-deuda input {
     padding: 12px 14px;
-    border: 2px solid #d1d5db;
+    border: 2px solid var(--v-borde, #d1d5db);
     border-radius: 6px;
     font-size: 14px;
     font-family: monospace;
     transition: all 0.2s;
-    background: white;
-    color: var(--texto-1); /* Color del texto */
+    background: var(--v-panel, white);
+    color: var(--v-texto, var(--texto-1)); /* Color del texto */
 }
 
 /* Estilos específicos para inputs nativos type="month" y type="date" */
@@ -1357,7 +1357,7 @@ th br {
 .campo-formulario-deuda input[type="month"]:hover,
 .campo-formulario-deuda input[type="date"]:hover {
     border-color: var(--texto-3);
-    background: var(--fondo-claro);
+    background: var(--v-panel-2, var(--fondo-claro));
 }
 
 /* Estilos cuando está abierto el picker */
@@ -1383,7 +1383,7 @@ th br {
 
 .campo-formulario-deuda input.error {
     border-color: var(--c-peligro-1);
-    background: #fef2f2;
+    background: var(--v-error-bg, #fef2f2);
 }
 
 .mensaje-error-campo {
@@ -1422,7 +1422,7 @@ th br {
 
 .btn-generar-vep:disabled,
 #btn-generar-vep:disabled {
-    background: var(--texto-3);
+    background: var(--v-panel-2, var(--texto-3));
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -1449,7 +1449,7 @@ th br {
 }
 
 #btn-ejecutar-consulta-deuda:disabled {
-    background: var(--texto-3);
+    background: var(--v-panel-2, var(--texto-3));
     cursor: not-allowed;
     box-shadow: none;
 }
@@ -1458,9 +1458,9 @@ th br {
 .seccion-resultados-deuda {
     margin-top: 40px;
     padding: 30px;
-    background: var(--fondo-claro);
+    background: var(--v-panel-2, var(--fondo-claro));
     border-radius: 12px;
-    border: 2px solid var(--borde);
+    border: 2px solid var(--v-borde, var(--borde));
 }
 
 .resultados-header-deuda {
@@ -1494,7 +1494,7 @@ th br {
     display: flex;
     justify-content: center;
     padding-top: 16px;
-    border-top: 1px solid var(--borde);
+    border-top: 1px solid var(--v-borde, var(--borde));
 }
 
 /* Advertencia para medios de pago */
@@ -1503,12 +1503,12 @@ th br {
     align-items: center;
     gap: 10px;
     padding: 14px 18px;
-    background: #fef3c7;
+    background: var(--v-warn-bg, #fef3c7);
     border-left: 4px solid #f59e0b;
     border-radius: 6px;
     margin-bottom: 20px;
     font-size: 14px;
-    color: #92400e;
+    color: var(--v-txt-warn, #92400e);
     font-weight: 500;
 }
 

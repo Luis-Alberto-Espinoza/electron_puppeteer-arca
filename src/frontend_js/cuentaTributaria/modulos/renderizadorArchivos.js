@@ -93,7 +93,7 @@ export function renderizarArchivosDescargados(resultadosSegundaPasada = [], { in
 
     if (bloques.length === 0) {
         lista.innerHTML = `
-            <div style="text-align:center; padding:32px; color:#6b7280;">
+            <div style="text-align:center; padding:32px; color:var(--v-texto-2, #6b7280);">
                 <p>No hay archivos para mostrar.</p>
             </div>
         `;

@@ -88,7 +88,7 @@ export function renderizarGrupoProcesadosAuto(items) {
                         <span class="icono-exito">${icono}</span>
                         <span>${mensaje}</span>
                         ${excelDescargado
-                            ? `<span style="margin-left:auto; font-size:12px; color:#6b7280;">📄 Excel descargado</span>`
+                            ? `<span style="margin-left:auto; font-size:12px; color:var(--v-texto-2, #6b7280);">📄 Excel descargado</span>`
                             : ''}
                     </div>
                 </div>
@@ -145,7 +145,7 @@ export function renderizarGrupoRequierenSeleccion(items) {
                                 ? `<span class="grupo-cuit-login">login: ${formatearCUIT(cliente.cuitLogin)}</span>`
                                 : ''}
                             ${excelDescargado
-                                ? `<span style="font-size:12px; color:#10b981;">📄 Excel ✓</span>`
+                                ? `<span style="font-size:12px; color:var(--v-txt-ok, #10b981);">📄 Excel ✓</span>`
                                 : ''}
                         </div>
                     </div>
@@ -185,7 +185,7 @@ export function renderizarGrupoRequierenSeleccion(items) {
  */
 function renderizarTablaDeudas(deudas, clienteId, cuitAsociado) {
     if (!deudas || deudas.length === 0) {
-        return '<p style="color:#6b7280; font-size:13px; padding:12px;">Sin filas extraídas</p>';
+        return '<p style="color:var(--v-texto-2, #6b7280); font-size:13px; padding:12px;">Sin filas extraídas</p>';
     }
 
     return `

@@ -11,7 +11,9 @@
 }
 
 .lanzador-caja {
-    background: var(--sup-afip);
+    /* Tema de las vistas (estilos/tema_afip.css): .tema-vista + su tono. */
+    --vista-tono: var(--tono-afip-inicio);
+    background: var(--vista-tono);
     border-radius: 12px;
     width: min(640px, 95vw);
     max-height: 88vh;
@@ -20,7 +22,7 @@
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
     border-top: 6px solid #667eea;
 }
-.lanzador-caja.lanzador-atm { background: var(--sup-atm); border-top-color: var(--c-atm-1); }
+.lanzador-caja.lanzador-atm { --vista-tono: var(--c-atm-1); border-top-color: var(--c-atm-2); }
 
 .lanzador-header {
     display: flex;
@@ -30,20 +32,20 @@
 }
 .lanzador-header h3 {
     margin: 0;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     font-size: 1.4rem;
 }
 .lanzador-cerrar {
     background: transparent;
     border: none;
     font-size: 1.3rem;
-    color: #7f8c8d;
+    color: var(--v-texto-2, #7f8c8d);
     cursor: pointer;
     line-height: 1;
     padding: 4px 8px;
     border-radius: 6px;
 }
-.lanzador-cerrar:hover { background: #f0f0f0; color: #2c3e50; }
+.lanzador-cerrar:hover { background: var(--v-panel-2, #f0f0f0); color: var(--v-texto, #2c3e50); }
 
 /* Mientras se abre un navegador la lista no acepta clicks (evita abrir dos). */
 .lanzador-bloqueado {
@@ -52,7 +54,7 @@
 }
 
 .lanzador-ayuda {
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     font-size: 0.95rem;
     margin: 0 0 16px;
 }
@@ -62,7 +64,7 @@
     display: flex;
     gap: 8px;
     margin: 10px 0 16px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--v-borde, #e5e7eb);
 }
 .lanzador-tab {
     background: transparent;
@@ -70,18 +72,18 @@
     border-bottom: 3px solid transparent;
     padding: 8px 14px;
     font-size: 0.95rem;
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     cursor: pointer;
     margin-bottom: -1px;
 }
-.lanzador-tab:hover { color: #2c3e50; }
+.lanzador-tab:hover { color: var(--v-texto, #2c3e50); }
 .lanzador-tab.activo {
-    color: #667eea;
+    color: var(--v-txt-info, #667eea);
     border-bottom-color: #667eea;
     font-weight: 600;
 }
 .lanzador-atm .lanzador-tab.activo {
-    color: #1e8e6f;
+    color: var(--v-txt-ok, #1e8e6f);
     border-bottom-color: #1e8e6f;
 }
 
@@ -94,12 +96,12 @@
 }
 .lanzador-campo span {
     font-size: 0.9rem;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     font-weight: 600;
 }
 .lanzador-campo input {
     padding: 10px 12px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--v-borde, #d1d5db);
     border-radius: 8px;
     font-size: 1rem;
     outline: none;
@@ -137,7 +139,7 @@
     border-radius: 6px;
     opacity: 0.55;
 }
-.lanzador-ver-clave:hover { opacity: 0.9; background: #f0f0f0; }
+.lanzador-ver-clave:hover { opacity: 0.9; background: var(--v-panel-2, #f0f0f0); }
 .lanzador-ver-clave.activo { opacity: 1; }
 
 .lanzador-estado {
@@ -145,9 +147,9 @@
     margin: 14px 0;
     font-size: 0.95rem;
 }
-.lanzador-estado.cargando { color: #2c6fbf; }
-.lanzador-estado.ok       { color: #1e8e6f; font-weight: 600; }
-.lanzador-estado.error    { color: #c0392b; font-weight: 600; }
+.lanzador-estado.cargando { color: var(--v-txt-info, #2c6fbf); }
+.lanzador-estado.ok       { color: var(--v-txt-ok, #1e8e6f); font-weight: 600; }
+.lanzador-estado.error    { color: var(--v-txt-error, #c0392b); font-weight: 600; }
 
 .lanzador-acciones {
     display: flex;

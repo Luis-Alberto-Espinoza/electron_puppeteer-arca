@@ -3,12 +3,12 @@
     margin: 0 auto;
     padding: 24px 16px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
 }
 
 .cc-header {
-    background: #eef4fb;
-    border: 1px solid #c9dbef;
+    background: var(--v-panel-2, #eef4fb);
+    border: 1px solid var(--v-borde, #c9dbef);
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 24px;
@@ -17,26 +17,26 @@
 
 .cc-breadcrumb {
     font-size: 13px;
-    color: #4a6582;
+    color: var(--v-txt-info, #4a6582);
     margin-bottom: 8px;
 }
 
 .cc-titulo {
     font-size: 24px;
     margin: 0 0 8px 0;
-    color: #1f3a5f;
+    color: var(--v-texto, #1f3a5f);
 }
 
 .cc-descripcion {
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
     line-height: 1.5;
     margin: 0;
 }
 
 /* ===== Formulario ===== */
 .cc-formulario {
-    background: #f3f7fc;
-    border: 1px solid #c9dbef;
+    background: var(--v-panel-2, #f3f7fc);
+    border: 1px solid var(--v-borde, #c9dbef);
     border-radius: 8px;
     padding: 20px;
     margin-bottom: 24px;
@@ -52,24 +52,24 @@
 .cc-campo label {
     font-size: 13px;
     font-weight: 600;
-    color: #34495e;
+    color: var(--v-texto, #34495e);
     margin-bottom: 6px;
 }
 
 .cc-campo select,
 .cc-campo input[type="text"] {
     padding: 9px 12px;
-    border: 1px solid #cbd5e0;
+    border: 1px solid var(--v-borde, #cbd5e0);
     border-radius: 6px;
     font-size: 14px;
-    background: #fff;
-    color: #2c3e50;
+    background: var(--v-panel, #fff);
+    color: var(--v-texto, #2c3e50);
     transition: border-color 0.15s;
 }
 
 .cc-campo select option {
-    background: #fff;
-    color: #2c3e50;
+    background: var(--v-panel, #fff);
+    color: var(--v-texto, #2c3e50);
 }
 
 .cc-pdv-fila {
@@ -85,9 +85,9 @@
 
 .cc-btn-refrescar {
     padding: 0 14px;
-    background: #fff;
-    border: 1px solid #c9dbef;
-    color: #1f3a5f;
+    background: var(--v-panel, #fff);
+    border: 1px solid var(--v-borde, #c9dbef);
+    color: var(--v-texto, #1f3a5f);
     border-radius: 6px;
     font-size: 13px;
     font-weight: 500;
@@ -97,43 +97,43 @@
 }
 
 .cc-btn-refrescar:hover:not(:disabled) {
-    background: #eef4fb;
+    background: var(--v-panel-2, #eef4fb);
     border-color: #2980b9;
 }
 
 .cc-btn-refrescar:disabled {
-    background: #f5f7fa;
-    color: #95a5a6;
+    background: var(--v-panel-2, #f5f7fa);
+    color: var(--v-texto-2, #95a5a6);
     cursor: not-allowed;
-    border-color: #dde5ef;
+    border-color: var(--v-borde, #dde5ef);
 }
 
 .cc-pdv-info {
     margin-top: 6px;
     font-size: 12px;
-    color: #7f8c8d;
+    color: var(--v-texto-2, #7f8c8d);
     font-style: italic;
 }
 
 .cc-pdv-info.cc-pdv-stale {
-    color: #c08400;
+    color: var(--v-txt-warn, #c08400);
     font-style: normal;
     font-weight: 500;
 }
 
 .cc-pdv-info.cc-pdv-loading {
-    color: #2980b9;
+    color: var(--v-txt-info, #2980b9);
     font-style: normal;
 }
 
 .cc-pdv-info.cc-pdv-error {
     margin-top: 8px;
     padding: 10px 14px;
-    background: #fdecea;
+    background: var(--v-error-bg, #fdecea);
     border: 1px solid #f5b7b1;
     border-left: 4px solid #c0392b;
     border-radius: 6px;
-    color: #922b21;
+    color: var(--v-txt-error, #922b21);
     font-size: 14px;
     font-weight: 500;
     font-style: normal;
@@ -148,8 +148,8 @@
 
 .cc-campo select:disabled,
 .cc-campo input:disabled {
-    background: #f5f7fa;
-    color: #95a5a6;
+    background: var(--v-panel-2, #f5f7fa);
+    color: var(--v-texto-2, #95a5a6);
     cursor: not-allowed;
 }
 
@@ -189,23 +189,23 @@
 
 .cc-btn-volver {
     padding: 11px 18px;
-    background: #ecf0f1;
-    color: #2c3e50;
-    border: 1px solid #cbd5e0;
+    background: var(--v-panel-2, #ecf0f1);
+    color: var(--v-texto, #2c3e50);
+    border: 1px solid var(--v-borde, #cbd5e0);
     border-radius: 6px;
     font-size: 14px;
     cursor: pointer;
 }
 
 .cc-btn-volver:hover {
-    background: #d6dbdf;
+    background: var(--v-panel-2, #d6dbdf);
 }
 
 .cc-mensaje-error {
     margin-top: 12px;
     padding: 10px 14px;
-    background: #fdecea;
-    color: #c0392b;
+    background: var(--v-error-bg, #fdecea);
+    color: var(--v-txt-error, #c0392b);
     border-radius: 6px;
     font-size: 14px;
 }
@@ -214,15 +214,15 @@
 .cc-procesando {
     text-align: center;
     padding: 40px 20px;
-    background: #f3f7fc;
-    border: 1px solid #c9dbef;
+    background: var(--v-panel-2, #f3f7fc);
+    border: 1px solid var(--v-borde, #c9dbef);
     border-radius: 8px;
 }
 
 .cc-spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #ecf0f1;
+    border: 4px solid var(--v-borde, #ecf0f1);
     border-top-color: #3498db;
     border-radius: 50%;
     margin: 0 auto 16px;
@@ -235,8 +235,8 @@
 
 /* ===== Resultados ===== */
 .cc-resultados {
-    background: #f3f7fc;
-    border: 1px solid #c9dbef;
+    background: var(--v-panel-2, #f3f7fc);
+    border: 1px solid var(--v-borde, #c9dbef);
     border-radius: 8px;
     padding: 20px;
 }
@@ -244,7 +244,7 @@
 .cc-resultados h2 {
     margin: 0 0 16px 0;
     font-size: 18px;
-    color: #1f3a5f;
+    color: var(--v-texto, #1f3a5f);
 }
 
 .cc-totales {
@@ -255,8 +255,8 @@
 }
 
 .cc-tarjeta {
-    background: #fff;
-    border: 1px solid #c9dbef;
+    background: var(--v-panel, #fff);
+    border: 1px solid var(--v-borde, #c9dbef);
     border-radius: 6px;
     padding: 16px;
     text-align: center;
@@ -265,7 +265,7 @@
 .cc-tarjeta-label {
     display: block;
     font-size: 12px;
-    color: #4a6582;
+    color: var(--v-txt-info, #4a6582);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 6px;
@@ -275,14 +275,14 @@
     display: block;
     font-size: 24px;
     font-weight: 700;
-    color: #1f3a5f;
+    color: var(--v-texto, #1f3a5f);
 }
 
 .cc-tabla-wrapper {
     overflow-x: auto;
     max-height: 400px;
-    background: #fff;
-    border: 1px solid #c9dbef;
+    background: var(--v-panel, #fff);
+    border: 1px solid var(--v-borde, #c9dbef);
     border-radius: 6px;
 }
 
@@ -303,7 +303,7 @@
 .cc-tabla td {
     padding: 9px 12px;
     text-align: left;
-    border-bottom: 1px solid #dde5ef;
+    border-bottom: 1px solid var(--v-borde, #dde5ef);
 }
 
 .cc-tabla th {
@@ -313,31 +313,31 @@
 }
 
 .cc-tabla tbody tr:nth-child(odd) {
-    background: #f8fafc;
+    background: var(--v-panel-2, #f8fafc);
 }
 
 .cc-tabla tbody tr:nth-child(even) {
-    background: #eef4fb;
+    background: var(--v-panel-2, #eef4fb);
 }
 
 .cc-tabla tbody tr:hover {
-    background: #dde9f6;
+    background: var(--v-panel-2, #dde9f6);
 }
 
 .cc-tabla td {
-    color: #2c3e50;
+    color: var(--v-texto, #2c3e50);
 }
 
 .cc-tabla td:last-child {
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
-    color: #1f3a5f;
+    color: var(--v-texto, #1f3a5f);
 }
 
 /* ===== Bloque de archivo generado ===== */
 .cc-archivo-excel {
-    background: #ecfdf5;
+    background: var(--v-ok-bg, #ecfdf5);
     border: 1px solid #a7f3d0;
     border-radius: 6px;
     padding: 14px 16px;
@@ -363,13 +363,13 @@
 
 .cc-archivo-titulo {
     font-weight: 600;
-    color: #065f46;
+    color: var(--v-txt-ok, #065f46);
     font-size: 14px;
 }
 
 .cc-archivo-ruta {
     font-family: monospace;
-    color: #047857;
+    color: var(--v-txt-ok, #047857);
     font-size: 12px;
     word-break: break-all;
 }
@@ -381,14 +381,14 @@
 
 .cc-btn-mini {
     padding: 6px 12px;
-    background: #fff;
+    background: var(--v-panel, #fff);
     border: 1px solid #34d399;
-    color: #065f46;
+    color: var(--v-txt-ok, #065f46);
     border-radius: 5px;
     font-size: 13px;
     cursor: pointer;
 }
 
 .cc-btn-mini:hover {
-    background: #d1fae5;
+    background: var(--v-ok-bg, #d1fae5);
 }

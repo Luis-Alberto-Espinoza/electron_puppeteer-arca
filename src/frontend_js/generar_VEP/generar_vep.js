@@ -929,7 +929,7 @@ function renderizarFormulariosDeuda() {
 
     if (usuariosSeleccionados.length === 0) {
         contenedor.innerHTML = `
-            <div style="text-align: center; padding: 40px; color: #6b7280;">
+            <div style="text-align: center; padding: 40px; color: var(--v-texto-2, #6b7280);">
                 <p style="font-size: 16px; margin-bottom: 8px;">No hay clientes seleccionados</p>
                 <p style="font-size: 14px;">Seleccione clientes desde la tabla superior</p>
             </div>
@@ -1263,7 +1263,7 @@ function mostrarResultadosConsultaDeuda(resultados) {
                         <span class="archivo-icono">❌</span>
                         <div class="archivo-detalles">
                             <div class="archivo-usuario">${nombreCompleto}</div>
-                            <div class="archivo-nombre" style="color: #ef4444;">${r.error}</div>
+                            <div class="archivo-nombre" style="color: var(--v-txt-error, #ef4444);">${r.error}</div>
                         </div>
                     </div>
                 </div>

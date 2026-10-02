@@ -11,17 +11,19 @@
 }
 
 .ac-caja {
-    background: var(--sup-afip);
+    /* Tema de las vistas (estilos/tema_afip.css): .tema-vista + su tono. */
+    --vista-tono: var(--tono-afip-inicio);
+    background: var(--vista-tono);
     border-top: 6px solid var(--c-primario-1);
     border-radius: var(--radio);
     width: min(460px, 95vw);
     padding: 22px;
     box-shadow: var(--sombra);
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
     font-family: var(--fuente);
 }
 .ac-caja.ac-atm {
-    background: var(--sup-atm);
+    --vista-tono: var(--c-atm-1);
     border-top-color: var(--c-atm-1);
 }
 
@@ -39,21 +41,21 @@
     cursor: pointer;
     padding: 4px 8px;
     border-radius: var(--radio-sm);
-    color: var(--texto-1);
+    color: var(--v-texto, var(--texto-1));
 }
-.ac-cerrar:hover { background: rgba(255, 255, 255, 0.5); }
+.ac-cerrar:hover { background: rgba(0, 0, 0, 0.2); }
 
 .ac-cliente {
-    background: rgba(255, 255, 255, 0.55);
+    background: var(--v-panel, rgba(255, 255, 255, 0.55));
     border-radius: var(--radio-sm);
     padding: 10px 12px;
     margin-bottom: 12px;
 }
 .ac-nombre { font-weight: 700; }
-.ac-cuit { font-size: 0.9rem; color: var(--texto-2); }
+.ac-cuit { font-size: 0.9rem; color: var(--v-texto-2, var(--texto-2)); }
 
 .ac-aviso {
-    background: #fef3c7;
+    background: var(--v-warn-bg, #fef3c7);
     border-left: 4px solid #f59e0b;
     border-radius: var(--radio-sm);
     padding: 10px 12px;
@@ -111,7 +113,7 @@
     font-weight: 600;
     cursor: pointer;
 }
-.ac-cancelar { background: rgba(255, 255, 255, 0.7); color: var(--texto-1); }
+.ac-cancelar { background: var(--v-panel, rgba(255, 255, 255, 0.7)); color: var(--v-texto, var(--texto-1)); }
 .ac-guardar { background: var(--grad-primario); color: #fff; }
 .ac-atm .ac-guardar { background: var(--grad-atm); }
 .ac-guardar:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -123,7 +125,7 @@
     gap: 12px;
     margin-top: 14px;
     padding: 12px;
-    background: rgba(255, 255, 255, 0.65);
+    background: var(--v-panel, rgba(255, 255, 255, 0.65));
     border-radius: var(--radio-sm);
     font-weight: 600;
 }
@@ -131,7 +133,7 @@
 .ac-verificando-sub {
     font-weight: 400;
     font-size: 0.85rem;
-    color: var(--texto-2);
+    color: var(--v-texto-2, var(--texto-2));
 }
 .ac-rueda {
     flex-shrink: 0;
@@ -145,5 +147,5 @@
 .ac-atm .ac-rueda { border-top-color: var(--c-atm-1); }
 @keyframes ac-girar { to { transform: rotate(360deg); } }
 
-.ac-input:disabled { background: rgba(255, 255, 255, 0.5); cursor: wait; }
+.ac-input:disabled { opacity: 0.6; cursor: wait; }
 .ac-btn:disabled { opacity: 0.5; cursor: not-allowed; }

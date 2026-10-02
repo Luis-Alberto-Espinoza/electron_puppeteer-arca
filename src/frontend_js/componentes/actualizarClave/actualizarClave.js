@@ -52,7 +52,7 @@
             const overlay = document.createElement('div');
             overlay.className = 'ac-overlay';
             overlay.innerHTML = `
-                <div class="ac-caja ac-${servicio}" role="dialog" aria-modal="true">
+                <div class="ac-caja ac-${servicio} tema-vista" role="dialog" aria-modal="true">
                     <div class="ac-header">
                         <h3>Actualizar ${escapar(LABEL_CLAVE[servicio] || 'clave')}</h3>
                         <button type="button" class="ac-cerrar" title="Cerrar">✕</button>
