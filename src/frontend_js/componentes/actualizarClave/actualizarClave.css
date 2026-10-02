@@ -115,3 +115,35 @@
 .ac-guardar { background: var(--grad-primario); color: #fff; }
 .ac-atm .ac-guardar { background: var(--grad-atm); }
 .ac-guardar:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== "Verificando…" con rueda: que se note que trabaja, no que se colgó ===== */
+.ac-verificando {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.65);
+    border-radius: var(--radio-sm);
+    font-weight: 600;
+}
+.ac-verificando[hidden] { display: none; }
+.ac-verificando-sub {
+    font-weight: 400;
+    font-size: 0.85rem;
+    color: var(--texto-2);
+}
+.ac-rueda {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 4px solid rgba(0, 0, 0, 0.12);
+    border-top-color: var(--c-primario-1);
+    border-radius: 50%;
+    animation: ac-girar 0.8s linear infinite;
+}
+.ac-atm .ac-rueda { border-top-color: var(--c-atm-1); }
+@keyframes ac-girar { to { transform: rotate(360deg); } }
+
+.ac-input:disabled { background: rgba(255, 255, 255, 0.5); cursor: wait; }
+.ac-btn:disabled { opacity: 0.5; cursor: not-allowed; }

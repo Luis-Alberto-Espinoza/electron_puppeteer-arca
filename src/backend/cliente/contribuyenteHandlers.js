@@ -4,12 +4,14 @@
 //   contribuyente:listar  payload: { servicio? }  → { success, items: ContribuyenteListItem[] }
 //   contribuyente:titularClave    payload: { cuit, servicio }        → de quién es la clave (sin la clave)
 //   contribuyente:actualizarClave payload: { cuit, servicio, clave } → la guarda en el titular
+//   contribuyente:verificarClave  payload: { cuit, servicio }        → login corto (+PDV en facturación)
 //
 // IMPORTANTE: ningún endpoint DEVUELVE claves (actualizarClave solo las recibe)
 // (es la regla del contrato). `resolverAcceso` queda backend-only (lo usan los
 // handlers de sesión), para que las claves nunca salgan del main process.
 
 const { getContribuyenteRepo } = require('./contribuyenteStore.js');
+const { verificarClave } = require('./verificarClave.js');
 
 function setupContribuyenteHandlers(ipcMain) {
     const repo = getContribuyenteRepo();
@@ -58,6 +60,17 @@ function setupContribuyenteHandlers(ipcMain) {
         } catch (e) {
             console.error('[contribuyente:actualizarClave] error:', e.message);
             return { success: false, error: e.code || 'ERROR', message: e.message };
+        }
+    });
+
+    // Verificación corta tras actualizar la clave: login (y PDV si es facturación) con
+    // el navegador oculto. Ver verificarClave.js.
+    ipcMain.handle('contribuyente:verificarClave', async (event, { cuit, servicio } = {}) => {
+        try {
+            return await verificarClave(repo, String(cuit), servicio);
+        } catch (e) {
+            console.error('[contribuyente:verificarClave] error:', e.message);
+            return { success: false, error: 'ERROR', message: e.message };
         }
     });
 }

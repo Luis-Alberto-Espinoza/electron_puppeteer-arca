@@ -27,8 +27,9 @@
   --grad-peligro: linear-gradient(135deg, var(--c-peligro-1) 0%, var(--c-peligro-2) 100%);
 
   /* Versiones aclaradas de los gradientes (menús desplegables del navbar).
-     Misma proporción de blanco en las dos: cambiando --aclarado se ajustan juntas. */
-  --aclarado: 25%;
+     Misma proporción de blanco en las dos: cambiando --aclarado se ajustan juntas.
+     Con 45% van con texto OSCURO (--texto-1): con letra blanca no había contraste. */
+  --aclarado: 45%;
   --grad-primario-suave: linear-gradient(135deg,
       color-mix(in srgb, var(--c-primario-1), #fff var(--aclarado)) 0%,
       color-mix(in srgb, var(--c-primario-2), #fff var(--aclarado)) 100%);

@@ -2,17 +2,21 @@
  * COMPONENTE COMPARTIDO: ACTUALIZAR CLAVE
  *
  * Diálogo para corregir la clave de un cliente SIN salir de lo que estás haciendo
- * (no hay que ir a Clientes y volver). Cualquier pantalla lo puede usar:
+ * (no hay que ir a Clientes y volver). Guarda la clave y la VERIFICA en el momento,
+ * con el navegador oculto, para que el cliente quede usable ahí mismo:
  *
- *   const r = await window.abrirActualizarClave({ cuit, servicio: 'afip' | 'atm' });
- *   // r = { actualizada: true, titular, esRepresentante }  |  { actualizada: false, error? }
+ *   const r = await window.abrirActualizarClave({ cuit, servicio: 'afip'|'atm', verificar });
+ *   // r = { actualizada, verificada, mensaje }  |  { actualizada: false, error? }
+ *
+ * `verificar` es lo que necesita la pantalla para operar: 'atm' / 'afip' (solo login)
+ * o 'facturacion' (solo login si ya tiene puntos de venta; si no, también los trae).
  *
  * Ojo AFIP: un representado no tiene clave propia, entra con la de su representante.
  * El backend resuelve de quién es la clave y el diálogo lo avisa antes de guardar.
- * La clave queda "sin validar" hasta que un login la confirme.
  */
 (function () {
     const LABEL_CLAVE = { afip: 'Clave fiscal AFIP', atm: 'Clave ATM' };
+    const SITIO = { afip: 'AFIP', atm: 'ATM' };
 
     function escapar(t) {
         const d = document.createElement('div');
@@ -20,7 +24,7 @@
         return d.innerHTML;
     }
 
-    function abrirActualizarClave({ cuit, servicio }) {
+    function abrirActualizarClave({ cuit, servicio, verificar = servicio }) {
         return new Promise(async (resolve) => {
             const api = window.electronAPI && window.electronAPI.contribuyente;
             if (!api || !api.titularClave) {
@@ -40,6 +44,10 @@
                     Vas a cambiar la clave de <strong>${escapar(info.titular.nombre)}</strong>
                     (${escapar(info.titular.cuit)}), y se actualiza para todos los que representa.
                 </div>` : '';
+
+            const queVerifica = verificar === 'facturacion'
+                ? 'Verificando la clave con AFIP (si al cliente le faltan los puntos de venta, también los trae)…'
+                : `Verificando la clave con ${SITIO[servicio] || 'el servicio'}…`;
 
             const overlay = document.createElement('div');
             overlay.className = 'ac-overlay';
@@ -61,52 +69,107 @@
                             <button type="button" class="ac-ver" title="Mostrar clave">👁️</button>
                         </div>
                     </label>
+                    <div class="ac-verificando" hidden>
+                        <span class="ac-rueda" aria-hidden="true"></span>
+                        <div>
+                            <div>${escapar(queVerifica)}</div>
+                            <div class="ac-verificando-sub">Puede tardar hasta un minuto. No se colgó: está probando la clave.</div>
+                        </div>
+                    </div>
                     <div class="ac-error" hidden></div>
                     <div class="ac-acciones">
                         <button type="button" class="ac-btn ac-cancelar">Cancelar</button>
-                        <button type="button" class="ac-btn ac-guardar" disabled>Guardar</button>
+                        <button type="button" class="ac-btn ac-guardar" disabled>Guardar y verificar</button>
                     </div>
                 </div>`;
             document.body.appendChild(overlay);
 
             const input = overlay.querySelector('.ac-input');
             const btnGuardar = overlay.querySelector('.ac-guardar');
+            const btnCancelar = overlay.querySelector('.ac-cancelar');
+            const btnCerrarX = overlay.querySelector('.ac-cerrar');
             const btnVer = overlay.querySelector('.ac-ver');
             const error = overlay.querySelector('.ac-error');
+            const verificando = overlay.querySelector('.ac-verificando');
+
+            // guardada: la clave ya se escribió en el cliente (aunque no se haya podido verificar).
+            let guardada = false;
+            let ocupado = false;
+            let ultimoMensaje = null;
 
             function cerrar(resultado) {
                 document.removeEventListener('keydown', onTecla);
                 overlay.remove();
                 resolve(resultado);
             }
+            // Cerrar sin verificar: si ya se guardó, el que llamó tiene que enterarse igual.
+            function cerrarSinVerificar() {
+                if (ocupado) return;
+                cerrar(guardada
+                    ? { actualizada: true, verificada: false, mensaje: ultimoMensaje || 'Clave guardada sin verificar' }
+                    : { actualizada: false });
+            }
             function onTecla(e) {
-                if (e.key === 'Escape') cerrar({ actualizada: false });
-                if (e.key === 'Enter' && !btnGuardar.disabled) guardar();
+                if (e.key === 'Escape') cerrarSinVerificar();
+                if (e.key === 'Enter' && !btnGuardar.disabled && !ocupado) guardarYVerificar();
+            }
+            function setOcupado(valor) {
+                ocupado = valor;
+                verificando.hidden = !valor;
+                input.disabled = valor;
+                btnVer.disabled = valor;
+                btnCancelar.disabled = valor;
+                btnCerrarX.disabled = valor;
+                btnGuardar.disabled = valor || !input.value.trim();
+            }
+            function mostrarError(msg) {
+                error.textContent = msg;
+                error.hidden = false;
             }
 
-            async function guardar() {
-                btnGuardar.disabled = true;
+            async function guardarYVerificar() {
                 error.hidden = true;
-                const r = await api.actualizarClave({ cuit, servicio, clave: input.value });
-                if (r && r.success) {
-                    cerrar({ actualizada: true, titular: r.titular, esRepresentante: r.esRepresentante });
+                setOcupado(true);
+
+                const g = await api.actualizarClave({ cuit, servicio, clave: input.value });
+                if (!g || !g.success) {
+                    setOcupado(false);
+                    mostrarError((g && g.message) || 'No se pudo guardar la clave.');
+                    return;
+                }
+                guardada = true;
+
+                const v = await api.verificarClave({ cuit, servicio: verificar });
+                setOcupado(false);
+                if (v && v.success) {
+                    cerrar({ actualizada: true, verificada: true, mensaje: v.message });
+                    return;
+                }
+
+                ultimoMensaje = (v && v.message) || 'No se pudo verificar la clave.';
+                mostrarError(ultimoMensaje);
+                if (v && v.error === 'INVALID_CREDENTIALS') {
+                    // La clave está mal: a reescribirla ahí mismo.
+                    input.value = '';
+                    btnGuardar.disabled = true;
+                    input.focus();
                 } else {
-                    error.textContent = (r && r.message) || 'No se pudo guardar la clave.';
-                    error.hidden = false;
-                    btnGuardar.disabled = false;
+                    // Captcha, sin puntos de venta, timeout…: reintentar ahora no sirve.
+                    btnGuardar.hidden = true;
+                    btnCancelar.textContent = 'Cerrar';
                 }
             }
 
-            input.addEventListener('input', () => { btnGuardar.disabled = !input.value.trim(); });
+            input.addEventListener('input', () => { btnGuardar.disabled = ocupado || !input.value.trim(); });
             btnVer.addEventListener('click', () => {
                 const visible = input.type === 'text';
                 input.type = visible ? 'password' : 'text';
                 btnVer.title = visible ? 'Mostrar clave' : 'Ocultar clave';
             });
-            btnGuardar.addEventListener('click', guardar);
-            overlay.querySelector('.ac-cancelar').addEventListener('click', () => cerrar({ actualizada: false }));
-            overlay.querySelector('.ac-cerrar').addEventListener('click', () => cerrar({ actualizada: false }));
-            overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar({ actualizada: false }); });
+            btnGuardar.addEventListener('click', guardarYVerificar);
+            btnCancelar.addEventListener('click', cerrarSinVerificar);
+            btnCerrarX.addEventListener('click', cerrarSinVerificar);
+            overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrarSinVerificar(); });
             document.addEventListener('keydown', onTecla);
             input.focus();
         });
@@ -114,28 +177,28 @@
 
     /**
      * Arma la opción `accionFila` del SelectorUsuarios con el botón "Clave" ya cableado:
-     * aparece en filas con problema de clave (o recién marcadas con error), abre el diálogo,
-     * recarga la lista y deja un mensaje en la fila. Es lo que reusan lanzador, facturas, etc.
+     * aparece en filas con problema de clave (o recién marcadas con error), abre el diálogo
+     * (que guarda y verifica), recarga la lista y deja el resultado en la fila.
      *
      * @param {'afip'|'atm'} canal           clave a actualizar (facturación usa 'afip')
      * @param {() => SelectorUsuarios} obtenerSelector  función: el selector se crea DESPUÉS
-     * @param {string} [mensajeOk]           texto de la fila tras guardar
+     * @param {'afip'|'atm'|'facturacion'} [verificar]  qué necesita la pantalla para operar
      */
-    function crearAccionActualizarClave(canal, obtenerSelector, mensajeOk = 'Clave guardada') {
+    function crearAccionActualizarClave(canal, obtenerSelector, verificar = canal) {
         return {
             texto: '🔑 Clave',
             titulo: 'Actualizar la clave de este cliente',
             mostrar: (usuario, marca) => !!usuario.problemaClave || !!(marca && marca.tipo === 'error'),
             onClick: async (usuario) => {
                 const selector = obtenerSelector();
-                const r = await abrirActualizarClave({ cuit: usuario.cuit, servicio: canal });
+                const r = await abrirActualizarClave({ cuit: usuario.cuit, servicio: canal, verificar });
                 if (r.error) {
                     selector.marcarFila(usuario.id, r.error, 'error');
                     return;
                 }
                 if (!r.actualizada) return;
                 await selector.recargar();   // cambió el estado (si era representante, el de varios)
-                selector.marcarFila(usuario.id, mensajeOk, 'ok');
+                selector.marcarFila(usuario.id, r.mensaje, r.verificada ? 'ok' : 'error');
             }
         };
     }
@@ -147,22 +210,22 @@
      *
      * @param {'afip'|'atm'} canal
      * @param {() => SelectorUsuarios} obtenerSelector
-     * @param {{ lote?: boolean, mensajeOk?: string }} [opts]
+     * @param {{ lote?: boolean, verificar?: 'afip'|'atm'|'facturacion' }} [opts]
      *   lote: true en servicios que procesan varios clientes → no deja elegir los que
      *   tienen la clave marcada como incorrecta (fallarían seguro y acercan el captcha).
+     *   verificar: 'facturacion' si la pantalla necesita puntos de venta.
      */
-    function opcionesClaveEnSelector(canal, obtenerSelector, { lote = false, mensajeOk } = {}) {
+    function opcionesClaveEnSelector(canal, obtenerSelector, { lote = false, verificar = canal } = {}) {
         return {
             permitirSinValidar: true,
             permitirInvalidos: true,
             filtroHabilitados: true,
             bloquearClaveIncorrecta: lote,
-            accionFila: crearAccionActualizarClave(canal, obtenerSelector,
-                mensajeOk || 'Clave guardada: se valida al usarla')
+            accionFila: crearAccionActualizarClave(canal, obtenerSelector, verificar)
         };
     }
 
     window.abrirActualizarClave = abrirActualizarClave;
-    window.opcionesClaveEnSelector = opcionesClaveEnSelector;
     window.crearAccionActualizarClave = crearAccionActualizarClave;
+    window.opcionesClaveEnSelector = opcionesClaveEnSelector;
 })();

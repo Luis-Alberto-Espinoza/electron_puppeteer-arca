@@ -49,6 +49,50 @@ function normalizarTokens(s) {
 }
 
 /**
+ * Version "solo letras y numeros": normalizaFuerte sin espacios ni signos.
+ * Para el ultimo fallback: la razon social cargada a mano o desde un Excel puede venir
+ * como "El Papi Tu Tienda Express S.a.s." y AFIP la lista "EL PAPI TU TIENDA EXPRESS
+ * S. A. S." (espacios entre las siglas). Ambas quedan "elpapitutiendaexpresssas".
+ */
+function normalizarAlfanumerico(s) {
+    return normalizarFuerte(s).replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Busca el indice de la empresa en la lista, de la comparacion mas estricta a la mas
+ * tolerante. Devuelve -1 si no hay match (o si el ultimo fallback es ambiguo).
+ * Separada de seleccionarEmpresa para poder probarla sin navegador.
+ * @param {string[]} nombresDom  nombres tal cual los muestra AFIP
+ * @param {string} nombreEmpresa nombre buscado
+ * @returns {{ indice: number, criterio: string|null }}
+ */
+function buscarIndiceEmpresa(nombresDom, nombreEmpresa) {
+    const criterios = [
+        ['exacto', normalizarNombre],
+        ['sin tildes/mayusculas', normalizarFuerte],
+        ['mismas palabras en otro orden (ej. APELLIDO NOMBRE)', normalizarTokens]
+    ];
+    for (const [criterio, fn] of criterios) {
+        const objetivo = fn(nombreEmpresa);
+        const indice = nombresDom.findIndex(n => fn(n) === objetivo);
+        if (indice !== -1) return { indice, criterio };
+    }
+
+    // Ultimo fallback: solo letras y numeros. Al ser el mas laxo, si matchea MAS de una
+    // empresa no elegimos ninguna: mejor un error claro que entrar a la empresa equivocada.
+    const objetivo = normalizarAlfanumerico(nombreEmpresa);
+    if (objetivo) {
+        const coincidencias = nombresDom
+            .map((n, i) => (normalizarAlfanumerico(n) === objetivo ? i : -1))
+            .filter(i => i !== -1);
+        if (coincidencias.length === 1) {
+            return { indice: coincidencias[0], criterio: 'solo letras y numeros (ej. S.A.S. vs S. A. S.)' };
+        }
+    }
+    return { indice: -1, criterio: null };
+}
+
+/**
  * Extrae los nombres de todas las empresas disponibles en la pagina de seleccion.
  * NO realiza ninguna accion de clic.
  * @param {import('puppeteer').Page} page La pagina de Puppeteer que muestra la lista de empresas.
@@ -106,28 +150,11 @@ async function seleccionarEmpresa(page, nombreEmpresa) {
             return Array.from(document.querySelectorAll(selector)).map(b => b.value || '');
         }, selectorBotones);
 
-        // 2) Matchear en Node, donde podemos normalizar de forma tolerante.
-        const objetivo = normalizarNombre(nombreEmpresa);
-        let indice = nombresDom.findIndex(n => normalizarNombre(n) === objetivo);
-
-        // 3) Fallback sin tildes / minusculas si la comparacion exacta fallo.
-        if (indice === -1) {
-            const objetivoFuerte = normalizarFuerte(nombreEmpresa);
-            indice = nombresDom.findIndex(n => normalizarFuerte(n) === objetivoFuerte);
-            if (indice !== -1) {
-                console.log('        [empresasDisponibles] -> Match por fallback (sin tildes/mayusculas).');
-            }
-        }
-
-        // 4) Ultimo fallback: mismos tokens en distinto orden (apellido/nombre invertidos).
-        //    Solo se llega aca si los dos fallos anteriores no encontraron nada, asi que
-        //    el riesgo de falso positivo en una lista chica de empresas es minimo.
-        if (indice === -1) {
-            const objetivoTokens = normalizarTokens(nombreEmpresa);
-            indice = nombresDom.findIndex(n => normalizarTokens(n) === objetivoTokens);
-            if (indice !== -1) {
-                console.log('        [empresasDisponibles] -> Match por conjunto de palabras (orden distinto, ej. APELLIDO NOMBRE).');
-            }
+        // 2) Matchear en Node, donde podemos normalizar de forma tolerante
+        //    (de la comparacion mas estricta a la mas laxa, ver buscarIndiceEmpresa).
+        const { indice, criterio } = buscarIndiceEmpresa(nombresDom, nombreEmpresa);
+        if (indice !== -1 && criterio !== 'exacto') {
+            console.log(`        [empresasDisponibles] -> Match por fallback: ${criterio}.`);
         }
 
         if (indice === -1) {
@@ -164,6 +191,7 @@ async function seleccionarEmpresa(page, nombreEmpresa) {
 module.exports = {
     listarEmpresas,
     seleccionarEmpresa,
+    buscarIndiceEmpresa,
     // Lo exporta el barrido de empresas para decidir si la razon social guardada
     // difiere de la de AFIP con el MISMO criterio que usa el matcher de arriba.
     normalizarFuerte,

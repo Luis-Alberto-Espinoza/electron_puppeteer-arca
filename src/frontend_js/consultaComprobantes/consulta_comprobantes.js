@@ -67,7 +67,7 @@ window.inicializarConsultaComprobantes = () => {
             servicio: 'facturacion',      // operable = acceso AFIP validado + tiene PDV
             // Un cliente por vez: elegibles los de clave sin validar (usarlo la valida)
             // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
-            ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorCC) : {}),
+            ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorCC, { verificar: 'facturacion' }) : {}),
             seleccionUnica: true,
             mostrarTablaSeleccionados: false,
             mostrarColumnaCUIT: false,

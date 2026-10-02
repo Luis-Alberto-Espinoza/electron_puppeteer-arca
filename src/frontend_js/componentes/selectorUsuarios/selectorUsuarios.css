@@ -131,7 +131,7 @@
     background: var(--grad-primario-suave);
     font-weight: 600;
     font-size: 14px;
-    color: #fff;
+    color: var(--texto-1);   /* el degradé suave es claro: letra oscura para el contraste */
     border-radius: 6px 6px 0 0;
     display: flex;
     justify-content: space-between;
@@ -144,7 +144,7 @@
 
 .lista-contador {
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--texto-1);
 }
 
 .lista-usuarios-disponibles {

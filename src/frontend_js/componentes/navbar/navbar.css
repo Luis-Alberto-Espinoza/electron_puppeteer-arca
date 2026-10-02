@@ -90,7 +90,8 @@ body {
     width: 100%;
     text-align: left;
     background: transparent;
-    color: #fff;
+    color: var(--texto-1);
+    font-weight: 600;
     border: none;
     border-radius: var(--radio-sm);
     padding: 10px 12px;
@@ -99,7 +100,7 @@ body {
 }
 
 .app-navbar .nav-drop-item:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.1);
 }
 
 /* Zona derecha: usuario + recargar */
