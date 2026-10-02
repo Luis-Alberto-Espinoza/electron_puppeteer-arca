@@ -1,0 +1,35 @@
+/* ===== Rueda "está trabajando" (componente común) =====
+   .rueda-giratoria: el círculo que gira, para usar donde sea (ej. diálogo de clave).
+   .rueda-aviso: cartel flotante abajo al centro con la rueda + texto, para procesos
+   largos sin nada que mirar (ej. facturar con el navegador oculto). */
+.rueda-giratoria {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: rueda-girar 0.8s linear infinite;
+}
+@keyframes rueda-girar { to { transform: rotate(360deg); } }
+
+.rueda-aviso {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 10002;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: min(640px, 92vw);
+    padding: 14px 20px;
+    border-radius: var(--radio);
+    background: color-mix(in srgb, var(--c-primario-2), black 35%);
+    border: 1px solid color-mix(in srgb, var(--c-primario-1), white 30%);
+    box-shadow: var(--sombra);
+    color: #ffffff;
+    font-family: var(--fuente);
+}
+.rueda-aviso-titulo { font-weight: 700; }
+.rueda-aviso-sub { font-size: 0.85rem; color: rgba(255, 255, 255, 0.78); margin-top: 2px; }

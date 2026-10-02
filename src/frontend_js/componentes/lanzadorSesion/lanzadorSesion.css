@@ -15,9 +15,13 @@
     --vista-tono: var(--tono-afip-inicio);
     background: var(--vista-tono);
     border-radius: 12px;
-    width: min(640px, 95vw);
-    max-height: 88vh;
-    overflow-y: auto;
+    /* Casi del tamaño de la ventana: antes era una cajita de 640px con dos scrolls
+       anidados (la caja y la lista) y había que "viborear" para bajar. */
+    width: min(1200px, 96vw);
+    height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     padding: 24px;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
     border-top: 6px solid #667eea;
@@ -216,4 +220,62 @@
 .btn-lanzador-atm:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 18px rgba(15, 32, 39, 0.5);
+}
+
+/* ===== Cuerpo en dos columnas: lista a la izquierda, estado a la derecha ===== */
+.lanzador-cuerpo {
+    flex: 1;
+    min-height: 0;          /* deja que la lista use el alto que sobra */
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr);
+    gap: 20px;
+}
+.lanzador-principal {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;       /* respaldo: en ventanas muy bajas */
+}
+/* UN solo scroll: el de la lista, que se estira hasta ocupar el alto que sobra
+   (cadena de flex desde la columna hasta la lista; min-height: 0 en cada eslabón). */
+.lanzador-panel[data-modo="cliente"]:not([hidden]),
+#lanzador-selector,
+.lanzador-caja .selector-usuarios-container,
+.lanzador-caja .lista-disponibles-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+.lanzador-caja .lista-usuarios-disponibles {
+    flex: 1;
+    min-height: 120px;
+    max-height: none;
+}
+.lanzador-lateral {
+    align-self: start;
+    background: var(--v-panel);
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+    padding: 16px;
+}
+.lanzador-lateral-titulo {
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--v-texto);
+}
+.lanzador-lateral .lanzador-estado {
+    margin: 0 0 12px;     /* sin color acá: lo ponen .cargando / .ok / .error */
+}
+.lanzador-atajos {
+    font-size: 0.8rem;
+    color: var(--v-texto-2);
+    border-top: 1px solid var(--v-borde);
+    padding-top: 8px;
+}
+
+/* Ventana angosta: una sola columna, el estado arriba de la lista. */
+@media (max-width: 900px) {
+    .lanzador-cuerpo { grid-template-columns: 1fr; }
+    .lanzador-lateral { order: -1; }
 }

@@ -135,17 +135,7 @@
     font-size: 0.85rem;
     color: var(--v-texto-2, var(--texto-2));
 }
-.ac-rueda {
-    flex-shrink: 0;
-    width: 28px;
-    height: 28px;
-    border: 4px solid rgba(0, 0, 0, 0.12);
-    border-top-color: var(--c-primario-1);
-    border-radius: 50%;
-    animation: ac-girar 0.8s linear infinite;
-}
-.ac-atm .ac-rueda { border-top-color: var(--c-atm-1); }
-@keyframes ac-girar { to { transform: rotate(360deg); } }
+/* La rueda es la común: componentes/rueda/rueda.css (.rueda-giratoria). */
 
 .ac-input:disabled { opacity: 0.6; cursor: wait; }
 .ac-btn:disabled { opacity: 0.5; cursor: not-allowed; }

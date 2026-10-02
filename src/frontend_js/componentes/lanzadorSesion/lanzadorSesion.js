@@ -41,9 +41,16 @@
         });
     }
 
+    // Esc cierra el lanzador. Se guarda la referencia para sacarlo al cerrar.
+    let onTeclaLanzador = null;
+
     function cerrar() {
         const ov = document.getElementById('lanzador-sesion-overlay');
         if (ov) ov.remove();
+        if (onTeclaLanzador) {
+            document.removeEventListener('keydown', onTeclaLanzador);
+            onTeclaLanzador = null;
+        }
     }
 
     async function abrirLanzadorSesion(servicio) {
@@ -68,9 +75,10 @@
                     <button class="lanzador-tab" data-modo="manual">✍️ Ingresar a mano</button>
                 </div>
 
-                <!-- Arriba, no al final: con una lista larga el mensaje quedaba fuera de vista. -->
-                <div class="lanzador-estado" id="lanzador-estado"></div>
-
+                <!-- Dos columnas: a la izquierda la lista (o el formulario manual); a la
+                     derecha los mensajes, siempre a la vista aunque la lista sea larga. -->
+                <div class="lanzador-cuerpo">
+                <div class="lanzador-principal">
                 <div class="lanzador-panel" data-modo="cliente">
                     <p class="lanzador-ayuda">Hacé click en un cliente y se abre el navegador ya logueado para operar a mano.</p>
                     <div id="lanzador-selector"></div>
@@ -94,6 +102,14 @@
                 <div class="lanzador-acciones" hidden>
                     <button class="lanzador-btn-abrir" id="lanzador-btn-abrir" disabled>Abrir navegador</button>
                 </div>
+                </div>
+
+                <aside class="lanzador-lateral">
+                    <div class="lanzador-lateral-titulo">Estado</div>
+                    <div class="lanzador-estado" id="lanzador-estado">Elegí un cliente de la lista.</div>
+                    <div class="lanzador-atajos">Esc o ✕ para cerrar</div>
+                </aside>
+                </div>
             </div>`;
         document.body.appendChild(overlay);
 
@@ -107,8 +123,11 @@
         let modoActivo = 'cliente';
         let abriendo = false;   // bloquea la lista mientras se abre un navegador (evita doble apertura)
 
+        // Sin novedades: la columna de estado muestra qué hacer según la pestaña.
         function limpiarEstado() {
-            estado.textContent = '';
+            estado.textContent = modoActivo === 'manual'
+                ? 'Completá CUIT y clave y apretá "Abrir navegador".'
+                : 'Elegí un cliente de la lista.';
             estado.className = 'lanzador-estado';
         }
 
@@ -117,9 +136,16 @@
             btnAbrir.disabled = abriendo || !(inputCuit.value.trim() && inputClave.value);
         }
 
-        // Cerrar al clickear el fondo o la X.
+        // Cerrar al clickear el fondo, la X o con Esc.
         overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
         overlay.querySelector('.lanzador-cerrar').addEventListener('click', cerrar);
+        onTeclaLanzador = (e) => {
+            if (e.key !== 'Escape') return;
+            // Si el diálogo de clave está abierto encima, el Esc es para él, no para el lanzador.
+            if (document.querySelector('.ac-overlay')) return;
+            cerrar();
+        };
+        document.addEventListener('keydown', onTeclaLanzador);
 
         // Pestañas: alternar cliente / manual.
         overlay.querySelectorAll('.lanzador-tab').forEach(tab => {

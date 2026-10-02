@@ -70,7 +70,7 @@
                         </div>
                     </label>
                     <div class="ac-verificando" hidden>
-                        <span class="ac-rueda" aria-hidden="true"></span>
+                        <span class="rueda-giratoria" aria-hidden="true"></span>
                         <div>
                             <div>${escapar(queVerifica)}</div>
                             <div class="ac-verificando-sub">Puede tardar hasta un minuto. No se colgó: está probando la clave.</div>

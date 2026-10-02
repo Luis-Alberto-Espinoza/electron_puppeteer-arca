@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // manejo de seciones claves .env
     iniciarSesion: (url, credenciales, test, visible) => ipcRenderer.send('iniciar-proceso-afip', { url, credenciales, test, visible }),
+    // Fin del proceso de iniciarSesion (éxito o error): el backend SIEMPRE contesta por acá.
+    onFinProcesoAfip: (callback) => ipcRenderer.on('login-automatizado', (_event, resultado) => callback(resultado)),
     
     // no se para que se usa y si se usa 
     enviarNumeroEliminar: (data) => ipcRenderer.send('numero-eliminar', data),
