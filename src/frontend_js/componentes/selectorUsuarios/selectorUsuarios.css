@@ -101,22 +101,24 @@
     cursor: pointer;
 }
 
-/* "Hay N clientes no habilitados que coinciden: mostrarlos" */
-.btn-mostrar-ocultos {
-    display: block;
-    width: 100%;
-    padding: 12px 16px;
-    border: none;
-    border-top: 1px dashed var(--sel-linea);
-    background: var(--sel-buscador);
-    color: var(--texto-1);
-    font-size: 13px;
+/* Con búsqueda: no habilitados que coinciden, al final y atenuados (opción filtroHabilitados) */
+.separador-atenuados {
+    padding: 6px 16px;
+    font-size: 12px;
     font-weight: 600;
-    text-align: left;
-    cursor: pointer;
+    color: var(--texto-2);
+    background: var(--sel-buscador);
+    border-top: 1px dashed var(--sel-linea);
+    border-bottom: 1px dashed var(--sel-linea);
 }
-.btn-mostrar-ocultos:hover {
-    background: var(--sel-fila-hover);
+.lista-usuarios-disponibles .usuario-fila.atenuada {   /* más específico: le gana a .deshabilitado */
+    opacity: 0.55;
+    filter: saturate(0.6);
+}
+/* Al pasar el mouse vuelve a verse entera: se puede arreglar con el botón "Clave". */
+.lista-usuarios-disponibles .usuario-fila.atenuada:hover {
+    opacity: 1;
+    filter: none;
 }
 
 /* ========================================

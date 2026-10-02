@@ -112,7 +112,8 @@ class SelectorUsuarios {
         // Filtro de habilitados: estado de la casilla + filas tocadas en esta sesión.
         this.mostrarNoHabilitados = false;
         this.filasTocadas = new Set();
-        this.ocultosQueCoinciden = 0;
+        // Con búsqueda: los no habilitados que coinciden se muestran al final, atenuados.
+        this.idsAtenuados = new Set();
 
         this.inicializar();
     }
@@ -431,24 +432,25 @@ class SelectorUsuarios {
     renderizarListaDisponibles() {
         console.log(`🔵 Renderizando lista disponibles: ${this.usuariosFiltrados.length} usuarios`);
 
-        // Hay clientes que coinciden con la búsqueda pero están ocultos por no estar habilitados:
-        // se ofrece mostrarlos en vez de un "no se encontraron" que confunde.
-        const avisoOcultos = (this.ocultosQueCoinciden > 0 && this.textoBusqueda) ? `
-            <button type="button" class="btn-mostrar-ocultos">
-                ${this.ocultosQueCoinciden === 1
-                    ? 'Hay 1 cliente no habilitado que coincide: mostrarlo'
-                    : `Hay ${this.ocultosQueCoinciden} clientes no habilitados que coinciden: mostrarlos`}
-            </button>` : '';
-
         if (this.usuariosFiltrados.length === 0) {
-            return avisoOcultos || `
+            return `
                 <div class="tabla-vacia">
                     ${this.textoBusqueda ? 'No se encontraron usuarios' : 'No hay usuarios disponibles'}
                 </div>
             `;
         }
 
+        let separadorPuesto = false;
         return this.usuariosFiltrados.map((usuario, index) => {
+            // Los no habilitados que coinciden con la búsqueda van al final, atenuados, con un
+            // separador antes del primero: se ven, pero queda claro que hay que arreglarlos.
+            const atenuado = this.idsAtenuados.has(String(usuario.id));
+            let separador = '';
+            if (atenuado && !separadorPuesto) {
+                separadorPuesto = true;
+                separador = `<div class="separador-atenuados">No habilitados que coinciden con la búsqueda</div>`;
+            }
+
             // Cebra por posición en la lista VISIBLE: al filtrar se re-alterna y no quedan filas pegadas del mismo color.
             const estaSeleccionado = this.usuariosSeleccionados.some(u => String(u.id) === String(usuario.id));
             const claseColor = index % 2 === 0 ? 'par' : 'impar';
@@ -479,9 +481,9 @@ class SelectorUsuarios {
             const accion = this.opciones.accionFila;
             const mostrarAccion = accion && (!accion.mostrar || accion.mostrar(usuario, marca));
 
-            return `
+            return separador + `
                 <div
-                    class="usuario-fila ${claseColor} ${claseSeleccionado} ${claseEstado} ${claseDeshabilitado} ${claseMarca}"
+                    class="usuario-fila ${claseColor} ${claseSeleccionado} ${claseEstado} ${claseDeshabilitado} ${claseMarca} ${atenuado ? 'atenuada' : ''}"
                     data-usuario-id="${usuario.id}"
                     data-seleccionable="${estadoValidacion.esSeleccionable}"
                 >
@@ -501,7 +503,7 @@ class SelectorUsuarios {
                     ` : ''}
                 </div>
             `;
-        }).join('') + avisoOcultos;
+        }).join('');
     }
 
     renderizarSeccionSeleccionados() {
@@ -614,11 +616,6 @@ class SelectorUsuarios {
                 return;
             }
 
-            if (e.target.closest('.btn-mostrar-ocultos')) {
-                this.setMostrarNoHabilitados(true);
-                return;
-            }
-
             // Click en fila de usuario disponible
             const fila = e.target.closest('.usuario-fila');
             if (fila) {
@@ -701,17 +698,28 @@ class SelectorUsuarios {
             );
         });
 
+        this.idsAtenuados = new Set();
         if (!this.opciones.filtroHabilitados || this.mostrarNoHabilitados) {
             this.usuariosFiltrados = coinciden;
-            this.ocultosQueCoinciden = 0;
             return;
         }
         // También quedan a la vista los seleccionados: si no, uno elegido con la casilla
         // prendida desaparecería al apagarla y seguiría entrando al lote sin que se vea.
         const seleccionados = new Set(this.usuariosSeleccionados.map(u => String(u.id)));
-        this.usuariosFiltrados = coinciden.filter(u =>
+        const visibles = coinciden.filter(u =>
             this.esHabilitado(u) || this.filasTocadas.has(String(u.id)) || seleccionados.has(String(u.id)));
-        this.ocultosQueCoinciden = coinciden.length - this.usuariosFiltrados.length;
+
+        // Sin búsqueda: solo los habilitados (la lista limpia). Con búsqueda: los no
+        // habilitados que coinciden van al final, atenuados, para que se vea que existen
+        // y se puedan arreglar con el botón "Clave" sin tener que prender la casilla.
+        if (!t) {
+            this.usuariosFiltrados = visibles;
+            return;
+        }
+        const idsVisibles = new Set(visibles.map(u => String(u.id)));
+        const extras = coinciden.filter(u => !idsVisibles.has(String(u.id)));
+        this.idsAtenuados = new Set(extras.map(u => String(u.id)));
+        this.usuariosFiltrados = [...visibles, ...extras];
     }
 
     setMostrarNoHabilitados(valor) {
