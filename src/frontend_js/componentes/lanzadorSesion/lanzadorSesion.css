@@ -32,7 +32,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 6px;
+    margin-bottom: 14px;
 }
 .lanzador-header h3 {
     margin: 0;
@@ -57,39 +57,22 @@
     opacity: 0.55;
 }
 
-.lanzador-ayuda {
-    color: var(--v-texto, var(--texto-1));
-    font-size: 0.95rem;
-    margin: 0 0 16px;
-}
-
-/* ===== Pestañas: cliente guardado / manual ===== */
-.lanzador-tabs {
-    display: flex;
-    gap: 8px;
-    margin: 10px 0 16px;
-    border-bottom: 1px solid var(--v-borde, #e5e7eb);
-}
+/* ===== Botón del header para alternar cliente guardado / manual ===== */
 .lanzador-tab {
+    margin-left: auto;
+    margin-right: 12px;
     background: transparent;
-    border: none;
-    border-bottom: 3px solid transparent;
-    padding: 8px 14px;
+    border: 1px solid var(--v-borde, #d1d5db);
+    border-radius: 8px;
+    padding: 7px 14px;
     font-size: 0.95rem;
     color: var(--v-texto, var(--texto-1));
     cursor: pointer;
-    margin-bottom: -1px;
 }
-.lanzador-tab:hover { color: var(--v-texto, #2c3e50); }
-.lanzador-tab.activo {
-    color: var(--v-txt-info, #667eea);
-    border-bottom-color: #667eea;
-    font-weight: 600;
-}
-.lanzador-atm .lanzador-tab.activo {
-    color: var(--v-txt-ok, #1e8e6f);
-    border-bottom-color: #1e8e6f;
-}
+.lanzador-tab:hover { background: var(--v-panel-2, #f0f0f0); }
+
+/* Buscador del selector con menos relleno: más alto para la lista. */
+.lanzador-caja .buscador-section { padding: 14px 20px; }
 
 /* ===== Campos del modo manual ===== */
 .lanzador-campo {
@@ -227,7 +210,7 @@
     flex: 1;
     min-height: 0;          /* deja que la lista use el alto que sobra */
     display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr);
+    grid-template-columns: minmax(0, 1fr);   /* una columna: la lateral de estado está oculta */
     gap: 20px;
 }
 .lanzador-principal {

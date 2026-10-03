@@ -67,12 +67,8 @@
             <div class="lanzador-caja lanzador-${servicio} tema-vista">
                 <div class="lanzador-header">
                     <h3>🚀 ${TITULOS[servicio]}</h3>
+                    <button class="lanzador-tab" id="lanzador-cambiar-modo">✍️ Ingresar a mano</button>
                     <button class="lanzador-cerrar" title="Cerrar">✕</button>
-                </div>
-
-                <div class="lanzador-tabs" role="tablist">
-                    <button class="lanzador-tab activo" data-modo="cliente">👥 Cliente guardado</button>
-                    <button class="lanzador-tab" data-modo="manual">✍️ Ingresar a mano</button>
                 </div>
 
                 <!-- Dos columnas: a la izquierda la lista (o el formulario manual); a la
@@ -80,12 +76,10 @@
                 <div class="lanzador-cuerpo">
                 <div class="lanzador-principal">
                 <div class="lanzador-panel" data-modo="cliente">
-                    <p class="lanzador-ayuda">Hacé click en un cliente y se abre el navegador ya logueado para operar a mano.</p>
                     <div id="lanzador-selector"></div>
                 </div>
 
                 <div class="lanzador-panel" data-modo="manual" hidden>
-                    <p class="lanzador-ayuda">Ingresá el CUIT y la clave a mano para abrir el navegador logueado (no se guardan).</p>
                     <label class="lanzador-campo">
                         <span>CUIT</span>
                         <input type="text" id="lanzador-manual-cuit" inputmode="numeric" autocomplete="off" placeholder="20123456789">
@@ -104,7 +98,8 @@
                 </div>
                 </div>
 
-                <aside class="lanzador-lateral">
+                <!-- Oculto: el resultado ya se ve en la fila del cliente. Se deja el nodo porque el JS escribe en #lanzador-estado. -->
+                <aside class="lanzador-lateral" hidden>
                     <div class="lanzador-lateral-titulo">Estado</div>
                     <div class="lanzador-estado" id="lanzador-estado">Elegí un cliente de la lista.</div>
                     <div class="lanzador-atajos">Esc o ✕ para cerrar</div>
@@ -147,18 +142,17 @@
         };
         document.addEventListener('keydown', onTeclaLanzador);
 
-        // Pestañas: alternar cliente / manual.
-        overlay.querySelectorAll('.lanzador-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                modoActivo = tab.dataset.modo;
-                overlay.querySelectorAll('.lanzador-tab').forEach(t =>
-                    t.classList.toggle('activo', t === tab));
-                overlay.querySelectorAll('.lanzador-panel').forEach(p =>
-                    p.hidden = p.dataset.modo !== modoActivo);
-                acciones.hidden = modoActivo !== 'manual';
-                limpiarEstado();
-                recomputarBoton();
-            });
+        // Alternar cliente / manual con un solo botón en el header.
+        // El texto muestra el modo al que se pasa, no el actual.
+        const btnModo = overlay.querySelector('#lanzador-cambiar-modo');
+        btnModo.addEventListener('click', () => {
+            modoActivo = modoActivo === 'cliente' ? 'manual' : 'cliente';
+            btnModo.textContent = modoActivo === 'cliente' ? '✍️ Ingresar a mano' : '👥 Cliente guardado';
+            overlay.querySelectorAll('.lanzador-panel').forEach(p =>
+                p.hidden = p.dataset.modo !== modoActivo);
+            acciones.hidden = modoActivo !== 'manual';
+            limpiarEstado();
+            recomputarBoton();
         });
 
         inputCuit.addEventListener('input', () => { limpiarEstado(); recomputarBoton(); });
