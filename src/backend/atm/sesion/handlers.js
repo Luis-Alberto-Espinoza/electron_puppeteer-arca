@@ -10,6 +10,7 @@
 
 const sesionAtmManager = require('./sesionAtmManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { estadoGuardado } = require('../../cliente/guardarDesdeLanzador.js');
 
 function setupSesionAtmHandlers(ipcMain) {
     const repo = getContribuyenteRepo();
@@ -46,7 +47,10 @@ function setupSesionAtmHandlers(ipcMain) {
         }
         try {
             const credenciales = { cuit, clave };
-            return await sesionAtmManager.abrirSesion(credenciales);
+            const r = await sesionAtmManager.abrirSesion(credenciales, { leerNombre: true });
+            // Para el botón de guardar del front: cliente nuevo o ya en la cartera.
+            if (r.success) r.guardado = await estadoGuardado(repo, cuit, 'atm').catch(() => null);
+            return r;
         } catch (error) {
             console.error('[SesionATM] Error (manual):', error.message);
             return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };

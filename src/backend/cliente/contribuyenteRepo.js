@@ -144,17 +144,27 @@ function accesoAfip(c, lista) {
  *   sentido ofrecer "actualizar clave".
  * `claveIncorrecta`: el último login real con esa clave la rechazó. Los lotes no la
  *   dejan elegir (fallaría seguro y suma intentos fallidos hacia el captcha).
+ * `sinPuntosDeVenta`: facturación con la clave validada, lo único que falta son los PDV
+ *   → tiene sentido ofrecer "traer puntos de venta" (Analizar). Si ya se buscaron
+ *   (`puntosDeVentaActualizados`) el motivo lo dice con la fecha: AFIP no le tiene.
  */
+/** ISO → "05/10/2026" (hora local). */
+function fechaCorta(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '?';
+    return [d.getDate(), d.getMonth() + 1].map(n => String(n).padStart(2, '0')).join('/') + '/' + d.getFullYear();
+}
+
 function evaluarOperabilidad(c, servicio, lista) {
-    const ok = { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true, problemaClave: false, claveIncorrecta: false };
+    const ok = { puedeOperar: true, motivoNoOpera: null, tieneAcceso: true, problemaClave: false, claveIncorrecta: false, sinPuntosDeVenta: false };
     if (!servicio) return ok;
 
     if (servicio === 'atm') {
-        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM', tieneAcceso: false, problemaClave: true, claveIncorrecta: false };
+        if (!c.claveATM) return { puedeOperar: false, motivoNoOpera: 'sin clave ATM', tieneAcceso: false, problemaClave: true, claveIncorrecta: false, sinPuntosDeVenta: false };
         if (c.estado_atm !== 'validado') {
             const incorrecta = c.estado_atm === 'invalido';
             const motivo = incorrecta ? 'clave ATM incorrecta' : 'clave ATM sin validar';
-            return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: true, problemaClave: true, claveIncorrecta: incorrecta };
+            return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: true, problemaClave: true, claveIncorrecta: incorrecta, sinPuntosDeVenta: false };
         }
         return ok;
     }
@@ -165,10 +175,15 @@ function evaluarOperabilidad(c, servicio, lista) {
     const faltaPdv = servicio === 'facturacion' && !tienePdv;
     if (!a.hay || !a.validado) {
         // Sin PDV no hay forma de facturar aunque se arregle la clave: no se deja elegir.
-        return { puedeOperar: false, motivoNoOpera: a.motivo, tieneAcceso: a.hay && !faltaPdv, problemaClave: true, claveIncorrecta: !!a.incorrecta };
+        return { puedeOperar: false, motivoNoOpera: a.motivo, tieneAcceso: a.hay && !faltaPdv, problemaClave: true, claveIncorrecta: !!a.incorrecta, sinPuntosDeVenta: false };
     }
     if (faltaPdv) {
-        return { puedeOperar: false, motivoNoOpera: 'sin facturación habilitada (sin puntos de venta)', tieneAcceso: false, problemaClave: false, claveIncorrecta: false };
+        // Distinguir "nunca se fueron a buscar" de "se buscaron y AFIP no tiene": Analizar
+        // deja la fecha aunque encuentre 0 PDV.
+        const motivo = c.puntosDeVentaActualizados
+            ? `AFIP no le tiene puntos de venta (revisado ${fechaCorta(c.puntosDeVentaActualizados)})`
+            : 'puntos de venta sin traer';
+        return { puedeOperar: false, motivoNoOpera: motivo, tieneAcceso: false, problemaClave: false, claveIncorrecta: false, sinPuntosDeVenta: true };
     }
     return ok;
 }
@@ -207,6 +222,8 @@ function aListItem(c, servicio, lista) {
         tieneAcceso: op.tieneAcceso,
         problemaClave: op.problemaClave,
         claveIncorrecta: op.claveIncorrecta,
+        sinPuntosDeVenta: op.sinPuntosDeVenta,
+        pdvRevisado: op.sinPuntosDeVenta && !!c.puntosDeVentaActualizados,   // ya se buscaron: AFIP no tiene
         esRepresentado: !c.claveAFIP && !!c.representanteAfipCuit
     };
 }

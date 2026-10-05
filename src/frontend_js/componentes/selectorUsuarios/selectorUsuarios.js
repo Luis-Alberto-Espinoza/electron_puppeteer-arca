@@ -333,6 +333,8 @@ class SelectorUsuarios {
                 tieneAcceso: it.tieneAcceso,
                 problemaClave: it.problemaClave,
                 claveIncorrecta: it.claveIncorrecta,
+                sinPuntosDeVenta: it.sinPuntosDeVenta,
+                pdvRevisado: it.pdvRevisado,
                 esRepresentado: it.esRepresentado,
                 _fuenteContribuyentes: true
             }));
@@ -480,6 +482,11 @@ class SelectorUsuarios {
             const claseMarca = marca ? `marca-${marca.tipo}` : '';
             const accion = this.opciones.accionFila;
             const mostrarAccion = accion && (!accion.mostrar || accion.mostrar(usuario, marca));
+            // texto/titulo pueden depender de la fila (ej. "Clave" o "Traer PDV" según el problema).
+            const textoAccion = mostrarAccion && (typeof accion.texto === 'function' ? accion.texto(usuario, marca) : accion.texto);
+            const tituloAccion = mostrarAccion && (typeof accion.titulo === 'function' ? accion.titulo(usuario, marca) : accion.titulo);
+            // Visible pero apagado (ej. mientras corre lo que disparó: evita el doble click).
+            const accionApagada = mostrarAccion && !!(accion.deshabilitado && accion.deshabilitado(usuario, marca));
 
             return separador + `
                 <div
@@ -498,8 +505,8 @@ class SelectorUsuarios {
                         <div class="usuario-cuit">${usuario.cuit || usuario.cuil || 'N/A'}</div>
                     </div>
                     ${mostrarAccion ? `
-                        <button type="button" class="usuario-accion" data-accion-id="${usuario.id}"
-                            title="${accion.titulo || accion.texto}">${accion.texto}</button>
+                        <button type="button" class="usuario-accion" data-accion-id="${usuario.id}" ${accionApagada ? 'disabled' : ''}
+                            title="${tituloAccion || textoAccion}">${textoAccion}</button>
                     ` : ''}
                 </div>
             `;

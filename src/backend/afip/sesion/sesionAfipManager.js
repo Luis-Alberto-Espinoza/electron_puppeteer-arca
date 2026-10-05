@@ -4,15 +4,18 @@
 
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
+const { leerNombreTitularAfip } = require('../../puppeteer/verificaCredenciales/flujo_verificaCredenciales_AFIP.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 /**
  * Abre Chrome visible, loguea en ARCA y deja la ventana abierta.
  * @param {Object} credenciales { usuario, contrasena }
- * @returns {Promise<{success:boolean, error?:string, message?:string}>}
+ * @param {Object} [opciones]
+ * @param {boolean} [opciones.leerNombre]  lee el titular del encabezado (modo manual, para guardarlo)
+ * @returns {Promise<{success:boolean, nombre?:string|null, error?:string, message?:string}>}
  */
-async function abrirSesion(credenciales) {
+async function abrirSesion(credenciales, { leerNombre = false } = {}) {
     console.log('[SesionAFIP] Abriendo sesión para CUIT:', credenciales && credenciales.usuario);
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
@@ -26,7 +29,10 @@ async function abrirSesion(credenciales) {
                 message: resultadoLogin.message
             };
         }
-        return { success: true };
+        if (!leerNombre) return { success: true };
+        // Best-effort: el encabezado aparece con el portal; si no llega, el nombre queda null.
+        await page.waitForSelector('#buscadorInput', { timeout: 10000 }).catch(() => {});
+        return { success: true, nombre: await leerNombreTitularAfip(page) };
     }, { headless: false, dejarAbiertoSiempre: true });
 }
 

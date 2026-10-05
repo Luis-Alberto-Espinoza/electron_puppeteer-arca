@@ -190,7 +190,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
         // Actualizar clave sin ir a Clientes. titularClave dice de quién es (sin devolverla).
         titularClave:    (datos) => ipcRenderer.invoke('contribuyente:titularClave', datos),
         actualizarClave: (datos) => ipcRenderer.invoke('contribuyente:actualizarClave', datos),
-        verificarClave:  (datos) => ipcRenderer.invoke('contribuyente:verificarClave', datos)
+        verificarClave:  (datos) => ipcRenderer.invoke('contribuyente:verificarClave', datos),
+        // Lanzador manual: { cuit, servicio, clave, nombre } → crea o actualiza la clave (ya validada).
+        guardarDesdeLanzador: (datos) => ipcRenderer.invoke('contribuyente:guardarDesdeLanzador', datos)
     },
 
     // Lanzador de sesión: elige un contribuyente y abre el navegador ya logueado.

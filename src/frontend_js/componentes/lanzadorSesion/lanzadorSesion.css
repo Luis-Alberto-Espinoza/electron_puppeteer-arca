@@ -130,10 +130,10 @@
 .lanzador-ver-clave.activo { opacity: 1; }
 
 .lanzador-estado {
-    min-height: 22px;
     margin: 14px 0;
     font-size: 0.95rem;
 }
+.lanzador-estado:empty { display: none; }
 .lanzador-estado.cargando { color: var(--v-txt-info, #2c6fbf); }
 .lanzador-estado.ok       { color: var(--v-txt-ok, #1e8e6f); font-weight: 600; }
 .lanzador-estado.error    { color: var(--v-txt-error, #c0392b); font-weight: 600; }
@@ -141,7 +141,22 @@
 .lanzador-acciones {
     display: flex;
     justify-content: flex-end;
+    gap: 12px;
 }
+/* Secundario: aparece habilitado recién con un login manual exitoso. */
+.lanzador-btn-guardar {
+    background: transparent;
+    color: var(--v-texto, #2c3e50);
+    border: 1px solid var(--v-borde, #d1d5db);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+.lanzador-btn-guardar:hover:not(:disabled) { background: var(--v-panel-2, #f0f0f0); }
+.lanzador-btn-guardar:disabled { opacity: 0.45; cursor: not-allowed; }
+.lanzador-campo input[readonly] { opacity: 0.7; }
 .lanzador-btn-abrir {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
@@ -205,12 +220,12 @@
     box-shadow: 0 6px 18px rgba(15, 32, 39, 0.5);
 }
 
-/* ===== Cuerpo en dos columnas: lista a la izquierda, estado a la derecha ===== */
+/* ===== Cuerpo: la lista (o el formulario manual) usa el alto que sobra ===== */
 .lanzador-cuerpo {
     flex: 1;
     min-height: 0;          /* deja que la lista use el alto que sobra */
     display: grid;
-    grid-template-columns: minmax(0, 1fr);   /* una columna: la lateral de estado está oculta */
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
 }
 .lanzador-principal {
@@ -235,30 +250,4 @@
     min-height: 120px;
     max-height: none;
 }
-.lanzador-lateral {
-    align-self: start;
-    background: var(--v-panel);
-    border: 1px solid var(--v-borde);
-    border-radius: var(--radio-sm);
-    padding: 16px;
-}
-.lanzador-lateral-titulo {
-    font-weight: 700;
-    margin-bottom: 8px;
-    color: var(--v-texto);
-}
-.lanzador-lateral .lanzador-estado {
-    margin: 0 0 12px;     /* sin color acá: lo ponen .cargando / .ok / .error */
-}
-.lanzador-atajos {
-    font-size: 0.8rem;
-    color: var(--v-texto-2);
-    border-top: 1px solid var(--v-borde);
-    padding-top: 8px;
-}
 
-/* Ventana angosta: una sola columna, el estado arriba de la lista. */
-@media (max-width: 900px) {
-    .lanzador-cuerpo { grid-template-columns: 1fr; }
-    .lanzador-lateral { order: -1; }
-}

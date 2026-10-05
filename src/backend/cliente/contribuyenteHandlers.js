@@ -5,6 +5,7 @@
 //   contribuyente:titularClave    payload: { cuit, servicio }        → de quién es la clave (sin la clave)
 //   contribuyente:actualizarClave payload: { cuit, servicio, clave } → la guarda en el titular
 //   contribuyente:verificarClave  payload: { cuit, servicio }        → login corto (+PDV en facturación)
+//   contribuyente:guardarDesdeLanzador payload: { cuit, servicio, clave, nombre } → alta o clave nueva, ya validada
 //
 // IMPORTANTE: ningún endpoint DEVUELVE claves (actualizarClave solo las recibe)
 // (es la regla del contrato). `resolverAcceso` queda backend-only (lo usan los
@@ -12,6 +13,7 @@
 
 const { getContribuyenteRepo } = require('./contribuyenteStore.js');
 const { verificarClave } = require('./verificarClave.js');
+const { guardarDesdeLanzador } = require('./guardarDesdeLanzador.js');
 
 function setupContribuyenteHandlers(ipcMain) {
     const repo = getContribuyenteRepo();
@@ -71,6 +73,18 @@ function setupContribuyenteHandlers(ipcMain) {
         } catch (e) {
             console.error('[contribuyente:verificarClave] error:', e.message);
             return { success: false, error: 'ERROR', message: e.message };
+        }
+    });
+
+    // Lanzador manual: tras un login exitoso, guardar el cliente o actualizar su clave.
+    ipcMain.handle('contribuyente:guardarDesdeLanzador', async (event, { cuit, servicio, clave, nombre } = {}) => {
+        try {
+            const r = await guardarDesdeLanzador(repo, { cuit, canal: servicio, clave, nombre });
+            console.log(`[contribuyente:guardarDesdeLanzador] ${servicio} ${cuit} → ${r.accion}`);
+            return { success: true, ...r };
+        } catch (e) {
+            console.error('[contribuyente:guardarDesdeLanzador] error:', e.message);
+            return { success: false, error: e.code || 'ERROR', message: e.message };
         }
     });
 }

@@ -179,18 +179,47 @@
      * Arma la opción `accionFila` del SelectorUsuarios con el botón "Clave" ya cableado:
      * aparece en filas con problema de clave (o recién marcadas con error), abre el diálogo
      * (que guarda y verifica), recarga la lista y deja el resultado en la fila.
+     * En facturación, si la clave anda pero faltan los puntos de venta, el mismo botón es
+     * "Traer PDV": corre Analizar sin diálogo y deja el resultado en la fila.
      *
      * @param {'afip'|'atm'} canal           clave a actualizar (facturación usa 'afip')
      * @param {() => SelectorUsuarios} obtenerSelector  función: el selector se crea DESPUÉS
      * @param {'afip'|'atm'|'facturacion'} [verificar]  qué necesita la pantalla para operar
      */
     function crearAccionActualizarClave(canal, obtenerSelector, verificar = canal) {
+        // Facturación: si la clave anda y solo faltan los puntos de venta, el botón los trae.
+        const esTraerPdv = (usuario) => verificar === 'facturacion' && !!usuario.sinPuntosDeVenta && !usuario.problemaClave;
+        // Un "Traer PDV" a la vez en toda la lista: un solo login a AFIP por vez (captcha) y,
+        // hasta resolver el click intermitente del buscador (docs/FALTANTES.md), sin paralelo.
+        let enCurso = null;   // id de la fila que está buscando
         return {
-            texto: '🔑 Clave',
-            titulo: 'Actualizar la clave de este cliente',
-            mostrar: (usuario, marca) => !!usuario.problemaClave || !!(marca && marca.tipo === 'error'),
+            texto: (usuario) => !esTraerPdv(usuario) ? '🔑 Clave'
+                : usuario.pdvRevisado ? '🔄 Revisar de nuevo' : '🔄 Traer PDV',
+            titulo: (usuario) => !esTraerPdv(usuario) ? 'Actualizar la clave de este cliente'
+                : usuario.pdvRevisado
+                    ? 'Ya se revisó y AFIP no tenía puntos de venta: vuelve a mirar (por si dio de alta uno)'
+                    : 'Entra a AFIP y trae los puntos de venta de este cliente (como Analizar en Clientes)',
+            mostrar: (usuario, marca) => !!usuario.problemaClave || esTraerPdv(usuario) || !!(marca && marca.tipo === 'error'),
+            deshabilitado: (usuario) => enCurso !== null && esTraerPdv(usuario),   // todos opacos mientras uno busca
             onClick: async (usuario) => {
                 const selector = obtenerSelector();
+                if (esTraerPdv(usuario)) {
+                    if (enCurso !== null) return;
+                    enCurso = usuario.id;
+                    selector.marcarFila(usuario.id, '⏳ Buscando puntos de venta…', 'cargando');
+                    let r;
+                    try {
+                        // Sin PDV, verificarClave('facturacion') corre Analizar (login + trae los PDV).
+                        r = await window.electronAPI.contribuyente.verificarClave({ cuit: usuario.cuit, servicio: 'facturacion' });
+                    } catch (err) {
+                        r = { success: false, message: err.message };
+                    } finally {
+                        enCurso = null;
+                    }
+                    await selector.recargar();   // con PDV queda habilitado para elegir
+                    selector.marcarFila(usuario.id, (r && r.message) || 'No se pudieron traer los puntos de venta', r && r.success ? 'ok' : 'error');
+                    return;
+                }
                 const r = await abrirActualizarClave({ cuit: usuario.cuit, servicio: canal, verificar });
                 if (r.error) {
                     selector.marcarFila(usuario.id, r.error, 'error');

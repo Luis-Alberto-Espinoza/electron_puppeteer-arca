@@ -71,8 +71,6 @@
                     <button class="lanzador-cerrar" title="Cerrar">✕</button>
                 </div>
 
-                <!-- Dos columnas: a la izquierda la lista (o el formulario manual); a la
-                     derecha los mensajes, siempre a la vista aunque la lista sea larga. -->
                 <div class="lanzador-cuerpo">
                 <div class="lanzador-principal">
                 <div class="lanzador-panel" data-modo="cliente">
@@ -91,19 +89,19 @@
                             <button type="button" class="lanzador-ver-clave" id="lanzador-ver-clave" title="Mostrar clave">👁️</button>
                         </div>
                     </label>
-                </div>
+                    <label class="lanzador-campo">
+                        <span>Nombre / razón social</span>
+                        <input type="text" id="lanzador-manual-nombre" autocomplete="off" placeholder="Se completa solo al iniciar sesión">
+                    </label>
 
-                <div class="lanzador-acciones" hidden>
-                    <button class="lanzador-btn-abrir" id="lanzador-btn-abrir" disabled>Abrir navegador</button>
+                    <div class="lanzador-acciones">
+                        <button class="lanzador-btn-guardar" id="lanzador-btn-guardar" disabled>💾 Guardar cliente</button>
+                        <button class="lanzador-btn-abrir" id="lanzador-btn-abrir" disabled>Abrir navegador</button>
+                    </div>
+                    <!-- Resultado del login y del guardado (en modo cliente el resultado va en la fila). -->
+                    <div class="lanzador-estado" id="lanzador-estado"></div>
                 </div>
                 </div>
-
-                <!-- Oculto: el resultado ya se ve en la fila del cliente. Se deja el nodo porque el JS escribe en #lanzador-estado. -->
-                <aside class="lanzador-lateral" hidden>
-                    <div class="lanzador-lateral-titulo">Estado</div>
-                    <div class="lanzador-estado" id="lanzador-estado">Elegí un cliente de la lista.</div>
-                    <div class="lanzador-atajos">Esc o ✕ para cerrar</div>
-                </aside>
                 </div>
             </div>`;
         document.body.appendChild(overlay);
@@ -112,23 +110,39 @@
         const estado = overlay.querySelector('#lanzador-estado');
         const inputCuit = overlay.querySelector('#lanzador-manual-cuit');
         const inputClave = overlay.querySelector('#lanzador-manual-clave');
+        const inputNombre = overlay.querySelector('#lanzador-manual-nombre');
+        const btnGuardar = overlay.querySelector('#lanzador-btn-guardar');
         const btnVerClave = overlay.querySelector('#lanzador-ver-clave');
         const contSelector = overlay.querySelector('#lanzador-selector');
-        const acciones = overlay.querySelector('.lanzador-acciones');
         let modoActivo = 'cliente';
         let abriendo = false;   // bloquea la lista mientras se abre un navegador (evita doble apertura)
+        let guardando = false;
+        // Último login manual exitoso: { cuit, clave, guardado }. Solo se guarda lo que se probó.
+        let loginOk = null;
 
-        // Sin novedades: la columna de estado muestra qué hacer según la pestaña.
-        function limpiarEstado() {
-            estado.textContent = modoActivo === 'manual'
-                ? 'Completá CUIT y clave y apretá "Abrir navegador".'
-                : 'Elegí un cliente de la lista.';
-            estado.className = 'lanzador-estado';
+        function mostrarEstado(texto, tipo = '') {
+            estado.textContent = texto;
+            estado.className = 'lanzador-estado' + (tipo ? ' ' + tipo : '');
         }
+        function limpiarEstado() { mostrarEstado(''); }
 
         // El botón solo existe en modo manual; en modo cliente el click en la lista abre directo.
         function recomputarBoton() {
             btnAbrir.disabled = abriendo || !(inputCuit.value.trim() && inputClave.value);
+            recomputarGuardar();
+        }
+
+        // Guardar se habilita solo con el CUIT y la clave del último login exitoso. Si el
+        // cliente ya está en la cartera, el botón actualiza su clave (el nombre es el guardado).
+        function recomputarGuardar() {
+            const vigente = !!loginOk && loginOk.cuit === inputCuit.value.trim() && loginOk.clave === inputClave.value;
+            const g = vigente ? loginOk.guardado : null;
+            const existe = !!(g && g.existe);
+            btnGuardar.textContent = existe ? '💾 Actualizar clave guardada' : '💾 Guardar cliente';
+            inputNombre.readOnly = existe;
+            btnGuardar.disabled = guardando || abriendo || !vigente
+                || (existe && g.esRepresentado)
+                || (!existe && !inputNombre.value.trim());
         }
 
         // Cerrar al clickear el fondo, la X o con Esc.
@@ -150,13 +164,13 @@
             btnModo.textContent = modoActivo === 'cliente' ? '✍️ Ingresar a mano' : '👥 Cliente guardado';
             overlay.querySelectorAll('.lanzador-panel').forEach(p =>
                 p.hidden = p.dataset.modo !== modoActivo);
-            acciones.hidden = modoActivo !== 'manual';
             limpiarEstado();
             recomputarBoton();
         });
 
         inputCuit.addEventListener('input', () => { limpiarEstado(); recomputarBoton(); });
         inputClave.addEventListener('input', () => { limpiarEstado(); recomputarBoton(); });
+        inputNombre.addEventListener('input', recomputarGuardar);
 
         // Ojito: mostrar / ocultar la clave para chequear que se tipeó bien.
         btnVerClave.addEventListener('click', () => {
@@ -169,8 +183,7 @@
         try {
             await asegurarSelectorCargado();
         } catch (err) {
-            estado.textContent = '❌ ' + err.message;
-            estado.className = 'lanzador-estado error';
+            contSelector.textContent = '❌ ' + err.message;
             return;
         }
 
@@ -199,34 +212,68 @@
             const cuit = inputCuit.value.trim();
             const clave = inputClave.value;
             if (!cuit || !clave || abriendo) return;
-            lanzar(window.electronAPI.sesion[`${servicio}Manual`]({ cuit, clave }));
+            loginOk = null;
+            lanzar(window.electronAPI.sesion[`${servicio}Manual`]({ cuit, clave }), null, { cuit, clave });
+        });
+
+        btnGuardar.addEventListener('click', async () => {
+            if (!loginOk || guardando) return;
+            guardando = true;
+            recomputarGuardar();
+            mostrarEstado('⏳ Guardando…', 'cargando');
+            try {
+                const r = await window.electronAPI.contribuyente.guardarDesdeLanzador({
+                    cuit: loginOk.cuit, servicio, clave: loginOk.clave, nombre: inputNombre.value.trim()
+                });
+                if (r && r.success) {
+                    mostrarEstado(r.accion === 'creado'
+                        ? `✅ "${r.nombre}" quedó guardado como cliente, con la clave validada.`
+                        : `✅ Clave de "${r.nombre}" actualizada y validada.`, 'ok');
+                    loginOk = null;              // ya está guardado: no se vuelve a ofrecer
+                    await selector.recargar();   // que aparezca en la lista de clientes
+                } else {
+                    mostrarEstado('❌ ' + ((r && r.message) || 'No se pudo guardar'), 'error');
+                }
+            } catch (err) {
+                mostrarEstado('❌ ' + err.message, 'error');
+            } finally {
+                guardando = false;
+                recomputarGuardar();
+            }
         });
 
         // cliente: la fila de donde salió (null en modo manual). El resultado se muestra en esa fila.
-        async function lanzar(promesa, cliente = null) {
+        // manual: { cuit, clave } tipeados (null en modo cliente). Si el login anda, se ofrece guardarlo.
+        async function lanzar(promesa, cliente = null, manual = null) {
             abriendo = true;
             if (cliente) selector.limpiarMarcaFila(cliente.id);
             contSelector.classList.add('lanzador-bloqueado');
             btnAbrir.disabled = true;
-            estado.textContent = '⏳ Abriendo navegador e iniciando sesión…';
-            estado.className = 'lanzador-estado cargando';
+            mostrarEstado('⏳ Abriendo navegador e iniciando sesión…', 'cargando');
             let r = null;
             try {
                 r = await promesa;
-                if (r && r.success) {
+                if (r && r.success && manual) {
+                    loginOk = { ...manual, guardado: r.guardado || { existe: false } };
+                    const g = loginOk.guardado;
+                    if (g.existe) inputNombre.value = g.nombre || '';
+                    else if (r.nombre) inputNombre.value = r.nombre;
+                    const extra = g.esRepresentado
+                        ? ' Este cliente entra con la clave de su representante: no se le guarda una propia.'
+                        : g.existe ? ' Ya está en tus clientes: podés actualizar su clave guardada.'
+                        : ' Podés guardarlo como cliente.';
+                    mostrarEstado('✅ Sesión iniciada.' + extra, 'ok');
+                } else if (r && r.success) {
                     const extra = r.requiereElegirEmpresa
                         ? ' Entrás como su representante: elegí la empresa en la pantalla de AFIP.'
                         : '';
-                    estado.textContent = '✅ Navegador abierto y sesión iniciada. Podés operar a mano (cerralo cuando termines).' + extra;
-                    estado.className = 'lanzador-estado ok';
+                    mostrarEstado('✅ Navegador abierto y sesión iniciada. Podés operar a mano (cerralo cuando termines).' + extra, 'ok');
                 } else {
-                    estado.textContent = '❌ ' + ((r && r.message) || 'No se pudo iniciar sesión');
-                    estado.className = 'lanzador-estado error';
+                    mostrarEstado('❌ ' + ((r && r.message) || 'No se pudo iniciar sesión'), 'error');
                 }
             } catch (err) {
                 r = { success: false, message: err.message };
-                estado.textContent = '❌ ' + err.message;
-                estado.className = 'lanzador-estado error';
+                mostrarEstado('❌ ' + err.message, 'error');
             } finally {
                 abriendo = false;
                 contSelector.classList.remove('lanzador-bloqueado');

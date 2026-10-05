@@ -59,3 +59,5 @@ async function verificarCredencialesATM(_page, cuit, clave, { visible } = {}) {
 }
 
 module.exports = verificarCredencialesATM;
+// También la usa el lanzador manual para autocompletar el nombre al guardar el cliente.
+module.exports.leerNombreTitularAtm = leerNombreTitularAtm;

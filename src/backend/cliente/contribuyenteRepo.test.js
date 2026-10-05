@@ -197,6 +197,44 @@ test('listar(facturacion): clave OK pero sin PDV → no es problema de clave', a
     const papi = (await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'facturacion' }))
         .find(i => i.cuit === '30718609700');
     assert.strictEqual(papi.problemaClave, false);
+    assert.strictEqual(papi.sinPuntosDeVenta, true);   // → botón "Traer PDV"
+});
+
+test('listar(facturacion): sin PDV y nunca analizado → "sin traer", pdvRevisado false', async () => {
+    const datos = datosBase();
+    datos[1].puntosDeVenta = [];
+    const papi = (await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'facturacion' }))
+        .find(i => i.cuit === '30718609700');
+    assert.strictEqual(papi.motivoNoOpera, 'puntos de venta sin traer');
+    assert.strictEqual(papi.pdvRevisado, false);
+});
+
+test('listar(facturacion): analizado con 0 PDV → "AFIP no le tiene" con la fecha', async () => {
+    const datos = datosBase();
+    datos[1].puntosDeVenta = [];
+    datos[1].puntosDeVentaActualizados = '2026-10-05T15:00:00.000Z';
+    const papi = (await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'facturacion' }))
+        .find(i => i.cuit === '30718609700');
+    assert.match(papi.motivoNoOpera, /^AFIP no le tiene puntos de venta \(revisado \d{2}\/\d{2}\/2026\)$/);
+    assert.strictEqual(papi.pdvRevisado, true);
+    assert.strictEqual(papi.sinPuntosDeVenta, true);   // el botón sigue (puede dar de alta uno después)
+});
+
+test('listar(facturacion): clave sin validar + sin PDV → el problema es la clave, no los PDV', async () => {
+    const datos = datosBase();
+    datos[0].estado_afip = 'pendiente';
+    datos[1].puntosDeVenta = [];
+    const papi = (await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'facturacion' }))
+        .find(i => i.cuit === '30718609700');
+    assert.strictEqual(papi.sinPuntosDeVenta, false);
+});
+
+test('listar(afip): sin PDV no importa fuera de facturación', async () => {
+    const datos = datosBase();
+    datos[1].puntosDeVenta = [];
+    const papi = (await crearContribuyenteRepo(storeMemoria(datos)).listar({ servicio: 'afip' }))
+        .find(i => i.cuit === '30718609700');
+    assert.strictEqual(papi.sinPuntosDeVenta, false);
 });
 
 test('listar(afip): representante con clave incorrecta → el representado tiene claveIncorrecta', async () => {

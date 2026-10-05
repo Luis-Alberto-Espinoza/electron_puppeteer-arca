@@ -306,6 +306,24 @@
     background-color: var(--c-ok-2);
 }
 
+/* Trabajando (ej. "⏳ Buscando puntos de venta…"): la fila se ve entera y el mensaje late. */
+.lista-usuarios-disponibles .usuario-fila.marca-cargando {
+    opacity: 1;
+    filter: none;
+    border-left: 4px solid #3b82f6;
+}
+.usuario-fila.marca-cargando .usuario-mensaje-estado {
+    color: #fff;
+    background-color: #2563eb;
+    font-size: 13px;
+    padding: 4px 12px;
+    box-shadow: 0 0 0 2px rgba(147, 197, 253, 0.6);
+    animation: marca-cargando-late 1.2s ease-in-out infinite;
+}
+@keyframes marca-cargando-late {
+    50% { box-shadow: 0 0 0 5px rgba(147, 197, 253, 0.15); filter: brightness(1.15); }
+}
+
 /* Botón de acción por fila (ej. "Actualizar clave") */
 .usuario-accion {
     flex-shrink: 0;
@@ -325,6 +343,12 @@
 }
 .usuario-fila.deshabilitado .usuario-accion {
     cursor: pointer;   /* la fila no se puede elegir, pero el botón sí funciona */
+}
+.usuario-fila .usuario-accion:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
 }
 
 .usuario-fila.estado-sin_validar .usuario-mensaje-estado {

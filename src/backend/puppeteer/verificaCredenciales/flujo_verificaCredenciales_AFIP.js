@@ -156,3 +156,5 @@ async function verificarYObtenerDatosAFIP(page, usuario, opciones = {}) {
 }
 
 module.exports = verificarYObtenerDatosAFIP;
+// También la usa el lanzador manual para autocompletar el nombre al guardar el cliente.
+module.exports.leerNombreTitularAfip = leerNombreTitularAfip;

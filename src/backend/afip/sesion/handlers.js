@@ -11,6 +11,7 @@
 
 const sesionAfipManager = require('./sesionAfipManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
+const { estadoGuardado } = require('../../cliente/guardarDesdeLanzador.js');
 
 function setupSesionAfipHandlers(ipcMain) {
     const repo = getContribuyenteRepo();
@@ -52,7 +53,10 @@ function setupSesionAfipHandlers(ipcMain) {
         }
         try {
             const credenciales = { usuario: cuit, contrasena: clave };
-            return await sesionAfipManager.abrirSesion(credenciales);
+            const r = await sesionAfipManager.abrirSesion(credenciales, { leerNombre: true });
+            // Para el botón de guardar del front: cliente nuevo o ya en la cartera.
+            if (r.success) r.guardado = await estadoGuardado(repo, cuit, 'afip').catch(() => null);
+            return r;
         } catch (error) {
             console.error('[SesionAFIP] Error (manual):', error.message);
             return { success: false, error: 'ABRIR_SESION_ERROR', message: error.message };
