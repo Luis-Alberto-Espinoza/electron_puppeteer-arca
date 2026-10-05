@@ -192,17 +192,6 @@ class SelectorUsuarios {
         };
     }
 
-    /**
-     * Cuenta cuántos usuarios son realmente seleccionables
-     * @returns {number}
-     */
-    contarUsuariosSeleccionables() {
-        return this.usuariosFiltrados.filter(usuario => {
-            const estado = this.obtenerEstadoValidacion(usuario);
-            return estado.esSeleccionable;
-        }).length;
-    }
-
     async cargarUsuarios() {
         // Modo opt-in: leer del modelo plano (contribuyente.listar) en vez de user.getAll.
         if (this.opciones.fuente === 'contribuyentes') {
@@ -379,21 +368,22 @@ class SelectorUsuarios {
                             ✕ Limpiar
                         </button>
                     </div>
-                    ${this.opciones.filtroHabilitados ? `
-                        <label class="filtro-habilitados">
-                            <input type="checkbox" id="${this.contenedorId}-chk-no-habilitados"
-                                ${this.mostrarNoHabilitados ? 'checked' : ''}>
-                            Mostrar no habilitados
-                            (<span class="filtro-habilitados-cant">${this.contarNoHabilitados()}</span>)
-                        </label>
-                    ` : ''}
                 </div>
 
                 <!-- Lista de disponibles -->
                 <div class="lista-disponibles-section">
+                    <!-- Un renglón: título + contador a la izquierda, casilla de no habilitados a la derecha. -->
                     <div class="lista-header">
-                        <span>📋 CLIENTES DISPONIBLES</span>
-                        <span class="lista-contador">${this.contarUsuariosSeleccionables()} seleccionables de ${this.usuariosFiltrados.length}</span>
+                        <span class="lista-titulo">📋 CLIENTES
+                            <span class="lista-contador">${this.textoContador()}</span>
+                        </span>
+                        ${this.opciones.filtroHabilitados ? `
+                            <label class="filtro-habilitados" title="Suma los que tienen la clave sin validar, incorrecta o sin cargar">
+                                <input type="checkbox" id="${this.contenedorId}-chk-no-habilitados"
+                                    ${this.mostrarNoHabilitados ? 'checked' : ''}>
+                                <span>Mostrar no habilitados (<span class="filtro-habilitados-cant">${this.contarNoHabilitados()}</span>)</span>
+                            </label>
+                        ` : ''}
                     </div>
                     <div class="lista-usuarios-disponibles" id="${this.contenedorId}-lista-disponibles">
                         ${this.renderizarListaDisponibles()}
@@ -429,6 +419,11 @@ class SelectorUsuarios {
         const apellido = capitalizarTexto(usuario.apellido || '');
 
         return apellido ? `${nombre} ${apellido}` : nombre;
+    }
+
+    /** "127 de 206": los que se ven en la lista de todos los clientes cargados. */
+    textoContador() {
+        return `${this.usuariosFiltrados.length} de ${this.todosLosUsuarios.length}`;
     }
 
     renderizarListaDisponibles() {
@@ -830,7 +825,7 @@ class SelectorUsuarios {
         // Actualizar contador
         const contador = this.contenedor.querySelector('.lista-contador');
         if (contador) {
-            contador.textContent = `${this.contarUsuariosSeleccionables()} seleccionables de ${this.usuariosFiltrados.length}`;
+            contador.textContent = this.textoContador();
         }
         const cantNoHab = this.contenedor.querySelector('.filtro-habilitados-cant');
         if (cantNoHab) cantNoHab.textContent = this.contarNoHabilitados();
