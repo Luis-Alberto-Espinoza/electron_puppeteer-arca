@@ -4,12 +4,13 @@
 // es "no vigente", diga lo que diga AFIP. Así una bandera nueva no se pierde.
 // De la situación salen la subcarpeta (Planes_Caduco) y el tag del nombre de
 // archivo (CADUCO), para que vigentes y no vigentes no se mezclen.
+// También el rango por fecha de presentación, que filtra solo a los no vigentes.
 
 const path = require('path');
 const fs = require('fs');
 const { getDownloadPathContribuyente } = require('../../cliente/carpetaContribuyente.js');
 
-const sinAcentos = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+const sinAcentos = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 function esVigente(plan) {
     return sinAcentos(plan && plan.estado).trim().toLowerCase() === 'vigente';
@@ -30,6 +31,15 @@ function tagArchivo(plan) {
     return etiquetaEstado(plan).toUpperCase();
 }
 
+// Fecha para el NOMBRE de los archivos del plan: la de presentación del plan
+// ("22/08/2025" → "2025-08-22"), no la de descarga. Así se ve de qué plan es
+// sin abrirlo y se ordena bien. Re-descargar el mismo plan pisa el archivo:
+// queda la última foto. Fecha ilegible → "SinFecha".
+function fechaArchivo(plan) {
+    const m = String((plan && plan.presentacion) || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[2]}-${m[1]}` : 'SinFecha';
+}
+
 // <cliente>/archivos_afip/Planes_<Estado>/ (la crea si no existe)
 async function carpetaPlan(downloadsPath, cuit, plan) {
     const base = await getDownloadPathContribuyente(downloadsPath, cuit, '', 'archivos_afip');
@@ -38,4 +48,39 @@ async function carpetaPlan(downloadsPath, cuit, plan) {
     return dir;
 }
 
-module.exports = { esVigente, etiquetaEstado, tagArchivo, carpetaPlan };
+// ─── Rango de presentación (solo para no vigentes) ───
+// El rango llega del <input type="month"> como { desde: 'AAAA-MM', hasta: 'AAAA-MM' };
+// cualquiera de los dos puede faltar (= sin límite). Se compara por mes:
+// "hasta 06/2025" incluye todo junio.
+
+const aMes = (aaaaMm) => {
+    const m = String(aaaaMm || '').match(/^(\d{4})-(\d{2})$/);
+    return m ? Number(m[1]) * 12 + Number(m[2]) : null;
+};
+
+/**
+ * ¿La fecha de presentación ("dd/mm/aaaa") cae dentro del rango?
+ * Sin rango → true. Fecha rota o vacía → null (el que llama decide; se incluye).
+ */
+function dentroDelRango(presentacion, rango) {
+    const desde = aMes(rango && rango.desde);
+    const hasta = aMes(rango && rango.hasta);
+    if (desde === null && hasta === null) return true;
+    const m = String(presentacion || '').trim().match(/^\d{2}\/(\d{2})\/(\d{4})$/);
+    if (!m) return null;
+    const mes = Number(m[2]) * 12 + Number(m[1]);
+    return (desde === null || mes >= desde) && (hasta === null || mes <= hasta);
+}
+
+// "03/2024 – 06/2025" | "desde 03/2024" | "hasta 06/2025" | null (sin rango)
+function describirRango(rango) {
+    const fmt = (v) => { const m = String(v || '').match(/^(\d{4})-(\d{2})$/); return m ? `${m[2]}/${m[1]}` : null; };
+    const d = fmt(rango && rango.desde);
+    const h = fmt(rango && rango.hasta);
+    if (d && h) return `${d} – ${h}`;
+    if (d) return `desde ${d}`;
+    if (h) return `hasta ${h}`;
+    return null;
+}
+
+module.exports = { esVigente, etiquetaEstado, tagArchivo, fechaArchivo, carpetaPlan, dentroDelRango, describirRango };

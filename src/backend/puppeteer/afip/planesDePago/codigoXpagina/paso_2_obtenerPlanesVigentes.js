@@ -20,15 +20,19 @@
  * navegar a ella antes de hacer click en Detalle.
  */
 
-const { esVigente } = require('../../../../afip/planesDePago/estadoPlan.js');
+const { esVigente, dentroDelRango, describirRango } = require('../../../../afip/planesDePago/estadoPlan.js');
 
 /**
  * @param {Object} [estados] - qué planes traer
  * @param {boolean} [estados.vigentes=true]
  * @param {boolean} [estados.noVigentes=false] - caducos, cancelados y cualquier otro
+ * @param {Object} [estados.rangoNoVigentes] - { desde, hasta } 'AAAA-MM' sobre la
+ *        columna Presentación. Filtra SOLO a los no vigentes: los vigentes son la
+ *        deuda actual y se bajan siempre, aunque el plan sea viejo.
  */
-async function ejecutar(page, { vigentes: incluirVigentes = true, noVigentes: incluirNoVigentes = false } = {}) {
-    console.log(`  → Paso 2: Obteniendo planes (vigentes: ${incluirVigentes ? 'sí' : 'no'}, no vigentes: ${incluirNoVigentes ? 'sí' : 'no'})...`);
+async function ejecutar(page, { vigentes: incluirVigentes = true, noVigentes: incluirNoVigentes = false, rangoNoVigentes = null } = {}) {
+    const textoRango = incluirNoVigentes ? describirRango(rangoNoVigentes) : null;
+    console.log(`  → Paso 2: Obteniendo planes (vigentes: ${incluirVigentes ? 'sí' : 'no'}, no vigentes: ${incluirNoVigentes ? 'sí' : 'no'}${textoRango ? `, presentados ${textoRango}` : ''})...`);
 
     // Esperar la tabla de planes
     await page.waitForSelector('table.searchTable', { timeout: 15000 });
@@ -98,6 +102,23 @@ async function ejecutar(page, { vigentes: incluirVigentes = true, noVigentes: in
         }
 
         paginaActual++;
+    }
+
+    // Rango de presentación sobre los no vigentes. Fecha ilegible → se incluye
+    // (ante la duda no se pierde un plan) y queda en el log.
+    let fueraDeRango = 0;
+    for (const [numero, plan] of planesMap) {
+        if (esVigente(plan)) continue;
+        const dentro = dentroDelRango(plan.presentacion, rangoNoVigentes);
+        if (dentro === null) {
+            console.log(`     ⚠️ Plan #${numero}: presentación ilegible ("${plan.presentacion}"), se incluye.`);
+        } else if (!dentro) {
+            planesMap.delete(numero);
+            fueraDeRango++;
+        }
+    }
+    if (textoRango) {
+        console.log(`  → Rango ${textoRango}: ${fueraDeRango} plan(es) no vigente(s) quedaron afuera.`);
     }
 
     // Vigentes primero: es lo urgente si el lote se corta a mitad

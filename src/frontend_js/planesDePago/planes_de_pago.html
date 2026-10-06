@@ -63,6 +63,13 @@
             <label><input type="checkbox" id="chk-planes-vigentes" checked> Planes vigentes</label>
             <label><input type="checkbox" id="chk-planes-no-vigentes"> Planes no vigentes (caducos, cancelados y otros)</label>
         </div>
+        <!-- Rango por mes de presentación: filtra SOLO a los no vigentes (los
+             vigentes se bajan siempre). Vacío = sin límite. -->
+        <div class="planes-rango" id="rangoNoVigentesPlanes">
+            <span>No vigentes presentados</span>
+            <label>desde <input type="month" id="input-rango-desde-planes" disabled></label>
+            <label>hasta <input type="month" id="input-rango-hasta-planes" disabled></label>
+        </div>
         <label class="ui-switch">
             <input type="checkbox" id="chk-visible-planes" checked>
             Mostrar navegador

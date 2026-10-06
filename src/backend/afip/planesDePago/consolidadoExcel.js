@@ -77,7 +77,8 @@ async function generar(resultadosGlobales, downloadsPath) {
                         'Cuotas impagas': 0,
                         'Monto a regularizar hoy': 0,
                         'Mora total pagada': 0,
-                        'Observación': resCuit.observacion || 'Sin planes'
+                        'Observación': resCuit.observacion || 'Sin planes',
+                        'Rango no vigentes': resCuit.rangoNoVigentes || ''
                     });
                     continue;
                 }
@@ -177,7 +178,9 @@ async function generar(resultadosGlobales, downloadsPath) {
                     'Monto a regularizar hoy': montoRegularizarTotal,
                     'Mora total pagada': moraPagadaCliente,
                     'Observación': planesVigentes === 0 ? 'Sin planes vigentes'
-                        : cuotasImpagasTotal > 0 ? 'Con impagas' : 'Al día'
+                        : cuotasImpagasTotal > 0 ? 'Con impagas' : 'Al día',
+                    // Presentación de los no vigentes bajados ("" = todos o no se pidieron)
+                    'Rango no vigentes': resCuit.rangoNoVigentes || ''
                 });
             }
         }

@@ -768,6 +768,22 @@ window.inicializarModuloPlanesDePago = () => {
     }
 
     // =========================================================================
+    // RANGO DE NO VIGENTES: solo se usa si está tildado "Planes no vigentes"
+    // =========================================================================
+    const chkNoVigentes = document.getElementById('chk-planes-no-vigentes');
+    const inputRangoDesde = document.getElementById('input-rango-desde-planes');
+    const inputRangoHasta = document.getElementById('input-rango-hasta-planes');
+    const rangoNoVigentes = document.getElementById('rangoNoVigentesPlanes');
+    const sincronizarRango = () => {
+        const activo = chkNoVigentes.checked;
+        inputRangoDesde.disabled = !activo;
+        inputRangoHasta.disabled = !activo;
+        rangoNoVigentes.classList.toggle('planes-rango-inactivo', !activo);
+    };
+    chkNoVigentes.addEventListener('change', sincronizarRango);
+    sincronizarRango();
+
+    // =========================================================================
     // BOTÓN OBTENER DATOS (ejecutar lote)
     // =========================================================================
     btnObtenerDatos.addEventListener('click', async () => {
@@ -813,8 +829,23 @@ window.inicializarModuloPlanesDePago = () => {
             alert('Elegí al menos un tipo de plan: vigentes o no vigentes.');
             return;
         }
-        const queSeBaja = estados.vigentes && estados.noVigentes ? 'todos los planes (vigentes y no vigentes)'
-            : estados.vigentes ? 'solo planes vigentes' : 'solo planes no vigentes';
+        // Rango 'AAAA-MM' (input month): se compara como texto, que ordena bien
+        const desde = inputRangoDesde.value || null;
+        const hasta = inputRangoHasta.value || null;
+        if (estados.noVigentes) {
+            if (desde && hasta && desde > hasta) {
+                alert('En el rango de no vigentes, "desde" no puede ser posterior a "hasta".');
+                return;
+            }
+            if (desde || hasta) estados.rangoNoVigentes = { desde, hasta };
+        }
+        const mmAaaa = (v) => v.split('-').reverse().join('/');
+        const textoRango = estados.rangoNoVigentes
+            ? (desde && hasta ? ` presentados ${mmAaaa(desde)} – ${mmAaaa(hasta)}`
+                : desde ? ` presentados desde ${mmAaaa(desde)}` : ` presentados hasta ${mmAaaa(hasta)}`)
+            : '';
+        const queSeBaja = estados.vigentes && estados.noVigentes ? `todos los vigentes y los no vigentes${textoRango}`
+            : estados.vigentes ? 'solo planes vigentes' : `solo planes no vigentes${textoRango}`;
 
         // Confirmación
         let detalleMsg = '';

@@ -558,6 +558,37 @@
     cursor: pointer;
 }
 
+/* Rango "No vigentes presentados desde/hasta" (mes/año) */
+.planes-rango {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px 14px;
+    margin: -6px 0 14px;
+    color: var(--v-texto, #e0e0e0);
+    font-size: 0.92rem;
+}
+
+.planes-rango label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.planes-rango input[type="month"] {
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid rgba(160, 196, 255, 0.35);
+    background: rgba(0, 0, 0, 0.25);
+    color: inherit;
+    color-scheme: dark;
+}
+
+.planes-rango-inactivo {
+    opacity: 0.45;
+}
+
 .planes-btn-obtener {
     padding: 14px 40px;
     background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);

@@ -18,7 +18,7 @@ const datosResumenBuilder = require('../../../../afip/planesDePago/datosResumenB
 const resumenClienteExcel = require('../../../../afip/planesDePago/resumenClienteExcel.js');
 const validarConsolidado = require('../../../../afip/planesDePago/validarConsolidado.js');
 const excelPlan = require('../../../../afip/planesDePago/excelPlan.js');
-const { carpetaPlan, esVigente } = require('../../../../afip/planesDePago/estadoPlan.js');
+const { carpetaPlan, esVigente, describirRango } = require('../../../../afip/planesDePago/estadoPlan.js');
 
 const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 
@@ -31,7 +31,7 @@ const URL_SEGUIMIENTO = 'https://serviciossegsoc.afip.gob.ar/tramites_con_clave_
  * @param {Object} cuitConsulta - { cuit, alias } del CUIT a consultar
  * @param {string} downloadsPath - Ruta para descargas
  * @param {Object} [opciones]
- * @param {Object} [opciones.estados] - { vigentes, noVigentes }; por defecto solo vigentes
+ * @param {Object} [opciones.estados] - { vigentes, noVigentes, rangoNoVigentes }; por defecto solo vigentes
  * @returns {Object} Resultado con datos de todos los planes leídos
  */
 async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estados = { vigentes: true, noVigentes: false } } = {}) {
@@ -61,12 +61,18 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estad
         }
 
         const queSeBusco = describirEstados(estados);
+        // "03/2024 – 06/2025": rango de presentación de los no vigentes (null = todos)
+        const rangoNoVigentes = estados.noVigentes ? describirRango(estados.rangoNoVigentes) : null;
+        // "planes no vigentes presentados 03/2024 – 06/2025" / "planes (no vigentes presentados ...)"
+        const sufijoRango = !rangoNoVigentes ? ''
+            : estados.vigentes ? ` (no vigentes presentados ${rangoNoVigentes})` : ` presentados ${rangoNoVigentes}`;
         if (resultadoPaso2.sinPlanes) {
             return {
                 success: true,
                 sinPlanes: true,
-                observacion: `Sin ${queSeBusco}`,
-                message: `No se encontraron ${queSeBusco} para ${cuitConsulta.alias} (${cuitConsulta.cuit})`,
+                rangoNoVigentes,
+                observacion: `Sin ${queSeBusco}${sufijoRango}`,
+                message: `No se encontraron ${queSeBusco}${sufijoRango} para ${cuitConsulta.alias} (${cuitConsulta.cuit})`,
                 cuitConsulta,
                 planes: []
             };
@@ -270,7 +276,8 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estad
                     datosResumenPlanes,
                     usuario,
                     cuitConsulta.cuit,
-                    downloadsPath
+                    downloadsPath,
+                    { rangoNoVigentes }
                 );
                 if (resultadoResumen && resultadoResumen.success) {
                     resumenCliente = {
@@ -294,8 +301,9 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estad
 
         return {
             success: true,
-            message: `Procesados ${exitosos}/${planes.length} ${queSeBusco} para ${cuitConsulta.alias}`,
+            message: `Procesados ${exitosos}/${planes.length} ${queSeBusco}${sufijoRango} para ${cuitConsulta.alias}`,
             cuitConsulta,
+            rangoNoVigentes,
             // Raíz del cliente (los planes están en subcarpetas por situación)
             downloadDir: await getDownloadPathContribuyente(downloadsPath, cuitConsulta.cuit, '', 'archivos_afip'),
             planes: resultadosPlanes,

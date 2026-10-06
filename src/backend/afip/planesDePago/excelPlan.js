@@ -15,7 +15,7 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const { parseNumero } = require('./datosResumenBuilder.js');
 const estilos = require('../../tablasPdf/motor/utils/estilosExcel.js');
-const { tagArchivo } = require('./estadoPlan.js');
+const { tagArchivo, fechaArchivo } = require('./estadoPlan.js');
 
 const FILA_ENCABEZADO = 4; // 1 título, 2 subtítulo, 3 en blanco
 
@@ -206,7 +206,8 @@ async function generar({ hojas, plan, cuit, downloadDir }) {
 
         const cuitLimpio = String(cuit).replace(/-/g, '');
         const fecha = new Date().toISOString().slice(0, 10);
-        const xlsxNombre = `Plan${plan.numero || 'SinNumero'}_${tagArchivo(plan)}_${cuitLimpio}_${fecha}.xlsx`;
+        // Nombre con la fecha de PRESENTACIÓN del plan; el subtítulo sigue con la de consulta
+        const xlsxNombre = `Plan${plan.numero || 'SinNumero'}_${tagArchivo(plan)}_${cuitLimpio}_${fechaArchivo(plan)}.xlsx`;
         const xlsxPath = path.join(downloadDir, xlsxNombre);
 
         const cabecera = (hojas.find(h => h.modelo.cabecera && h.modelo.cabecera.nroPlan) || {}).modelo;

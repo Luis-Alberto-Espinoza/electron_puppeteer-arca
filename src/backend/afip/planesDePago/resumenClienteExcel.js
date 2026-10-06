@@ -18,8 +18,10 @@ const N_COLS = 8;
  * @param {Object} usuario - representante (solo para el título)
  * @param {string} cuitConsulta - CUIT consultado
  * @param {string} downloadsPath - ruta base de descargas
+ * @param {Object} [opciones]
+ * @param {string} [opciones.rangoNoVigentes] - "03/2024 – 06/2025" si se filtró por presentación
  */
-async function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath) {
+async function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath, { rangoNoVigentes = null } = {}) {
     try {
         if (!datosResumenPlanes || datosResumenPlanes.length === 0) {
             return { success: false, message: 'Sin planes para resumir' };
@@ -34,7 +36,7 @@ async function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath)
         const rutaCompleta = path.join(downloadDir, nombreArchivo);
 
         const wb = new ExcelJS.Workbook();
-        construirHoja(wb.addWorksheet('Resumen'), datosResumenPlanes, usuario, cuitLimpio, fechaISO);
+        construirHoja(wb.addWorksheet('Resumen'), datosResumenPlanes, usuario, cuitLimpio, fechaISO, rangoNoVigentes);
         await wb.xlsx.writeFile(rutaCompleta);
 
         console.log(`  ✅ Resumen cliente guardado: ${nombreArchivo}`);
@@ -51,7 +53,7 @@ async function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath)
     }
 }
 
-function construirHoja(hoja, todos, usuario, cuit, fecha) {
+function construirHoja(hoja, todos, usuario, cuit, fecha, rangoNoVigentes) {
     // Agregados (solo vigentes)
     const planes = todos.filter(p => p.vigente !== false);
     const noVigentes = todos.filter(p => p.vigente === false);
@@ -169,7 +171,9 @@ function construirHoja(hoja, todos, usuario, cuit, fecha) {
 
     // --- Sección: PLANES NO VIGENTES (caducos, cancelados, ...) ---
     if (noVigentes.length > 0) {
-        filaUnida(hoja, r, `PLANES NO VIGENTES (${noVigentes.length})`);
+        // Si se filtró por rango, que se vea: no es el historial completo
+        filaUnida(hoja, r, `PLANES NO VIGENTES (${noVigentes.length})`
+            + (rangoNoVigentes ? ` — presentados ${rangoNoVigentes}` : ''));
         estilos.marcarEstado(hoja.getCell(r, 1), 'neutro');
         hoja.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle' };
         r++;
