@@ -116,18 +116,8 @@ window.inicializarModuloPlanesDePago = () => {
                     noEncontrados.push(rep.nombre || rep.id);
                 }
             });
-
-            // Restaurar CUITs seleccionados después de que los paneles se hayan generado
-            setTimeout(() => {
-                lista.representantes.forEach(rep => {
-                    const estado = estadoRepresentantes.get(String(rep.id));
-                    if (estado && Array.isArray(rep.cuitsSeleccionados)) {
-                        estado.cuitsSeleccionados = new Set(rep.cuitsSeleccionados);
-                        renderizarBloqueCuits(estado);
-                    }
-                });
-                actualizarResumen();
-            }, 300);
+            // Los CUITs marcados que traiga la lista NO se restauran: cada fila
+            // procesa su propio CUIT (ver actualizarPanelesCuits).
         }
 
         const avisos = [...noHabilitados];
@@ -347,16 +337,18 @@ window.inicializarModuloPlanesDePago = () => {
     // =========================================================================
     // PANELES DE CUITS POR REPRESENTANTE
     // =========================================================================
+    // Modelo plano: el selector ya lista a los representados como filas propias,
+    // así que cada fila seleccionada procesa SU PROPIO CUIT. El panel de "CUITs
+    // por representante" (asociados de cuits_asociados_planes.json) quedó oculto
+    // y los asociados se ignoran. Pendiente: borrar el código de asociados.
     async function actualizarPanelesCuits(representantesSeleccionados) {
+        panelCuitsRepresentantes.style.display = 'none';
         if (representantesSeleccionados.length === 0) {
-            panelCuitsRepresentantes.style.display = 'none';
             contenedorBloques.innerHTML = '';
             estadoRepresentantes.clear();
             actualizarResumen();
             return;
         }
-
-        panelCuitsRepresentantes.style.display = 'block';
 
         // Determinar qué representantes se agregaron/quitaron
         const idsActuales = new Set(representantesSeleccionados.map(u => String(u.id)));
@@ -379,31 +371,14 @@ window.inicializarModuloPlanesDePago = () => {
                     nombre: `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim()
                 };
 
-                // Cargar CUITs asociados
-                let asociados = [];
-                try {
-                    const resultado = await window.electronAPI.planesDePago.cuits.get(representante.cuit);
-                    if (resultado.exito) asociados = resultado.asociados;
-                } catch (e) {
-                    console.error('Error cargando asociados:', e);
-                }
-
-                // Si solo hay titular (sin asociados) → auto-seleccionar.
-                // Si hay asociados → ninguno preseleccionado, el usuario debe elegir.
-                const cuitsSeleccionados = asociados.length === 0
-                    ? new Set([representante.cuit])
-                    : new Set();
-
                 estadoRepresentantes.set(id, {
                     representante,
-                    asociados,
-                    cuitsSeleccionados
+                    asociados: [],
+                    cuitsSeleccionados: new Set([representante.cuit])
                 });
             }
         }
 
-        // Renderizar todos los bloques
-        renderizarTodosBloques();
         actualizarResumen();
     }
 
@@ -784,7 +759,8 @@ window.inicializarModuloPlanesDePago = () => {
 
         if (totalCuits > 0) {
             btnObtenerDatos.disabled = false;
-            btnObtenerDatos.textContent = `▶ Obtener Datos Plan de Pagos (${totalCuits} CUITs de ${totalRepresentantes} rep.)`;
+            // Un CUIT por fila seleccionada (modelo plano): CUITs = clientes
+            btnObtenerDatos.textContent = `▶ Obtener Datos Plan de Pagos (${totalCuits} cliente${totalCuits === 1 ? '' : 's'})`;
         } else {
             btnObtenerDatos.disabled = true;
             btnObtenerDatos.textContent = '▶ Obtener Datos Plan de Pagos';
