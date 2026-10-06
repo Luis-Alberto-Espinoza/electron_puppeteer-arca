@@ -8,7 +8,6 @@
  */
 
 const path = require('path');
-const { getDownloadPath } = require('../../../../utils/fileManager.js');
 const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 const { launchBrowser } = require('../../../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
@@ -25,7 +24,7 @@ async function ejecutar(datosTabla, infoPlan, usuario, cuitConsulta, downloadsPa
         const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuitConsulta, '', 'archivos_afip');
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         const fechaDescarga = new Date().toISOString().slice(0, 10);
-        const finalFilename = `PlanDePago_${cuitLimpio}_Plan${numeroPlan}_${fechaDescarga}.pdf`;
+        const finalFilename = `Pagos_${cuitLimpio}_Plan${numeroPlan}_${fechaDescarga}.pdf`;
         const destPath = path.join(downloadDir, finalFilename);
 
         const htmlReporte = generarHTMLReporte(datosTabla, infoPlan, cuitLimpio, fechaDescarga);

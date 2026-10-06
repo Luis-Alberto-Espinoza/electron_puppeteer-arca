@@ -1,54 +1,39 @@
 // afip/planesDePago/resumenClienteExcel.js
 // Genera un Excel resumen por cliente (CUIT consultado) agrupando todos sus planes.
 // Impagos primero, luego al día. Próximos vencimientos, totales.
+// ExcelJS + hoja de estilos única (tablasPdf/motor/utils/estilosExcel.js).
 
-const XLSX = require('xlsx-js-style');
+const ExcelJS = require('exceljs');
 const path = require('path');
-const { getDownloadPath } = require('../../utils/fileManager.js');
+const { getDownloadPathContribuyente } = require('../../cliente/carpetaContribuyente.js');
+const estilos = require('../../tablasPdf/motor/utils/estilosExcel.js');
+const { valorCelda } = require('./excelPlan.js');
 
-// Paleta
-const COLOR_HEADER_BG   = { rgb: 'FF2C3E50' };
-const COLOR_HEADER_FG   = { rgb: 'FFFFFFFF' };
-const COLOR_IMPAGA_BG   = { rgb: 'FFF8D7DA' };
-const COLOR_IMPAGA_FG   = { rgb: 'FF922B21' };
-const COLOR_OK_BG       = { rgb: 'FFDFF0D8' };
-const COLOR_OK_FG       = { rgb: 'FF1E6631' };
-const COLOR_WARN_BG     = { rgb: 'FFFDEBD0' };
-const COLOR_WARN_FG     = { rgb: 'FFB9770E' };
-const COLOR_TITULO      = { rgb: 'FF2C3E50' };
-const COLOR_BANNER_BG_ROJO   = { rgb: 'FFE74C3C' };
-const COLOR_BANNER_BG_VERDE  = { rgb: 'FF27AE60' };
-const COLOR_BANNER_FG   = { rgb: 'FFFFFFFF' };
-
-const BORDE_FINO = { style: 'thin', color: { rgb: 'FFCCCCCC' } };
-const BORDES_DEFAULT = { top: BORDE_FINO, bottom: BORDE_FINO, left: BORDE_FINO, right: BORDE_FINO };
+const N_COLS = 8;
 
 /**
  * @param {Array} datosResumenPlanes - array de `datosResumen` (uno por plan)
- * @param {Object} usuario - representante
+ * @param {Object} usuario - representante (solo para el título)
  * @param {string} cuitConsulta - CUIT consultado
  * @param {string} downloadsPath - ruta base de descargas
  */
-function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath) {
+async function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath) {
     try {
         if (!datosResumenPlanes || datosResumenPlanes.length === 0) {
             return { success: false, message: 'Sin planes para resumir' };
         }
 
-        const downloadDir = getDownloadPath(downloadsPath, {
-            cuit: usuario.cuit || cuitConsulta,
-            nombre: usuario.nombre,
-            apellido: usuario.apellido
-        }, 'archivos_afip');
+        // Carpeta por el OBJETIVO (cuit consultado), no por el representante que
+        // loguea: misma carpeta que los PDF/Excel de cada plan.
+        const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuitConsulta, '', 'archivos_afip');
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         const fechaISO = new Date().toISOString().slice(0, 10);
         const nombreArchivo = `ResumenCliente_${cuitLimpio}_${fechaISO}.xlsx`;
         const rutaCompleta = path.join(downloadDir, nombreArchivo);
 
-        const wb = XLSX.utils.book_new();
-        const ws = construirHoja(datosResumenPlanes, usuario, cuitLimpio, fechaISO);
-        XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
-        XLSX.writeFile(wb, rutaCompleta);
+        const wb = new ExcelJS.Workbook();
+        construirHoja(wb.addWorksheet('Resumen'), datosResumenPlanes, usuario, cuitLimpio, fechaISO);
+        await wb.xlsx.writeFile(rutaCompleta);
 
         console.log(`  ✅ Resumen cliente guardado: ${nombreArchivo}`);
 
@@ -64,7 +49,7 @@ function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath) {
     }
 }
 
-function construirHoja(planes, usuario, cuit, fecha) {
+function construirHoja(hoja, planes, usuario, cuit, fecha) {
     // Agregados
     const planesConImpagas = planes.filter(p => p.cantidadImpagas > 0);
     const planesAlDia = planes.filter(p => p.cantidadImpagas === 0);
@@ -74,102 +59,57 @@ function construirHoja(planes, usuario, cuit, fecha) {
     const totalMoraPagada = planes.reduce((s, p) => s + (p.moraPagadaTotal || 0), 0);
     const hayDeuda = totalImpagas > 0;
 
-    const rows = [];
-    const merges = [];
-    const cellMeta = [];
+    let r = 1;
 
     // --- Título ---
-    rows.push([`RESUMEN PLAN DE PAGOS — ${usuario.nombre || ''}`]);
-    merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } });
-    cellMeta.push({ r: 0, c: 0, style: { font: { bold: true, sz: 14, color: COLOR_TITULO }, alignment: { horizontal: 'center' } } });
+    filaUnida(hoja, r, `RESUMEN PLAN DE PAGOS — ${usuario.nombre || ''}`);
+    estilos.estilizarTitulo(hoja.getCell(r, 1));
+    hoja.getRow(r).height = 22;
+    r++;
 
-    rows.push([`CUIT consultado: ${cuit}   |   Fecha consulta: ${fecha}`]);
-    merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 6 } });
-    cellMeta.push({ r: 1, c: 0, style: { font: { italic: true, sz: 10, color: { rgb: 'FF666666' } }, alignment: { horizontal: 'center' } } });
-
-    rows.push([]); // separador
+    filaUnida(hoja, r, `CUIT consultado: ${cuit}   |   Fecha consulta: ${fecha}`);
+    hoja.getCell(r, 1).font = { italic: true, color: { argb: 'FF666666' } };
+    r += 2;
 
     // --- Banner de estado ---
-    const bannerRowIdx = rows.length;
-    const bannerTexto = hayDeuda
+    filaUnida(hoja, r, hayDeuda
         ? `⚠  CON DEUDA — A REGULARIZAR: $ ${formatearMoneda(totalRegularizar)}`
-        : `✓  SIN DEUDAS — Todos los planes están al día`;
-    rows.push([bannerTexto]);
-    merges.push({ s: { r: bannerRowIdx, c: 0 }, e: { r: bannerRowIdx, c: 6 } });
-    cellMeta.push({
-        r: bannerRowIdx, c: 0,
-        style: {
-            font: { bold: true, sz: 13, color: COLOR_BANNER_FG },
-            fill: { patternType: 'solid', fgColor: hayDeuda ? COLOR_BANNER_BG_ROJO : COLOR_BANNER_BG_VERDE },
-            alignment: { horizontal: 'center', vertical: 'center' }
-        }
-    });
-
-    rows.push([]); // separador
+        : '✓  SIN DEUDAS — Todos los planes están al día');
+    const banner = hoja.getCell(r, 1);
+    banner.fill = estilos.relleno(hayDeuda ? estilos.COLORES.errorTexto : estilos.COLORES.okTexto);
+    banner.font = { bold: true, size: 13, color: { argb: estilos.COLORES.textoClaro } };
+    banner.alignment = { horizontal: 'center', vertical: 'middle' };
+    hoja.getRow(r).height = 32;
+    r += 2;
 
     // --- KPIs resumen ---
-    const kpiRowIdx = rows.length;
-    rows.push([
-        'Planes consultados', 'Con impagas', 'Al día', 'Cuotas impagas', 'Monto a regularizar', 'Mora pagada histórica', ''
-    ]);
-    for (let c = 0; c < 6; c++) {
-        cellMeta.push({
-            r: kpiRowIdx, c,
-            style: {
-                font: { bold: true, color: COLOR_HEADER_FG, sz: 10 },
-                fill: { patternType: 'solid', fgColor: COLOR_HEADER_BG },
-                alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-                border: BORDES_DEFAULT
-            }
-        });
-    }
-    const kpiValoresIdx = rows.length;
-    rows.push([
-        planes.length,
-        planesConImpagas.length,
-        planesAlDia.length,
-        totalImpagas,
-        totalRegularizar,
-        totalMoraPagada,
-        ''
-    ]);
-    for (let c = 0; c < 6; c++) {
-        const style = {
-            font: { bold: true, sz: 11 },
-            alignment: { horizontal: 'center', vertical: 'center' },
-            border: BORDES_DEFAULT
-        };
-        if (c === 4 || c === 5) style.numFmt = '#,##0.00';
-        cellMeta.push({ r: kpiValoresIdx, c, style });
-    }
-
-    rows.push([]); // separador
+    hoja.getRow(r).values = ['Planes consultados', 'Con impagas', 'Al día', 'Cuotas impagas', 'Monto a regularizar', 'Mora pagada histórica'];
+    estilos.estilizarEncabezado(hoja.getRow(r));
+    r++;
+    escribirFila(hoja, r, [
+        planes.length, planesConImpagas.length, planesAlDia.length, totalImpagas, totalRegularizar, totalMoraPagada
+    ], [4, 5]);
+    hoja.getRow(r).eachCell(c => {
+        c.font = { bold: true, size: 11 };
+        c.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    r += 2;
 
     // --- Sección: PLANES CON IMPAGAS ---
     if (planesConImpagas.length > 0) {
-        const titRowIdx = rows.length;
-        rows.push([`PLANES CON IMPAGAS (${planesConImpagas.length})`]);
-        merges.push({ s: { r: titRowIdx, c: 0 }, e: { r: titRowIdx, c: 6 } });
-        cellMeta.push({
-            r: titRowIdx, c: 0,
-            style: {
-                font: { bold: true, sz: 11, color: COLOR_IMPAGA_FG },
-                fill: { patternType: 'solid', fgColor: COLOR_IMPAGA_BG },
-                alignment: { horizontal: 'left', vertical: 'center' }
-            }
-        });
+        filaUnida(hoja, r, `PLANES CON IMPAGAS (${planesConImpagas.length})`);
+        estilos.marcarEstado(hoja.getCell(r, 1), 'error');
+        hoja.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle' };
+        r++;
 
-        const headersRowIdx = rows.length;
-        const headers = ['Plan N°', 'Tipo', 'Cuotas impagas', 'Monto a regularizar', 'Días vencida', 'Próximo intento', 'Motivo último intento'];
-        rows.push(headers);
-        escribirHeaders(cellMeta, headersRowIdx, headers.length);
+        hoja.getRow(r).values = ['Plan N°', 'Tipo', 'Cuotas impagas', 'Monto a regularizar', 'Días vencida', 'Próximo intento', 'Motivo último intento'];
+        estilos.estilizarEncabezado(hoja.getRow(r));
+        r++;
 
         // Ordenar por días vencida desc
         const impagasOrdenadas = [...planesConImpagas].sort((a, b) => (b.diasVencidaPrimeraImpaga || 0) - (a.diasVencidaPrimeraImpaga || 0));
-
         for (const p of impagasOrdenadas) {
-            const rowIdx = rows.length;
-            rows.push([
+            escribirFila(hoja, r, [
                 p.planNumero || '',
                 p.planTipo || '',
                 p.cantidadImpagas || 0,
@@ -177,135 +117,86 @@ function construirHoja(planes, usuario, cuit, fecha) {
                 p.diasVencidaPrimeraImpaga || 0,
                 p.fechaReferenciaRegularizacion || '',
                 p.motivosFallidos && p.motivosFallidos.length > 0 ? p.motivosFallidos.join(' / ') : ''
-            ]);
-            aplicarEstiloFilaImpaga(cellMeta, rowIdx, 7);
-            cellMeta.push({ r: rowIdx, c: 3, style: { numFmt: '#,##0.00', font: { bold: true, color: COLOR_IMPAGA_FG }, fill: { patternType: 'solid', fgColor: COLOR_IMPAGA_BG }, border: BORDES_DEFAULT, alignment: { horizontal: 'right', vertical: 'center' } } });
+            ], [3]);
+            pintarFila(hoja, r, 'error');
+            estilos.marcarEstado(hoja.getCell(r, 4), 'error'); // monto a regularizar en negrita
+            r++;
         }
-
-        rows.push([]); // separador
+        r++;
     }
 
     // --- Sección: PLANES AL DÍA ---
     if (planesAlDia.length > 0) {
-        const titRowIdx = rows.length;
-        rows.push([`PLANES AL DÍA (${planesAlDia.length})`]);
-        merges.push({ s: { r: titRowIdx, c: 0 }, e: { r: titRowIdx, c: 6 } });
-        cellMeta.push({
-            r: titRowIdx, c: 0,
-            style: {
-                font: { bold: true, sz: 11, color: COLOR_OK_FG },
-                fill: { patternType: 'solid', fgColor: COLOR_OK_BG },
-                alignment: { horizontal: 'left', vertical: 'center' }
-            }
-        });
+        filaUnida(hoja, r, `PLANES AL DÍA (${planesAlDia.length})`);
+        estilos.marcarEstado(hoja.getCell(r, 1), 'ok');
+        hoja.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle' };
+        r++;
 
-        const headersRowIdx = rows.length;
-        const headers = ['Plan N°', 'Tipo', 'Cuotas totales', 'Próximo vto.', 'Próximo monto', 'Mora pagada', 'Situación'];
-        rows.push(headers);
-        escribirHeaders(cellMeta, headersRowIdx, headers.length);
+        hoja.getRow(r).values = ['Plan N°', 'Tipo', 'Cuotas totales', 'Próximo vto.', 'Monto 1° vto.', 'Monto 2° vto.', 'Mora pagada', 'Situación'];
+        estilos.estilizarEncabezado(hoja.getRow(r));
+        r++;
 
         // Ordenar por fecha próxima (la más cercana primero)
         const alDiaOrdenados = [...planesAlDia].sort((a, b) => {
             const da = parseFechaArg(a.proximaCuotaFecha);
             const db = parseFechaArg(b.proximaCuotaFecha);
-            const ta = da ? da.getTime() : Infinity;
-            const tb = db ? db.getTime() : Infinity;
-            return ta - tb;
+            return (da ? da.getTime() : Infinity) - (db ? db.getTime() : Infinity);
         });
-
         for (const p of alDiaOrdenados) {
-            const rowIdx = rows.length;
-            rows.push([
+            escribirFila(hoja, r, [
                 p.planNumero || '',
                 p.planTipo || '',
                 p.planCuotas || p.cantidadTotal || '',
                 p.proximaCuotaFecha || '—',
                 p.proximaCuotaMonto || 0,
+                p.proximaCuotaMonto2doVto ?? '',
                 p.moraPagadaTotal || 0,
                 p.planSituacion || ''
-            ]);
-            aplicarEstiloFilaOk(cellMeta, rowIdx, 7);
-            cellMeta.push({ r: rowIdx, c: 4, style: { numFmt: '#,##0.00', font: { color: COLOR_OK_FG }, border: BORDES_DEFAULT, alignment: { horizontal: 'right', vertical: 'center' } } });
-            cellMeta.push({ r: rowIdx, c: 5, style: { numFmt: '#,##0.00', font: { color: COLOR_OK_FG }, border: BORDES_DEFAULT, alignment: { horizontal: 'right', vertical: 'center' } } });
+            ], [4, 5, 6]);
+            pintarFila(hoja, r, 'ok');
+            r++;
         }
-
-        rows.push([]); // separador
+        r++;
     }
 
     // --- Pie: nota informativa ---
-    const pieRowIdx = rows.length;
-    rows.push(['Abrir el PDF/Excel de cada plan para ver el detalle de cuotas e intentos de cobro.']);
-    merges.push({ s: { r: pieRowIdx, c: 0 }, e: { r: pieRowIdx, c: 6 } });
-    cellMeta.push({
-        r: pieRowIdx, c: 0,
-        style: { font: { italic: true, sz: 9, color: { rgb: 'FF777777' } }, alignment: { horizontal: 'center' } }
+    filaUnida(hoja, r, 'Abrir el PDF/Excel de cada plan para ver el detalle de cuotas e intentos de cobro.');
+    hoja.getCell(r, 1).font = { italic: true, size: 9, color: { argb: 'FF777777' } };
+
+    estilos.autoajustarAnchos(hoja, N_COLS, { minimo: 12 });
+    estilos.ajustarImpresion(hoja);
+}
+
+// ─── Helpers ───
+
+// Texto en la columna A unido a lo ancho de la tabla, alineado al centro.
+function filaUnida(hoja, r, texto) {
+    hoja.getCell(r, 1).value = texto;
+    hoja.mergeCells(r, 1, r, N_COLS);
+    hoja.getCell(r, 1).alignment = { horizontal: 'center', vertical: 'middle' };
+}
+
+// Escribe valores (montos en las columnas `colsMonto`, base 0) con formato y borde.
+function escribirFila(hoja, r, valores, colsMonto) {
+    valores.forEach((v, c) => {
+        const celda = hoja.getCell(r, c + 1);
+        const esMonto = colsMonto.includes(c);
+        celda.value = valorCelda(v, esMonto);
+        celda.border = estilos.BORDE_FINO;
+        if (esMonto) {
+            celda.numFmt = estilos.FMT_MONTO_MILES;
+            celda.alignment = { horizontal: 'right', vertical: 'middle' };
+        } else if (celda.value instanceof Date) {
+            celda.numFmt = estilos.FMT_FECHA;
+            celda.alignment = { horizontal: 'center', vertical: 'middle' };
+        } else {
+            celda.alignment = { horizontal: typeof celda.value === 'number' ? 'center' : 'left', vertical: 'middle' };
+        }
     });
-
-    // --- Crear worksheet ---
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!merges'] = merges;
-
-    // Aplicar metadata
-    for (const meta of cellMeta) {
-        const addr = XLSX.utils.encode_cell({ r: meta.r, c: meta.c });
-        if (!ws[addr]) ws[addr] = { t: 's', v: '' };
-        if (meta.style) ws[addr].s = meta.style;
-        if (meta.style && meta.style.numFmt) ws[addr].z = meta.style.numFmt;
-    }
-
-    ws['!cols'] = [
-        { wch: 14 }, { wch: 15 }, { wch: 16 }, { wch: 20 },
-        { wch: 14 }, { wch: 22 }, { wch: 30 }
-    ];
-
-    // Altura del banner
-    ws['!rows'] = [];
-    ws['!rows'][bannerRowIdx] = { hpt: 32 };
-
-    return ws;
 }
 
-// Helpers de estilo
-function escribirHeaders(cellMeta, r, nCols) {
-    for (let c = 0; c < nCols; c++) {
-        cellMeta.push({
-            r, c,
-            style: {
-                font: { bold: true, color: COLOR_HEADER_FG, sz: 10 },
-                fill: { patternType: 'solid', fgColor: COLOR_HEADER_BG },
-                alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-                border: BORDES_DEFAULT
-            }
-        });
-    }
-}
-
-function aplicarEstiloFilaImpaga(cellMeta, r, nCols) {
-    for (let c = 0; c < nCols; c++) {
-        cellMeta.push({
-            r, c,
-            style: {
-                font: { color: COLOR_IMPAGA_FG },
-                fill: { patternType: 'solid', fgColor: COLOR_IMPAGA_BG },
-                border: BORDES_DEFAULT,
-                alignment: { horizontal: c >= 2 && c <= 4 ? 'center' : 'left', vertical: 'center' }
-            }
-        });
-    }
-}
-
-function aplicarEstiloFilaOk(cellMeta, r, nCols) {
-    for (let c = 0; c < nCols; c++) {
-        cellMeta.push({
-            r, c,
-            style: {
-                font: { color: COLOR_OK_FG },
-                fill: { patternType: 'solid', fgColor: COLOR_OK_BG },
-                border: BORDES_DEFAULT,
-                alignment: { horizontal: c >= 2 ? 'center' : 'left', vertical: 'center' }
-            }
-        });
-    }
+function pintarFila(hoja, r, estado) {
+    for (let c = 1; c <= N_COLS; c++) estilos.marcarEstado(hoja.getCell(r, c), estado, { destacar: false });
 }
 
 function parseFechaArg(texto) {

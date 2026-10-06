@@ -121,7 +121,8 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
                         estado: resultado.success ? 'exito' : 'error',
                         mensaje: resultado.message,
                         downloadDir,
-                        resumenCliente: resultado.resumenCliente || null
+                        resumenCliente: resultado.resumenCliente || null,
+                        resumenPlanes: resultado.resumenPlanes || null
                     });
                 }
 

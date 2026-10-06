@@ -325,7 +325,7 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
         let consolidado = null;
         try {
             const downloadsPath = app.getPath('downloads');
-            consolidado = consolidadoExcel.generar(resultadosGlobales, downloadsPath);
+            consolidado = await consolidadoExcel.generar(resultadosGlobales, downloadsPath);
             if (consolidado.success) {
                 console.log(`[PlanesDePago Handler Lote] Consolidado Excel: ${consolidado.path}`);
             } else {

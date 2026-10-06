@@ -1,5 +1,8 @@
 // Flujo de automatización para Planes de Pago AFIP
 // Login → Buscar "mis facilidades" → Seleccionar CUIT → Planes vigentes → Detalle → Ver Pagos → Extraer + PDF
+// → por cada plan, además: Plan de Pago / Oblig. Impositivas / Oblig. Previsionales → leer tabla (paso_8)
+//   → PDF oficial de AFIP (paso_8b); si falla, PDF propio (paso_9)
+// → un Excel por plan con una hoja por sección (excelPlan)
 
 const paso_1_seleccionarCuit = require('../codigoXpagina/paso_1_seleccionarCuit.js');
 const paso_2_obtenerPlanesVigentes = require('../codigoXpagina/paso_2_obtenerPlanesVigentes.js');
@@ -7,9 +10,15 @@ const paso_3_clickDetallePlan = require('../codigoXpagina/paso_3_clickDetallePla
 const paso_4_clickVerPagos = require('../codigoXpagina/paso_4_clickVerPagos.js');
 const paso_5_extraerTablaPagos = require('../codigoXpagina/paso_5_extraerTablaPagos.js');
 const paso_6_descargarPDF = require('../codigoXpagina/paso_6_descargarPDF.js');
-const paso_7_generarExcelPlan = require('../codigoXpagina/paso_7_generarExcelPlan.js');
+const paso_8_extraerSeccion = require('../codigoXpagina/paso_8_extraerSeccion.js');
+const paso_8b_pdfAfipSeccion = require('../codigoXpagina/paso_8b_pdfAfipSeccion.js');
+const paso_9_generarPdfSeccion = require('../codigoXpagina/paso_9_generarPdfSeccion.js');
 const datosResumenBuilder = require('../../../../afip/planesDePago/datosResumenBuilder.js');
 const resumenClienteExcel = require('../../../../afip/planesDePago/resumenClienteExcel.js');
+const validarConsolidado = require('../../../../afip/planesDePago/validarConsolidado.js');
+const excelPlan = require('../../../../afip/planesDePago/excelPlan.js');
+
+const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 
 const URL_SEGUIMIENTO = 'https://serviciossegsoc.afip.gob.ar/tramites_con_clave_fiscal/MisFacilidadesNet/app/contribuyente/seguimiento_presentacion.aspx';
 
@@ -80,28 +89,44 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
                 // Paso 5: Extraer datos de la tabla de pagos
                 const resultadoExtraccion = await paso_5_extraerTablaPagos.ejecutar(paginaServicio);
 
-                // Paso 6: Generar PDF con los datos extraídos
-                const resultadoPDF = await paso_6_descargarPDF.ejecutar(
-                    resultadoExtraccion,  // datos de la tabla (cuotasAgrupadas + totales)
-                    plan,                 // info del plan (numero, cuotas, tipo, etc.)
-                    usuario,              // representante
-                    cuitConsulta.cuit,    // CUIT consultado
-                    downloadsPath         // ruta descargas
-                );
-
-                // Paso 7: Generar Excel del plan al lado del PDF (misma info que el PDF)
-                let resultadoXlsx = { success: false };
-                if (resultadoPDF.success) {
-                    resultadoXlsx = await paso_7_generarExcelPlan.ejecutar(
-                        resultadoExtraccion,
-                        plan,
-                        usuario,
-                        cuitConsulta.cuit,
-                        {
-                            downloadDir: resultadoPDF.downloadDir,
-                            pdfNombre: resultadoPDF.pdfNombre
-                        }
+                // Paso 6: PDF de Pagos. Primero el oficial de AFIP (Imprimir de
+                // detalle_pagos.aspx, paso_8b); si falla, el propio (paso_6).
+                // En la tabla de AFIP hay una fila trRpt_ por cuota.
+                let resultadoPDF = { success: false };
+                if (resultadoExtraccion.success) {
+                    const oficial = await paso_8b_pdfAfipSeccion.ejecutar(
+                        paginaServicio, { etiqueta: 'Pagos', prefijo: 'Pagos' }, plan,
+                        cuitConsulta.cuit, downloadsPath, resultadoExtraccion.cuotasAgrupadas.length
                     );
+                    if (oficial.success) {
+                        resultadoPDF = {
+                            success: true,
+                            pdfPath: oficial.pdf.path,
+                            pdfNombre: oficial.pdf.nombre,
+                            downloadDir: oficial.pdf.downloadDir,
+                            origen: 'afip'
+                        };
+                    }
+                }
+                if (!resultadoPDF.success) {
+                    resultadoPDF = await paso_6_descargarPDF.ejecutar(
+                        resultadoExtraccion,  // datos de la tabla (cuotasAgrupadas + totales)
+                        plan,                 // info del plan (numero, cuotas, tipo, etc.)
+                        usuario,              // representante
+                        cuitConsulta.cuit,    // CUIT consultado
+                        downloadsPath         // ruta descargas
+                    );
+                    resultadoPDF.origen = 'propio';
+                }
+
+                // Hojas del Excel por plan (se escribe al final, con todas las secciones)
+                const hojasExcel = [];
+                if (resultadoExtraccion.success) {
+                    hojasExcel.push({
+                        nombre: 'Pagos',
+                        titulo: `Detalle de Pagos - Plan N° ${plan.numero}`,
+                        modelo: excelPlan.modeloPagos(resultadoExtraccion)
+                    });
                 }
 
                 // datosResumen: métricas derivadas (usadas por resumen cliente + consolidado)
@@ -117,6 +142,73 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
                     console.error('  ⚠️ No se pudo construir datosResumen:', e.message);
                 }
 
+                // Paso 8-9: Plan de Pago / Obligaciones → leer tabla → PDF + Excel.
+                // Cada sección arranca desde el detalle del plan (nuevos_planes.aspx).
+                const secciones = [];
+                const modelos = {};
+                for (const seccion of paso_8_extraerSeccion.SECCIONES) {
+                    try {
+                        await asegurarEnDetallePlan(paginaServicio, plan, seccion.boton);
+                        const extraccion = await paso_8_extraerSeccion.ejecutar(paginaServicio, seccion, plan);
+                        if (!extraccion.success) {
+                            secciones.push({
+                                seccion: seccion.id,
+                                success: false,
+                                noDisponible: !!extraccion.noDisponible,
+                                error: extraccion.noDisponible ? null : extraccion.message
+                            });
+                            continue;
+                        }
+                        modelos[seccion.id] = extraccion.modelo;
+                        hojasExcel.push({
+                            nombre: seccion.hoja,
+                            titulo: `${seccion.etiqueta} - Plan N° ${plan.numero}`,
+                            modelo: extraccion.modelo
+                        });
+                        // PDF: el oficial de AFIP (botón Imprimir); si falla, el propio
+                        const filasEsperadas = extraccion.modelo.bloques
+                            .filter(b => !b.total)
+                            .reduce((n, b) => n + b.filas.length, 0);
+                        const oficial = await paso_8b_pdfAfipSeccion.ejecutar(
+                            paginaServicio, seccion, plan, cuitConsulta.cuit, downloadsPath, filasEsperadas
+                        );
+                        let pdf = oficial.success ? oficial.pdf : null;
+                        if (!pdf) {
+                            const propio = await paso_9_generarPdfSeccion.ejecutar(
+                                extraccion.modelo, seccion, plan, cuitConsulta.cuit, downloadsPath
+                            );
+                            pdf = propio.pdf ? { ...propio.pdf, origen: 'propio' } : null;
+                        }
+                        // Los datos se leyeron bien: la sección cuenta como OK
+                        // aunque falle el PDF (queda su hoja en el Excel).
+                        secciones.push({
+                            seccion: seccion.id,
+                            success: true,
+                            noDisponible: false,
+                            pdf,
+                            error: pdf ? null : 'No se pudo generar el PDF'
+                        });
+                    } catch (errSeccion) {
+                        console.error(`  ⚠️ ${seccion.etiqueta} del plan #${plan.numero}:`, errSeccion.message);
+                        secciones.push({ seccion: seccion.id, success: false, noDisponible: false, error: errSeccion.message });
+                    }
+                }
+
+                // Control cruzado contra el consolidado de la lista de planes
+                const obligacionesCompletas = secciones
+                    .filter(s => s.seccion !== 'planPago')
+                    .every(s => s.success || s.noDisponible);
+                const validacion = validarConsolidado.validar(plan.consolidado, modelos, obligacionesCompletas);
+                logValidacion(plan, validacion);
+
+                // Excel por plan: una hoja por sección leída (misma carpeta que los PDF)
+                const resultadoXlsx = await excelPlan.generar({
+                    hojas: hojasExcel,
+                    plan,
+                    cuit: cuitConsulta.cuit,
+                    downloadDir: await getDownloadPathContribuyente(downloadsPath, cuitConsulta.cuit, '', 'archivos_afip')
+                });
+
                 resultadosPlanes.push({
                     plan: {
                         numero: plan.numero,
@@ -130,20 +222,18 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
                     pdf: resultadoPDF.success ? {
                         path: resultadoPDF.pdfPath,
                         nombre: resultadoPDF.pdfNombre,
-                        downloadDir: resultadoPDF.downloadDir
+                        downloadDir: resultadoPDF.downloadDir,
+                        origen: resultadoPDF.origen
                     } : null,
                     xlsx: resultadoXlsx.success ? {
                         path: resultadoXlsx.xlsxPath,
                         nombre: resultadoXlsx.xlsxNombre
                     } : null,
+                    secciones,
+                    validacion,
                     datosResumen,
                     success: true
                 });
-
-                // Volver a la lista de planes para el siguiente
-                if (i < planes.length - 1) {
-                    await volverAListaPlanes(paginaServicio);
-                }
 
             } catch (errorPlan) {
                 console.error(`  ❌ Error procesando plan #${plan.numero}:`, errorPlan.message);
@@ -154,13 +244,7 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
                     success: false,
                     error: errorPlan.message
                 });
-
-                // Recuperación: volver a la lista de planes para el siguiente
-                try {
-                    await volverAListaPlanes(paginaServicio);
-                } catch (e) {
-                    console.error('  ⚠️ No se pudo volver a la lista tras error:', e.message);
-                }
+                // Sin recuperación acá: el próximo plan arranca con asegurarEnListaPlanes()
             }
         }
 
@@ -174,7 +258,7 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
 
         if (datosResumenPlanes.length > 0) {
             try {
-                const resultadoResumen = resumenClienteExcel.generar(
+                const resultadoResumen = await resumenClienteExcel.generar(
                     datosResumenPlanes,
                     usuario,
                     cuitConsulta.cuit,
@@ -206,6 +290,7 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
             cuitConsulta,
             planes: resultadosPlanes,
             resumenCliente,
+            resumenPlanes: resultadosPlanes.map(resumirPlanParaUI),
             resumen: {
                 total: planes.length,
                 exitosos,
@@ -326,36 +411,6 @@ async function buscarMisFacilidades(page) {
 }
 
 /**
- * Vuelve a la lista de planes (seguimiento_presentacion.aspx) desde la página
- * de detalle de pagos. Intenta goBack dos veces (detalle_pagos → nuevos_planes → seguimiento).
- * Si falla, navega directo a la URL.
- */
-async function volverAListaPlanes(page) {
-    console.log('  → Volviendo a la lista de planes...');
-
-    try {
-        // Desde detalle_pagos.aspx → goBack → nuevos_planes.aspx
-        await page.goBack({ waitUntil: 'networkidle2', timeout: 10000 });
-
-        // Desde nuevos_planes.aspx → goBack → seguimiento_presentacion.aspx
-        await page.goBack({ waitUntil: 'networkidle2', timeout: 10000 });
-    } catch (e) {
-        console.log(`  ⚠️ goBack falló: ${e.message}`);
-    }
-
-    // Verificar que llegamos
-    const url = page.url();
-    if (!url.includes('seguimiento_presentacion.aspx')) {
-        console.log('  → goBack no llevó a la lista. Navegando directo...');
-        await page.goto(URL_SEGUIMIENTO, { waitUntil: 'networkidle2', timeout: 15000 });
-    }
-
-    // Esperar que la tabla esté visible
-    await page.waitForSelector('table.searchTable', { timeout: 10000 });
-    console.log('  ✅ En la lista de planes.');
-}
-
-/**
  * Verifica que estamos en seguimiento_presentacion.aspx con la tabla visible.
  * Si no, navega ahí.
  */
@@ -370,6 +425,80 @@ async function asegurarEnListaPlanes(page) {
     console.log('  → No estamos en la lista de planes. Navegando...');
     await page.goto(URL_SEGUIMIENTO, { waitUntil: 'networkidle2', timeout: 15000 });
     await page.waitForSelector('table.searchTable', { timeout: 10000 });
+}
+
+/**
+ * Deja la página en el detalle del plan (nuevos_planes.aspx) con el botón de
+ * la sección visible. Si ya estamos ahí (ej: tras el postback de otra sección
+ * los botones siguen) no navega; si no, lista → Detalle del plan.
+ */
+async function asegurarEnDetallePlan(page, plan, selectorBoton) {
+    if (page.url().includes('nuevos_planes.aspx') && await page.$(selectorBoton)) return;
+
+    // Desde una sección: su botón "Volver" lleva al detalle del mismo plan.
+    const volver = await page.$('a[href="nuevos_planes.aspx"]');
+    if (volver) {
+        await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {}),
+            volver.evaluate(el => el.click())
+        ]);
+        const nroEnPagina = await page.$eval('#ContentPlaceHolder1_CabeceraPlanesEnviados_cab_nroPlan', el => el.textContent.trim())
+            .catch(() => null);
+        if (page.url().includes('nuevos_planes.aspx') && nroEnPagina === plan.numero) return;
+    }
+
+    await asegurarEnListaPlanes(page);
+    await paso_3_clickDetallePlan.ejecutar(page, plan);
+}
+
+/**
+ * Una línea por plan para la pantalla: qué se bajó de cada sección y si el
+ * control contra el consolidado cerró.
+ * Estados de sección: 'ok' | 'no' (el plan no la tiene) | 'error'.
+ * control: 'ok' | 'difiere' | 'sinDatos'.
+ */
+function resumirPlanParaUI(r) {
+    const origenPdf = (id) => {
+        const sc = (r.secciones || []).find(x => x.seccion === id);
+        return sc && sc.pdf ? sc.pdf.origen : null;
+    };
+    const estadoSeccion = (id) => {
+        const sc = (r.secciones || []).find(x => x.seccion === id);
+        if (!sc) return 'error';
+        if (sc.noDisponible) return 'no';
+        return sc.success ? 'ok' : 'error';
+    };
+    let control = 'sinDatos';
+    if (r.validacion) {
+        const estados = [r.validacion.planPago.estado, r.validacion.obligaciones.estado];
+        if (estados.includes('difiere')) control = 'difiere';
+        else if (estados.includes('ok')) control = 'ok';
+    }
+    return {
+        numero: r.plan.numero,
+        success: r.success,
+        error: r.success ? null : r.error,
+        pagos: r.pdf ? 'ok' : 'error',
+        planPago: estadoSeccion('planPago'),
+        obligImp: estadoSeccion('obligImp'),
+        obligPrev: estadoSeccion('obligPrev'),
+        excel: r.xlsx ? 'ok' : 'error',
+        pdfOrigen: { pagos: r.pdf ? r.pdf.origen : null, planPago: origenPdf('planPago'), obligImp: origenPdf('obligImp'), obligPrev: origenPdf('obligPrev') },
+        control
+    };
+}
+
+function logValidacion(plan, validacion) {
+    const fmt = (n) => n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const linea = (nombre, r) => {
+        if (r.estado === 'ok') return `  ✅ Control ${nombre}: cierra con el consolidado.`;
+        if (r.estado === 'difiere') {
+            return `  ⚠️ Control ${nombre}: NO cierra. Leído $${fmt(r.obtenido)} vs consolidado $${fmt(validacion.consolidado)} (dif. $${fmt(r.diferencia)}). ¿Cambió la página de AFIP?`;
+        }
+        return `  ℹ️ Control ${nombre}: sin datos para comparar.`;
+    };
+    console.log(linea(`Plan de Pago #${plan.numero}`, validacion.planPago));
+    console.log(linea(`Obligaciones #${plan.numero}`, validacion.obligaciones));
 }
 
 module.exports = { ejecutarFlujo };

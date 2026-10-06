@@ -610,6 +610,52 @@
     margin-top: 12px;
 }
 
+/* Detalle por plan (secciones descargadas + control) */
+.planes-resumen-planes {
+    padding-left: 20px;
+    margin-bottom: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.planes-resumen-plan {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--v-texto, #a0c4ff);
+}
+
+.planes-resumen-plan strong {
+    min-width: 110px;
+}
+
+.planes-chip {
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.planes-chip-ok {
+    color: #43e97b;
+    border-color: rgba(67, 233, 123, 0.4);
+}
+
+.planes-chip-no {
+    color: var(--v-texto, #a0c4ff);
+    border-color: rgba(160, 196, 255, 0.25);
+    opacity: 0.7;
+}
+
+.planes-chip-error {
+    color: var(--v-txt-error, #ff6b6b);
+    border-color: rgba(255, 107, 107, 0.5);
+    font-weight: 600;
+}
+
 /* Botón abrir carpeta */
 .planes-btn-abrir-carpeta {
     display: inline-block;

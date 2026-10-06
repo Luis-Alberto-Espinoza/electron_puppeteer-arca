@@ -890,6 +890,62 @@ window.inicializarModuloPlanesDePago = () => {
         resultadosContenido.scrollTop = resultadosContenido.scrollHeight;
     }
 
+    // Una fila por plan: "Plan W715660 · Pagos ✓ · Plan de Pago ✓ · Impositivas — · …"
+    // Estados de sección: ok | no (el plan no la tiene) | error. Control: ok | difiere | sinDatos.
+    function agregarResumenPlanesUI(planes) {
+        const SIMBOLO = { ok: '✓', no: '—', error: '✗' };
+        const TITULO = { ok: 'Descargado', no: 'El plan no tiene esta sección', error: 'Falló' };
+        const CONTROL = {
+            ok: ['✓', 'ok', 'Cierra con el consolidado de AFIP'],
+            difiere: ['⚠ no cierra', 'error', 'Lo leído no coincide con el consolidado: revisar'],
+            sinDatos: ['—', 'no', 'Sin datos para comparar']
+        };
+
+        const lista = document.createElement('div');
+        lista.className = 'planes-resumen-planes';
+
+        planes.forEach(p => {
+            const fila = document.createElement('div');
+            fila.className = 'planes-resumen-plan';
+
+            const nombre = document.createElement('strong');
+            nombre.textContent = `Plan ${p.numero}`;
+            fila.appendChild(nombre);
+
+            if (!p.success) {
+                const err = document.createElement('span');
+                err.className = 'planes-chip planes-chip-error';
+                err.textContent = `✗ ${p.error || 'Error'}`;
+                fila.appendChild(err);
+                lista.appendChild(fila);
+                return;
+            }
+
+            const chip = (etiqueta, estado, simbolo, titulo) => {
+                const span = document.createElement('span');
+                span.className = `planes-chip planes-chip-${estado}`;
+                span.textContent = `${etiqueta} ${simbolo}`;
+                span.title = titulo;
+                fila.appendChild(span);
+            };
+            // En las secciones, el tooltip dice de dónde salió el PDF
+            const ORIGEN = { afip: ' (PDF oficial de AFIP)', propio: ' (PDF propio: el de AFIP no estuvo disponible)' };
+            const tituloSeccion = (estado, id) => TITULO[estado] + ((estado === 'ok' && p.pdfOrigen && ORIGEN[p.pdfOrigen[id]]) || '');
+            chip('Pagos', p.pagos, SIMBOLO[p.pagos], tituloSeccion(p.pagos, 'pagos'));
+            chip('Plan de Pago', p.planPago, SIMBOLO[p.planPago], tituloSeccion(p.planPago, 'planPago'));
+            chip('Impositivas', p.obligImp, SIMBOLO[p.obligImp], tituloSeccion(p.obligImp, 'obligImp'));
+            chip('Previsionales', p.obligPrev, SIMBOLO[p.obligPrev], tituloSeccion(p.obligPrev, 'obligPrev'));
+            chip('Excel', p.excel, SIMBOLO[p.excel], TITULO[p.excel]);
+            const [simb, clase, tit] = CONTROL[p.control] || CONTROL.sinDatos;
+            chip('Control', clase, simb, tit);
+
+            lista.appendChild(fila);
+        });
+
+        resultadosContenido.appendChild(lista);
+        resultadosContenido.scrollTop = resultadosContenido.scrollHeight;
+    }
+
     // Listener de progreso desde el backend
     window.electronAPI.planesDePago.onUpdate((datos) => {
         resultadosContainer.style.display = 'block';
@@ -910,6 +966,11 @@ window.inicializarModuloPlanesDePago = () => {
             const ultimoProcesando = resultadosContenido.querySelector('.planes-resultado-procesando:last-child');
             if (ultimoProcesando) ultimoProcesando.remove();
             agregarResultadoUI(datos.estado, datos.mensaje, datos.alias, datos.cuit);
+
+            // Detalle por plan: qué secciones se bajaron y si cerró el control
+            if (Array.isArray(datos.resumenPlanes) && datos.resumenPlanes.length) {
+                agregarResumenPlanesUI(datos.resumenPlanes);
+            }
 
             // Botón abrir carpeta si hay downloadDir
             if (datos.downloadDir && datos.estado === 'exito') {

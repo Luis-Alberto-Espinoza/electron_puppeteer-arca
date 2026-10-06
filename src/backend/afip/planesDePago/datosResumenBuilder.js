@@ -55,6 +55,23 @@ function construir(datosTabla, infoPlan, usuario, cuitConsulta) {
         proximaCuota = pendientesOrdenadas[0];
     }
 
+    // Próximo monto:
+    //   - cuota pendiente: 1° vto (pagando a término) y 2° vto (con resarcitorios),
+    //     que son sus dos primeras filas en "Ver Pagos";
+    //   - cuota impaga: no hay 1°/2°; va lo que se debitaría en el próximo
+    //     intento (última fila proyectada) y el 2° queda vacío.
+    let proximoMonto1erVto = 0;
+    let proximoMonto2doVto = null;
+    if (proximaCuota) {
+        const intentos = proximaCuota.intentos || [];
+        if (proximaCuota.estaImpaga) {
+            proximoMonto1erVto = parseNumero(proximaCuota.montoActualAUltimaFecha || proximaCuota.totalOriginal);
+        } else {
+            proximoMonto1erVto = parseNumero((intentos[0] && intentos[0].total) || proximaCuota.totalOriginal);
+            if (intentos[1] && intentos[1].total) proximoMonto2doVto = parseNumero(intentos[1].total);
+        }
+    }
+
     return {
         // Identificación
         representante: usuario.nombre || '',
@@ -82,7 +99,8 @@ function construir(datosTabla, infoPlan, usuario, cuitConsulta) {
         // Próximo vencimiento
         proximaCuotaNro: proximaCuota ? proximaCuota.cuotaNro : '',
         proximaCuotaFecha: proximaCuota ? proximaCuota.vencimientoOriginal : '',
-        proximaCuotaMonto: proximaCuota ? parseNumero(proximaCuota.montoActualAUltimaFecha || proximaCuota.totalOriginal) : 0,
+        proximaCuotaMonto: proximoMonto1erVto,
+        proximaCuotaMonto2doVto: proximoMonto2doVto,
         proximaCuotaImpaga: proximaCuota ? !!proximaCuota.estaImpaga : false,
 
         // Señales

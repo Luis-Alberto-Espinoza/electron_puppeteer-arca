@@ -2,36 +2,21 @@
 // Genera un archivo Excel consolidado con el resultado del lote de Planes de Pago.
 // Tres hojas: Resumen por cliente | Detalle por plan | Cuotas impagas
 // Ubicación: gestor_afip_atm/consolidados_afip/planes_de_pago/
-// Colores y formateo numérico con xlsx-js-style.
+// ExcelJS + hoja de estilos única (tablasPdf/motor/utils/estilosExcel.js).
 
-const XLSX = require('xlsx-js-style');
+const ExcelJS = require('exceljs');
 const path = require('path');
 const fs = require('fs');
 const { getConsolidadoAfipPath } = require('../../utils/fileManager.js');
+const estilos = require('../../tablasPdf/motor/utils/estilosExcel.js');
+const { valorCelda } = require('./excelPlan.js');
 
-// Paleta
-const COLOR_HEADER_BG   = { rgb: 'FF2C3E50' };
-const COLOR_HEADER_FG   = { rgb: 'FFFFFFFF' };
-const COLOR_CRITICO_BG  = { rgb: 'FFF8D7DA' };
-const COLOR_CRITICO_FG  = { rgb: 'FF922B21' };
-const COLOR_ALERTA_BG   = { rgb: 'FFFDEBD0' };
-const COLOR_ALERTA_FG   = { rgb: 'FFB9770E' };
-const COLOR_OK_BG       = { rgb: 'FFDFF0D8' };
-const COLOR_OK_FG       = { rgb: 'FF1E6631' };
-const COLOR_SINDATOS_BG = { rgb: 'FFE5E7E9' };
-const COLOR_SINDATOS_FG = { rgb: 'FF5D6D7E' };
+// Columnas que cambiaron de nombre: al mezclar con un consolidado del día hecho
+// con la versión anterior, se leen con el nombre nuevo (si no, se duplicarían).
+const RENOMBRES = { 'Próximo monto': 'Próximo monto (1° vto.)' };
 
-const BORDE_FINO = { style: 'thin', color: { rgb: 'FFCCCCCC' } };
-const BORDES_DEFAULT = { top: BORDE_FINO, bottom: BORDE_FINO, left: BORDE_FINO, right: BORDE_FINO };
-
-function coloresDeUrgencia(u) {
-    switch (u) {
-        case 'critico':   return { bg: COLOR_CRITICO_BG,  fg: COLOR_CRITICO_FG };
-        case 'alerta':    return { bg: COLOR_ALERTA_BG,   fg: COLOR_ALERTA_FG };
-        case 'ok':        return { bg: COLOR_OK_BG,       fg: COLOR_OK_FG };
-        default:          return { bg: COLOR_SINDATOS_BG, fg: COLOR_SINDATOS_FG };
-    }
-}
+// Urgencia del plan/cliente → estado de color de la hoja de estilos
+const ESTADO_POR_URGENCIA = { critico: 'error', alerta: 'aviso', ok: 'ok', sin_datos: 'neutro' };
 
 /**
  * Genera el Excel consolidado a partir del array resultadosGlobales.
@@ -39,7 +24,7 @@ function coloresDeUrgencia(u) {
  * @param {string} downloadsPath
  * @returns {{ success, path?, nombre?, totales?, message? }}
  */
-function generar(resultadosGlobales, downloadsPath) {
+async function generar(resultadosGlobales, downloadsPath) {
     try {
         const fechaHoy = new Date();
         const fechaStr = formatearFechaISO(fechaHoy);
@@ -143,13 +128,17 @@ function generar(resultadosGlobales, downloadsPath) {
                         'Monto a regularizar': r.montoRegularizarHoy || 0,
                         'Días vencida (1° impaga)': r.diasVencidaPrimeraImpaga || 0,
                         'Próximo vencimiento': r.proximaCuotaFecha || '',
-                        'Próximo monto': r.proximaCuotaMonto || 0,
+                        'Próximo monto (1° vto.)': r.proximaCuotaMonto || 0,
+                        'Próximo monto (2° vto.)': r.proximaCuotaMonto2doVto ?? '',
                         'Pagos con atraso': r.cantidadPagosAtrasados || 0,
                         'Mora total pagada': r.moraPagadaTotal || 0,
                         'Situación AFIP': r.planSituacion || ''
                     });
 
                     for (const cuota of (r.cuotasImpagas || [])) {
+                        // El último intento suele ser el próximo débito proyectado
+                        // (sin motivo): el motivo útil es el del último FALLIDO.
+                        const ultimoFallido = (cuota.intentos || []).filter(i => i.fueFallido && i.motivo).pop();
                         filasImpagas.push({
                             'Días vencida': diasDesdeHoy(cuota.vencimientoOriginal),
                             'Representante': representante.nombre || '',
@@ -162,7 +151,7 @@ function generar(resultadosGlobales, downloadsPath) {
                             'Monto actualizado': parseNumero(cuota.montoActualAUltimaFecha),
                             'Fecha actualización': cuota.fechaUltimoIntento,
                             'Intentos fallidos': cuota.cantidadFallidos || 0,
-                            'Último motivo': cuota.motivoUltimoIntento || ''
+                            'Último motivo': ultimoFallido ? ultimoFallido.motivo : (cuota.motivoUltimoIntento || '')
                         });
                     }
                 }
@@ -191,7 +180,7 @@ function generar(resultadosGlobales, downloadsPath) {
         let infoMerge = { hubo: false, clientes: 0, planes: 0, impagas: 0 };
         if (fs.existsSync(rutaCompleta)) {
             try {
-                const datosPrevios = leerConsolidadoExistente(rutaCompleta);
+                const datosPrevios = await leerConsolidadoExistente(rutaCompleta);
                 const clavesClientesNuevas = new Set(filasPorCliente.map(f => claveCliente(f)));
                 const clavesPlanesNuevas = new Set(filasPorPlan.map(f => clavePlan(f)));
 
@@ -231,27 +220,13 @@ function generar(resultadosGlobales, downloadsPath) {
         filasImpagas.sort((a, b) => (b['Días vencida'] || 0) - (a['Días vencida'] || 0));
 
         // Construir workbook
-        const workbook = XLSX.utils.book_new();
-
-        const columnasMonedaCliente = ['Monto a regularizar hoy', 'Mora total pagada'];
-        const columnasMonedaPlan = ['Monto a regularizar', 'Próximo monto', 'Mora total pagada'];
-        const columnasMonedaImpagas = ['Monto original', 'Monto actualizado'];
-
-        const hojaCliente = construirHojaConEstilos(filasPorCliente, columnasMonedaCliente, 'Urgencia');
-        hojaCliente['!cols'] = anchosCliente();
-
-        const hojaPlan = construirHojaConEstilos(filasPorPlan, columnasMonedaPlan, 'Urgencia');
-        hojaPlan['!cols'] = anchosPlan();
-
-        const hojaImpagas = construirHojaConEstilos(filasImpagas, columnasMonedaImpagas, null);
-        hojaImpagas['!cols'] = anchosImpagas();
-
-        XLSX.utils.book_append_sheet(workbook, hojaCliente, 'Resumen por cliente');
-        XLSX.utils.book_append_sheet(workbook, hojaPlan, 'Detalle por plan');
-        XLSX.utils.book_append_sheet(workbook, hojaImpagas, 'Cuotas impagas');
+        const workbook = new ExcelJS.Workbook();
+        agregarHoja(workbook, 'Resumen por cliente', filasPorCliente, ['Monto a regularizar hoy', 'Mora total pagada'], 'Urgencia');
+        agregarHoja(workbook, 'Detalle por plan', filasPorPlan, ['Monto a regularizar', 'Próximo monto (1° vto.)', 'Próximo monto (2° vto.)', 'Mora total pagada'], 'Urgencia');
+        agregarHoja(workbook, 'Cuotas impagas', filasImpagas, ['Monto original', 'Monto actualizado'], null);
 
         try {
-            XLSX.writeFile(workbook, rutaCompleta);
+            await workbook.xlsx.writeFile(rutaCompleta);
         } catch (e) {
             if (e && (e.code === 'EBUSY' || /EBUSY|permission|EACCES/i.test(e.message))) {
                 return {
@@ -290,16 +265,49 @@ function generar(resultadosGlobales, downloadsPath) {
 }
 
 /**
- * Lee un consolidado existente y devuelve las filas de cada hoja como objetos planos.
+ * Lee un consolidado existente y devuelve las filas de cada hoja como objetos
+ * planos { encabezado: valor }. Las fechas vuelven a texto "dd/mm/aaaa" (así
+ * las guarda el resto del armado; valorCelda las reconvierte al escribir).
+ * Lee tanto los consolidados nuevos (ExcelJS) como los viejos (xlsx-js-style).
  * Si una hoja no existe o está vacía, devuelve array vacío.
  */
-function leerConsolidadoExistente(rutaArchivo) {
-    const wb = XLSX.readFile(rutaArchivo, { cellDates: false });
-    const leerHoja = (nombreHoja) => {
-        const ws = wb.Sheets[nombreHoja];
-        if (!ws) return [];
-        return XLSX.utils.sheet_to_json(ws, { raw: true, defval: '' });
+async function leerConsolidadoExistente(rutaArchivo) {
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.readFile(rutaArchivo);
+
+    const texto = (v) => {
+        if (v === null || v === undefined) return '';
+        if (v instanceof Date) {
+            const d = String(v.getUTCDate()).padStart(2, '0');
+            const m = String(v.getUTCMonth() + 1).padStart(2, '0');
+            return `${d}/${m}/${v.getUTCFullYear()}`;
+        }
+        if (typeof v === 'object') {
+            if (v.richText) return v.richText.map(t => t.text).join('');
+            if ('result' in v) return v.result;
+            if (v.text) return v.text;
+        }
+        return v;
     };
+
+    const leerHoja = (nombreHoja) => {
+        const ws = wb.getWorksheet(nombreHoja);
+        if (!ws || ws.rowCount < 2) return [];
+        const headers = [];
+        ws.getRow(1).eachCell({ includeEmpty: true }, (celda, c) => { headers[c] = texto(celda.value); });
+        if (!headers.filter(Boolean).length || headers[1] === 'Sin datos') return [];
+
+        const filas = [];
+        for (let r = 2; r <= ws.rowCount; r++) {
+            const row = ws.getRow(r);
+            if (!row.hasValues) continue;
+            const fila = {};
+            headers.forEach((h, c) => { if (h) fila[RENOMBRES[h] || h] = texto(row.getCell(c).value); });
+            filas.push(fila);
+        }
+        return filas;
+    };
+
     return {
         clientes: leerHoja('Resumen por cliente'),
         planes: leerHoja('Detalle por plan'),
@@ -320,87 +328,54 @@ function clavePlan(fila) {
 // ─── Helpers ───
 
 /**
- * Construye una hoja con AOA para control total de estilos y tipos de dato.
- * Aplica colores por fila según el valor de la columna `columnaUrgencia` (si existe).
+ * Escribe una hoja: encabezado en la fila 1, una fila por objeto. Montos con
+ * miles en `columnasMoneda`; el resto de los números como enteros; fechas
+ * "dd/mm/aaaa" como fecha real. Si hay `columnaUrgencia`, pinta la fila entera
+ * con el color de su urgencia y destaca esa celda.
  */
-function construirHojaConEstilos(filas, columnasMoneda, columnaUrgencia) {
+function agregarHoja(workbook, nombre, filas, columnasMoneda, columnaUrgencia) {
+    const hoja = workbook.addWorksheet(nombre);
     if (!filas || filas.length === 0) {
-        return XLSX.utils.aoa_to_sheet([['Sin datos']]);
+        hoja.getCell(1, 1).value = 'Sin datos';
+        return;
     }
 
-    const headers = Object.keys(filas[0]);
-    const rows = [headers];
-
-    for (const fila of filas) {
-        rows.push(headers.map(h => fila[h]));
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-
-    // Estilos de encabezado
-    for (let c = 0; c < headers.length; c++) {
-        const addr = XLSX.utils.encode_cell({ r: 0, c });
-        if (!ws[addr]) continue;
-        ws[addr].s = {
-            font: { bold: true, color: COLOR_HEADER_FG, sz: 10 },
-            fill: { patternType: 'solid', fgColor: COLOR_HEADER_BG },
-            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-            border: BORDES_DEFAULT
-        };
-    }
-
-    // Estilos de filas (colores por urgencia, formato de moneda, números como números)
-    const columnasMonedaIdx = (columnasMoneda || []).map(n => headers.indexOf(n)).filter(i => i >= 0);
+    // Encabezados: la fila con más columnas da el orden; se suman las que falten
+    // (filas mezcladas de un consolidado anterior pueden traer menos).
+    const base = filas.reduce((a, f) => (Object.keys(f).length > Object.keys(a).length ? f : a), filas[0]);
+    const headers = Object.keys(base);
+    filas.forEach(f => Object.keys(f).forEach(k => { if (!headers.includes(k)) headers.push(k); }));
+    hoja.getRow(1).values = headers;
     const idxUrgencia = columnaUrgencia ? headers.indexOf(columnaUrgencia) : -1;
 
-    for (let rFila = 1; rFila < rows.length; rFila++) {
-        const filaData = filas[rFila - 1];
-        const colores = idxUrgencia >= 0 ? coloresDeUrgencia(filaData[columnaUrgencia]) : null;
-
-        for (let c = 0; c < headers.length; c++) {
-            const addr = XLSX.utils.encode_cell({ r: rFila, c });
-            if (!ws[addr]) continue;
-
-            const estilo = {
-                border: BORDES_DEFAULT,
-                alignment: { horizontal: 'left', vertical: 'center' }
+    filas.forEach((fila, i) => {
+        const row = hoja.getRow(i + 2);
+        headers.forEach((h, c) => {
+            const celda = row.getCell(c + 1);
+            const esMonto = columnasMoneda.includes(h);
+            celda.value = valorCelda(fila[h], esMonto);
+            // Formato explícito: el detector por nombre de la hoja de estilos
+            // tomaría "Cuotas totales" como monto.
+            if (esMonto) celda.numFmt = estilos.FMT_MONTO_MILES;
+            else if (celda.value instanceof Date) celda.numFmt = estilos.FMT_FECHA;
+            else if (typeof celda.value === 'number') celda.numFmt = estilos.FMT_ENTERO;
+            celda.alignment = {
+                horizontal: typeof celda.value === 'number' ? 'right' : (celda.value instanceof Date ? 'center' : 'left'),
+                vertical: 'middle'
             };
+        });
 
-            // Números: asegurar tipo numérico + alineación derecha
-            if (typeof ws[addr].v === 'number') {
-                ws[addr].t = 'n';
-                estilo.alignment = { horizontal: 'right', vertical: 'center' };
-            }
-
-            // Moneda
-            if (columnasMonedaIdx.includes(c)) {
-                estilo.numFmt = '#,##0.00';
-                ws[addr].z = '#,##0.00';
-            }
-
-            // Color por urgencia (fila)
-            if (colores) {
-                estilo.fill = { patternType: 'solid', fgColor: colores.bg };
-                estilo.font = { color: colores.fg };
-                // Destacar celda de urgencia
-                if (c === idxUrgencia) {
-                    estilo.font = { color: colores.fg, bold: true };
-                    estilo.alignment = { horizontal: 'center', vertical: 'center' };
-                }
-            }
-
-            ws[addr].s = estilo;
+        const estado = idxUrgencia >= 0 ? ESTADO_POR_URGENCIA[fila[columnaUrgencia]] || 'neutro' : null;
+        if (estado) {
+            for (let c = 1; c <= headers.length; c++) estilos.marcarEstado(row.getCell(c), estado, { destacar: false });
+            const celdaUrg = row.getCell(idxUrgencia + 1);
+            estilos.marcarEstado(celdaUrg, estado);
+            celdaUrg.alignment = { horizontal: 'center', vertical: 'middle' };
         }
-    }
+    });
 
-    // Autofilter sobre toda la tabla
-    if (ws['!ref']) {
-        ws['!autofilter'] = { ref: ws['!ref'] };
-    }
-    // Congelar encabezado
-    ws['!freeze'] = { xSplit: 0, ySplit: 1 };
-
-    return ws;
+    estilos.estilizarTabla(hoja, { filaEncabezado: 1, fmtMonto: estilos.FMT_MONTO_MILES });
+    estilos.ajustarImpresion(hoja);
 }
 
 function peorEntre(a, b) {
@@ -448,32 +423,6 @@ function formatearFechaArg(date) {
     const m = String(date.getMonth() + 1).padStart(2, '0');
     const y = date.getFullYear();
     return `${d}/${m}/${y}`;
-}
-
-function anchosCliente() {
-    return [
-        { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
-        { wch: 25 }, { wch: 12 }, { wch: 14 }, { wch: 13 },
-        { wch: 20 }, { wch: 18 }, { wch: 20 }
-    ];
-}
-
-function anchosPlan() {
-    return [
-        { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 15 },
-        { wch: 25 }, { wch: 10 }, { wch: 14 }, { wch: 10 },
-        { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 18 },
-        { wch: 14 }, { wch: 15 }, { wch: 14 }, { wch: 10 },
-        { wch: 16 }, { wch: 18 }
-    ];
-}
-
-function anchosImpagas() {
-    return [
-        { wch: 10 }, { wch: 25 }, { wch: 15 }, { wch: 25 },
-        { wch: 10 }, { wch: 8 }, { wch: 14 }, { wch: 14 },
-        { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 28 }
-    ];
 }
 
 module.exports = { generar };
