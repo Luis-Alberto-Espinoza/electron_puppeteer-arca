@@ -9,7 +9,7 @@
  */
 
 const path = require('path');
-const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
+const { carpetaPlan, tagArchivo } = require('../../../../afip/planesDePago/estadoPlan.js');
 const { launchBrowser } = require('../../../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 const { parseNumero } = require('../../../../afip/planesDePago/datosResumenBuilder.js');
 const { armarSubtitulo } = require('../../../../afip/planesDePago/excelPlan.js');
@@ -18,12 +18,12 @@ async function ejecutar(modelo, seccion, plan, cuitConsulta, downloadsPath) {
     const numeroPlan = plan.numero || 'SinNumero';
     console.log(`  → Paso 9: Generando PDF de "${seccion.etiqueta}" del plan #${numeroPlan}...`);
 
-    const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuitConsulta, '', 'archivos_afip');
+    const downloadDir = await carpetaPlan(downloadsPath, cuitConsulta, plan);
     const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
     const fechaDescarga = new Date().toISOString().slice(0, 10);
-    const base = `${seccion.prefijo}_${cuitLimpio}_Plan${numeroPlan}_${fechaDescarga}`;
+    const base = `${seccion.prefijo}_${cuitLimpio}_Plan${numeroPlan}_${tagArchivo(plan)}_${fechaDescarga}`;
     const titulo = `${seccion.etiqueta} - Plan N° ${numeroPlan}`;
-    const subtitulo = armarSubtitulo(modelo.cabecera, cuitLimpio, fechaDescarga);
+    const subtitulo = armarSubtitulo(modelo.cabecera, cuitLimpio, fechaDescarga, plan.estado);
 
     const resultado = { success: false, downloadDir, pdf: null };
 

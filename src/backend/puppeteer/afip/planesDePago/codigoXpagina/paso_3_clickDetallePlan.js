@@ -1,5 +1,5 @@
 /**
- * PASO 3: Click en "Detalle" de un plan vigente
+ * PASO 3: Click en "Detalle" de un plan (vigente o no)
  *
  * Navega a la página correcta de la paginación (si es necesario),
  * busca la fila del plan por su número, y hace click en su botón Detalle

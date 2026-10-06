@@ -805,6 +805,17 @@ window.inicializarModuloPlanesDePago = () => {
             return;
         }
 
+        const estados = {
+            vigentes: document.getElementById('chk-planes-vigentes')?.checked !== false,
+            noVigentes: document.getElementById('chk-planes-no-vigentes')?.checked === true
+        };
+        if (!estados.vigentes && !estados.noVigentes) {
+            alert('Elegí al menos un tipo de plan: vigentes o no vigentes.');
+            return;
+        }
+        const queSeBaja = estados.vigentes && estados.noVigentes ? 'todos los planes (vigentes y no vigentes)'
+            : estados.vigentes ? 'solo planes vigentes' : 'solo planes no vigentes';
+
         // Confirmación
         let detalleMsg = '';
         loteRepresentantes.forEach(lr => {
@@ -814,7 +825,7 @@ window.inicializarModuloPlanesDePago = () => {
             });
         });
 
-        if (!confirm(`Se procesaran ${loteRepresentantes.length} representante(s):${detalleMsg}\n\nDesea continuar?`)) return;
+        if (!confirm(`Se procesaran ${loteRepresentantes.length} representante(s):${detalleMsg}\n\nSe bajan ${queSeBaja}.\n\nDesea continuar?`)) return;
 
         // Deshabilitar UI
         btnObtenerDatos.disabled = true;
@@ -827,7 +838,8 @@ window.inicializarModuloPlanesDePago = () => {
         try {
             const resultado = await window.electronAPI.planesDePago.generarLote({
                 loteRepresentantes,
-                visible: document.getElementById('chk-visible-planes')?.checked !== false
+                visible: document.getElementById('chk-visible-planes')?.checked !== false,
+                estados
             });
 
             if (resultado.success) {
@@ -887,6 +899,15 @@ window.inicializarModuloPlanesDePago = () => {
             const nombre = document.createElement('strong');
             nombre.textContent = `Plan ${p.numero}`;
             fila.appendChild(nombre);
+
+            // Situación de AFIP (Vigente / Plan Caduco / Plan Cancelado / ...)
+            if (p.estado) {
+                const sit = document.createElement('span');
+                sit.className = `planes-chip planes-chip-situacion${p.vigente ? '' : ' planes-chip-no-vigente'}`;
+                sit.textContent = p.estado;
+                sit.title = p.vigente ? 'Plan vigente' : 'Plan no vigente: va a su propia carpeta (Planes_<situación>)';
+                fila.appendChild(sit);
+            }
 
             if (!p.success) {
                 const err = document.createElement('span');

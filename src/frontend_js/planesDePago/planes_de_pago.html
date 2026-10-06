@@ -57,6 +57,12 @@
     <!-- Botón procesar -->
     <div class="planes-procesar">
         <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
+        <!-- Qué planes bajar: vigentes y/o todo lo demás (caducos, cancelados y
+             cualquier otra situación que traiga AFIP). Cada grupo va a su carpeta. -->
+        <div class="planes-estados">
+            <label><input type="checkbox" id="chk-planes-vigentes" checked> Planes vigentes</label>
+            <label><input type="checkbox" id="chk-planes-no-vigentes"> Planes no vigentes (caducos, cancelados y otros)</label>
+        </div>
         <label class="ui-switch">
             <input type="checkbox" id="chk-visible-planes" checked>
             Mostrar navegador

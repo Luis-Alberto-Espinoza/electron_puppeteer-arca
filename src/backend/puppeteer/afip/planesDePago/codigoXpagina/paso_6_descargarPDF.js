@@ -8,7 +8,7 @@
  */
 
 const path = require('path');
-const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
+const { carpetaPlan, tagArchivo } = require('../../../../afip/planesDePago/estadoPlan.js');
 const { launchBrowser } = require('../../../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
 async function ejecutar(datosTabla, infoPlan, usuario, cuitConsulta, downloadsPath) {
@@ -21,10 +21,11 @@ async function ejecutar(datosTabla, infoPlan, usuario, cuitConsulta, downloadsPa
         // Carpeta por el OBJETIVO (el cuit consultado / asociado), no por el
         // representante que loguea. Nombre canónico vía el repo → cruza con el
         // resto de los flujos. (antes: usuario.cuit = login-first, bug de carpeta)
-        const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuitConsulta, '', 'archivos_afip');
+        // Subcarpeta + tag por situación del plan (Planes_Caduco / CADUCO).
+        const downloadDir = await carpetaPlan(downloadsPath, cuitConsulta, infoPlan);
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         const fechaDescarga = new Date().toISOString().slice(0, 10);
-        const finalFilename = `Pagos_${cuitLimpio}_Plan${numeroPlan}_${fechaDescarga}.pdf`;
+        const finalFilename = `Pagos_${cuitLimpio}_Plan${numeroPlan}_${tagArchivo(infoPlan)}_${fechaDescarga}.pdf`;
         const destPath = path.join(downloadDir, finalFilename);
 
         const htmlReporte = generarHTMLReporte(datosTabla, infoPlan, cuitLimpio, fechaDescarga);
@@ -69,6 +70,7 @@ function generarHTMLReporte(datosTabla, infoPlan, cuit, fecha) {
 
     // Info del plan en el encabezado
     const infoPlanItems = [];
+    if (infoPlan.estado) infoPlanItems.push(`Situación: ${infoPlan.estado}`);
     if (infoPlan.presentacion) infoPlanItems.push(`Presentación: ${infoPlan.presentacion}`);
     if (infoPlan.cuotas) infoPlanItems.push(`Cuotas: ${infoPlan.cuotas}`);
     if (infoPlan.tipo) infoPlanItems.push(`Tipo: ${infoPlan.tipo}`);

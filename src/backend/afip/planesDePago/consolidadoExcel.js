@@ -1,6 +1,8 @@
 // afip/planesDePago/consolidadoExcel.js
 // Genera un archivo Excel consolidado con el resultado del lote de Planes de Pago.
 // Tres hojas: Resumen por cliente | Detalle por plan | Cuotas impagas
+// La deuda (urgencia, impagas, monto a regularizar) sale solo de los planes
+// vigentes; los no vigentes figuran en "Detalle por plan" en gris, al final.
 // Ubicación: gestor_afip_atm/consolidados_afip/planes_de_pago/
 // ExcelJS + hoja de estilos única (tablasPdf/motor/utils/estilosExcel.js).
 
@@ -16,7 +18,7 @@ const { valorCelda } = require('./excelPlan.js');
 const RENOMBRES = { 'Próximo monto': 'Próximo monto (1° vto.)' };
 
 // Urgencia del plan/cliente → estado de color de la hoja de estilos
-const ESTADO_POR_URGENCIA = { critico: 'error', alerta: 'aviso', ok: 'ok', sin_datos: 'neutro' };
+const ESTADO_POR_URGENCIA = { critico: 'error', alerta: 'aviso', ok: 'ok', sin_datos: 'neutro', no_vigente: 'neutro' };
 
 /**
  * Genera el Excel consolidado a partir del array resultadosGlobales.
@@ -63,7 +65,7 @@ async function generar(resultadosGlobales, downloadsPath) {
                 const cuitConsulta = resCuit.cuitConsulta || {};
                 const planes = resCuit.planes || [];
 
-                if (resCuit.sinPlanesVigentes) {
+                if (resCuit.sinPlanes) {
                     filasPorCliente.push({
                         'Urgencia': 'ok',
                         'Representante': representante.nombre || '',
@@ -75,7 +77,7 @@ async function generar(resultadosGlobales, downloadsPath) {
                         'Cuotas impagas': 0,
                         'Monto a regularizar hoy': 0,
                         'Mora total pagada': 0,
-                        'Observación': 'Sin planes vigentes'
+                        'Observación': resCuit.observacion || 'Sin planes'
                     });
                     continue;
                 }
@@ -102,16 +104,21 @@ async function generar(resultadosGlobales, downloadsPath) {
                 let montoRegularizarTotal = 0;
                 let moraPagadaCliente = 0;
                 let peorUrgencia = 'ok';
+                let planesVigentes = 0;
 
                 for (const planRes of planes) {
                     if (!planRes.datosResumen) continue;
                     const r = planRes.datosResumen;
+                    const vigente = r.vigente !== false;
 
-                    cuotasImpagasTotal += (r.cantidadImpagas || 0);
-                    if (r.cantidadImpagas > 0) planesConImpagas++;
-                    montoRegularizarTotal += (r.montoRegularizarHoy || 0);
-                    moraPagadaCliente += (r.moraPagadaTotal || 0);
-                    peorUrgencia = peorEntre(peorUrgencia, r.urgencia);
+                    if (vigente) {
+                        planesVigentes++;
+                        cuotasImpagasTotal += (r.cantidadImpagas || 0);
+                        if (r.cantidadImpagas > 0) planesConImpagas++;
+                        montoRegularizarTotal += (r.montoRegularizarHoy || 0);
+                        moraPagadaCliente += (r.moraPagadaTotal || 0);
+                        peorUrgencia = peorEntre(peorUrgencia, r.urgencia);
+                    }
 
                     filasPorPlan.push({
                         'Urgencia': r.urgencia,
@@ -120,22 +127,23 @@ async function generar(resultadosGlobales, downloadsPath) {
                         'CUIT Consultado': cuitConsulta.cuit || '',
                         'Alias/Cliente': cuitConsulta.alias || '',
                         'Plan N°': r.planNumero,
+                        'Situación AFIP': r.planEstado || r.planSituacion || '',
                         'Tipo': r.planTipo || '',
                         'Cuotas totales': toNum(r.planCuotas || r.cantidadTotal),
                         'Cuotas canceladas': r.cantidadCanceladas || 0,
                         'Cuotas impagas': r.cantidadImpagas || 0,
                         'Cuotas pendientes': r.cantidadPendientes || 0,
-                        'Monto a regularizar': r.montoRegularizarHoy || 0,
+                        'Monto a regularizar': vigente ? (r.montoRegularizarHoy || 0) : 0,
                         'Días vencida (1° impaga)': r.diasVencidaPrimeraImpaga || 0,
                         'Próximo vencimiento': r.proximaCuotaFecha || '',
                         'Próximo monto (1° vto.)': r.proximaCuotaMonto || 0,
                         'Próximo monto (2° vto.)': r.proximaCuotaMonto2doVto ?? '',
                         'Pagos con atraso': r.cantidadPagosAtrasados || 0,
-                        'Mora total pagada': r.moraPagadaTotal || 0,
-                        'Situación AFIP': r.planSituacion || ''
+                        'Mora total pagada': r.moraPagadaTotal || 0
                     });
 
-                    for (const cuota of (r.cuotasImpagas || [])) {
+                    // Hoja de impagas = qué hay que pagar: solo planes vigentes
+                    for (const cuota of (vigente ? (r.cuotasImpagas || []) : [])) {
                         // El último intento suele ser el próximo débito proyectado
                         // (sin motivo): el motivo útil es el del último FALLIDO.
                         const ultimoFallido = (cuota.intentos || []).filter(i => i.fueFallido && i.motivo).pop();
@@ -163,11 +171,13 @@ async function generar(resultadosGlobales, downloadsPath) {
                     'CUIT Consultado': cuitConsulta.cuit || '',
                     'Alias/Cliente': cuitConsulta.alias || '',
                     'Planes consultados': planes.length,
+                    'Planes no vigentes': planes.length - planesVigentes,
                     'Planes con impagas': planesConImpagas,
                     'Cuotas impagas': cuotasImpagasTotal,
                     'Monto a regularizar hoy': montoRegularizarTotal,
                     'Mora total pagada': moraPagadaCliente,
-                    'Observación': cuotasImpagasTotal > 0 ? 'Con impagas' : 'Al día'
+                    'Observación': planesVigentes === 0 ? 'Sin planes vigentes'
+                        : cuotasImpagasTotal > 0 ? 'Con impagas' : 'Al día'
                 });
             }
         }
@@ -214,7 +224,7 @@ async function generar(resultadosGlobales, downloadsPath) {
         }
 
         // Ordenar
-        const ordenUrg = { 'critico': 0, 'alerta': 1, 'ok': 2, 'sin_datos': 3 };
+        const ordenUrg = { 'critico': 0, 'alerta': 1, 'ok': 2, 'sin_datos': 3, 'no_vigente': 4 };
         filasPorCliente.sort((a, b) => (ordenUrg[a.Urgencia] ?? 9) - (ordenUrg[b.Urgencia] ?? 9));
         filasPorPlan.sort((a, b) => (ordenUrg[a.Urgencia] ?? 9) - (ordenUrg[b.Urgencia] ?? 9));
         filasImpagas.sort((a, b) => (b['Días vencida'] || 0) - (a['Días vencida'] || 0));

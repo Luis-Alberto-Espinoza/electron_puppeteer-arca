@@ -17,8 +17,9 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
  * @param {string} downloadsPath - Ruta para descargas
  * @param {Object} [opciones]
  * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
+ * @param {Object} [opciones.estados] - { vigentes, noVigentes }; si no llega, solo vigentes
  */
-async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath = null, { visible } = {}) {
+async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath = null, { visible, estados } = {}) {
     console.log('[PlanesDePago Manager] Iniciando proceso...');
     console.log(`   Representante: ${usuario.nombre} (${credenciales.usuario})`);
     console.log(`   Consulta CUIT: ${cuitConsulta.cuit} (${cuitConsulta.alias})`);
@@ -43,7 +44,7 @@ async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath
         console.log('[PlanesDePago Manager] Login exitoso. Iniciando flujo...');
 
         // 2. Ejecutar flujo
-        const resultado = await flujo.ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath);
+        const resultado = await flujo.ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estados });
         return resultado;
 
     }, { headless: resolverHeadless(visible) });
@@ -58,8 +59,9 @@ async function iniciarProceso(credenciales, usuario, cuitConsulta, downloadsPath
  * @param {Function} onProgreso - Callback(datos) para informar progreso por CUIT
  * @param {Object} [opciones]
  * @param {boolean} [opciones.visible] - false = navegador oculto; si no llega, visible
+ * @param {Object} [opciones.estados] - { vigentes, noVigentes }; si no llega, solo vigentes
  */
-async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloadsPath, onProgreso, { visible } = {}) {
+async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloadsPath, onProgreso, { visible, estados } = {}) {
     console.log(`[PlanesDePago Manager] Iniciando proceso lote para ${usuario.nombre} (${credenciales.usuario})`);
     console.log(`   CUITs a procesar: ${cuitsAProcesar.length}`);
 
@@ -102,11 +104,11 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
             }
 
             try {
-                const resultado = await flujo.ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath);
+                const resultado = await flujo.ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estados });
                 resultados.push({ cuitConsulta, ...resultado });
 
-                let downloadDir = null;
-                if (resultado.planes) {
+                let downloadDir = resultado.downloadDir || null;
+                if (!downloadDir && resultado.planes) {
                     const planConPdf = resultado.planes.find(p => p.pdf && p.pdf.downloadDir);
                     if (planConPdf) downloadDir = planConPdf.pdf.downloadDir;
                 }

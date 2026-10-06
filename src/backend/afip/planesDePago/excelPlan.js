@@ -15,6 +15,7 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const { parseNumero } = require('./datosResumenBuilder.js');
 const estilos = require('../../tablasPdf/motor/utils/estilosExcel.js');
+const { tagArchivo } = require('./estadoPlan.js');
 
 const FILA_ENCABEZADO = 4; // 1 título, 2 subtítulo, 3 en blanco
 
@@ -180,9 +181,10 @@ function agregarHoja(wb, { nombre, titulo, modelo }, subtitulo) {
     estilos.ajustarImpresion(hoja);
 }
 
-function armarSubtitulo(cab, cuit, fecha) {
+function armarSubtitulo(cab, cuit, fecha, situacion) {
     const partes = [`CUIT: ${cuit}`];
     if (cab && cab.nombre) partes.push(cab.nombre);
+    if (situacion) partes.push(`Situación: ${situacion}`);
     if (cab && cab.descripcion) partes.push(cab.descripcion);
     if (cab && cab.fechaConsolidacion) partes.push(`Consolidación: ${cab.fechaConsolidacion}`);
     if (cab && cab.tipoPlan) partes.push(`Tipo: ${cab.tipoPlan}`);
@@ -193,7 +195,7 @@ function armarSubtitulo(cab, cuit, fecha) {
 /**
  * @param {Object} p
  * @param {Array} p.hojas - [{ nombre, titulo, modelo }]
- * @param {Object} p.plan - { numero }
+ * @param {Object} p.plan - { numero, estado }
  * @param {string} p.cuit
  * @param {string} p.downloadDir
  * @returns {Promise<{success, xlsxPath?, xlsxNombre?, message?}>}
@@ -204,11 +206,11 @@ async function generar({ hojas, plan, cuit, downloadDir }) {
 
         const cuitLimpio = String(cuit).replace(/-/g, '');
         const fecha = new Date().toISOString().slice(0, 10);
-        const xlsxNombre = `Plan${plan.numero || 'SinNumero'}_${cuitLimpio}_${fecha}.xlsx`;
+        const xlsxNombre = `Plan${plan.numero || 'SinNumero'}_${tagArchivo(plan)}_${cuitLimpio}_${fecha}.xlsx`;
         const xlsxPath = path.join(downloadDir, xlsxNombre);
 
         const cabecera = (hojas.find(h => h.modelo.cabecera && h.modelo.cabecera.nroPlan) || {}).modelo;
-        const subtitulo = armarSubtitulo(cabecera && cabecera.cabecera, cuitLimpio, fecha);
+        const subtitulo = armarSubtitulo(cabecera && cabecera.cabecera, cuitLimpio, fecha, plan.estado);
 
         const wb = new ExcelJS.Workbook();
         for (const h of hojas) agregarHoja(wb, h, subtitulo);

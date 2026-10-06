@@ -1,5 +1,5 @@
 /**
- * PASO 2: Obtener planes vigentes de la tabla
+ * PASO 2: Obtener los planes de la tabla (vigentes y/o no vigentes)
  *
  * En seguimiento_presentacion.aspx hay una tabla paginada con todos los planes.
  * La paginación usa:
@@ -10,14 +10,25 @@
  *     <li style="display: inline;"><a>→</a></li>
  *   </ul>
  *
- * Recorremos TODAS las páginas buscando planes con estado "Vigente".
+ * Recorremos TODAS las páginas y filtramos por la situación del plan
+ * (span labelEstado = columna "Situación": "Vigente", "Plan Caduco",
+ * "Plan Cancelado"...). La columna "Estado" dice "Aceptada" en todos: no sirve.
+ * Sin lista cerrada de estados: lo que no es "Vigente" es "no vigente", así
+ * una bandera nueva de AFIP igual se baja (ver afip/planesDePago/estadoPlan.js).
  * Deduplicamos por número de plan (al cambiar de página puede re-leer).
  * Guardamos en qué página de la paginación está cada plan para poder
  * navegar a ella antes de hacer click en Detalle.
  */
 
-async function ejecutar(page) {
-    console.log('  → Paso 2: Obteniendo planes vigentes...');
+const { esVigente } = require('../../../../afip/planesDePago/estadoPlan.js');
+
+/**
+ * @param {Object} [estados] - qué planes traer
+ * @param {boolean} [estados.vigentes=true]
+ * @param {boolean} [estados.noVigentes=false] - caducos, cancelados y cualquier otro
+ */
+async function ejecutar(page, { vigentes: incluirVigentes = true, noVigentes: incluirNoVigentes = false } = {}) {
+    console.log(`  → Paso 2: Obteniendo planes (vigentes: ${incluirVigentes ? 'sí' : 'no'}, no vigentes: ${incluirNoVigentes ? 'sí' : 'no'})...`);
 
     // Esperar la tabla de planes
     await page.waitForSelector('table.searchTable', { timeout: 15000 });
@@ -33,7 +44,7 @@ async function ejecutar(page) {
 
     console.log(`  → Tabla con ${totalPaginas} página(s).`);
 
-    const vigentesMap = new Map(); // clave: numero de plan, para deduplicar
+    const planesMap = new Map(); // clave: numero de plan, para deduplicar
     let paginaActual = 1;
 
     while (paginaActual <= totalPaginas) {
@@ -42,36 +53,25 @@ async function ejecutar(page) {
         // Asegurar que estamos en la página correcta
         await irAPagina(page, paginaActual);
 
-        const vigentesEnPagina = await page.evaluate(() => {
+        const planesEnPagina = await page.evaluate((incluirVigentes, incluirNoVigentes) => {
             const filas = document.querySelectorAll('table.searchTable tbody tr');
-            const vigentes = [];
+            const planes = [];
 
             filas.forEach((fila) => {
-                // Buscar estado - múltiples estrategias
-                let estado = '';
-                const spanEstado = fila.querySelector('[id*="labelEstado"]');
-                if (spanEstado) {
-                    estado = spanEstado.textContent.trim();
-                }
-
-                if (!estado) {
-                    const celdas = fila.querySelectorAll('td');
-                    for (const celda of celdas) {
-                        const texto = celda.textContent.trim();
-                        if (['Vigente', 'Caducado', 'Consolidado', 'Anulado', 'Cancelado'].includes(texto)) {
-                            estado = texto;
-                            break;
-                        }
-                    }
-                }
-
-                if (estado !== 'Vigente') return;
-
                 const celdas = fila.querySelectorAll('td');
                 const numero = celdas[1] ? celdas[1].textContent.trim() : '';
                 if (!numero) return;
 
-                vigentes.push({
+                // Situación: el span labelEstado; si no está, la columna
+                // "Situación" por posición (nunca una lista de nombres).
+                const spanEstado = fila.querySelector('[id*="labelEstado"]');
+                let estado = spanEstado ? spanEstado.textContent.trim() : '';
+                if (!estado && celdas[6]) estado = celdas[6].textContent.trim();
+
+                const vigente = estado.toLowerCase() === 'vigente';
+                if (vigente ? !incluirVigentes : !incluirNoVigentes) return;
+
+                planes.push({
                     presentacion: celdas[0] ? celdas[0].textContent.trim() : '',
                     numero,
                     cuotas: celdas[2] ? celdas[2].textContent.trim() : '',
@@ -82,43 +82,45 @@ async function ejecutar(page) {
                 });
             });
 
-            return vigentes;
-        });
+            return planes;
+        }, incluirVigentes, incluirNoVigentes);
 
         // Agregar al mapa deduplicando por número de plan
-        for (const plan of vigentesEnPagina) {
-            if (!vigentesMap.has(plan.numero)) {
+        for (const plan of planesEnPagina) {
+            if (!planesMap.has(plan.numero)) {
                 plan.paginaTabla = paginaActual; // guardar en qué página está
-                vigentesMap.set(plan.numero, plan);
+                planesMap.set(plan.numero, plan);
             }
         }
 
-        if (vigentesEnPagina.length > 0) {
-            console.log(`     Encontrados ${vigentesEnPagina.length} vigente(s) en página ${paginaActual}.`);
+        if (planesEnPagina.length > 0) {
+            console.log(`     Encontrados ${planesEnPagina.length} plan(es) en página ${paginaActual}.`);
         }
 
         paginaActual++;
     }
 
-    const todosLosVigentes = Array.from(vigentesMap.values());
+    // Vigentes primero: es lo urgente si el lote se corta a mitad
+    const todos = Array.from(planesMap.values())
+        .sort((a, b) => esVigente(b) - esVigente(a));
 
-    console.log(`  ✅ Total: ${todosLosVigentes.length} plan(es) vigente(s) único(s) en ${totalPaginas} página(s).`);
-    todosLosVigentes.forEach(p => {
-        console.log(`     - Plan #${p.numero} | ${p.cuotas} cuotas | $${p.consolidado} | ${p.situacion} (pág. ${p.paginaTabla})`);
+    console.log(`  ✅ Total: ${todos.length} plan(es) único(s) en ${totalPaginas} página(s).`);
+    todos.forEach(p => {
+        console.log(`     - Plan #${p.numero} | ${p.estado || 'sin estado'} | ${p.cuotas} cuotas | $${p.consolidado} (pág. ${p.paginaTabla})`);
     });
 
-    if (todosLosVigentes.length === 0) {
+    if (todos.length === 0) {
         return {
             success: true,
-            sinPlanesVigentes: true,
-            message: 'No se encontraron planes vigentes',
+            sinPlanes: true,
+            message: 'No se encontraron planes',
             planes: []
         };
     }
 
     return {
         success: true,
-        planes: todosLosVigentes
+        planes: todos
     };
 }
 

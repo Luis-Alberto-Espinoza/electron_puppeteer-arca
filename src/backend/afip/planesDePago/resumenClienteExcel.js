@@ -1,6 +1,8 @@
 // afip/planesDePago/resumenClienteExcel.js
 // Genera un Excel resumen por cliente (CUIT consultado) agrupando todos sus planes.
 // Impagos primero, luego al día. Próximos vencimientos, totales.
+// La deuda (banner, KPIs, impagas) sale SOLO de los vigentes; los no vigentes
+// (caducos, cancelados...) van al final en su propia sección, en gris.
 // ExcelJS + hoja de estilos única (tablasPdf/motor/utils/estilosExcel.js).
 
 const ExcelJS = require('exceljs');
@@ -49,8 +51,10 @@ async function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath)
     }
 }
 
-function construirHoja(hoja, planes, usuario, cuit, fecha) {
-    // Agregados
+function construirHoja(hoja, todos, usuario, cuit, fecha) {
+    // Agregados (solo vigentes)
+    const planes = todos.filter(p => p.vigente !== false);
+    const noVigentes = todos.filter(p => p.vigente === false);
     const planesConImpagas = planes.filter(p => p.cantidadImpagas > 0);
     const planesAlDia = planes.filter(p => p.cantidadImpagas === 0);
 
@@ -72,22 +76,26 @@ function construirHoja(hoja, planes, usuario, cuit, fecha) {
     r += 2;
 
     // --- Banner de estado ---
-    filaUnida(hoja, r, hayDeuda
-        ? `⚠  CON DEUDA — A REGULARIZAR: $ ${formatearMoneda(totalRegularizar)}`
-        : '✓  SIN DEUDAS — Todos los planes están al día');
+    const soloNoVigentes = planes.length === 0;
+    filaUnida(hoja, r, soloNoVigentes
+        ? `SIN PLANES VIGENTES — ${noVigentes.length} plan(es) no vigente(s) abajo`
+        : hayDeuda
+            ? `⚠  CON DEUDA — A REGULARIZAR: $ ${formatearMoneda(totalRegularizar)}`
+            : '✓  SIN DEUDAS — Todos los planes vigentes están al día');
     const banner = hoja.getCell(r, 1);
-    banner.fill = estilos.relleno(hayDeuda ? estilos.COLORES.errorTexto : estilos.COLORES.okTexto);
+    banner.fill = estilos.relleno(soloNoVigentes ? estilos.COLORES.neutroTexto
+        : hayDeuda ? estilos.COLORES.errorTexto : estilos.COLORES.okTexto);
     banner.font = { bold: true, size: 13, color: { argb: estilos.COLORES.textoClaro } };
     banner.alignment = { horizontal: 'center', vertical: 'middle' };
     hoja.getRow(r).height = 32;
     r += 2;
 
     // --- KPIs resumen ---
-    hoja.getRow(r).values = ['Planes consultados', 'Con impagas', 'Al día', 'Cuotas impagas', 'Monto a regularizar', 'Mora pagada histórica'];
+    hoja.getRow(r).values = ['Planes vigentes', 'Con impagas', 'Al día', 'Cuotas impagas', 'Monto a regularizar', 'Mora pagada histórica', 'Planes no vigentes'];
     estilos.estilizarEncabezado(hoja.getRow(r));
     r++;
     escribirFila(hoja, r, [
-        planes.length, planesConImpagas.length, planesAlDia.length, totalImpagas, totalRegularizar, totalMoraPagada
+        planes.length, planesConImpagas.length, planesAlDia.length, totalImpagas, totalRegularizar, totalMoraPagada, noVigentes.length
     ], [4, 5]);
     hoja.getRow(r).eachCell(c => {
         c.font = { bold: true, size: 11 };
@@ -159,8 +167,40 @@ function construirHoja(hoja, planes, usuario, cuit, fecha) {
         r++;
     }
 
+    // --- Sección: PLANES NO VIGENTES (caducos, cancelados, ...) ---
+    if (noVigentes.length > 0) {
+        filaUnida(hoja, r, `PLANES NO VIGENTES (${noVigentes.length})`);
+        estilos.marcarEstado(hoja.getCell(r, 1), 'neutro');
+        hoja.getCell(r, 1).alignment = { horizontal: 'left', vertical: 'middle' };
+        r++;
+
+        hoja.getRow(r).values = ['Plan N°', 'Situación', 'Tipo', 'Presentación', 'Cuotas totales', 'Canceladas', 'Impagas', 'Total pagado'];
+        estilos.estilizarEncabezado(hoja.getRow(r));
+        r++;
+
+        // Agrupados por situación (todos los caducos juntos, etc.), el más nuevo primero
+        const ordenados = [...noVigentes].sort((a, b) =>
+            (a.planEstado || '').localeCompare(b.planEstado || '') ||
+            ((parseFechaArg(b.planPresentacion) || 0) - (parseFechaArg(a.planPresentacion) || 0)));
+        for (const p of ordenados) {
+            escribirFila(hoja, r, [
+                p.planNumero || '',
+                p.planEstado || '',
+                p.planTipo || '',
+                p.planPresentacion || '',
+                p.planCuotas || p.cantidadTotal || '',
+                p.cantidadCanceladas || 0,
+                p.cantidadImpagas || 0,
+                p.totalPagado || 0
+            ], [7]);
+            pintarFila(hoja, r, 'neutro');
+            r++;
+        }
+        r++;
+    }
+
     // --- Pie: nota informativa ---
-    filaUnida(hoja, r, 'Abrir el PDF/Excel de cada plan para ver el detalle de cuotas e intentos de cobro.');
+    filaUnida(hoja, r, 'Abrir el PDF/Excel de cada plan para ver el detalle de cuotas e intentos de cobro (carpetas Planes_<situación>).');
     hoja.getCell(r, 1).font = { italic: true, size: 9, color: { argb: 'FF777777' } };
 
     estilos.autoajustarAnchos(hoja, N_COLS, { minimo: 12 });

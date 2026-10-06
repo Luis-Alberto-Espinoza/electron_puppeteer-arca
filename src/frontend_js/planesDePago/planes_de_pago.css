@@ -541,6 +541,23 @@
     margin-right: 16px;
 }
 
+/* Casillas "Planes vigentes" / "Planes no vigentes" */
+.planes-estados {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px 20px;
+    margin: 0 0 14px;
+    color: var(--v-texto, #e0e0e0);
+}
+
+.planes-estados label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
 .planes-btn-obtener {
     padding: 14px 40px;
     background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
@@ -648,6 +665,18 @@
     color: var(--v-texto, #a0c4ff);
     border-color: rgba(160, 196, 255, 0.25);
     opacity: 0.7;
+}
+
+/* Situación del plan en la fila de resultados */
+.planes-chip-situacion {
+    color: #43e97b;
+    border-color: rgba(67, 233, 123, 0.4);
+}
+
+.planes-chip-situacion.planes-chip-no-vigente {
+    color: var(--v-texto, #c0c0c0);
+    border-color: rgba(192, 192, 192, 0.4);
+    font-style: italic;
 }
 
 .planes-chip-error {

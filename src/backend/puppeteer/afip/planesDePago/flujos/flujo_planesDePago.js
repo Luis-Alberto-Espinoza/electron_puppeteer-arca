@@ -1,8 +1,9 @@
 // Flujo de automatización para Planes de Pago AFIP
-// Login → Buscar "mis facilidades" → Seleccionar CUIT → Planes vigentes → Detalle → Ver Pagos → Extraer + PDF
+// Login → Buscar "mis facilidades" → Seleccionar CUIT → Planes (vigentes y/o no vigentes) → Detalle → Ver Pagos → Extraer + PDF
 // → por cada plan, además: Plan de Pago / Oblig. Impositivas / Oblig. Previsionales → leer tabla (paso_8)
 //   → PDF oficial de AFIP (paso_8b); si falla, PDF propio (paso_9)
 // → un Excel por plan con una hoja por sección (excelPlan)
+// Cada plan va a la subcarpeta de su situación (Planes_Vigente, Planes_Caduco...: estadoPlan)
 
 const paso_1_seleccionarCuit = require('../codigoXpagina/paso_1_seleccionarCuit.js');
 const paso_2_obtenerPlanesVigentes = require('../codigoXpagina/paso_2_obtenerPlanesVigentes.js');
@@ -17,6 +18,7 @@ const datosResumenBuilder = require('../../../../afip/planesDePago/datosResumenB
 const resumenClienteExcel = require('../../../../afip/planesDePago/resumenClienteExcel.js');
 const validarConsolidado = require('../../../../afip/planesDePago/validarConsolidado.js');
 const excelPlan = require('../../../../afip/planesDePago/excelPlan.js');
+const { carpetaPlan, esVigente } = require('../../../../afip/planesDePago/estadoPlan.js');
 
 const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 
@@ -28,9 +30,11 @@ const URL_SEGUIMIENTO = 'https://serviciossegsoc.afip.gob.ar/tramites_con_clave_
  * @param {Object} usuario - Datos del usuario representante
  * @param {Object} cuitConsulta - { cuit, alias } del CUIT a consultar
  * @param {string} downloadsPath - Ruta para descargas
- * @returns {Object} Resultado con datos de todos los planes vigentes
+ * @param {Object} [opciones]
+ * @param {Object} [opciones.estados] - { vigentes, noVigentes }; por defecto solo vigentes
+ * @returns {Object} Resultado con datos de todos los planes leídos
  */
-async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
+async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estados = { vigentes: true, noVigentes: false } } = {}) {
     try {
         console.log(`\n[PlanesDePago Flujo] === Iniciando flujo para ${cuitConsulta.alias} (${cuitConsulta.cuit}) ===`);
 
@@ -49,18 +53,20 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
         }
 
         // =====================================================
-        // Paso 2: Obtener planes vigentes (con paginación)
+        // Paso 2: Obtener planes de los estados elegidos (con paginación)
         // =====================================================
-        const resultadoPaso2 = await paso_2_obtenerPlanesVigentes.ejecutar(paginaServicio);
+        const resultadoPaso2 = await paso_2_obtenerPlanesVigentes.ejecutar(paginaServicio, estados);
         if (!resultadoPaso2.success) {
-            return { success: false, message: 'Error obteniendo planes vigentes' };
+            return { success: false, message: 'Error obteniendo la lista de planes' };
         }
 
-        if (resultadoPaso2.sinPlanesVigentes) {
+        const queSeBusco = describirEstados(estados);
+        if (resultadoPaso2.sinPlanes) {
             return {
                 success: true,
-                sinPlanesVigentes: true,
-                message: `No se encontraron planes vigentes para ${cuitConsulta.alias} (${cuitConsulta.cuit})`,
+                sinPlanes: true,
+                observacion: `Sin ${queSeBusco}`,
+                message: `No se encontraron ${queSeBusco} para ${cuitConsulta.alias} (${cuitConsulta.cuit})`,
                 cuitConsulta,
                 planes: []
             };
@@ -70,11 +76,11 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
         const resultadosPlanes = [];
 
         // =====================================================
-        // Paso 3-6: Para cada plan vigente
+        // Paso 3-6: Para cada plan
         // =====================================================
         for (let i = 0; i < planes.length; i++) {
             const plan = planes[i];
-            console.log(`\n[PlanesDePago Flujo] --- Plan ${i + 1}/${planes.length}: #${plan.numero} ---`);
+            console.log(`\n[PlanesDePago Flujo] --- Plan ${i + 1}/${planes.length}: #${plan.numero} (${plan.estado || 'sin estado'}) ---`);
 
             try {
                 // Asegurar que estamos en seguimiento_presentacion.aspx con la tabla visible
@@ -206,7 +212,7 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
                     hojas: hojasExcel,
                     plan,
                     cuit: cuitConsulta.cuit,
-                    downloadDir: await getDownloadPathContribuyente(downloadsPath, cuitConsulta.cuit, '', 'archivos_afip')
+                    downloadDir: await carpetaPlan(downloadsPath, cuitConsulta.cuit, plan)
                 });
 
                 resultadosPlanes.push({
@@ -215,6 +221,8 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
                         cuotas: plan.cuotas,
                         tipo: plan.tipo,
                         consolidado: plan.consolidado,
+                        estado: plan.estado,
+                        vigente: esVigente(plan),
                         situacion: plan.situacion,
                         presentacion: plan.presentacion
                     },
@@ -238,7 +246,7 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
             } catch (errorPlan) {
                 console.error(`  ❌ Error procesando plan #${plan.numero}:`, errorPlan.message);
                 resultadosPlanes.push({
-                    plan: { numero: plan.numero, cuotas: plan.cuotas },
+                    plan: { numero: plan.numero, cuotas: plan.cuotas, estado: plan.estado, vigente: esVigente(plan) },
                     pagos: [],
                     pdf: null,
                     success: false,
@@ -286,8 +294,10 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
 
         return {
             success: true,
-            message: `Procesados ${exitosos}/${planes.length} planes vigentes para ${cuitConsulta.alias}`,
+            message: `Procesados ${exitosos}/${planes.length} ${queSeBusco} para ${cuitConsulta.alias}`,
             cuitConsulta,
+            // Raíz del cliente (los planes están en subcarpetas por situación)
+            downloadDir: await getDownloadPathContribuyente(downloadsPath, cuitConsulta.cuit, '', 'archivos_afip'),
             planes: resultadosPlanes,
             resumenCliente,
             resumenPlanes: resultadosPlanes.map(resumirPlanParaUI),
@@ -306,6 +316,13 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath) {
             message: error.message
         };
     }
+}
+
+// "planes vigentes" | "planes no vigentes" | "planes" (para mensajes)
+function describirEstados(estados) {
+    if (estados.vigentes && !estados.noVigentes) return 'planes vigentes';
+    if (!estados.vigentes && estados.noVigentes) return 'planes no vigentes';
+    return 'planes';
 }
 
 /**
@@ -476,6 +493,8 @@ function resumirPlanParaUI(r) {
     }
     return {
         numero: r.plan.numero,
+        estado: r.plan.estado || '',
+        vigente: r.plan.vigente !== false,
         success: r.success,
         error: r.success ? null : r.error,
         pagos: r.pdf ? 'ok' : 'error',

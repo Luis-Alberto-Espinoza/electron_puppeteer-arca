@@ -4,6 +4,8 @@
 //   - resumenClienteExcel (agrega todos los planes del cliente)
 //   - consolidadoExcel (agrega todos los clientes del lote)
 
+const { esVigente } = require('./estadoPlan.js');
+
 function construir(datosTabla, infoPlan, usuario, cuitConsulta) {
     const cuotas = (datosTabla && datosTabla.cuotasAgrupadas) || [];
     const totales = (datosTabla && datosTabla.totales) || {};
@@ -82,6 +84,8 @@ function construir(datosTabla, infoPlan, usuario, cuitConsulta) {
         planTipo: infoPlan.tipo || '',
         planConsolidado: infoPlan.consolidado || '',
         planSituacion: infoPlan.situacion || '',
+        planEstado: infoPlan.estado || '',
+        vigente: esVigente(infoPlan),
         planPresentacion: infoPlan.presentacion || '',
         fechaConsulta: fechaHoyArg,
 
@@ -117,8 +121,9 @@ function construir(datosTabla, infoPlan, usuario, cuitConsulta) {
         cuotas,
         cuotasImpagas,
 
-        // Clasificación
-        urgencia: clasificarUrgencia(cuotasImpagas.length, diasVencidaPrimeraImpaga)
+        // Clasificación. Un plan no vigente (caduco, cancelado...) no se
+        // regulariza pagando cuotas: no entra en la urgencia ni en la deuda.
+        urgencia: esVigente(infoPlan) ? clasificarUrgencia(cuotasImpagas.length, diasVencidaPrimeraImpaga) : 'no_vigente'
     };
 }
 
