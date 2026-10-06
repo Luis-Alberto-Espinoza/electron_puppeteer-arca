@@ -660,35 +660,38 @@ async function cargarModuloGenerarVEP() {
                 console.log('✅ CSS VEP cargado');
             }
 
-            // Cargar JS del componente genérico primero
-            const oldSelectorScript = document.head.querySelector(`script[src="${selectorJsPath}"]`);
-            if (oldSelectorScript) oldSelectorScript.remove();
+            // Cargar JS del componente genérico primero (una sola vez: la clase
+            // queda declarada global y reinyectarlo tira "already been declared")
+            await new Promise((resolve, reject) => {
+                if (typeof SelectorUsuarios !== 'undefined') return resolve();
+                const old = document.head.querySelector(`script[src="${selectorJsPath}"]`);
+                if (old) old.remove();
+                const s = document.createElement('script');
+                s.src = selectorJsPath;
+                s.defer = true;
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('Error cargando selectorUsuarios.js'));
+                document.head.appendChild(s);
+            });
+            console.log('✅ Script componente genérico listo');
 
-            const selectorScript = document.createElement('script');
-            selectorScript.src = selectorJsPath;
-            selectorScript.defer = true;
-            selectorScript.onload = () => {
-                console.log('✅ Script componente genérico cargado');
+            // AHORA cargar el controlador de VEP como módulo ES6 (después de que el genérico esté listo)
+            const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
+            if (oldScript) oldScript.remove();
 
-                // AHORA cargar el controlador de VEP como módulo ES6 (después de que el genérico esté listo)
-                const oldScript = document.head.querySelector(`script[src="${jsPath}"]`);
-                if (oldScript) oldScript.remove();
-
-                const script = document.createElement('script');
-                script.type = 'module'; // ES6 modules
-                script.src = jsPath;
-                script.onload = () => {
-                    console.log('✅ Módulo controlador VEP cargado. Verificando window.inicializarGenerarVEP...');
-                    if (window.inicializarGenerarVEP) {
-                        console.log('✅ Llamando a inicializarGenerarVEP()');
-                        window.inicializarGenerarVEP();
-                    } else {
-                        console.error('❌ window.inicializarGenerarVEP no está definida');
-                    }
-                };
-                document.head.appendChild(script);
+            const script = document.createElement('script');
+            script.type = 'module'; // ES6 modules
+            script.src = jsPath;
+            script.onload = () => {
+                console.log('✅ Módulo controlador VEP cargado. Verificando window.inicializarGenerarVEP...');
+                if (window.inicializarGenerarVEP) {
+                    console.log('✅ Llamando a inicializarGenerarVEP()');
+                    window.inicializarGenerarVEP();
+                } else {
+                    console.error('❌ window.inicializarGenerarVEP no está definida');
+                }
             };
-            document.head.appendChild(selectorScript);
+            document.head.appendChild(script);
 
         } catch (error) {
             console.error('❌ Error cargando módulo Generar VEP:', error);
