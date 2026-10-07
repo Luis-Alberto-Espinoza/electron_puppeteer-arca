@@ -1,5 +1,6 @@
 const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
 const path = require('path');
+const fs = require('fs');
 
 // FIJACIÓN DE RUTAS PARA COMPATIBILIDAD CON ELECTRON
 const basePath = path.join(__dirname, '../../../node_modules/pdfjs-dist');
@@ -239,7 +240,9 @@ class PDFTableExtractor {
     async extractFromPDF(filePath) {
         this.columnStructure = null;
         this.allRecords = [];
-        const loadingTask = pdfjsLib.getDocument(filePath);
+        // Bytes y no la ruta (la ruta se rompe con '#', '?' o '%'); fuentes en getDocument (pdfjs 3.x).
+        const data = new Uint8Array(await fs.promises.readFile(filePath));
+        const loadingTask = pdfjsLib.getDocument({ data, verbosity: 0, standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl });
         const pdf = await loadingTask.promise;
 
         for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {

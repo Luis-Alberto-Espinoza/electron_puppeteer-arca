@@ -88,7 +88,10 @@ const REGLAS_DE_SELECCION = {
 
 async function parsePdfToRows(filePath) {
     try {
-        const loadingTask = pdfjsLib.getDocument(filePath);
+        // Bytes y no la ruta: pdfjs trata la ruta como URL y se rompe con '#', '?' o '%'
+        // en el nombre (portable de Windows). standardFontDataUrl va en getDocument (pdfjs 3.x).
+        const data = new Uint8Array(await fs.promises.readFile(filePath));
+        const loadingTask = pdfjsLib.getDocument({ data, verbosity: 0, standardFontDataUrl: pdfjsLib.GlobalWorkerOptions.standardFontDataUrl });
         const pdf = await loadingTask.promise;
         let allFilas = [];
         for (let numPagina = 1; numPagina <= pdf.numPages; numPagina++) {
@@ -251,7 +254,8 @@ async function procesarPdfConFallback(filePath, options = {}) {
             return { exito: false, error: `Fallo al escribir el archivo: ${writeError.message}` };
         }
     } else {
-        console.error(`Todos los métodos de extracción fallaron para: ${path.basename(filePath)}`);
+        // No es necesariamente un error: p.ej. la Constancia Fiscal ATM sin deuda no trae tablas.
+        console.warn(`No se encontraron tablas en: ${path.basename(filePath)}`);
         return { exito: false, error: 'No se pudieron extraer datos con ninguno de los métodos disponibles.', cuit: cuitGeneral };
     }
 }
