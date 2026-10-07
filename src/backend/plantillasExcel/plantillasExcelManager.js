@@ -83,7 +83,7 @@ async function abrirLibro(rutaArchivo) {
  * @param {string} idPlantilla
  * @param {string} rutaArchivo
  * @returns {Promise<{ success: boolean, mensaje: string, archivoGenerado?: string,
- *   hojas?: string[], meses?: string[], controles?: object[], faltantes?: string[] }>}
+ *   hojas?: string[], meses?: string[], controles?: object[], avisos?: object[], faltantes?: string[] }>}
  */
 async function procesarArchivo(idPlantilla, rutaArchivo) {
     const plantilla = obtenerPlantilla(idPlantilla);
@@ -121,7 +121,8 @@ async function procesarArchivo(idPlantilla, rutaArchivo) {
         archivoGenerado,
         hojas: resultado.hojas,
         meses: resultado.meses,
-        controles: resultado.controles
+        controles: resultado.controles,
+        avisos: resultado.avisos
     };
 }
 

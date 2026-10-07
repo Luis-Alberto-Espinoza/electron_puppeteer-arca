@@ -59,6 +59,19 @@
         return btn;
     }
 
+    // Avisos de la plantilla (ya vienen ordenados: graves, a revisar, informativos).
+    const ETIQUETA_AVISO = { error: 'Grave', aviso: 'Revisar', info: 'Info' };
+    function listaAvisos(avisos) {
+        if (!avisos || !avisos.length) return '';
+        const items = avisos.map(a => `
+            <li class="px-aviso px-aviso--${esc(a.nivel)}">
+                <span class="px-aviso-nivel">${esc(ETIQUETA_AVISO[a.nivel] || a.nivel)}</span>
+                ${a.fecha ? `<span class="px-aviso-fecha">${esc(a.fecha)}</span>` : ''}
+                <span>${esc(a.mensaje)}</span>
+            </li>`).join('');
+        return `<ul class="px-avisos">${items}</ul>`;
+    }
+
     function mostrarExito(plantilla, res) {
         const controles = (res.controles || []).map(c =>
             `${esc(c.concepto)}${res.meses && res.meses.length > 1 ? ` ${esc(c.mes)}` : ''}: ${fmtPesos(c.totalDatos)} (diferencia ${fmtPesos(c.diferencia)})`
@@ -68,6 +81,7 @@
             <div>${esc(res.mensaje)}</div>
             <div class="px-ruta">${esc(res.archivoGenerado)}</div>
             ${controles ? `<div class="px-controles">Controles: ${controles}</div>` : ''}
+            ${listaAvisos(res.avisos)}
             <div class="px-acciones">
                 <button type="button" class="ui-btn ui-btn--ok" id="pxAbrir">Abrir archivo</button>
                 <button type="button" class="ui-btn ui-btn--ghost" id="pxCarpeta">Mostrar en la carpeta</button>

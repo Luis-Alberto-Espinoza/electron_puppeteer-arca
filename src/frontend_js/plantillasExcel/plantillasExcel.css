@@ -88,3 +88,41 @@
     flex-wrap: wrap;
     gap: 10px;
 }
+
+/* Avisos de la plantilla (ej. Totales diarios): un renglón por aviso, con el
+   borde del color del nivel. "Info" va sin color, como en la hoja Avisos. */
+.px-avisos {
+    list-style: none;
+    margin: 0 0 12px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    white-space: normal;
+    font-size: 0.88rem;
+}
+
+.px-aviso {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: var(--radio-sm);
+    border-left: 4px solid var(--texto-3);
+    background: var(--fondo-claro-2);
+}
+
+.px-aviso--error { border-left-color: var(--c-peligro-1); }
+.px-aviso--aviso { border-left-color: var(--c-acento); }
+
+.px-aviso-nivel {
+    font-weight: 700;
+    min-width: 60px;
+}
+
+.px-aviso--error .px-aviso-nivel { color: var(--c-peligro-2); }
+
+.px-aviso-fecha {
+    font-family: monospace;
+    color: var(--texto-2);
+}

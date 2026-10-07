@@ -6,7 +6,8 @@
 // El frontend arma un botón por cada una (en este orden).
 
 const PLANTILLAS = [
-    require('./plantillas/resumenConceptosFacturados.js')
+    require('./plantillas/resumenConceptosFacturados.js'),
+    require('./plantillas/totalesDiarios.js')
 ];
 
 // Si una plantilla no define su identidad visual, se usa esta.

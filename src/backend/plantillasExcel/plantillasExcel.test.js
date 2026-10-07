@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const ExcelJS = require('exceljs');
 
 const { procesarArchivo, detectarPlantilla, rutaSalidaLibre } = require('./plantillasExcelManager.js');
-const { listarPlantillas, todasLasPlantillas } = require('./registroPlantillas.js');
+const { listarPlantillas, obtenerPlantilla } = require('./registroPlantillas.js');
 const { normalizarCabecera, letraColumna } = require('./service/cabeceras.js');
 
 const FIXTURE = path.join(__dirname, '../../../test/fixtures/plantillasExcel/grilla_vinos_corregido.xlsx');
@@ -238,7 +238,7 @@ test('color e ícono: los de la plantilla, o uno neutro si no los define', () =>
 test('orquestador: varias coincidencias → las devuelve todas para que elija el usuario', async () => {
     const dir = carpetaTemporal();
     const entrada = await prepararEntrada(dir, 'grilla.xlsx');
-    const plantillas = [plantillaFalsa('parcial', 0.5), ...todasLasPlantillas(), plantillaFalsa('otraSalida', 1)];
+    const plantillas = [plantillaFalsa('parcial', 0.5), obtenerPlantilla(ID), plantillaFalsa('otraSalida', 1)];
     const r = await detectarPlantilla(entrada, plantillas);
     assert.deepEqual(r.coincidencias, [ID, 'otraSalida']);            // empate: orden del registro
     assert.deepEqual(r.candidatas.map(c => c.id), [ID, 'otraSalida', 'parcial']);
@@ -247,7 +247,7 @@ test('orquestador: varias coincidencias → las devuelve todas para que elija el
 test('orquestador: ninguna coincide → la más parecida primero, con sus faltantes', async () => {
     const dir = carpetaTemporal();
     const entrada = await prepararEntrada(dir, 'sin_iva.xlsx', (ws) => { ws.getCell('K1').value = 'IVA'; });
-    const r = await detectarPlantilla(entrada, [plantillaFalsa('nada', 0), ...todasLasPlantillas()]);
+    const r = await detectarPlantilla(entrada, [plantillaFalsa('nada', 0), obtenerPlantilla(ID)]);
     assert.deepEqual(r.coincidencias, []);
     assert.equal(r.candidatas[0].id, ID);
     assert.equal(r.candidatas[0].puntaje, 5 / 6);
@@ -258,7 +258,7 @@ test('orquestador: una plantilla que explota no tumba a las demás; .xls da el m
     const dir = carpetaTemporal();
     const entrada = await prepararEntrada(dir, 'grilla.xlsx');
     const rota = { id: 'rota', nombre: 'rota', reconocer: () => { throw new Error('boom'); } };
-    const r = await detectarPlantilla(entrada, [rota, ...todasLasPlantillas()]);
+    const r = await detectarPlantilla(entrada, [rota, obtenerPlantilla(ID)]);
     assert.deepEqual(r.coincidencias, [ID]);
 
     const xls = await detectarPlantilla(path.join(dir, 'viejo.xls'));
