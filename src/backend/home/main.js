@@ -66,22 +66,24 @@ let puppeteerWindow;
 // resultadoCodigo, usuarioSeleccionado, empresaElegida, ultimaEmpresaElegida
 
 function createWindow() {
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const { width, height } = primaryDisplay.workAreaSize;
+    // workArea = pantalla menos la barra de tareas (x/y pueden no ser 0 si la
+    // barra está arriba o a la izquierda).
+    const workArea = screen.getPrimaryDisplay().workArea;
 
-    // Dimensiones basadas en tus medidas actuales, llevadas a estándar
-    const windowWidth = 800;   // Tu ancho actual (mínimo)
-    const windowHeight = 650;   // Tu alto actual
+    // Ancho de CONTENIDO deseado (lo que mide window.innerWidth en el front).
+    // Si la pantalla es más angosta, se achica al ancho disponible.
+    const anchoContenido = Math.min(883, workArea.width);
 
-    // Centrar la ventana
-    const x = Math.floor((width - windowWidth) / 2);
-    const y = Math.floor((height - windowHeight) / 2);
-
+    // useContentSize: width/height se interpretan como tamaño del contenido,
+    // sin contar marco ni barra de título. El alto acá es provisorio: se ajusta
+    // abajo con setBounds para que la ventana ENTERA ocupe el alto del workArea.
     mainWindow = new BrowserWindow({
-        width: windowWidth,
-        height: windowHeight,
-        x: x,
-        y: y,
+        useContentSize: true,
+        show: false,       // se muestra en did-finish-load, ya con el tamaño final (sin salto)
+        width: anchoContenido,
+        height: workArea.height,
+        x: workArea.x,
+        y: workArea.y,
         minWidth: 600,     // Más estrecha si es necesario  
         minHeight: 400,
         resizable: true,   // Permitir redimensionar si es necesario
@@ -93,6 +95,19 @@ function createWindow() {
             sandbox: false,  // Cambiado a false para permitir require
             experimentalFeatures: false
         }
+    });
+
+    // Ajuste final: medimos el marco real (ventana entera - contenido) y
+    // fijamos la ventana completa al alto del workArea, arriba del todo y
+    // centrada en horizontal, manteniendo el contenido en anchoContenido.
+    const [anchoVentana] = mainWindow.getSize();
+    const [anchoActual] = mainWindow.getContentSize();
+    const anchoTotal = Math.min(anchoContenido + (anchoVentana - anchoActual), workArea.width);
+    mainWindow.setBounds({
+        x: workArea.x + Math.floor((workArea.width - anchoTotal) / 2),
+        y: workArea.y,
+        width: anchoTotal,
+        height: workArea.height
     });
 
     mainWindow.loadFile('src/frontend_js/home/index.html');
