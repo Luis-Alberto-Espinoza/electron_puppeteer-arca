@@ -79,7 +79,11 @@ async function abrirAbmPuntosVenta(page) {
     console.log(`  → [ABM PDV] Buscando "${TEXTO_BUSCADOR}"...`);
     const newPage = await buscarEnAfip(page, TEXTO_BUSCADOR, {
         esperarNuevaPestana: true,
-        textoEsperadoEnResultado: 'Administración de puntos de venta'
+        textoEsperadoEnResultado: 'Administración de puntos de venta',
+        // AFIP arma un ticket antes de abrir el servicio: con 5s (default) a veces no llegaba.
+        timeoutNuevaPestana: 15000,
+        // Si la pestaña igual llega tarde, el buscador la rescata en vez de reclickear.
+        urlNuevaPestana: 'fes.afip.gob.ar/pvel'
     });
     await esperar(800);
 

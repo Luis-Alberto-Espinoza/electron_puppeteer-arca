@@ -12,17 +12,24 @@
  *        correcto, o el click se ignora silenciosamente. El F5 limpia ese estado.
  *        Si no se pasa (default), se mantiene el comportamiento clásico (sin validación, retry
  *        suave que solo limpia el input). Esto es para no romper otros callers.
+ * @param {string|null} options.urlNuevaPestana - Si se pasa (parte de la URL del servicio), antes de
+ *        reintentar se busca una pestaña nueva con esa URL que haya llegado tarde y se usa esa.
  * @returns {Promise<import('puppeteer').Page>} La nueva página o la página actual
  */
 async function buscarEnAfip(page, textoBusqueda, options = {}) {
     const {
         timeoutNuevaPestana = 5000,
         esperarNuevaPestana = true,
-        textoEsperadoEnResultado = null
+        textoEsperadoEnResultado = null,
+        urlNuevaPestana = null
     } = options;
 
     const MAX_INTENTOS = 2;
     let ultimoError = null;
+
+    // Pestañas que ya estaban antes de buscar: para no confundirlas con la del servicio.
+    let paginasAntes = new Set();
+    try { paginasAntes = new Set(await page.browser().pages()); } catch (_) { /* no es crítico */ }
 
     for (let intento = 1; intento <= MAX_INTENTOS; intento++) {
         try {
@@ -35,6 +42,12 @@ async function buscarEnAfip(page, textoBusqueda, options = {}) {
         } catch (e) {
             ultimoError = e;
             console.warn(`  ⚠️ Buscador intento ${intento}/${MAX_INTENTOS} falló: ${e.message}`);
+
+            // La pestaña del servicio pudo abrirse tarde, después de la ventana de espera.
+            // Si está, se usa esa en vez de hacer F5 y clickear de nuevo (abriría otra más).
+            const rescatada = await rescatarPestanaTardia(page, paginasAntes, urlNuevaPestana);
+            if (rescatada) return rescatada;
+
             if (intento < MAX_INTENTOS) {
                 if (textoEsperadoEnResultado) {
                     // Recovery duro: F5. Solo se activa si el caller pidió validación.
@@ -54,7 +67,41 @@ async function buscarEnAfip(page, textoBusqueda, options = {}) {
         }
     }
 
+    // Si falló porque AFIP no abrió el servicio a tiempo, mensaje entendible para el usuario;
+    // el técnico queda en la consola (arriba) y en `detalle`. Otros errores pasan tal cual.
+    if (ultimoError && ultimoError.code === 'SIN_NAVEGACION') {
+        const errorFinal = new Error(
+            `AFIP tardó demasiado en abrir "${textoBusqueda}". Probá de nuevo en un rato.`
+        );
+        errorFinal.code = 'AFIP_NO_ABRIO_SERVICIO';
+        errorFinal.detalle = ultimoError.message;
+        throw errorFinal;
+    }
     throw ultimoError || new Error(`No se pudo completar la búsqueda de "${textoBusqueda}"`);
+}
+
+/**
+ * Busca una pestaña NUEVA (que no estaba antes de buscar) cuya URL contenga `urlEsperada`.
+ * Espera hasta ~3s porque la pestaña puede estar recién creada y todavía en about:blank.
+ * Sin `urlEsperada` no rescata nada (comportamiento clásico para los otros callers).
+ * @returns {Promise<import('puppeteer').Page|null>}
+ */
+async function rescatarPestanaTardia(page, paginasAntes, urlEsperada) {
+    if (!urlEsperada) return null;
+    const hasta = Date.now() + 3000;
+    while (Date.now() < hasta) {
+        try {
+            const paginas = await page.browser().pages();
+            const nueva = paginas.find(p => !paginasAntes.has(p) && p !== page && p.url().includes(urlEsperada));
+            if (nueva) {
+                console.log(`  ✅ [Buscador] Pestaña que llegó tarde rescatada: ${nueva.url()}`);
+                try { await nueva.waitForSelector('body', { timeout: 5000 }); } catch (_) { /* sigue igual */ }
+                return nueva;
+            }
+        } catch (_) { /* navegador cerrándose: no hay nada que rescatar */ }
+        await new Promise(r => setTimeout(r, 300));
+    }
+    return null;
 }
 
 async function limpiarInputBuscador(page) {
@@ -191,35 +238,48 @@ async function intentarBusqueda(page, textoBusqueda, opts) {
             return page;
         }
 
-        // 5) Verificar que algo cambió: nueva pestaña O URL distinta.
+        // 5) Verificar que algo cambió: nueva pestaña O URL distinta, lo que pase primero.
+        // Antes se esperaba la pestaña `timeoutNuevaPestana` y recién después la URL, pero
+        // dejando de escuchar pestañas: si AFIP tardaba un poco más en abrirla (arma un
+        // ticket del servicio antes), llegaba sin nadie esperándola y quedaba huérfana.
+        // Ahora las dos señales se escuchan juntas durante toda la ventana.
+        const VENTANA_MS = timeoutNuevaPestana + 8000;
+        const inicioEspera = Date.now();
+        let timerVentana = null;
+        let cortarUrl = false;
+        const cambioUrlPromise = (async () => {
+            while (!cortarUrl) {
+                if (page.url() !== urlAntes) return page;
+                await new Promise(r => setTimeout(r, 250));
+            }
+            return null;
+        })();
+
         let newPage = null;
         try {
             newPage = await Promise.race([
                 nuevaPestanaPromise,
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('timeout-nueva-pestana')), timeoutNuevaPestana)
-                )
+                cambioUrlPromise,
+                new Promise((_, reject) => {
+                    timerVentana = setTimeout(() => reject(new Error('timeout-navegacion')), VENTANA_MS);
+                })
             ]);
-            console.log('  ✅ Nueva pestaña capturada correctamente');
         } catch (_) {
-            limpiarListener();
-            console.log('  → No hubo nueva pestaña. Verificando cambio de URL en la misma pestaña...');
+            const e = new Error(
+                `Click en "${textoBusqueda}" no produjo navegación en ${VENTANA_MS / 1000}s (URL sigue en ${urlAntes})`
+            );
+            e.code = 'SIN_NAVEGACION';
+            throw e;
+        } finally {
+            cortarUrl = true;
+            clearTimeout(timerVentana);
+        }
 
-            // Esperar hasta 8s a que la URL realmente cambie. Si no cambia, el click
-            // no produjo efecto → tirar para que el retry externo lo intente de nuevo.
-            try {
-                await page.waitForFunction(
-                    (urlPrevia) => window.location.href !== urlPrevia,
-                    { timeout: 8000 },
-                    urlAntes
-                );
-                console.log(`  ✅ Navegó en la misma pestaña. URL nueva: ${page.url()}`);
-                newPage = page;
-            } catch (_) {
-                throw new Error(
-                    `Click en "${textoBusqueda}" no produjo navegación (URL sigue en ${urlAntes})`
-                );
-            }
+        const segundos = ((Date.now() - inicioEspera) / 1000).toFixed(1);
+        if (newPage === page) {
+            console.log(`  ✅ Navegó en la misma pestaña en ${segundos}s. URL nueva: ${page.url()}`);
+        } else {
+            console.log(`  ✅ Nueva pestaña capturada en ${segundos}s`);
         }
 
         // 6) Esperar a que la nueva página termine de cargar lo básico.
