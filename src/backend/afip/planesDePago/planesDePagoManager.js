@@ -182,4 +182,60 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
     }, { headless: resolverHeadless(visible) });
 }
 
-module.exports = { iniciarProceso, iniciarProcesoLote };
+/**
+ * 1ª vuelta: login una vez y, por cada CUIT, leer la lista de planes (sin
+ * descargar nada). La pantalla la muestra para que el usuario marque qué bajar.
+ * @param {Object} credenciales - { usuario, contrasena }
+ * @param {Object} usuario - representante
+ * @param {Array} cuitsAProcesar - [{ cuit, alias }]
+ * @param {Function} onProgreso - Callback(datos) por CUIT
+ * @param {Object} [opciones] - { visible, estados } (mismos filtros que la descarga)
+ * @returns {{ success, message, resultados: [{ cuitConsulta, success, planes?, message }] }}
+ */
+async function listarPlanesLote(credenciales, usuario, cuitsAProcesar, onProgreso, { visible, estados } = {}) {
+    console.log(`[PlanesDePago Manager Listar] ${usuario.nombre}: ${cuitsAProcesar.length} CUIT(s)`);
+
+    return await puppeteerManager.ejecutar(async (browser, page) => {
+        const resultadoLogin = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
+        if (!resultadoLogin.success) {
+            return { success: false, error: resultadoLogin.error || 'LOGIN_FAILED', message: resultadoLogin.message };
+        }
+
+        const resultados = [];
+        for (let i = 0; i < cuitsAProcesar.length; i++) {
+            const cuitConsulta = cuitsAProcesar[i];
+            if (onProgreso) {
+                onProgreso({
+                    tipo: 'progreso', cuit: cuitConsulta.cuit, alias: cuitConsulta.alias,
+                    estado: 'procesando', mensaje: `Leyendo la lista de planes de ${cuitConsulta.alias}...`
+                });
+            }
+
+            const r = await flujo.listarPlanes(page, cuitConsulta, { estados });
+            resultados.push({ cuitConsulta, ...r });
+            if (onProgreso) {
+                onProgreso({
+                    tipo: 'resultado', cuit: cuitConsulta.cuit, alias: cuitConsulta.alias,
+                    estado: r.success ? 'exito' : 'error', mensaje: r.message
+                });
+            }
+
+            // Volver al home para el próximo CUIT (igual que el lote de descarga)
+            if (i < cuitsAProcesar.length - 1) {
+                try {
+                    await page.goto('https://portalcf.cloud.afip.gob.ar/portal/app/', { waitUntil: 'networkidle2', timeout: 15000 });
+                } catch (e) {
+                    console.log('[PlanesDePago Manager Listar] Advertencia al volver al home:', e.message);
+                }
+            }
+        }
+
+        return {
+            success: true,
+            message: `Listados ${resultados.filter(r => r.success).length}/${cuitsAProcesar.length} CUITs`,
+            resultados
+        };
+    }, { headless: resolverHeadless(visible) });
+}
+
+module.exports = { iniciarProceso, iniciarProcesoLote, listarPlanesLote };

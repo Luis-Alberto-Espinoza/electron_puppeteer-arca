@@ -532,6 +532,7 @@
    ======================================== */
 .planes-procesar {
     margin-top: 20px;
+    margin-bottom: 18px;
     text-align: center;
 }
 
@@ -541,42 +542,63 @@
     margin-right: 16px;
 }
 
-/* Casillas "Planes vigentes" / "Planes no vigentes" */
-.planes-estados {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px 20px;
-    margin: 0 0 14px;
+/* Filtros: dos filas horizontales (casillas / rango de fechas).
+   Cada fila mide lo que su contenido (fit-content) y se centra como bloque.
+   Si la ventana es angosta y la fila se parte, los renglones arrancan del
+   mismo borde izquierdo (flex-start): nada queda corrido. Cada ítem
+   (casilla+texto, "desde"+campo) es una unidad que no se parte. */
+.planes-filtros {
+    display: grid;
+    justify-items: center;
+    row-gap: 10px;
+    margin: 0 0 16px;
     color: var(--v-texto, #e0e0e0);
 }
 
-.planes-estados label {
+.planes-filtros-fila {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px 24px;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.planes-filtro-check,
+.planes-rango-campo {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-/* Rango "No vigentes presentados desde/hasta" (mes/año) */
 .planes-rango {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: center;
-    gap: 6px 14px;
-    margin: -6px 0 14px;
-    color: var(--v-texto, #e0e0e0);
     font-size: 0.92rem;
+    gap: 8px 16px;
 }
 
-.planes-rango label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+.planes-rango-titulo {
+    opacity: 0.85;
+}
+
+/* La pareja desde/hasta: solo se apila si ni siquiera entra sola en la línea */
+.planes-rango-campos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+}
+
+/* Mismo ancho para "desde" y "hasta": si se apilan, los campos quedan encolumnados */
+.planes-rango-campo span {
+    min-width: 3.2em;
 }
 
 .planes-rango input[type="month"] {
+    /* Letra fija: si no, hereda la de la vista (~19px en la app) y el campo
+       crece. Sin width: Chrome lo mide para que entre "septiembre de 2025". */
+    font-size: 15px;
     padding: 4px 6px;
     border-radius: 6px;
     border: 1px solid rgba(160, 196, 255, 0.35);
@@ -613,6 +635,128 @@
     opacity: 0.4;
     cursor: not-allowed;
     transform: none;
+}
+
+/* "Ver planes y elegir" + "Descargar directo" */
+.planes-botones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.planes-btn-secundario {
+    background: transparent;
+    color: var(--v-texto, #43e97b);
+    border: 2px solid rgba(67, 233, 123, 0.6);
+}
+
+/* ========================================
+   SELECCIÓN DE PLANES (1ª vuelta)
+   ======================================== */
+.planes-sel-barra {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    color: var(--v-texto, #e0e0e0);
+    font-size: 0.9rem;
+}
+
+.planes-sel-acciones .planes-btn-accion {
+    color: var(--v-texto, #a0c4ff);
+}
+
+.planes-sel-acciones .planes-btn-accion:hover {
+    background: var(--v-input, #0f3460);
+}
+
+.planes-sel-cliente {
+    margin-bottom: 14px;
+    border: 1px solid rgba(160, 196, 255, 0.15);
+    border-radius: 6px;
+    /* La tabla puede ser ancha (tipo de plan largo): scroll propio, nunca de la página */
+    overflow-x: auto;
+}
+
+.planes-sel-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 8px 10px;
+    background: var(--v-input, #0f3460);
+    color: var(--v-texto, #e0e0e0);
+}
+
+.planes-sel-titulo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.planes-sel-cuit,
+.planes-sel-cuenta {
+    font-size: 0.85rem;
+    opacity: 0.75;
+}
+
+.planes-sel-cuenta {
+    margin-left: auto;
+}
+
+.planes-sel-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--v-texto, #e0e0e0);
+    font-size: 0.88rem;
+}
+
+.planes-sel-tabla th {
+    text-align: left;
+    padding: 6px 8px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    opacity: 0.8;
+}
+
+.planes-sel-tabla td {
+    padding: 6px 8px;
+    border-top: 1px solid rgba(160, 196, 255, 0.1);
+    white-space: nowrap;
+}
+
+.planes-sel-tabla tbody tr {
+    cursor: pointer;
+}
+
+.planes-sel-tabla tbody tr:hover {
+    background: rgba(160, 196, 255, 0.06);
+}
+
+.planes-sel-num {
+    text-align: right;
+}
+
+.planes-sel-tipo {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.planes-sel-no-vigente td {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.planes-sel-pie {
+    text-align: center;
+    margin-top: 6px;
 }
 
 /* ========================================

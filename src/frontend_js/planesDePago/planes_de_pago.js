@@ -20,6 +20,7 @@ window.inicializarModuloPlanesDePago = () => {
     const panelCuitsRepresentantes = document.getElementById('panelCuitsRepresentantes');
     const contenedorBloques    = document.getElementById('contenedorBloquesRepresentantes');
     const btnObtenerDatos      = document.getElementById('btnObtenerDatos');
+    const btnVerPlanes         = document.getElementById('btnVerPlanes');
     const resultadosContainer  = document.getElementById('resultadosPlanesDePago');
     const resultadosContenido  = document.getElementById('resultadosContenido');
 
@@ -39,6 +40,7 @@ window.inicializarModuloPlanesDePago = () => {
     let selectorUsuarios = null;
     // Map: representanteId → { representante, asociados, cuitsSeleccionados: Set }
     const estadoRepresentantes = new Map();
+    let procesando = false; // mientras corre una vuelta (listar o descargar), los botones quedan apagados
 
     // =========================================================================
     // INICIALIZAR SELECTOR DE USUARIOS (multi-selección)
@@ -744,27 +746,18 @@ window.inicializarModuloPlanesDePago = () => {
     }
 
     // =========================================================================
-    // ACTUALIZAR BOTÓN PROCESAR (según CUITs seleccionados)
+    // ACTUALIZAR BOTONES (según CUITs seleccionados)
     // =========================================================================
     function actualizarResumen() {
         let totalCuits = 0;
-        let totalRepresentantes = 0;
+        estadoRepresentantes.forEach(estado => { totalCuits += estado.cuitsSeleccionados.size; });
 
-        estadoRepresentantes.forEach(estado => {
-            if (estado.cuitsSeleccionados.size > 0) {
-                totalRepresentantes++;
-                totalCuits += estado.cuitsSeleccionados.size;
-            }
-        });
-
-        if (totalCuits > 0) {
-            btnObtenerDatos.disabled = false;
-            // Un CUIT por fila seleccionada (modelo plano): CUITs = clientes
-            btnObtenerDatos.textContent = `▶ Obtener Datos Plan de Pagos (${totalCuits} cliente${totalCuits === 1 ? '' : 's'})`;
-        } else {
-            btnObtenerDatos.disabled = true;
-            btnObtenerDatos.textContent = '▶ Obtener Datos Plan de Pagos';
-        }
+        // Un CUIT por fila seleccionada (modelo plano): CUITs = clientes
+        const sufijo = totalCuits > 0 ? ` (${totalCuits} cliente${totalCuits === 1 ? '' : 's'})` : '';
+        btnVerPlanes.disabled = procesando || totalCuits === 0;
+        btnObtenerDatos.disabled = procesando || totalCuits === 0;
+        btnVerPlanes.textContent = `🔍 Ver planes y elegir${sufijo}`;
+        btnObtenerDatos.textContent = `▶ Descargar directo${sufijo}`;
     }
 
     // =========================================================================
@@ -784,22 +777,18 @@ window.inicializarModuloPlanesDePago = () => {
     sincronizarRango();
 
     // =========================================================================
-    // BOTÓN OBTENER DATOS (ejecutar lote)
+    // LOTE + OPCIONES (comunes a "Ver planes" y "Descargar directo")
     // =========================================================================
-    btnObtenerDatos.addEventListener('click', async () => {
-        // Construir el lote
+    // [{ representante, cuitsAProcesar: [{ cuit, alias }] }] con lo tildado en el selector
+    function construirLote() {
         const loteRepresentantes = [];
-
         estadoRepresentantes.forEach(estado => {
             if (estado.cuitsSeleccionados.size === 0) return;
 
             const cuitsAProcesar = [];
             // Titular
             if (estado.cuitsSeleccionados.has(estado.representante.cuit)) {
-                cuitsAProcesar.push({
-                    cuit: estado.representante.cuit,
-                    alias: estado.representante.nombre
-                });
+                cuitsAProcesar.push({ cuit: estado.representante.cuit, alias: estado.representante.nombre });
             }
             // Asociados
             estado.asociados.forEach(asoc => {
@@ -809,25 +798,21 @@ window.inicializarModuloPlanesDePago = () => {
             });
 
             if (cuitsAProcesar.length > 0) {
-                loteRepresentantes.push({
-                    representante: estado.representante,
-                    cuitsAProcesar
-                });
+                loteRepresentantes.push({ representante: estado.representante, cuitsAProcesar });
             }
         });
+        return loteRepresentantes;
+    }
 
-        if (loteRepresentantes.length === 0) {
-            alert('No hay CUITs seleccionados.');
-            return;
-        }
-
+    // Casillas de estado + rango → { estados, queSeBaja } | null si no es válido
+    function leerOpciones() {
         const estados = {
             vigentes: document.getElementById('chk-planes-vigentes')?.checked !== false,
-            noVigentes: document.getElementById('chk-planes-no-vigentes')?.checked === true
+            noVigentes: chkNoVigentes.checked === true
         };
         if (!estados.vigentes && !estados.noVigentes) {
             alert('Elegí al menos un tipo de plan: vigentes o no vigentes.');
-            return;
+            return null;
         }
         // Rango 'AAAA-MM' (input month): se compara como texto, que ordena bien
         const desde = inputRangoDesde.value || null;
@@ -835,7 +820,7 @@ window.inicializarModuloPlanesDePago = () => {
         if (estados.noVigentes) {
             if (desde && hasta && desde > hasta) {
                 alert('En el rango de no vigentes, "desde" no puede ser posterior a "hasta".');
-                return;
+                return null;
             }
             if (desde || hasta) estados.rangoNoVigentes = { desde, hasta };
         }
@@ -846,33 +831,36 @@ window.inicializarModuloPlanesDePago = () => {
             : '';
         const queSeBaja = estados.vigentes && estados.noVigentes ? `todos los vigentes y los no vigentes${textoRango}`
             : estados.vigentes ? 'solo planes vigentes' : `solo planes no vigentes${textoRango}`;
+        return { estados, queSeBaja };
+    }
 
-        // Confirmación
-        let detalleMsg = '';
-        loteRepresentantes.forEach(lr => {
-            detalleMsg += `\n${lr.representante.nombre} (${lr.cuitsAProcesar.length} CUITs)`;
-            lr.cuitsAProcesar.forEach(c => {
-                detalleMsg += `\n  - ${c.alias} (${c.cuit})`;
-            });
-        });
+    const visible = () => document.getElementById('chk-visible-planes')?.checked !== false;
 
-        if (!confirm(`Se procesaran ${loteRepresentantes.length} representante(s):${detalleMsg}\n\nSe bajan ${queSeBaja}.\n\nDesea continuar?`)) return;
+    function bloquearBotones(texto, boton) {
+        procesando = true;
+        actualizarResumen();
+        boton.textContent = texto;
+    }
 
-        // Deshabilitar UI
-        btnObtenerDatos.disabled = true;
-        btnObtenerDatos.textContent = 'Procesando...';
+    function liberarBotones() {
+        procesando = false;
+        actualizarResumen();
+        // El panel de selección se armó con `procesando` en true: recalcular su botón
+        if (panelSeleccion.style.display !== 'none') sincronizarSeleccion();
+    }
 
-        // Mostrar panel de resultados
+    // Descarga (2ª vuelta o directa). Si un cuitAProcesar trae `planes`, se bajan solo esos.
+    async function descargar(loteRepresentantes, estados) {
+        bloquearBotones('Procesando...', btnObtenerDatos);
         resultadosContainer.style.display = 'block';
         resultadosContenido.innerHTML = '';
 
         try {
             const resultado = await window.electronAPI.planesDePago.generarLote({
                 loteRepresentantes,
-                visible: document.getElementById('chk-visible-planes')?.checked !== false,
+                visible: visible(),
                 estados
             });
-
             if (resultado.success) {
                 console.log('Procesamiento lote completado:', resultado);
             } else {
@@ -881,10 +869,217 @@ window.inicializarModuloPlanesDePago = () => {
         } catch (error) {
             agregarResultadoUI('error', `Error de comunicacion: ${error.message}`);
         }
+        liberarBotones();
+    }
 
-        btnObtenerDatos.disabled = false;
-        btnObtenerDatos.textContent = 'Obtener Datos Plan de Pagos';
-        actualizarResumen();
+    // =========================================================================
+    // BOTÓN DESCARGAR DIRECTO (una sola vuelta: baja todo lo que pasa el filtro)
+    // =========================================================================
+    btnObtenerDatos.addEventListener('click', async () => {
+        const loteRepresentantes = construirLote();
+        if (loteRepresentantes.length === 0) { alert('No hay CUITs seleccionados.'); return; }
+        const opciones = leerOpciones();
+        if (!opciones) return;
+
+        // Confirmación
+        let detalleMsg = '';
+        loteRepresentantes.forEach(lr => {
+            detalleMsg += `\n${lr.representante.nombre} (${lr.cuitsAProcesar.length} CUITs)`;
+            lr.cuitsAProcesar.forEach(c => { detalleMsg += `\n  - ${c.alias} (${c.cuit})`; });
+        });
+        if (!confirm(`Se procesaran ${loteRepresentantes.length} representante(s):${detalleMsg}\n\nSe bajan ${opciones.queSeBaja}.\n\nDesea continuar?`)) return;
+
+        panelSeleccion.style.display = 'none';
+        await descargar(loteRepresentantes, opciones.estados);
+    });
+
+    // =========================================================================
+    // BOTÓN VER PLANES (1ª vuelta: lista sin descargar → el usuario marca)
+    // =========================================================================
+    let estadosListados = null; // filtros con los que se listó (van al resumen en la 2ª vuelta)
+
+    btnVerPlanes.addEventListener('click', async () => {
+        const loteRepresentantes = construirLote();
+        if (loteRepresentantes.length === 0) { alert('No hay CUITs seleccionados.'); return; }
+        const opciones = leerOpciones();
+        if (!opciones) return;
+
+        bloquearBotones('Leyendo planes...', btnVerPlanes);
+        panelSeleccion.style.display = 'none';
+        resultadosContainer.style.display = 'block';
+        resultadosContenido.innerHTML = '';
+
+        try {
+            const resultado = await window.electronAPI.planesDePago.listarLote({
+                loteRepresentantes,
+                visible: visible(),
+                estados: opciones.estados
+            });
+            if (resultado.success) {
+                estadosListados = opciones.estados;
+                mostrarSeleccion(resultado.clientes, opciones.queSeBaja);
+            } else {
+                agregarResultadoUI('error', resultado.message);
+            }
+        } catch (error) {
+            agregarResultadoUI('error', `Error de comunicacion: ${error.message}`);
+        }
+        liberarBotones();
+    });
+
+    // =========================================================================
+    // PANEL DE SELECCIÓN DE PLANES (resultado de la 1ª vuelta)
+    // Un bloque por cliente: casilla general + una fila por plan. Todo viene
+    // marcado (ya pasó el filtro); el usuario destilda lo que no quiere.
+    // =========================================================================
+    const panelSeleccion = document.getElementById('panelSeleccionPlanes');
+    const contenedorSeleccion = document.getElementById('contenedorSeleccionPlanes');
+    const resumenSeleccion = document.getElementById('resumenSeleccionPlanes');
+    const btnDescargarSeleccion = document.getElementById('btnDescargarSeleccionPlanes');
+    let clientesListados = [];
+
+    function el(tag, clase, texto) {
+        const e = document.createElement(tag);
+        if (clase) e.className = clase;
+        if (texto !== undefined) e.textContent = texto;
+        return e;
+    }
+
+    function mostrarSeleccion(clientes, queSeBaja) {
+        clientesListados = clientes;
+        contenedorSeleccion.innerHTML = '';
+        resumenSeleccion.dataset.filtro = queSeBaja;
+
+        clientes.forEach((cli, idx) => {
+            const bloque = el('div', 'planes-sel-cliente');
+            const cab = el('div', 'planes-sel-cabecera');
+            const titulo = el('label', 'planes-sel-titulo');
+            const chkTodos = el('input');
+            chkTodos.type = 'checkbox';
+            titulo.appendChild(chkTodos);
+            titulo.appendChild(el('strong', null, ` ${cli.cuitConsulta.alias}`));
+            titulo.appendChild(el('span', 'planes-sel-cuit', ` ${cli.cuitConsulta.cuit}`));
+            cab.appendChild(titulo);
+            bloque.appendChild(cab);
+
+            if (!cli.success) {
+                chkTodos.disabled = true;
+                cab.appendChild(el('span', 'planes-chip planes-chip-error', `✗ ${cli.message || 'Error'}`));
+                contenedorSeleccion.appendChild(bloque);
+                return;
+            }
+            if (cli.planes.length === 0) {
+                chkTodos.disabled = true;
+                cab.appendChild(el('span', 'planes-chip planes-chip-no', 'Sin planes para los filtros elegidos'));
+                contenedorSeleccion.appendChild(bloque);
+                return;
+            }
+            cab.appendChild(el('span', 'planes-sel-cuenta'));
+
+            const tabla = el('table', 'planes-sel-tabla');
+            const thead = el('thead');
+            const trh = el('tr');
+            ['', 'Plan N°', 'Situación', 'Presentación', 'Cuotas', 'Tipo', 'Consolidado ($)'].forEach(t => trh.appendChild(el('th', null, t)));
+            thead.appendChild(trh);
+            tabla.appendChild(thead);
+            const tbody = el('tbody');
+            cli.planes.forEach(plan => {
+                const tr = el('tr', plan.vigente ? '' : 'planes-sel-no-vigente');
+                const tdChk = el('td');
+                const chk = el('input');
+                chk.type = 'checkbox';
+                chk.checked = true;
+                chk.dataset.cliente = String(idx);
+                chk.dataset.plan = plan.numero;
+                tdChk.appendChild(chk);
+                tr.appendChild(tdChk);
+                tr.appendChild(el('td', null, plan.numero));
+                tr.appendChild(el('td', null, plan.estado || '—'));
+                tr.appendChild(el('td', null, plan.presentacion || ''));
+                tr.appendChild(el('td', 'planes-sel-num', plan.cuotas || ''));
+                const tdTipo = el('td', 'planes-sel-tipo', plan.tipo || '');
+                tdTipo.title = plan.tipo || '';
+                tr.appendChild(tdTipo);
+                tr.appendChild(el('td', 'planes-sel-num', plan.consolidado || ''));
+                // Click en la fila (fuera de la casilla) también marca/desmarca
+                tr.addEventListener('click', (e) => {
+                    if (e.target === chk) return;
+                    chk.checked = !chk.checked;
+                    sincronizarSeleccion();
+                });
+                chk.addEventListener('change', sincronizarSeleccion);
+                tbody.appendChild(tr);
+            });
+            tabla.appendChild(tbody);
+            bloque.appendChild(tabla);
+
+            chkTodos.addEventListener('change', () => {
+                tbody.querySelectorAll('input[type="checkbox"]').forEach(c => { c.checked = chkTodos.checked; });
+                sincronizarSeleccion();
+            });
+            contenedorSeleccion.appendChild(bloque);
+        });
+
+        sincronizarSeleccion();
+        panelSeleccion.style.display = 'block';
+        panelSeleccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // Recalcula contadores, casillas generales y el botón de descarga
+    function sincronizarSeleccion() {
+        let marcados = 0;
+        let total = 0;
+        contenedorSeleccion.querySelectorAll('.planes-sel-cliente').forEach(bloque => {
+            const casillas = Array.from(bloque.querySelectorAll('tbody input[type="checkbox"]'));
+            if (casillas.length === 0) return;
+            const n = casillas.filter(c => c.checked).length;
+            marcados += n;
+            total += casillas.length;
+            const chkTodos = bloque.querySelector('.planes-sel-titulo input');
+            chkTodos.checked = n === casillas.length;
+            chkTodos.indeterminate = n > 0 && n < casillas.length;
+            bloque.querySelector('.planes-sel-cuenta').textContent = `${n}/${casillas.length} marcados`;
+        });
+        resumenSeleccion.textContent = `${marcados} de ${total} plan(es) marcados · filtro: ${resumenSeleccion.dataset.filtro || ''}`;
+        btnDescargarSeleccion.disabled = procesando || marcados === 0;
+        btnDescargarSeleccion.textContent = `▶ Descargar seleccionados (${marcados})`;
+    }
+
+    document.getElementById('btnMarcarTodosPlanes').addEventListener('click', () => {
+        contenedorSeleccion.querySelectorAll('tbody input[type="checkbox"]').forEach(c => { c.checked = true; });
+        sincronizarSeleccion();
+    });
+    document.getElementById('btnDesmarcarTodosPlanes').addEventListener('click', () => {
+        contenedorSeleccion.querySelectorAll('tbody input[type="checkbox"]').forEach(c => { c.checked = false; });
+        sincronizarSeleccion();
+    });
+
+    // 2ª vuelta: arma el lote solo con los clientes que tienen algo marcado y,
+    // en cada uno, `planes` = los números marcados.
+    btnDescargarSeleccion.addEventListener('click', async () => {
+        const porCliente = new Map(); // idx → [numeros]
+        contenedorSeleccion.querySelectorAll('tbody input[type="checkbox"]:checked').forEach(c => {
+            const idx = Number(c.dataset.cliente);
+            if (!porCliente.has(idx)) porCliente.set(idx, []);
+            porCliente.get(idx).push(c.dataset.plan);
+        });
+        if (porCliente.size === 0) return;
+
+        // Agrupar por representante (un login por representante, como siempre)
+        const porRepresentante = new Map();
+        porCliente.forEach((planes, idx) => {
+            const cli = clientesListados[idx];
+            const clave = cli.representante.cuit || cli.representante.id;
+            if (!porRepresentante.has(clave)) porRepresentante.set(clave, { representante: cli.representante, cuitsAProcesar: [] });
+            porRepresentante.get(clave).cuitsAProcesar.push({ ...cli.cuitConsulta, planes });
+        });
+        const loteRepresentantes = [...porRepresentante.values()];
+        const totalPlanes = [...porCliente.values()].reduce((n, p) => n + p.length, 0);
+
+        if (!confirm(`Se descargan ${totalPlanes} plan(es) de ${porCliente.size} cliente(s).\n\nDesea continuar?`)) return;
+        btnDescargarSeleccion.disabled = true;
+        await descargar(loteRepresentantes, estadosListados);
+        sincronizarSeleccion();
     });
 
     // =========================================================================

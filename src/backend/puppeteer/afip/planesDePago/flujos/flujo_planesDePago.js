@@ -28,7 +28,9 @@ const URL_SEGUIMIENTO = 'https://serviciossegsoc.afip.gob.ar/tramites_con_clave_
  * Ejecuta el flujo completo de consulta de Planes de Pago
  * @param {import('puppeteer').Page} page - Página del navegador (ya logueado)
  * @param {Object} usuario - Datos del usuario representante
- * @param {Object} cuitConsulta - { cuit, alias } del CUIT a consultar
+ * @param {Object} cuitConsulta - { cuit, alias, planes? } del CUIT a consultar.
+ *        `planes` (array de números de plan) = los que el usuario marcó en la
+ *        pantalla tras listarPlanes (2ª vuelta): se bajan esos y nada más.
  * @param {string} downloadsPath - Ruta para descargas
  * @param {Object} [opciones]
  * @param {Object} [opciones.estados] - { vigentes, noVigentes, rangoNoVigentes }; por defecto solo vigentes
@@ -39,25 +41,30 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estad
         console.log(`\n[PlanesDePago Flujo] === Iniciando flujo para ${cuitConsulta.alias} (${cuitConsulta.cuit}) ===`);
 
         // =====================================================
-        // Paso 0: Buscar "mis facilidades" en el buscador AFIP
+        // Paso 0-1: Mis Facilidades + seleccionar CUIT
         // =====================================================
-        console.log('[PlanesDePago Flujo] Paso 0: Buscando "mis facilidades"...');
-        const paginaServicio = await buscarMisFacilidades(page);
-
-        // =====================================================
-        // Paso 1: Seleccionar CUIT si corresponde
-        // =====================================================
-        const resultadoPaso1 = await paso_1_seleccionarCuit.ejecutar(paginaServicio, cuitConsulta.cuit);
-        if (!resultadoPaso1.success) {
-            return { success: false, message: `Error seleccionando CUIT: ${resultadoPaso1.message}` };
-        }
+        const apertura = await abrirListaDelCuit(page, cuitConsulta);
+        if (!apertura.success) return apertura;
+        const paginaServicio = apertura.paginaServicio;
 
         // =====================================================
         // Paso 2: Obtener planes de los estados elegidos (con paginación)
+        // Si el usuario ya eligió los planes (2ª vuelta), se lee la lista
+        // entera y se quedan solo los marcados: el filtro ya se aplicó al listar.
         // =====================================================
-        const resultadoPaso2 = await paso_2_obtenerPlanesVigentes.ejecutar(paginaServicio, estados);
+        const elegidos = Array.isArray(cuitConsulta.planes) ? new Set(cuitConsulta.planes.map(String)) : null;
+        const resultadoPaso2 = await paso_2_obtenerPlanesVigentes.ejecutar(
+            paginaServicio, elegidos ? { vigentes: true, noVigentes: true } : estados
+        );
         if (!resultadoPaso2.success) {
             return { success: false, message: 'Error obteniendo la lista de planes' };
+        }
+        if (elegidos) {
+            resultadoPaso2.planes = resultadoPaso2.planes.filter(p => elegidos.has(p.numero));
+            const encontrados = new Set(resultadoPaso2.planes.map(p => p.numero));
+            const faltan = [...elegidos].filter(n => !encontrados.has(n));
+            if (faltan.length) console.log(`  ⚠️ Planes elegidos que ya no aparecen en AFIP: ${faltan.join(', ')}`);
+            resultadoPaso2.sinPlanes = resultadoPaso2.planes.length === 0;
         }
 
         const queSeBusco = describirEstados(estados);
@@ -334,6 +341,51 @@ function describirEstados(estados) {
 }
 
 /**
+ * 1ª vuelta: abre la lista de planes del CUIT y la devuelve SIN entrar a
+ * ningún detalle (segundos por cliente). Aplica los mismos filtros (estados +
+ * rango) que la descarga directa: la pantalla muestra eso para que el usuario
+ * marque qué bajar.
+ * @returns {Promise<{success, planes?: Array, message?}>}
+ */
+async function listarPlanes(page, cuitConsulta, { estados = { vigentes: true, noVigentes: false } } = {}) {
+    try {
+        console.log(`\n[PlanesDePago Listar] === ${cuitConsulta.alias} (${cuitConsulta.cuit}) ===`);
+        const apertura = await abrirListaDelCuit(page, cuitConsulta);
+        if (!apertura.success) return apertura;
+
+        const r = await paso_2_obtenerPlanesVigentes.ejecutar(apertura.paginaServicio, estados);
+        if (!r.success) return { success: false, message: 'Error obteniendo la lista de planes' };
+
+        const planes = r.planes.map(p => ({
+            numero: p.numero,
+            presentacion: p.presentacion,
+            cuotas: p.cuotas,
+            tipo: p.tipo,
+            consolidado: p.consolidado,
+            estado: p.estado,
+            vigente: esVigente(p)
+        }));
+        return { success: true, planes, message: `${planes.length} plan(es) encontrado(s)` };
+    } catch (error) {
+        console.error('[PlanesDePago Listar] Error:', error.message);
+        return { success: false, error: 'FLUJO_ERROR', message: error.message };
+    }
+}
+
+// Paso 0 (buscar "Mis Facilidades") + paso 1 (elegir el CUIT): deja la lista
+// de planes del CUIT abierta. Común a la descarga y al listado.
+async function abrirListaDelCuit(page, cuitConsulta) {
+    console.log('[PlanesDePago Flujo] Paso 0: Buscando "mis facilidades"...');
+    const paginaServicio = await buscarMisFacilidades(page);
+
+    const resultadoPaso1 = await paso_1_seleccionarCuit.ejecutar(paginaServicio, cuitConsulta.cuit);
+    if (!resultadoPaso1.success) {
+        return { success: false, message: `Error seleccionando CUIT: ${resultadoPaso1.message}` };
+    }
+    return { success: true, paginaServicio };
+}
+
+/**
  * Busca "mis facilidades" en el buscador de AFIP y hace clic en el resultado correcto.
  * @param {import('puppeteer').Page} page
  * @returns {Promise<import('puppeteer').Page>} La nueva página abierta
@@ -528,4 +580,4 @@ function logValidacion(plan, validacion) {
     console.log(linea(`Obligaciones #${plan.numero}`, validacion.obligaciones));
 }
 
-module.exports = { ejecutarFlujo };
+module.exports = { ejecutarFlujo, listarPlanes };

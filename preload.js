@@ -123,6 +123,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         },
         generar:      (datos) => ipcRenderer.invoke('planesDePago:generar', datos),
         generarLote:  (datos) => ipcRenderer.invoke('planesDePago:generarLote', datos),
+        listarLote:   (datos) => ipcRenderer.invoke('planesDePago:listarLote', datos),
         onUpdate: (callback) => ipcRenderer.on('planesDePago:update', (_event, datos) => callback(datos))
     },
 

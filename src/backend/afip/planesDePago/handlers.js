@@ -199,6 +199,62 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
     });
 
     // ========================================
+    // HANDLER: planesDePago:listarLote
+    // 1ª vuelta: por cada representante, login una vez y leer la lista de
+    // planes de sus CUITs (sin descargar). La pantalla los muestra con casillas;
+    // lo marcado vuelve por generarLote con `planes` en cada cuitAProcesar.
+    // ========================================
+    ipcMain.handle('planesDePago:listarLote', async (_event, datos) => {
+        const { loteRepresentantes, visible, estados } = datos || {};
+        if (!loteRepresentantes || loteRepresentantes.length === 0) {
+            return { success: false, message: 'No se recibieron representantes para procesar' };
+        }
+
+        const enviar = (msg) => {
+            if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('planesDePago:update', msg);
+        };
+        const corte = crearCorteCaptchaAfip();
+        const clientes = []; // [{ representante, cuitConsulta, success, planes, message }]
+
+        for (let r = 0; r < loteRepresentantes.length; r++) {
+            const { representante, cuitsAProcesar } = loteRepresentantes[r];
+            enviar({
+                tipo: 'representante-inicio',
+                representanteNombre: representante.nombre,
+                totalRepresentantes: loteRepresentantes.length,
+                indiceRepresentante: r,
+                totalCuits: cuitsAProcesar.length
+            });
+
+            // Un error del representante (captcha, sin clave, login) marca a todos sus CUITs
+            const fallarTodos = (message) => {
+                enviar({ tipo: 'representante-error', representanteNombre: representante.nombre, representanteCuit: representante.cuit, mensaje: message });
+                cuitsAProcesar.forEach(cuitConsulta => clientes.push({ representante, cuitConsulta, success: false, planes: [], message }));
+            };
+
+            try {
+                if (corte.activo) { fallarTodos(corte.mensaje); continue; }
+                const credenciales = await credencialesRepresentante(repo, representante);
+                if (!credenciales) { fallarTodos(`No se encontraron las credenciales de ${representante.nombre}`); continue; }
+
+                const resultado = await planesDePagoManager.listarPlanesLote(
+                    credenciales, representante, cuitsAProcesar,
+                    (progreso) => enviar({ ...progreso, representanteNombre: representante.nombre }),
+                    { visible, estados }
+                );
+                corte.registrar(resultado);
+                if (!resultado.success) { fallarTodos(resultado.message); continue; }
+                resultado.resultados.forEach(res => clientes.push({ representante, ...res }));
+            } catch (error) {
+                console.error(`[PlanesDePago Listar] Error representante ${representante.nombre}:`, error.message);
+                fallarTodos(error.message);
+            }
+        }
+
+        return { success: true, clientes };
+    });
+
+    // ========================================
     // HANDLER: planesDePago:generarLote
     // Procesa múltiples representantes, cada uno con sus CUITs
     // ========================================

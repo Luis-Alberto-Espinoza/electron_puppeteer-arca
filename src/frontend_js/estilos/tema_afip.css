@@ -261,3 +261,30 @@ html {
     padding: 10px 12px;
     border-radius: var(--radio-sm);
 }
+
+/* ===== 12. Switch "Mostrar navegador" (.ui-switch de base.css) =====
+   En base.css el switch prendido es --c-primario-2 (violeta): sobre el fondo
+   violeta de cualquier vista AFIP se pierde (medido: pista 118,75,162 sobre
+   fondo 109,75,160). Apagado = el tono del servicio oscurecido, como las cajas
+   de texto; prendido = verde, igual en todos los servicios. ATM no tiene tema
+   y conserva su switch. */
+:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
+    #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
+    #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
+    #planesDePagoDiv, .tema-vista) .ui-switch {
+    color: var(--v-texto-2);
+}
+:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
+    #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
+    #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
+    #planesDePagoDiv, .tema-vista) .ui-switch input {
+    background: var(--v-input);
+    box-shadow: inset 0 0 0 1px var(--v-borde);
+}
+:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
+    #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
+    #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
+    #planesDePagoDiv, .tema-vista) .ui-switch input:checked {
+    background: #43e97b;
+    box-shadow: none;
+}

@@ -58,25 +58,56 @@
     <div class="planes-procesar">
         <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
         <!-- Qué planes bajar: vigentes y/o todo lo demás (caducos, cancelados y
-             cualquier otra situación que traiga AFIP). Cada grupo va a su carpeta. -->
-        <div class="planes-estados">
-            <label><input type="checkbox" id="chk-planes-vigentes" checked> Planes vigentes</label>
-            <label><input type="checkbox" id="chk-planes-no-vigentes"> Planes no vigentes (caducos, cancelados y otros)</label>
-        </div>
-        <!-- Rango por mes de presentación: filtra SOLO a los no vigentes (los
-             vigentes se bajan siempre). Vacío = sin límite. -->
-        <div class="planes-rango" id="rangoNoVigentesPlanes">
-            <span>No vigentes presentados</span>
-            <label>desde <input type="month" id="input-rango-desde-planes" disabled></label>
-            <label>hasta <input type="month" id="input-rango-hasta-planes" disabled></label>
+             cualquier otra situación que traiga AFIP). Cada grupo va a su carpeta.
+             Dos filas horizontales; cada fila es una unidad que no se desarma. -->
+        <div class="planes-filtros">
+            <div class="planes-filtros-fila">
+                <label class="planes-filtro-check"><input type="checkbox" id="chk-planes-vigentes" checked> Planes vigentes</label>
+                <label class="planes-filtro-check"><input type="checkbox" id="chk-planes-no-vigentes"> Planes no vigentes (caducos, cancelados y otros)</label>
+            </div>
+            <!-- Rango por mes de presentación: filtra SOLO a los no vigentes (los
+                 vigentes se bajan siempre). Vacío = sin límite. -->
+            <div class="planes-filtros-fila planes-rango" id="rangoNoVigentesPlanes">
+                <span class="planes-rango-titulo" title="Fecha de presentación del plan. Filtra solo a los no vigentes; vacío = sin límite.">Presentación:</span>
+                <!-- desde + hasta: una pareja que baja junta (misma fila, mismo eje) -->
+                <div class="planes-rango-campos">
+                    <label class="planes-rango-campo"><span>desde</span><input type="month" id="input-rango-desde-planes" disabled></label>
+                    <label class="planes-rango-campo"><span>hasta</span><input type="month" id="input-rango-hasta-planes" disabled></label>
+                </div>
+            </div>
         </div>
         <label class="ui-switch">
             <input type="checkbox" id="chk-visible-planes" checked>
             Mostrar navegador
         </label>
-        <button id="btnObtenerDatos" class="btn planes-btn-obtener" disabled>
-            ▶ Obtener Datos Plan de Pagos
-        </button>
+        <!-- Dos caminos: "Ver planes" lista primero y deja elegir (2 vueltas);
+             "Descargar directo" baja todo lo que pasa el filtro (1 vuelta). -->
+        <div class="planes-botones">
+            <button id="btnVerPlanes" class="btn planes-btn-obtener" disabled>
+                🔍 Ver planes y elegir
+            </button>
+            <button id="btnObtenerDatos" class="btn planes-btn-obtener planes-btn-secundario" disabled>
+                ▶ Descargar directo
+            </button>
+        </div>
+    </div>
+
+    <!-- Selección de planes (resultado de "Ver planes") -->
+    <div id="panelSeleccionPlanes" class="planes-seccion" style="display:none">
+        <div class="planes-seccion-titulo">Planes encontrados: marcá cuáles descargar</div>
+        <div class="planes-sel-barra">
+            <span id="resumenSeleccionPlanes"></span>
+            <span class="planes-sel-acciones">
+                <button id="btnMarcarTodosPlanes" class="planes-btn-accion">Marcar todos</button>
+                <button id="btnDesmarcarTodosPlanes" class="planes-btn-accion">Desmarcar todos</button>
+            </span>
+        </div>
+        <div id="contenedorSeleccionPlanes"></div>
+        <div class="planes-sel-pie">
+            <button id="btnDescargarSeleccionPlanes" class="btn planes-btn-obtener" disabled>
+                ▶ Descargar seleccionados
+            </button>
+        </div>
     </div>
 
     <!-- Panel de resultados -->

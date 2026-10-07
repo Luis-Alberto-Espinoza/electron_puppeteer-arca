@@ -119,3 +119,6 @@ src/utils/
 docs/
 gestor_afip_atm/
 src/backend/extraerTablasPdf/modo_test/
+
+# Claude Code: worktrees de agentes y config local
+.claude/
