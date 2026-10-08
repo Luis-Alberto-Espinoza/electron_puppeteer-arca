@@ -4,6 +4,7 @@
 const { flujoConstanciaFiscal } = require('../../puppeteer/atm/flujosDeTareas/flujo_constanciaFiscal_imprimir.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
+const { logErrorCliente } = require('../logErrorCliente.js');
 
 /**
  * Procesa un lote de usuarios para generar constancias fiscales
@@ -83,7 +84,7 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso, visible) 
         }
 
     } catch (error) {
-        console.error(`Error procesando Constancia Fiscal para ${nombreCompleto}:`, error);
+        logErrorCliente('Constancia Fiscal', nombreCompleto, error);
         enviarProgresoUsuario('error', `Error: ${error.message}`);
         historialRepo.registrar({
             dominio: 'constanciaFiscal', accion: 'generar', estado: 'error',

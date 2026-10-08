@@ -16,6 +16,45 @@ async function aceptarDialog(dialog) {
 }
 
 /**
+ * DIAGNÓSTICO TEMPORAL (2026-10-08) del "CUIT quedó incompleto" intermitente.
+ * Graba en la página cada evento del campo (foco, teclas, input) y cada movida de cursor
+ * que hace la máscara (setSelectionRange), con el tiempo y si la ventana tenía el foco.
+ * Solo se muestra si el intento sale mal. Sacarlo cuando se encuentre la causa.
+ * No usar en campos sensibles: graba el valor.
+ */
+async function iniciarRegistrador(page, selector) {
+    await page.$eval(selector, el => {
+        const t0 = performance.now();
+        window.__regCampo = [];
+        const anotar = (tipo, extra = '') => window.__regCampo.push(
+            `${(performance.now() - t0).toFixed(0).padStart(5)}ms ${tipo.padEnd(10)} ` +
+            `val="${el.value}" cursor=${el.selectionStart}-${el.selectionEnd} ` +
+            `foco=${document.activeElement === el ? 'campo' : (document.activeElement && document.activeElement.tagName)} ` +
+            `ventana=${document.hasFocus() ? 'si' : 'no'} oculta=${document.hidden ? 'si' : 'no'}${extra}`
+        );
+        if (!el.__regInstalado) {
+            el.__regInstalado = true;
+            for (const tipo of ['focus', 'blur', 'keydown', 'keypress', 'input', 'select', 'paste']) {
+                el.addEventListener(tipo, e => window.__regAnotar(tipo, e.key ? ` tecla=${e.key}` : ''), true);
+            }
+            // maskedinput mueve el cursor con setSelectionRange (su caret()): lo interceptamos.
+            const original = el.setSelectionRange.bind(el);
+            el.setSelectionRange = (a, b, ...resto) => {
+                window.__regAnotar('CURSOR→', ` pide=${a}-${b}`);
+                return original(a, b, ...resto);
+            };
+        }
+        window.__regAnotar = anotar;
+        anotar('inicio');
+    });
+}
+
+/** Devuelve lo grabado por iniciarRegistrador (o [] si la página se recargó). */
+async function leerRegistrador(page) {
+    return page.evaluate(() => window.__regCampo || []).catch(() => []);
+}
+
+/**
  * Escribe un valor en un input y VERIFICA que haya quedado completo, reintentando si no.
  *
  * Por qué: waitForSelector({visible:true}) garantiza que el campo está pintado, no que el
@@ -32,17 +71,19 @@ async function aceptarDialog(dialog) {
  * @param {string} selector
  * @param {string} valor
  * @param {string} etiqueta - Nombre para los logs (no se loguea el valor si es sensible).
- * @param {{ sensible?: boolean, intentos?: number, normalizar?: (v: string) => string }} [opciones]
+ * @param {{ sensible?: boolean, intentos?: number, normalizar?: (v: string) => string, registrar?: boolean }} [opciones]
+ *   registrar: graba los eventos del campo y los muestra si un intento sale mal (diagnóstico).
  * @returns {Promise<boolean>} true si el campo quedó con el valor esperado.
  */
 async function escribirVerificado(page, selector, valor, etiqueta, opciones = {}) {
-    const { sensible = false, intentos = 3, normalizar = (v) => v } = opciones;
+    const { sensible = false, intentos = 3, normalizar = (v) => v, registrar = false } = opciones;
     const texto = String(valor);
     const esperado = normalizar(texto);
     const paraLog = sensible ? `(${texto.length} caracteres)` : texto;
     const mostrar = (v) => (sensible ? `(${v.length} caracteres)` : `"${v}"`);
 
     for (let intento = 1; intento <= intentos; intento++) {
+        if (registrar && !sensible) await iniciarRegistrador(page, selector);
         // Limpiamos por JS en vez de triple-clic + Backspace: si el clic llega antes de que
         // el campo esté interactivo, la selección no ocurre y el Backspace no borra nada.
         await page.$eval(selector, el => {
@@ -50,6 +91,17 @@ async function escribirVerificado(page, selector, valor, etiqueta, opciones = {}
             el.dispatchEvent(new Event('input', { bubbles: true }));
         });
         await page.focus(selector);
+        // Barrera de timers. maskedinput reacciona al 'input' de arriba con un setTimeout(0) y
+        // al foco con un setTimeout(10); los dos terminan en caret(0). Si alguno corre DESPUÉS
+        // de la primera tecla, el cursor vuelve al inicio y cada dígito empuja al primero al
+        // final (30618222302 → "06-18222302-3"). Con la pestaña de fondo Chrome demora esos
+        // timers hasta ~1s, así que una pausa fija no alcanza. En cambio, el estándar HTML
+        // garantiza que un setTimeout creado después y con timeout >= corre después de ellos:
+        // cuando el nuestro resuelve, los de la máscara ya corrieron.
+        // OJO: solo ve timers que YA existen. Si la ventana no tiene foco, Chrome entrega el
+        // 'focus' recién con la primera tecla y su timer nace después: eso lo evita
+        // emularFoco() al empezar el login.
+        await page.evaluate(() => new Promise(resolve => setTimeout(resolve, 20)));
         await page.type(selector, texto, { delay: 30 });
 
         const quedo = await page.$eval(selector, el => el.value);
@@ -64,6 +116,11 @@ async function escribirVerificado(page, selector, valor, etiqueta, opciones = {}
             `⚠️ [loginATM] ${etiqueta} quedó incompleto (intento ${intento}/${intentos}): ` +
             `esperado ${paraLog}, quedó ${mostrar(quedo)}`
         );
+        if (registrar && !sensible) {
+            const eventos = await leerRegistrador(page);
+            console.warn(`🔬 [loginATM] Registro del campo ${etiqueta} en el intento ${intento} (${eventos.length} eventos):\n   ` +
+                eventos.join('\n   '));
+        }
         // La página todavía estaba inicializándose: le damos aire antes de reintentar.
         await new Promise(resolve => setTimeout(resolve, 400));
     }
@@ -109,6 +166,42 @@ function mensajeErrorLogin(error) {
         return 'No se pudo conectar con ATM. Revisá la conexión a internet.';
     }
     return msg;
+}
+
+/**
+ * Traduce el cartel (alert nativo) que ATM muestra después de "Ingresar".
+ * Solo el texto de clave mala es INVALID_CREDENTIALS: ese código marca la clave guardada
+ * como inválida (registrarResultadoLogin). Cualquier otro cartel (mantenimiento, avisos)
+ * no dice nada de la clave → ATM_AVISO, que el registrador ignora.
+ * Texto real visto 2026-10-08: "El CUIT o clave son incorrectos".
+ * @param {string} mensaje
+ * @returns {{ success: false, error: 'INVALID_CREDENTIALS'|'ATM_AVISO', message: string }}
+ */
+function clasificarDialogoLogin(mensaje) {
+    // trim: el alert de ATM trae un salto de línea al final.
+    const texto = String(mensaje || '').trim();
+    const esClaveMala = /cuit\s+o\s+clave\s+son\s+incorrect/i.test(texto);
+    return { success: false, error: esClaveMala ? 'INVALID_CREDENTIALS' : 'ATM_AVISO', message: texto };
+}
+
+/**
+ * Hace que Chrome trate la página como enfocada aunque su ventana esté atrás.
+ * Por qué (visto con el registrador 2026-10-08): con la ventana sin foco, el evento 'focus'
+ * del campo llegaba recién con la primera tecla; el setTimeout(10) que arranca la máscara en
+ * ese foco corría DESPUÉS del primer dígito y devolvía el cursor a 0 → "06-18222302-3".
+ * Con la emulación el foco se entrega en el momento y la barrera de escribirVerificado lo
+ * alcanza. A diferencia de bringToFront, no le saca el foco a la ventana del usuario.
+ * La sesión CDP queda viva a propósito: si se desconecta, la emulación se apaga.
+ * @param {import('puppeteer').Page} page
+ */
+async function emularFoco(page) {
+    try {
+        const cdp = await page.createCDPSession();
+        await cdp.send('Emulation.setFocusEmulationEnabled', { enabled: true });
+    } catch (err) {
+        // Si falla seguimos: escribirVerificado reintenta igual.
+        console.warn(`⚠️ [loginATM] No se pudo emular el foco de la página: ${err.message}`);
+    }
 }
 
 /** Deja solo los dígitos: sirve para comparar contra un campo con máscara (30-61822230-2). */
@@ -185,10 +278,9 @@ async function manejarModalActualizacionEmail(page) {
                 btnPostergar = null;
             }
 
-        } catch (timeoutError) {
+        } catch {
             // No apareció el modal, es normal
-            console.log('[manejarModalActualizacionEmail] No apareció modal de email (timeout - esto es normal)');
-            console.log('[manejarModalActualizacionEmail] Error detalle:', timeoutError.message);
+            console.log('[manejarModalActualizacionEmail] No apareció el aviso de email (normal)');
             return 'OK';
         }
 
@@ -258,14 +350,26 @@ async function loginATMSinAviso(page, credencialesATM) {
     const url = 'https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp';
 
     try {
+        await emularFoco(page);
         await page.goto(url, { waitUntil: 'networkidle2' });
         await page.waitForSelector('#cuit', { visible: true });
         console.log(`[loginATM] Iniciando login para CUIT: ${cuit}`);
 
+        // Visible no es listo: la máscara (jquery.maskedinput) se engancha en el ready de
+        // jQuery y otro ready le hace $('#cuit').focus() → onFocus="this.select()". Si eso
+        // cae mientras tipeamos, selecciona lo escrito y la tecla siguiente lo pisa (el
+        // "CUIT quedó incompleto"). La señal: maskedinput guarda 'rawMaskFn' al engancharse,
+        // y los ready corren en orden, así que con eso el focus de la página ya pasó.
+        // Si ATM cambia la máscara y la señal no llega, seguimos: escribirVerificado reintenta.
+        await page.waitForFunction(
+            () => window.jQuery && window.jQuery('#cuit').data('rawMaskFn'),
+            { timeout: 10000 }
+        ).catch(() => console.warn('⚠️ [loginATM] No vi la máscara del CUIT enganchada; sigo igual'));
+
         // El campo está pintado pero la página puede seguir inicializándose y comerse las
         // primeras teclas; por eso escribimos verificando el resultado (ver escribirVerificado).
         // El campo aplica máscara (30-61822230-2), así que comparamos solo los dígitos.
-        const cuitOk = await escribirVerificado(page, '#cuit', cuit, 'CUIT', { normalizar: soloDigitos });
+        const cuitOk = await escribirVerificado(page, '#cuit', cuit, 'CUIT', { normalizar: soloDigitos, registrar: true });
         if (!cuitOk) {
             return {
                 success: false,
@@ -306,7 +410,7 @@ async function loginATMSinAviso(page, credencialesATM) {
                 console.log('🚨 [loginATM] Dialog nativo detectado:', dialog.message());
                 // Resolvemos ANTES de aceptar: aceptar dispara la recarga de la página, y el
                 // resultado del diálogo tiene que quedar registrado antes de que eso pase.
-                resultadoDialogo = { success: false, error: 'INVALID_CREDENTIALS', message: dialog.message() };
+                resultadoDialogo = clasificarDialogoLogin(dialog.message());
                 resolve(resultadoDialogo);
                 await aceptarDialog(dialog);
             };
@@ -569,6 +673,19 @@ async function loginATM(page, credencialesATM) {
 }
 
 /**
+ * Mensaje para el usuario por cada código de error del login. Son resultados ESPERADOS
+ * (clave mala, aviso de ATM...): logErrorCliente los loguea en una línea, sin pila.
+ */
+const MENSAJES_LOGIN_ATM = {
+    INVALID_CREDENTIALS: 'Clave ATM incorrecta',
+    CAMPO_INCOMPLETO: 'No se pudo completar el formulario de login de ATM',
+    PASSWORD_UPDATE_FAILED: 'ATM pidió cambiar la clave y no se pudo',
+    PASSWORD_UPDATE_ERROR: 'ATM pidió cambiar la clave y no se pudo',
+    EMAIL_UPDATE_MODAL_ERROR: 'No se pudo cerrar el aviso de actualización de email de ATM',
+    ATM_AVISO: 'ATM mostró un aviso al iniciar sesión'
+};
+
+/**
  * loginATM + corte si falla. Para los flujos que hacen login y siguen navegando:
  * si la clave está mal, no tiene sentido seguir (antes seguían de largo y fallaban
  * minutos después esperando pantallas que nunca aparecían, con un error que no
@@ -580,16 +697,9 @@ async function exigirLoginATM(page, credencialesATM) {
     const resultado = await loginATM(page, credencialesATM);
     if (resultado && resultado.success) return resultado;
 
-    const mensajes = {
-        INVALID_CREDENTIALS: 'Clave ATM incorrecta',
-        CAMPO_INCOMPLETO: 'No se pudo completar el formulario de login de ATM',
-        PASSWORD_UPDATE_FAILED: 'ATM pidió cambiar la clave y no se pudo',
-        PASSWORD_UPDATE_ERROR: 'ATM pidió cambiar la clave y no se pudo',
-        EMAIL_UPDATE_MODAL_ERROR: 'No se pudo cerrar el aviso de actualización de email de ATM'
-    };
     const codigo = (resultado && resultado.error) || 'LOGIN_FAILED';
     const detalle = resultado && resultado.message;
-    const base = mensajes[codigo] || 'No se pudo iniciar sesión en ATM';
+    const base = MENSAJES_LOGIN_ATM[codigo] || 'No se pudo iniciar sesión en ATM';
     const error = new Error(detalle && detalle !== base ? `${base}: ${detalle}` : base);
     error.code = codigo;
     throw error;
@@ -635,9 +745,4 @@ async function debugPopupElements(page) {
   return popupInfo;
 }
 
-// Configurar manejo de excepciones no capturadas
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
-});
-
-module.exports = { loginATM, exigirLoginATM, debugPopupElements, manejarModalActualizacionEmail };
+module.exports = { loginATM, exigirLoginATM, debugPopupElements, manejarModalActualizacionEmail, clasificarDialogoLogin, MENSAJES_LOGIN_ATM };

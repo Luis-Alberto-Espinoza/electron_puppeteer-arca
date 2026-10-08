@@ -15,8 +15,8 @@ async function navegarAConstanciaFiscal(page) {
 
     console.log('Navegando al menú de Constancia de Inscripción...');
 
-    // Esperar a que los elementos del menú estén disponibles
-    await frame.waitForSelector('a[role="menuitem"]', { timeout: 10000 });
+    // Esperar a que los elementos del menú estén disponibles (15s: en hora pico ATM tarda en armarlo)
+    await frame.waitForSelector('a[role="menuitem"]', { timeout: 15000 });
 
     // Paso 1: Hacer click en el elemento del menú principal
     const menuClickResult = await frame.evaluate(() => {
@@ -38,7 +38,7 @@ async function navegarAConstanciaFiscal(page) {
 
     // Paso 2: Esperar a que aparezca el submenú
     console.log('Esperando que aparezca el submenú...');
-    await frame.waitForSelector('.z-menupopup-content', { visible: true, timeout: 5000 });
+    await frame.waitForSelector('.z-menupopup-content', { visible: true, timeout: 10000 });
 
     // Pequeña pausa para que el submenú termine de renderizarse
     await new Promise(res => setTimeout(res, 500));

@@ -4,6 +4,7 @@
 const { ejecutarFlujoPuppeteerTasaCero } = require('../../puppeteer/atm/flujosDeTareas/flujo_tasaCero_puppeteer.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
+const { logErrorCliente } = require('../logErrorCliente.js');
 
 // Constantes de configuración
 const CONSTANTS = {
@@ -121,7 +122,7 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso, visible) 
         }
 
     } catch (error) {
-        console.error(`Error procesando Tasa Cero para ${nombreCompleto}:`, error);
+        logErrorCliente('Tasa Cero', nombreCompleto, error);
 
         // Categorizar el error
         let mensajeError = `Error: ${error.message}`;

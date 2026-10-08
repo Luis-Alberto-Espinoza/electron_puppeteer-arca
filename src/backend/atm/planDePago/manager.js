@@ -4,6 +4,7 @@
 const { flujoPlanDePago } = require('../../puppeteer/atm/flujosDeTareas/flujo_planDepagoIngresosBruto.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
+const { logErrorCliente } = require('../logErrorCliente.js');
 
 /**
  * Procesa un lote de usuarios para generar planes de pago
@@ -83,7 +84,7 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso, visible) 
         }
 
     } catch (error) {
-        console.error(`Error procesando Plan de Pago para ${nombreCompleto}:`, error);
+        logErrorCliente('Plan de Pago', nombreCompleto, error);
         enviarProgresoUsuario('error', `Error: ${error.message}`);
         historialRepo.registrar({
             dominio: 'planDePago', accion: 'generar', estado: 'error',

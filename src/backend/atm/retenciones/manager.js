@@ -4,6 +4,7 @@
 const { flujoDescargaRetenciones } = require('../../puppeteer/atm/flujosDeTareas/flujo_descargaRetenciones.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
+const { logErrorCliente } = require('../logErrorCliente.js');
 
 /**
  * Procesa un lote de usuarios para descargar retenciones
@@ -116,7 +117,7 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso, visible) 
         }
 
     } catch (error) {
-        console.error(`Error descargando Retenciones para ${nombreCompleto}:`, error);
+        logErrorCliente('Retenciones', nombreCompleto, error);
         enviarProgresoUsuario('error', `Error: ${error.message}`);
         historialRepo.registrar({
             dominio: 'retenciones', accion: 'descargar', estado: 'error',
