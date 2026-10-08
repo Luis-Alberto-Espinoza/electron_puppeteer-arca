@@ -47,7 +47,11 @@
     letter-spacing: 0.4px;
 }
 
-.hist-tabla tbody tr:hover { background: var(--fondo-claro-2); }
+/* Cebra + hover que marca bien la fila por la que pasa el mouse */
+.hist-tabla tbody tr:nth-child(even) { background: rgba(0, 0, 0, 0.18); }
+.hist-tabla tbody tr:hover {
+    background: color-mix(in srgb, var(--vista-tono, var(--fondo-claro-2)), white 22%);
+}
 
 .hist-fecha { color: var(--texto-2); white-space: nowrap; }
 .hist-cliente-nombre { color: var(--texto-1); }

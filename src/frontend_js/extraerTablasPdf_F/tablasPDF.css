@@ -9,7 +9,7 @@
  */
 
 .tpdf {
-    background: var(--card);
+    background: var(--vista-tono, var(--card));   /* tono de la herramienta (tema_herramientas.css) */
     border-radius: var(--radio);
     box-shadow: var(--sombra-sm);
     width: 95%;
@@ -49,10 +49,9 @@
     min-width: 200px;
 }
 
+/* Colores del deshabilitado: los pone tema_herramientas.css (igual en todas) */
 .tpdf button:disabled {
-    background: var(--texto-3);
     cursor: not-allowed;
-    opacity: 0.7;
 }
 
 .tpdf button:hover:not(:disabled) {
@@ -255,40 +254,34 @@
     border-top: 1px solid var(--borde);
 }
 
+/* Mismo color que los demás botones habilitados: si era pálido parecía bloqueado */
 .tpdf #switchToBatchBtn,
 .tpdf #switchToSingleBtn {
     width: 240px;
     min-width: 240px;
-    background: none;
-    color: var(--c-primario-2);
-    border: 1px solid var(--borde-2);
-    box-shadow: none;
+    border: 1px solid color-mix(in srgb, var(--btn-tono, var(--c-primario-1)), white 35%);
 }
 
-/* --- Modo grupo: acento verde (en el hermano, tema teal en <body>) --- */
+/* --- Modo grupo: otro bordó (--tono-pdf-lote en tokens.css) ---
+   Antes era verde (en el hermano, tema teal en <body>), pero se confundía con ATM.
+   Los botones son los mismos que en Individual. */
 
 .tpdf.tpdf--lote {
-    border-top-color: var(--c-ok-1);
+    --lote-acento: color-mix(in srgb, var(--tono-pdf-lote), white 40%);
+    background: var(--tono-pdf-lote);
+    border-top-color: var(--lote-acento);
 }
 
 .tpdf.tpdf--lote h2,
 .tpdf.tpdf--lote .spinner-message,
 .tpdf.tpdf--lote #batchProgressContainer p {
-    color: var(--c-ok-2);
-}
-
-.tpdf.tpdf--lote button:not(.open-file-btn):not(#switchToSingleBtn) {
-    background: var(--grad-ok);
-}
-
-.tpdf.tpdf--lote button:disabled:not(.open-file-btn):not(#switchToSingleBtn) {
-    background: var(--texto-3);
+    color: var(--texto-1);
 }
 
 .tpdf.tpdf--lote input[type="text"]:focus {
-    border-color: var(--c-ok-1);
+    border-color: var(--lote-acento);
 }
 
 .tpdf.tpdf--lote .spinner {
-    border-top-color: var(--c-ok-1);
+    border-top-color: var(--lote-acento);
 }

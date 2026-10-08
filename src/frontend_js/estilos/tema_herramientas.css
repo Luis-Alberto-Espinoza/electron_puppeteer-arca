@@ -1,0 +1,80 @@
+/**
+ * TEMA HERRAMIENTAS — el mecanismo común (Tablas PDF, Plantillas Excel, Historial...)
+ * ------------------------------------------------------------
+ * Pedido del usuario (2026-10-08): cada herramienta con SU familia de color,
+ * distinta del violeta de AFIP y del verde de ATM, para que se note que es otra zona.
+ *
+ * Qué va en cada lado:
+ *  - tokens.css            → los colores de cada herramienta (--tono-x, --btn-x).
+ *  - ESTE archivo          → solo lo que vale igual para TODAS las herramientas.
+ *  - la hoja de cada vista → sus detalles propios (ej. cebra del Historial,
+ *                            Modo Grupo del PDF en tablasPDF.css).
+ *
+ * Cómo funciona:
+ *  1. El contenedor de cada herramienta (home/index.html) lleva las clases
+ *     "tema-vista herramienta". Con .tema-vista hereda de tema_afip.css las
+ *     superficies --v-* y los inputs/tablas oscuros; .herramienta es para este archivo.
+ *  2. Estas vistas usan los tokens CLAROS globales (--card, --fondo-claro, --texto-1...).
+ *     En vez de tocar sus hojas, esos tokens se redefinen adentro del contenedor.
+ *
+ * Herramienta nueva: sus 2 colores en tokens.css + 1 línea en la sección 1
+ * + las clases "tema-vista herramienta" en su contenedor.
+ */
+
+/* ===== 1. Colores de cada herramienta (fondo y botones) ===== */
+#extraerTablasPDFDiv { --vista-tono: var(--tono-pdf);        --btn-tono: var(--btn-pdf); }
+#plantillasExcelDiv  { --vista-tono: var(--tono-plantillas); --btn-tono: var(--btn-plantillas); }
+#historialDiv        { --vista-tono: var(--tono-historial);  --btn-tono: var(--btn-historial); }
+
+/* ===== 2. Los tokens claros, pasados al tono de la herramienta =====
+   Ojo: --grad-primario se vuelve a escribir entero; si solo se cambia
+   --c-primario-1, el gradiente ya viene calculado desde :root y no se entera. */
+.herramienta {
+    --card:          var(--v-panel);
+    --fondo-claro:   var(--v-input);
+    --fondo-claro-2: var(--v-panel-2);
+    --borde:         var(--v-borde);
+    --borde-2:       var(--v-borde);
+    --texto-1:       var(--v-texto);
+    --texto-2:       var(--v-texto-2);
+    --texto-3:       rgba(255, 255, 255, 0.6);
+
+    /* Acentos (títulos, bordes de foco): el tono aclarado. Botones: --btn-tono. */
+    --c-primario-1:  color-mix(in srgb, var(--vista-tono), white 40%);
+    --c-primario-2:  color-mix(in srgb, var(--vista-tono), white 55%);
+    --grad-primario: linear-gradient(135deg,
+                        var(--btn-tono) 0%,
+                        color-mix(in srgb, var(--btn-tono), black 12%) 100%);
+    --c-peligro-2:   var(--v-txt-error);
+    --c-ok-2:        var(--v-txt-ok);
+}
+
+/* ===== 3. El marco: la "página" de la herramienta toma el tono pleno =====
+   (Las vistas que no usan .ui-page ponen su fondo con var(--vista-tono) en su hoja.) */
+.herramienta .ui-page {
+    background: var(--vista-tono);
+}
+
+/* ===== 4. Botones =====
+   TODOS los habilitados iguales (--grad-primario = --btn-tono), así ninguno parece
+   bloqueado. El "fantasma" (sin relleno) se perdía contra el fondo: ahora relleno. */
+.herramienta .ui-btn--ghost {
+    background: var(--grad-primario);
+    border: 1px solid color-mix(in srgb, var(--btn-tono), white 35%);
+    color: var(--v-texto);
+    box-shadow: var(--sombra-sm);
+}
+.herramienta .ui-btn--ghost:hover {
+    background: var(--grad-primario);
+    filter: brightness(1.12);
+}
+/* Deshabilitados: oscuros, sin sombra y con la letra apagada. Bien distintos de
+   los habilitados (antes eran grises claros y se confundían con los pálidos). */
+.herramienta button:disabled {
+    background: var(--v-panel-2);
+    color: rgba(255, 255, 255, 0.4);
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    box-shadow: none;
+    opacity: 1;
+    filter: none;
+}

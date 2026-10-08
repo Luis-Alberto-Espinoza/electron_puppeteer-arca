@@ -77,6 +77,18 @@
   --tono-ddjj:            hsl(290 38% 39%);
   --tono-planes:          hsl(264 36% 46%);
 
+  /* ===== Tonos de las herramientas (ver estilos/tema_herramientas.css) =====
+     Cada una con su PROPIA familia (ni violeta AFIP ni verde ATM): otra zona. */
+  --tono-pdf:             hsl(350 42% 36%);   /* bordó */
+  --tono-pdf-lote:        hsl(330 40% 34%);   /* bordó vino: PDF en Modo Grupo */
+  --tono-plantillas:      hsl(198 55% 30%);   /* azul petróleo */
+  --tono-historial:       hsl(32 45% 32%);    /* ámbar / marrón */
+  /* Botones de cada herramienta: el mismo tono, más vivo y más claro que el fondo.
+     Todos los botones HABILITADOS usan este; los deshabilitados van apagados. */
+  --btn-pdf:              hsl(350 62% 50%);
+  --btn-plantillas:       hsl(198 68% 40%);
+  --btn-historial:        hsl(32 68% 44%);
+
   /* ===== Forma ===== */
   --radio: 12px;
   --radio-sm: 6px;

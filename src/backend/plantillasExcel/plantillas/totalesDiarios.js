@@ -35,7 +35,7 @@ const {
 const ID = 'totalesDiarios';
 const NOMBRE = 'Totales diarios';
 const DESCRIPCION = 'Ventas diarias cargadas a mano → total por día, con avisos de posibles errores de carga (ej. Landes).';
-const COLOR = '#2f6f5e';
+const COLOR = '#a4532a';   // terracota (antes verde: se confundía con ATM)
 const ICONO = '📅';
 
 // Sinónimos de cabecera, comparados ya normalizados (sin tildes, minúsculas).
