@@ -67,6 +67,7 @@ export async function inicializarInterfazFacturas() {
         flatpickrFechaComprobante = flatpickr(fechaComprobante, {
             mode: "single",
             dateFormat: "d/m/Y",
+            defaultDate: "today", // arranca con la fecha de hoy (AFIP la necesita sí o sí)
             onChange: function (selectedDates) {
                 if (selectedDates.length > 0) {
                     const date = selectedDates[0];

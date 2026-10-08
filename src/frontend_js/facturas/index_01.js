@@ -74,8 +74,8 @@ export function inicializarFacturas() {
             option.value = anio;
             option.textContent = anio;
             
-            // Seleccionar el año anterior (i = -1)
-            if (i === -1) {
+            // Seleccionar el año actual (i = 0)
+            if (i === 0) {
                 option.selected = true;
             }
             
@@ -85,8 +85,8 @@ export function inicializarFacturas() {
         // Preseleccionar mes actual
         const mesActual = new Date().getMonth() + 1;
         selectMes.value = mesActual;
-        // El año anterior ya está preseleccionado arriba
-        selectAnio.value = anioActual - 1;
+        // Preseleccionar año actual
+        selectAnio.value = anioActual;
     }
 
     // Función para actualizar la vista inicial del calendario
