@@ -54,7 +54,6 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
     // Handler: iniciar-proceso-afip
     // Inicia el proceso de facturacion usando los datos guardados
     ipcMain.on('iniciar-proceso-afip', async (event, data) => {
-        console.log("Iniciando proceso AFIP con los siguientes datos:", data);
         try {
             if (!data.credenciales.nombreEmpresa && ultimaEmpresaElegida) {
                 data.credenciales.nombreEmpresa = ultimaEmpresaElegida;
@@ -79,6 +78,13 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                 // de nombreDe() → razón social, que es exactamente el texto del botón.
                 nombreEmpresa: acceso.objetivoNombre || data.credenciales.nombreEmpresa
             };
+
+            // Log de inicio SIN clave (la consola se guarda en logs/AAAA-MM-DD.log).
+            // Muestra el login real: para un representado es el CUIT del representante.
+            const viaRepresentante = String(acceso.loginCuit) !== String(cuitObjetivo);
+            console.log(`Iniciando proceso AFIP: cliente ${cuitObjetivo} → login con ${acceso.loginCuit}`
+                + `${viaRepresentante ? ' (representante)' : ''}, empresa "${credenciales.nombreEmpresa}"`
+                + `, modo prueba: ${data.test ? 'sí' : 'no'}`);
 
             // Usamos el manager unificado con resultadoCodigo ya procesado
             // Nota: resultadoCodigo ya viene procesado, el unificado lo detectará como 'simple'
