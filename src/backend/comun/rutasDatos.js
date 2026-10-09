@@ -139,6 +139,11 @@ function rutaDato(nombreArchivo) {
     return path.join(getCarpetaDatos(), nombreArchivo);
 }
 
+/** Carpeta de los .log diarios (ver registroConsola.js). Siempre dentro de la de datos. */
+function getCarpetaLogs() {
+    return path.join(getCarpetaDatos(), 'logs');
+}
+
 /**
  * Escritura ATÓMICA: escribe a un `.tmp` y hace rename sobre el destino. Un rename es
  * atómico dentro del mismo filesystem, así que sacar el pendrive a mitad de guardado NO
@@ -188,6 +193,7 @@ function getInfoDatos() {
 
 module.exports = {
     getCarpetaDatos,
+    getCarpetaLogs,
     rutaDato,
     escribirAtomico,
     setCarpetaDatos,

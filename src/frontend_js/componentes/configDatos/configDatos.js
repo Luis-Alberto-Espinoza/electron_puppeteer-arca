@@ -37,6 +37,7 @@
               </div>
               <div class="modal-footer cd-footer">
                 <button type="button" class="btn btn-outline-secondary" id="cdAbrir">Abrir carpeta</button>
+                <button type="button" class="btn btn-outline-secondary" id="cdLogs" title="Registro de lo que hizo el programa, un archivo por día">📄 Abrir logs</button>
                 <button type="button" class="btn btn-outline-secondary" id="cdDefault">Volver al valor por defecto</button>
                 <button type="button" class="btn btn-primary" id="cdCambiar">Cambiar carpeta…</button>
                 <button type="button" class="btn btn-success" id="cdReiniciar" hidden>Reiniciar ahora</button>
@@ -48,6 +49,10 @@
 
         document.getElementById('cdAbrir').addEventListener('click', () => {
             window.electronAPI.datos.abrirCarpeta();
+        });
+        document.getElementById('cdLogs').addEventListener('click', async () => {
+            const res = await window.electronAPI.datos.abrirLogs();
+            if (!res.ok) alert('No se pudo abrir la carpeta de logs: ' + (res.error || 'error'));
         });
         document.getElementById('cdCambiar').addEventListener('click', onCambiar);
         document.getElementById('cdDefault').addEventListener('click', onDefault);

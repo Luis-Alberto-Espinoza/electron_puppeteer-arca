@@ -8,8 +8,9 @@
 // Un relaunch los re-crea contra la carpeta nueva; es más simple y seguro que
 // invalidar cachés y re-instanciar singletons por todos lados.
 
+const fs = require('fs');
 const { shell } = require('electron');
-const { getInfoDatos, getCarpetaDatos, setCarpetaDatos } = require('./rutasDatos.js');
+const { getInfoDatos, getCarpetaDatos, getCarpetaLogs, setCarpetaDatos } = require('./rutasDatos.js');
 
 function setupDatosHandlers(ipcMain, app, dialog) {
     ipcMain.handle('datos:getInfo', async () => getInfoDatos());
@@ -21,6 +22,14 @@ function setupDatosHandlers(ipcMain, app, dialog) {
         } catch (e) {
             return { ok: false, error: e.message };
         }
+    });
+
+    // openPath no tira error: devuelve '' si anduvo o el mensaje si no.
+    ipcMain.handle('datos:abrirLogs', async () => {
+        const carpeta = getCarpetaLogs();
+        fs.mkdirSync(carpeta, { recursive: true }); // por si todavía no se escribió nada
+        const error = await shell.openPath(carpeta);
+        return error ? { ok: false, error } : { ok: true };
     });
 
     ipcMain.handle('datos:elegirCarpeta', async () => {

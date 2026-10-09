@@ -179,6 +179,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     datos: {
         getInfo:      ()     => ipcRenderer.invoke('datos:getInfo'),
         abrirCarpeta: ()     => ipcRenderer.invoke('datos:abrirCarpeta'),
+        abrirLogs:    ()     => ipcRenderer.invoke('datos:abrirLogs'),
         elegirCarpeta:()     => ipcRenderer.invoke('datos:elegirCarpeta'),
         setCarpeta:   (ruta) => ipcRenderer.invoke('datos:setCarpeta', ruta),
         reiniciar:    ()     => ipcRenderer.invoke('datos:reiniciar')

@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
+// Lo más arriba posible: así hasta los console.log de los require de abajo van al archivo.
+const { getCarpetaLogs } = require('../comun/rutasDatos.js');
+require('../comun/registroConsola.js').iniciarRegistroConsola(getCarpetaLogs());
 // comunicacionConFactura y facturaManager movidos a afip/factura/handlers.js
 // comunicacionConLibroIVA movido a afip/libroIVA/handlers.js
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
