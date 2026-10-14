@@ -23,6 +23,8 @@ export async function inicializarInterfazFacturas() {
         const response = await fetch('../facturas/factura.html');
         const html = await response.text();
         facturasDiv.innerHTML = html;
+        const selectPdvFactura = document.getElementById('selectPuntoDeVentaFactura');
+        if (selectPdvFactura) selectPdvFactura.addEventListener('change', alCambiarPdvFactura);
     } catch (err) {
         console.error('Error al cargar facturas.html:', err);
         return;
@@ -267,6 +269,10 @@ async function configurarEmpresasDisponibles() {
     selectEmpresaDisponible.disabled = true;   // nada que elegir: es el contribuyente
     window.empresaElegida = razonSocial;
 
+    // Tipo de contribuyente: siempre visible; preseleccionado si el cliente lo tiene.
+    const selectTipo = document.getElementById('selectTipoContribuyenteFactura');
+    if (selectTipo) selectTipo.value = usuario.tipoContribuyente || '';
+
     // Los PDV salen del contribuyente (cacheados, sin claves) vía IPC.
     await popularPuntosDeVentaFactura(usuario.cuit);
 }
@@ -275,18 +281,30 @@ async function configurarEmpresasDisponibles() {
  * Pobla el <select id="selectPuntoDeVentaFactura"> con los PDV cacheados del
  * contribuyente (modelo plano), pedidos por CUIT al backend
  * (contribuyente:puntosDeVenta — sin claves). Si no hay PDV, deshabilita.
+ *
+ * Si ya sabemos qué PDV ofrece HOY Comprobantes en línea (lo aprende cada factura
+ * en el paso 0), se muestran solo esos: el ABM es un historial y trae PDV viejos
+ * que AFIP ya no deja usar (ej. los de Monotributo de quien pasó a RI).
+ *
+ * @param {string} cuit
+ * @param {string[]|null} [habilitadosForzados] lista recién devuelta por AFIP
  */
-async function popularPuntosDeVentaFactura(cuit) {
+async function popularPuntosDeVentaFactura(cuit, habilitadosForzados = null) {
     const selectPdv = document.getElementById('selectPuntoDeVentaFactura');
     if (!selectPdv) return;
 
+    if (!habilitadosForzados) mostrarAvisoPdv(null);
     selectPdv.innerHTML = '<option value="">Cargando puntos de venta…</option>';
     selectPdv.disabled = true;
 
-    let pdvs = [];
+    let todos = [];
+    let habilitados = habilitadosForzados;
     try {
         const resp = await window.electronAPI.contribuyente.puntosDeVenta(cuit);
-        pdvs = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
+        todos = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
+        if (!habilitados && resp && resp.pdvHabilitadosFacturacion) {
+            habilitados = resp.pdvHabilitadosFacturacion.numeros;
+        }
     } catch (e) {
         console.error('Error obteniendo puntos de venta:', e);
     }
@@ -298,18 +316,21 @@ async function popularPuntosDeVentaFactura(cuit) {
     // agrega o saca un sistema, hay que tocarlo acá también.
     // Sin requisito de `activo` (la columna "Usado" del ABM no es bloqueante — un
     // PDV puede estar habilitado sin haber emitido todavía).
-    const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    const SISTEMAS_OPERABLES = new Set([
-        'factura en linea - responsable inscripto',
-        'factura en linea - monotributo'
-    ]);
-    pdvs = pdvs.filter(p => {
-        if (!p || !p.numero) return false;
-        if (p.sistema) {
-            return SISTEMAS_OPERABLES.has(normSistema(p.sistema));
-        }
-        return true;
-    });
+    let pdvs;
+    if (Array.isArray(habilitados) && habilitados.length > 0) {
+        // Manda AFIP: los que ofrece, aunque no los tengamos del ABM (PDV creado
+        // después del análisis → solo el número).
+        pdvs = habilitados.map(n => todos.find(p => p && p.numero === n) || { numero: n });
+    } else {
+        pdvs = todos.filter(p => {
+            if (!p || !p.numero) return false;
+            if (p.sistema) {
+                return SISTEMAS_OPERABLES.has(normSistema(p.sistema));
+            }
+            return true;
+        });
+    }
+    pdvs.sort((a, b) => a.numero.localeCompare(b.numero));
 
     selectPdv.innerHTML = '';
 
@@ -322,14 +343,162 @@ async function popularPuntosDeVentaFactura(cuit) {
         return;
     }
 
+    pdvsMostrados = pdvs;
     pdvs.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.numero;
-        opt.textContent = p.descripcion ? `${p.numero} — ${p.descripcion}` : p.numero;
+        opt.textContent = etiquetaPdv(p);
         selectPdv.appendChild(opt);
     });
     selectPdv.disabled = false;
     selectPdv.selectedIndex = 0;
+    alCambiarPdvFactura();
+}
+
+// PDV que está mostrando el desplegable (con su sistema, si lo sabemos).
+let pdvsMostrados = [];
+
+const NOMBRE_TIPO = { B: 'Responsable Inscripto', C: 'Monotributo' };
+
+/**
+ * Al elegir PDV, el tipo de contribuyente es la letra de ese PDV (sale del sistema
+ * que trajo AFIP en el análisis) y queda TRABADO: es dato de AFIP, cambiarlo solo
+ * sirve para que AFIP rechace la factura. Solo si el PDV no tiene letra conocida
+ * (ej. creado después del último análisis) el usuario lo elige. Si la letra no
+ * coincide con lo guardado del cliente, el cartel amarillo avisa que se corrige.
+ */
+function alCambiarPdvFactura() {
+    mostrarAvisoPdv(null);
+    const selectPdv = document.getElementById('selectPuntoDeVentaFactura');
+    const selectTipo = document.getElementById('selectTipoContribuyenteFactura');
+    if (!selectPdv || !selectTipo) return;
+
+    const pdv = pdvsMostrados.find(p => p.numero === selectPdv.value);
+    const letra = pdv ? letraDePdv(pdv) : null;
+    trabarTipoContribuyente(letra);
+    if (!letra) return;
+
+    // Se compara con el tipo GUARDADO del cliente (no con lo que dejó el PDV anterior).
+    const delCliente = window.usuarioSeleccionado && window.usuarioSeleccionado.tipoContribuyente;
+    if (delCliente && delCliente !== letra) {
+        mostrarAvisoPdv(
+            `El punto de venta ${pdv.numero} es de ${NOMBRE_TIPO[letra]} (Factura ${letra}). ` +
+            `El cliente figuraba como ${delCliente}: se corrige a ${letra}.`
+        );
+    }
+}
+
+/**
+ * letra = 'B'|'C' → select gris con esa letra (viaja por el hidden, porque un
+ * select disabled no entra en el FormData). null → select libre y obligatorio.
+ */
+function trabarTipoContribuyente(letra) {
+    const selectTipo = document.getElementById('selectTipoContribuyenteFactura');
+    const oculto = document.getElementById('tipoContribuyenteFacturaTrabado');
+    const nota = document.getElementById('notaTipoContribuyenteFactura');
+    if (!selectTipo) return;
+
+    if (letra) {
+        selectTipo.value = letra;
+        selectTipo.disabled = true;
+        if (oculto) { oculto.name = 'tipoContribuyenteElegido'; oculto.value = letra; }
+    } else {
+        // Al destrabar queda lo guardado del cliente (o vacío para que elija).
+        if (selectTipo.disabled) {
+            selectTipo.value = (window.usuarioSeleccionado && window.usuarioSeleccionado.tipoContribuyente) || '';
+        }
+        selectTipo.disabled = false;
+        if (oculto) { oculto.removeAttribute('name'); oculto.value = ''; }
+    }
+    if (nota) nota.hidden = !letra;
+}
+
+function letraDePdv(p) {
+    const sistema = normSistema(p.sistema);
+    if (sistema === 'factura en linea - responsable inscripto') return 'B';
+    if (sistema === 'factura en linea - monotributo') return 'C';
+    return null;
+}
+
+const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+const SISTEMAS_OPERABLES = new Set([
+    'factura en linea - responsable inscripto',
+    'factura en linea - monotributo'
+]);
+
+// La letra que va a salir depende del sistema del PDV (el backend decide igual):
+// mostrarla evita elegir a ciegas cuando todos tienen el mismo domicilio.
+function etiquetaPdv(p) {
+    const sistema = normSistema(p.sistema);
+    if (sistema === 'factura en linea - responsable inscripto') return `${p.numero} — Responsable Inscripto (Factura B)`;
+    if (sistema === 'factura en linea - monotributo') return `${p.numero} — Monotributo (Factura C)`;
+    return p.descripcion ? `${p.numero} — ${p.descripcion}` : p.numero;
+}
+
+// Aviso dentro del formulario, pegado al desplegable de PDV (null = sacarlo).
+function mostrarAvisoPdv(texto) {
+    const contenedor = document.getElementById('puntoDeVentaFacturaContainer');
+    if (!contenedor) return;
+    let aviso = document.getElementById('avisoPdvFactura');
+    if (!texto) {
+        if (aviso) aviso.remove();
+        contenedor.classList.remove('pdv-a-revisar');
+        return;
+    }
+    if (!aviso) {
+        aviso = document.createElement('p');
+        aviso.id = 'avisoPdvFactura';
+        aviso.className = 'aviso-pdv-factura';
+        contenedor.prepend(aviso);
+    }
+    aviso.textContent = texto;
+    contenedor.classList.add('pdv-a-revisar');
+}
+
+/**
+ * Vuelta del paso 0 con PDV_NO_HABILITADO: en vez de un error, se recarga el
+ * desplegable con lo que AFIP ofreció y se pide elegir de nuevo.
+ * @param {string[]} habilitados  números de PDV que ofrece Comprobantes en línea
+ * @param {string} [elegido]      el PDV que se había elegido
+ */
+/**
+ * Vuelta con TIPO_PDV_DISTINTO: AFIP dijo de qué tipo es el PDV y el backend ya
+ * corrigió el cliente. Se recargan los PDV (con el sistema corregido → el tipo
+ * queda trabado en la letra nueva) y se avisa en el cartel amarillo.
+ * @param {{puntoVenta: string, letra: 'B'|'C'}} detalle
+ */
+async function mostrarTipoCorregidoFactura(detalle) {
+    const usuario = window.usuarioSeleccionado;
+    if (!usuario || !detalle) return;
+    usuario.tipoContribuyente = detalle.letra;
+    const selectPdv = document.getElementById('selectPuntoDeVentaFactura');
+    const elegido = selectPdv ? selectPdv.value : null;
+    await popularPuntosDeVentaFactura(usuario.cuit);
+    if (selectPdv && elegido && pdvsMostrados.some(p => p.numero === elegido)) {
+        selectPdv.value = elegido;
+        alCambiarPdvFactura();
+    }
+    mostrarAvisoPdv(
+        `AFIP indica que el punto de venta ${detalle.puntoVenta} es de ${NOMBRE_TIPO[detalle.letra]} ` +
+        `(Factura ${detalle.letra}). Se corrigió el cliente: revisá y volvé a generar.`
+    );
+    if (selectPdv) selectPdv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function mostrarPdvHabilitadosFactura(habilitados, elegido) {
+    const usuario = window.usuarioSeleccionado;
+    if (!usuario) return;
+    await popularPuntosDeVentaFactura(usuario.cuit, habilitados);
+    mostrarAvisoPdv(
+        `AFIP no habilita ${elegido ? `el punto de venta ${elegido}` : 'ese punto de venta'} para facturar. ` +
+        'Estos son los que ofrece hoy: elegí uno y volvé a generar.'
+    );
+    // Al elegir otro PDV, alCambiarPdvFactura saca este aviso.
+    const selectPdv = document.getElementById('selectPuntoDeVentaFactura');
+    if (selectPdv) {
+        selectPdv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        selectPdv.focus();
+    }
 }
 
 function configurarBotonesExpandirTablas() {
@@ -407,3 +576,5 @@ function mostrarResultadoFactura(resultado) {
 // Exportar funciones para que puedan ser llamadas desde controlador.js al cambiar de usuario
 window.configurarUsuarioEnFacturas = configurarUsuarioEnFacturas;
 window.configurarEmpresasDisponibles = configurarEmpresasDisponibles;
+window.mostrarPdvHabilitadosFactura = mostrarPdvHabilitadosFactura;
+window.mostrarTipoCorregidoFactura = mostrarTipoCorregidoFactura;

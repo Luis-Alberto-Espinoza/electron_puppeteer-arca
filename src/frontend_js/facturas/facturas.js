@@ -16,12 +16,17 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
     // El select de PDV se llena al cambiar la empresa (configurarEmpresasDisponibles).
     // formData ya lo trae bajo el name="puntoDeVenta" del <select>.
     const puntoVenta = (data.puntoDeVenta || '').trim() || null;
+    // El backend guarda en el cliente el tipo elegido; se refleja acá también
+    // (mismo objeto que cachea el selector) para que la próxima vez venga elegido.
+    if (usuarioSeleccionado && data.tipoContribuyenteElegido) {
+        usuarioSeleccionado.tipoContribuyente = data.tipoContribuyenteElegido;
+    }
     if (data.metodoIngreso === 'masivo') {
         if (!datosValidados || datosMasivos.length === 0) {
             alert('Debe procesar los datos antes de enviarlos.');
             return;
         }
-        //if (!data.tipoContribuyente) errores.push("Debe seleccionar un tipo de contribuyente.");
+        if (!data.tipoContribuyenteElegido) errores.push("Debe seleccionar un tipo de contribuyente.");
         if (!data.Actividad) errores.push("Debe seleccionar un tipo de Actividad.");
         if (errores.length > 0) {
             alert(errores.join('\n'));
@@ -31,6 +36,7 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
             servicio: 'factura', // agrega el titulo del formulario
             metodoIngreso: 'masivo',
             tipoContribuyente: usuarioSeleccionado.tipoContribuyente,
+            tipoContribuyenteElegido: data.tipoContribuyenteElegido,
             Actividad: data.Actividad,
             fechaComprobante: data.fechaComprobante,
             datos: datosMasivos,

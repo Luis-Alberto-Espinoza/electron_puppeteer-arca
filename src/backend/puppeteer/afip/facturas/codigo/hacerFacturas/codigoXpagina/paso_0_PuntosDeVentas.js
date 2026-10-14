@@ -11,8 +11,10 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
             // Elegir el punto de venta. Para NOTAS conviene emitir desde el MISMO
             // PV que la factura original (viene en datos.puntoVenta, ej. "00008").
             // Comparamos por número (sin ceros a la izquierda) contra el value y el
-            // texto de cada opción. Si no vino o no matchea, caemos al comportamiento
-            // histórico: primer PV real (índice 1).
+            // texto de cada opción. Si NO vino PV, comportamiento histórico: primer PV
+            // real (índice 1). Si vino y AFIP no lo ofrece, NO se elige nada: antes se
+            // caía al primero en silencio y se facturaba desde otro PV (caso BUIGUES:
+            // PV 00002 de Monotributo → salió Factura A desde el 00003 de RI).
             const pv = await newPage.evaluate((puntoVenta) => {
                 const listaPuntosDeVentas = document.querySelector('#puntodeventa');
                 const objetivoPv = String(puntoVenta || '').replace(/\D/g, '').replace(/^0+/, '');
@@ -30,17 +32,33 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
                         }
                     }
                 }
-                listaPuntosDeVentas.selectedIndex = indicePv;
-                listaPuntosDeVentas.onchange(indicePv);
+                if (!objetivoPv || encontradoPv) {
+                    listaPuntosDeVentas.selectedIndex = indicePv;
+                    listaPuntosDeVentas.onchange(indicePv);
+                }
                 return {
                     objetivoPv,
                     encontradoPv,
-                    opciones: Array.from(listaPuntosDeVentas.options).map(o => o.value + '|' + o.text.trim())
+                    opciones: Array.from(listaPuntosDeVentas.options).map(o => o.value + '|' + o.text.trim()),
+                    // Solo los números de PV reales (sin el "seleccionar..."), para el mensaje.
+                    numeros: Array.from(listaPuntosDeVentas.options)
+                        .map(o => (String(o.text || '').match(/^\s*(\d+)/) || [])[1])
+                        .filter(Boolean)
                 };
             }, datos.puntoVenta);
 
+            // Lo que ofrece Comprobantes en línea queda en `datos` (mismo objeto que
+            // tiene el handler): el backend lo guarda en el cliente y, si el PV no
+            // estaba, el front recarga el desplegable con estos en vez de un error.
+            datos.pdvHabilitadosAfip = pv.numeros;
+
             if (pv.objetivoPv && !pv.encontradoPv) {
-                console.warn(`[paso_0] No encontré el PV ${datos.puntoVenta} en la lista; uso el primero. Opciones:`, pv.opciones);
+                const error = new Error(
+                    `El punto de venta ${datos.puntoVenta} no está habilitado en Comprobantes en línea. ` +
+                    `AFIP ofrece: ${pv.numeros.length ? pv.numeros.join(', ') : '(ninguno)'}.`
+                );
+                error.conocido = true;
+                throw error;
             }
 
             // Al cambiar el PV, AFIP recarga por detrás la lista #universocomprobante.
@@ -50,11 +68,15 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
             await newPage.waitForNetworkIdle({ idleTime: 500, timeout: TIMEOUT_TIPO_COMPROBANTE }).catch(() => {});
 
             // Valor elegido por el usuario en el frontend (value del <option>
-            // de AFIP). Si no vino (datos viejos), caemos al hardcodeo histórico:
-            // B -> Factura B (19); C -> default de AFIP (Factura C).
+            // de AFIP). Si no vino (Facturas y Mercado Pago no lo mandan), sale del
+            // tipo: B -> Factura B (19); C -> Factura C (2). Antes C dejaba el
+            // default de AFIP: en un PV de RI eso es Factura A, el paso 0 pasaba y
+            // recién fallaba el receptor, sin saber que el PV era de otro tipo.
             let valorComprobante = datos.tipoComprobante;
             if (!valorComprobante && datos.tipoContribuyente === 'B') {
                 valorComprobante = '19';
+            } else if (!valorComprobante && datos.tipoContribuyente === 'C') {
+                valorComprobante = '2';
             }
             valorComprobante = valorComprobante ? String(valorComprobante) : null;
 
@@ -69,12 +91,23 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
             } catch (_) {
                 const disponibles = await newPage.evaluate(() => {
                     const select = document.querySelector('#universocomprobante');
-                    return select ? Array.from(select.options).map(o => `${o.value}=${o.text.trim()}`).join(', ') : '(sin lista)';
+                    return select ? Array.from(select.options).map(o => o.text.trim()) : [];
                 });
-                throw new Error(
-                    `AFIP no ofrece el tipo de comprobante ${valorComprobante || '(default)'} en el punto de venta elegido. ` +
-                    `Opciones disponibles: ${disponibles || '(ninguna)'}`
-                );
+                // Lo que AFIP ofrece en ESTE PV dice de qué tipo es hoy: si hay
+                // Factura C es de Monotributo; si hay A/B, de Responsable Inscripto.
+                // Se pasa en el error para que el backend corrija el cliente.
+                const letra = disponibles.includes('Factura C') ? 'C'
+                    : (disponibles.includes('Factura B') || disponibles.includes('Factura A')) ? 'B' : null;
+                const pedido = valorComprobante === '2' ? 'Factura C' : valorComprobante === '19' ? 'Factura B' : `el comprobante ${valorComprobante || '(default)'}`;
+                const error = new Error(letra
+                    ? `AFIP indica que el punto de venta ${datos.puntoVenta} es de ${letra === 'B' ? 'Responsable Inscripto (Factura B)' : 'Monotributo (Factura C)'}: no ofrece ${pedido}.`
+                    : `AFIP no ofrece ${pedido} en el punto de venta ${datos.puntoVenta}. Ofrece: ${disponibles.join(', ') || '(nada)'}.`);
+                error.conocido = true;
+                if (letra) {
+                    error.codigo = 'TIPO_PDV_DISTINTO';
+                    error.detalle = { puntoVenta: datos.puntoVenta, letra };
+                }
+                throw error;
             }
 
             const quedo = await newPage.evaluate((valor) => {
@@ -103,7 +136,7 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
         console.log("Script _0_ ejecutado correctamente.");
         return { success: true, message: "Punto de venta y tipo de comprobante seleccionados" };
     } catch (error) {
-        console.error("Error al ejecutar el script:", error);
+        // Lo imprime una sola vez ejecutarPasoConVerificacion (flujo unificado).
         throw error;
     }
 }

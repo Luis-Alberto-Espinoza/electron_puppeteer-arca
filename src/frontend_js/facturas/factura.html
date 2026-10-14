@@ -12,6 +12,17 @@
         <label for="selectPuntoDeVentaFactura">Punto de Venta:</label>
         <select id="selectPuntoDeVentaFactura" name="puntoDeVenta"></select>
     </div>
+    <div id="tipoContribuyenteFacturaContainer">
+        <label for="selectTipoContribuyenteFactura">Tipo de Contribuyente:</label>
+        <select id="selectTipoContribuyenteFactura" name="tipoContribuyenteElegido" required>
+            <option value="">Elegí el tipo…</option>
+            <option value="B">B - Responsable Inscripto</option>
+            <option value="C">C - Monotributo</option>
+        </select>
+        <!-- Con el select trabado (disabled no viaja en el form), la letra va por acá. -->
+        <input type="hidden" id="tipoContribuyenteFacturaTrabado">
+        <small id="notaTipoContribuyenteFactura" class="nota-tipo-factura" hidden>Lo define AFIP según el punto de venta.</small>
+    </div>
     <div id="tipoActividadDiv">
         <h2>Tipo de Actividad</h2>
         <div>

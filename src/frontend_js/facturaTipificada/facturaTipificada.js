@@ -544,6 +544,7 @@ async function manejarCambioEmpresa({ desdeUsuario } = {}) {  // eslint-disable-
     const usuario = window.usuarioSeleccionado;
     if (!usuario) return;
 
+    ocultarPdvInfo();   // el aviso de un cliente/corrida anterior no sigue colgado
     resetPdvSelect('Cargando puntos de venta…');
 
     let pdvs = [];
@@ -641,6 +642,7 @@ function mostrarPdvInfo(texto, tipo) {
     info.textContent = texto;
     info.style.display = 'block';
     info.style.color = tipo === 'error' ? '#dc3545'
+                      : tipo === 'aviso' ? '#d97706'
                       : tipo === 'loading' ? '#0066cc'
                       : '#28a745';
 }
@@ -1270,6 +1272,12 @@ async function manejarGenerar() {
             mostrarError(resultado.message || 'Error al generar las facturas');
         }
 
+        // AFIP dijo de qué tipo es el PDV y el backend ya corrigió el cliente:
+        // la pantalla se pone al día sin recargar ni volver a llenar nada.
+        if (resultado.tipoCorregido) {
+            await aplicarTipoCorregido(resultado.tipoCorregido);
+        }
+
     } catch (error) {
         console.error('❌ Error al generar facturas:', error);
         mostrarError('Error: ' + error.message);
@@ -1279,6 +1287,62 @@ async function manejarGenerar() {
             + grupos.reduce((s, g) => s + (g.datos.facturas?.length || 0), 0);
         btnGenerar.innerHTML = `🧾 Generar <span id="contadorFacturas">${total}</span> Factura(s)`;
     }
+}
+
+// Mismo comprobante en la otra letra (para no perder lo elegido al corregir el tipo).
+const EQUIVALENTE_COMPROBANTE = {
+    B: { '2': '19', '5': '25' },   // Factura C → Factura B, Recibo C → Recibo B
+    C: { '19': '2', '25': '5' }
+};
+
+/**
+ * Vuelta con `tipoCorregido` (AFIP indicó la letra del PDV y el backend corrigió el
+ * cliente): se actualiza tipo, lista de comprobantes y PDV SIN tocar lo cargado
+ * (receptor, líneas, montos), y se ajustan las facturas distintas ya guardadas.
+ * @param {{puntoVenta: string, letra: 'B'|'C'}} detalle
+ */
+async function aplicarTipoCorregido({ puntoVenta, letra }) {
+    const usuario = window.usuarioSeleccionado;
+    if (!usuario || !OPCIONES_COMPROBANTE[letra]) return;
+
+    const pdvElegido = _valorDe('puntoDeVentaSelect') || puntoVenta;
+    const comprobanteAntes = _valorDe('tipoComprobante');
+
+    // Mismo objeto (no se reemplaza): así queda al día también la lista cacheada del selector.
+    usuario.tipoContribuyente = letra;
+    establecerTipoContribuyente();
+    poblarSelectTipoComprobante();
+    const select = document.getElementById('tipoComprobante');
+    const existe = (v) => select && Array.from(select.options).some(o => o.value === v);
+    if (existe(comprobanteAntes)) _setVal('tipoComprobante', comprobanteAntes);   // ej. las notas
+    else if (existe(EQUIVALENTE_COMPROBANTE[letra][comprobanteAntes])) _setVal('tipoComprobante', EQUIVALENTE_COMPROBANTE[letra][comprobanteAntes]);
+    onCambioTipoComprobante();
+
+    await manejarCambioEmpresa();
+    _setVal('puntoDeVentaSelect', pdvElegido);
+
+    // Facturas distintas ya guardadas: llevan el comprobante de la letra vieja.
+    const aRevisar = [];
+    grupos.forEach((g, i) => {
+        const c = g.datos && g.datos.datosComunes;
+        if (!c) return;
+        c.tipoContribuyente = letra;
+        const v = c.tipoComprobante;
+        if (!v || v === VALOR_NOTA_CREDITO || v === VALOR_NOTA_DEBITO) return;
+        if (OPCIONES_COMPROBANTE[letra].some(o => o.value === v)) return;
+        const eq = EQUIVALENTE_COMPROBANTE[letra][v];
+        if (eq) c.tipoComprobante = eq;
+        else aRevisar.push(i + 1);
+    });
+    if (grupos.length) renderGruposGuardados();
+
+    const nombre = letra === 'B' ? 'Responsable Inscripto (Factura B)' : 'Monotributo (Factura C)';
+    mostrarPdvInfo(
+        `⚠️ AFIP indica que el punto de venta ${puntoVenta} es de ${nombre}. Se corrigió el cliente: revisá y volvé a generar.` +
+        (aRevisar.length ? ` Revisá el comprobante de la(s) factura(s) guardada(s) ${aRevisar.join(', ')}.` : ''),
+        'aviso'
+    );
+    document.getElementById('formFacturaTipificada')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /**

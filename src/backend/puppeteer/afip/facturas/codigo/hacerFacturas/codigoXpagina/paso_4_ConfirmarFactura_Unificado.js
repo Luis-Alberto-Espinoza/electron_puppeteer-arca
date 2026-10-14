@@ -256,7 +256,7 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
         };
 
     } catch (error) {
-        console.error("Error al ejecutar paso_4_ConfirmarFactura_Unificado:", error);
+        // Lo imprime una sola vez ejecutarPasoConVerificacion (flujo unificado).
         throw error;
     }
 }

@@ -43,7 +43,10 @@ async function ejecutar(callback, opciones = {}) {
         return {
             success: false,
             error: 'BROWSER_ERROR',
-            message: error.message
+            message: error.message,
+            // Un paso puede marcar el error con un código y datos para que el
+            // backend actúe (ej. TIPO_PDV_DISTINTO → corregir el cliente).
+            ...(error.codigo ? { codigo: error.codigo, detalle: error.detalle } : {})
         };
     } finally {
         if (browser) {

@@ -21,7 +21,7 @@ const {
 const { listarEmpresas, normalizarFuerte } = require('../../puppeteer/afip/archivosComunes/empresasDisponibles.js');
 const { buscarEnAfip } = require('../../puppeteer/afip/archivosComunes/buscadorAfip.js');
 const { listarRepresentadosSistemaRegistral } = require('../../puppeteer/afip/archivosComunes/representadosSistemaRegistral.js');
-const { normalizarPuntoDeVenta } = require('../../cliente/model.js');
+const { normalizarPuntoDeVenta, tipoContribuyenteDesdePuntosDeVenta } = require('../../cliente/model.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -109,6 +109,27 @@ function sincronizarRazonSocial(filaPrevia, razonSocialAfip) {
 }
 
 /**
+ * Alinea el tipo de contribuyente ('B' RI / 'C' Monotributo) con el sistema de los
+ * PDV que AFIP acaba de mostrar. Misma regla que la razón social: gana AFIP, aunque
+ * el tipo se haya cargado a mano. Si los PDV no definen un tipo único (mezclados o
+ * sin sistema), no se toca lo guardado.
+ *
+ * @param {Object} filaPrevia        contribuyente ya guardado
+ * @param {Array}  puntosDeVenta     PDV recién leídos (normalizados)
+ * @returns {{tipoContribuyente?: string}} para spread sobre los cambios (vacío = no tocar)
+ */
+function sincronizarTipoContribuyente(filaPrevia, puntosDeVenta) {
+    const deAfip = tipoContribuyenteDesdePuntosDeVenta(puntosDeVenta);
+    if (!deAfip) return {};
+
+    const guardado = filaPrevia && filaPrevia.tipoContribuyente;
+    if (guardado === deAfip) return {};
+
+    console.log(`  🔄 Tipo de contribuyente en ${filaPrevia.cuit}: ${guardado || '(vacío)'} → ${deAfip} (manda AFIP).`);
+    return { tipoContribuyente: deAfip };
+}
+
+/**
  * Vincula una fila YA EXISTENTE con el representante bajo cuyo login apareció.
  *
  * Si AFIP nos mostró esa empresa entrando con la clave de otro CUIT, la representación
@@ -185,6 +206,7 @@ async function analizarContribuyente(repo, cuit, opciones = {}) {
             await repo.actualizar(String(cuitEmpresa), {
                 ...cambios,
                 ...sincronizarRazonSocial(previo, razonSocial),
+                ...sincronizarTipoContribuyente(previo, puntosDeVenta),
                 ...vincularConRepresentante(previo, acceso.loginCuit)
             });
             return { creado: false };
@@ -440,5 +462,6 @@ module.exports = {
     analizarLote,
     // Exportados para tests:
     sincronizarRazonSocial,
+    sincronizarTipoContribuyente,
     vincularConRepresentante
 };

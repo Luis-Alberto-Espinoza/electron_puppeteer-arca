@@ -263,3 +263,25 @@ button:active {
         flex-direction: column;
     }
 }
+
+/* Aviso amarillo del PDV (no habilitado por AFIP, o letra distinta a la del cliente). */
+.aviso-pdv-factura {
+    margin: 0 0 8px;
+    padding: 10px 12px;
+    border-radius: var(--radio);
+    border-left: 4px solid var(--c-acento);
+    background: color-mix(in srgb, var(--c-acento), transparent 80%);
+    color: var(--texto-1);
+    font-size: 0.9rem;
+}
+.pdv-a-revisar #selectPuntoDeVentaFactura {
+    outline: 2px solid var(--c-acento);
+    outline-offset: 2px;
+}
+
+/* Tipo de contribuyente trabado: lo define la letra del PDV (dato de AFIP). */
+.nota-tipo-factura {
+    display: block;
+    margin-top: 4px;
+    color: var(--texto-2);
+}

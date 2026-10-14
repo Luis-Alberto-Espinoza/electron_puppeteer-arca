@@ -90,7 +90,7 @@ async function paso_1_DatosDeEmision_Servicio(newPage, datos, factura, modoTest 
         console.log("Script _1_Servicio_ ejecutado correctamente.");
         return { success: true, message: "Datos de emisión (servicio) completados" };
     } catch (error) {
-        console.error("Error al ejecutar el script:", error);
+        // Lo imprime una sola vez ejecutarPasoConVerificacion (flujo unificado).
         throw error;
     }
 }

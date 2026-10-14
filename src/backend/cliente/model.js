@@ -335,7 +335,31 @@ function listarRazonesSociales(cliente) {
     return cliente.empresas.map(e => e.razonSocial).filter(Boolean);
 }
 
+/**
+ * Deduce el tipo de contribuyente del `sistema` de sus puntos de venta (columna 2
+ * del ABM de AFIP). En la app 'B' = Responsable Inscripto (emite A/B/T, la letra se
+ * elige por factura) y 'C' = Monotributo (solo emite C).
+ *
+ * Solo responde si TODOS los PDV con sistema conocido dicen lo mismo. Si están
+ * mezclados (ej. alguien que pasó de Monotributo a RI y conserva PDV viejos) o
+ * ninguno trae sistema (clientes analizados antes de guardarlo), devuelve null:
+ * no adivinamos.
+ *
+ * @param {PuntoDeVenta[]} puntosDeVenta
+ * @returns {'B'|'C'|null}
+ */
+function tipoContribuyenteDesdePuntosDeVenta(puntosDeVenta) {
+    const tipos = new Set();
+    for (const pdv of puntosDeVenta || []) {
+        const sistema = String((pdv && pdv.sistema) || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (sistema === 'factura en linea - monotributo') tipos.add('C');
+        else if (sistema === 'factura en linea - responsable inscripto') tipos.add('B');
+    }
+    return tipos.size === 1 ? [...tipos][0] : null;
+}
+
 module.exports = {
+    tipoContribuyenteDesdePuntosDeVenta,
     crearEmpresa,
     fusionarEmpresas,
     normalizarCliente,

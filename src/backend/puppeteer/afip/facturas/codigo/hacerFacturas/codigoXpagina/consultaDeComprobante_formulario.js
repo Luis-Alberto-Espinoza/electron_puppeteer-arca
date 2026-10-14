@@ -126,7 +126,7 @@ if (!encontrado) {
     return { success: true, message: "Consulta de comprobantes realizada exitosamente" };
 
   } catch (error) {
-    console.error("Error al ejecutar el script de consulta:", error);
+    // Lo imprime una sola vez ejecutarPasoConVerificacion (flujo unificado).
     throw error;
   }
 }

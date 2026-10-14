@@ -139,8 +139,15 @@ const ejecutar_FacturacionUnificado = async (
                 console.timeEnd(nombrePaso);
                 return resultado;
             } catch (error) {
-                console.error(`Error en ${nombrePaso}:`, error);
                 console.timeEnd(nombrePaso);
+                // ÚNICO lugar que imprime el error de un paso (los pasos y el flujo
+                // solo lo relanzan). Los que ya conocemos (`conocido`, ej. lo que
+                // rechaza AFIP) van en una línea; los inesperados, con stack.
+                if (!error.registrado) {
+                    if (error.conocido) console.error(`✗ ${nombrePaso}: ${error.message}`);
+                    else console.error(`✗ ${nombrePaso}:`, error);
+                    error.registrado = true;
+                }
                 throw error;
             }
         };
@@ -414,10 +421,12 @@ const ejecutar_FacturacionUnificado = async (
                     };
 
                 } catch (error) {
-                    console.error(`❌ Error en factura ${facturaIndex + 1} (intento ${intento + 1}):`, error);
+                    console.error(`❌ Error en factura ${facturaIndex + 1} (intento ${intento + 1})`
+                        + (error.registrado ? '' : `: ${error.stack || error.message}`));
 
-                    // Si no hemos alcanzado el máximo de reintentos
-                    if (intento < MAX_REINTENTOS) {
+                    // Si no hemos alcanzado el máximo de reintentos. Un error conocido
+                    // (lo rechazó AFIP) va a dar lo mismo: no se reintenta.
+                    if (intento < MAX_REINTENTOS && !error.conocido) {
                         if (enviarProgreso) {
                             enviarProgreso({
                                 tipo: 'error',
@@ -449,6 +458,7 @@ const ejecutar_FacturacionUnificado = async (
                             success: false,
                             facturaNumero: facturaIndex + 1,
                             error: error.message,
+                            ...(error.codigo ? { codigo: error.codigo, detalle: error.detalle } : {}),
                             intentos: intento + 1,
                             cliente: clienteIdentificador
                         };
@@ -640,7 +650,7 @@ const ejecutar_FacturacionUnificado = async (
         }
 
     } catch (error) {
-        console.error("Error en ejecutar_FacturacionUnificado:", error);
+        if (!error.registrado) console.error("Error en ejecutar_FacturacionUnificado:", error);
         throw error;
     }
 };

@@ -174,12 +174,20 @@ async function iniciarProceso(
             downloadsPath
         );
 
-        console.log("✓ Flujo de facturacion completado");
+        // El flujo puede volver con success:false sin tirar excepción (ej. falta el
+        // tipo de contribuyente): no anunciar "exitosamente" en ese caso.
+        const fallo = !resultado || resultado.success === false;
+        if (fallo) {
+            const motivo = (resultado && (resultado.message || resultado.error)) || 'sin detalle';
+            console.log(`✗ Flujo de facturacion falló: ${motivo}`);
+        } else {
+            console.log("✓ Flujo de facturacion completado");
+        }
 
         // ==========================================
         // PASO 4: RETORNAR RESULTADO
         // ==========================================
-        console.log("\n=== [4/4] Proceso finalizado exitosamente ===");
+        console.log(`\n=== [4/4] Proceso finalizado ${fallo ? 'CON ERROR' : 'exitosamente'} ===`);
 
         if (resultado.data?.resultados) {
             console.log("Facturas procesadas:");
@@ -191,7 +199,9 @@ async function iniciarProceso(
         }
 
         console.log("\n╔════════════════════════════════════════════════════╗");
-        console.log("║  MANAGER: Proceso completado exitosamente         ║");
+        console.log(fallo
+            ? "║  MANAGER: Proceso terminado CON ERROR              ║"
+            : "║  MANAGER: Proceso completado exitosamente         ║");
         console.log("╚════════════════════════════════════════════════════╝\n");
 
         return resultado;

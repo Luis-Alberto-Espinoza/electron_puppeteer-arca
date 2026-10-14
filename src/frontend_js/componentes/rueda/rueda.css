@@ -33,3 +33,19 @@
 }
 .rueda-aviso-titulo { font-weight: 700; }
 .rueda-aviso-sub { font-size: 0.85rem; color: rgba(255, 255, 255, 0.78); margin-top: 2px; }
+
+/* Variante error: roja y con ✕ (no se va sola). */
+.rueda-aviso--error {
+    background: var(--c-peligro-2);
+    border-color: var(--c-peligro-1);
+}
+.rueda-aviso--error .rueda-aviso-sub { color: rgba(255, 255, 255, 0.92); }
+.rueda-aviso-cerrar {
+    flex-shrink: 0;
+    background: transparent;
+    border: 0;
+    color: #ffffff;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0 4px;
+}

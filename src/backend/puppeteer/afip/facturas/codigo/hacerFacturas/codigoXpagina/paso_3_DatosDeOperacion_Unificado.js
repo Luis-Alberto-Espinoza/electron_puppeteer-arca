@@ -208,7 +208,7 @@ async function paso_3_DatosDeOperacion_Unificado(newPage, datos, iterador) {
         }
 
     } catch (error) {
-        console.error("Error al ejecutar paso_3_DatosDeOperacion_Unificado:", error);
+        // Lo imprime una sola vez ejecutarPasoConVerificacion (flujo unificado).
         throw error;
     }
 }

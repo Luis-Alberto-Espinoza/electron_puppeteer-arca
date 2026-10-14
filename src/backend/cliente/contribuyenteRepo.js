@@ -14,12 +14,18 @@
  */
 
 const { resolverAcceso, nombreDe } = require('./resolverAcceso.js');
-const { normalizarPuntoDeVenta } = require('./model.js');
+const { normalizarPuntoDeVenta, normalizarNumeroPdv, tipoContribuyenteDesdePuntosDeVenta } = require('./model.js');
 
 // 'no_verificado': no se pudo comprobar la clave (ej. AFIP interpuso captcha por
 // bloqueo temporal de IP). NO es 'invalido' — la clave puede ser buena; hay que reintentar.
 const ESTADOS = new Set(['no_aplica', 'pendiente', 'validado', 'invalido', 'requiere_actualizacion', 'no_verificado']);
 const TIPOS_CONTRIB = new Set(['A', 'B', 'C', 'M']);
+
+function normalizarPdvHabilitados(v) {
+    if (!v || !Array.isArray(v.numeros)) return null;
+    const numeros = v.numeros.map(normalizarNumeroPdv).filter(Boolean);
+    return { numeros, fecha: v.fecha || null };
+}
 
 /** Error tipado: lleva `.code` legible en vez de un string suelto. */
 function repoError(code, message) {
@@ -63,6 +69,16 @@ function normalizarContribuyente(raw) {
     const estadoAfip = representante ? 'no_aplica' : (estadoValido(raw.estado_afip) || 'no_aplica');
     const errorAfip = representante ? null : (raw.errorAfip || null);
 
+    const puntosDeVenta = Array.isArray(raw.puntosDeVenta)
+        ? raw.puntosDeVenta.map(normalizarPuntoDeVenta).filter(Boolean)
+        : [];
+    // Sin tipo cargado, se deduce del sistema de sus PDV (dato de AFIP ya guardado).
+    // Acá solo se completa el vacío: pisar uno distinto es decisión del análisis,
+    // que lo loguea (ver sincronizarTipoContribuyente en empresaManager).
+    const tipoContribuyente = TIPOS_CONTRIB.has(raw.tipoContribuyente)
+        ? raw.tipoContribuyente
+        : tipoContribuyenteDesdePuntosDeVenta(puntosDeVenta);
+
     return {
         // Handle de transición que el frontend usa para editar/borrar (user:update
         // y user:delete resuelven con getById). Versiones viejas del barrido crearon
@@ -81,7 +97,7 @@ function normalizarContribuyente(raw) {
         nombre: esJuridica ? null : (raw.nombre || null),
         apellido: esJuridica ? null : (raw.apellido || null),
         cuil: raw.cuil || null,
-        tipoContribuyente: TIPOS_CONTRIB.has(raw.tipoContribuyente) ? raw.tipoContribuyente : null,
+        tipoContribuyente,
 
         claveAFIP,
         estado_afip: estadoAfip,
@@ -102,10 +118,13 @@ function normalizarContribuyente(raw) {
             ? String(raw.grupoId).trim()
             : null,
 
-        puntosDeVenta: Array.isArray(raw.puntosDeVenta)
-            ? raw.puntosDeVenta.map(normalizarPuntoDeVenta).filter(Boolean)
-            : [],
+        puntosDeVenta,
         puntosDeVentaActualizados: raw.puntosDeVentaActualizados || null,
+
+        // PDV que Comprobantes en línea ofrece HOY para facturar (el ABM es un
+        // historial: lista PDV viejos que AFIP ya no deja usar). Lo aprende cada
+        // factura en el paso 0; null = todavía no se sabe → el front muestra todos.
+        pdvHabilitadosFacturacion: normalizarPdvHabilitados(raw.pdvHabilitadosFacturacion),
 
         fechaCreacion: raw.fechaCreacion || null,
         fechaModificacion: raw.fechaModificacion || null

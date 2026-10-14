@@ -30,7 +30,7 @@ async function menuPrincipal(newPage, datos) {
         console.log("Script _MENU PRINCIPAL_ ejecutado correctamente.");
         return { success: true, message: "Comprobante generado correctamente" };
     } catch (error) {
-        console.error("Error al ejecutar el script:", error);
+        // Lo imprime una sola vez ejecutarPasoConVerificacion (flujo unificado).
         throw error;
     }
 }

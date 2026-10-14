@@ -189,7 +189,9 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
     // Si la validación dentro de la página falló (p. ej. condición IVA no disponible),
     // cortamos con el mensaje claro en lugar de esperar el timeout de navegación.
     if (resultadoEval && resultadoEval.ok === false) {
-      throw new Error(resultadoEval.error || 'No se pudieron completar los datos del receptor');
+      const error = new Error(resultadoEval.error || 'No se pudieron completar los datos del receptor');
+      error.conocido = true;   // lo detectó AFIP: se loguea en una línea, sin stack
+      throw error;
     }
 
     // Esperar a que aparezca la siguiente página (datos de operación)
@@ -208,7 +210,7 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
     console.log("paso_2_DatosDelReceptor_Unificado ejecutado correctamente.");
     return { success: true, message: "Datos del receptor completados" };
   } catch (error) {
-    console.error("Error al ejecutar paso_2_DatosDelReceptor_Unificado:", error);
+    // Lo imprime una sola vez ejecutarPasoConVerificacion (flujo unificado).
     throw error;
   }
 }

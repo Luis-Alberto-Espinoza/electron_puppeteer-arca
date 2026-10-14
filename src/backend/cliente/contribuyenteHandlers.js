@@ -34,7 +34,11 @@ function setupContribuyenteHandlers(ipcMain) {
         try {
             const c = await repo.getByCuit(String(cuit));
             if (!c) return { success: false, error: 'NO_ENCONTRADO', puntosDeVenta: [] };
-            return { success: true, puntosDeVenta: c.puntosDeVenta || [] };
+            return {
+                success: true,
+                puntosDeVenta: c.puntosDeVenta || [],
+                pdvHabilitadosFacturacion: c.pdvHabilitadosFacturacion || null
+            };
         } catch (e) {
             console.error('[contribuyente:puntosDeVenta] error:', e.message);
             return { success: false, error: e.message, puntosDeVenta: [] };

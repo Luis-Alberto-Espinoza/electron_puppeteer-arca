@@ -5,8 +5,32 @@
 // proceso se registra UNA sola vez para todo el módulo: Facturas y Mercado Pago crean
 // cada uno su AuthManager, y si cada uno se suscribiera, se acumularían.
 let escuchandoFin = false;
-function terminarTrabajo() {
-    if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
+function terminarTrabajo(resultado) {
+    if (window.ruedaTrabajando) {
+        // El backend contesta siempre por acá; si falló, el motivo queda a la vista
+        // (antes solo se apagaba la rueda y el error vivía en la consola).
+        // Los avisos de abajo se dibujan en el formulario de Facturas: solo si está
+        // en pantalla (Mercado Pago usa este mismo listener y no lo tiene).
+        const enFacturas = !!document.getElementById('selectPuntoDeVentaFactura');
+        if (enFacturas && resultado && resultado.codigo === 'PDV_NO_HABILITADO' && window.mostrarPdvHabilitadosFactura) {
+            // No es un error para mostrar: AFIP nos dijo qué PDV ofrece → se
+            // recarga el desplegable con esos y se pide elegir de nuevo.
+            window.ruedaTrabajando.ocultar();
+            window.mostrarPdvHabilitadosFactura(resultado.pdvHabilitados, resultado.pdvElegido);
+        } else if (enFacturas && resultado && resultado.codigo === 'TIPO_PDV_DISTINTO' && window.mostrarTipoCorregidoFactura) {
+            // AFIP dijo de qué tipo es el PDV y el backend ya corrigió el cliente:
+            // se vuelve al formulario con el tipo trabado en la letra correcta.
+            window.ruedaTrabajando.ocultar();
+            window.mostrarTipoCorregidoFactura(resultado.detalle);
+        } else if (resultado && resultado.success === false) {
+            // `message` primero: cuando falla el navegador, `error` es solo un código
+            // interno ('BROWSER_ERROR') y el texto legible viene en `message`.
+            window.ruedaTrabajando.error('No se pudo facturar',
+                resultado.message || resultado.error || 'Error sin detalle: mirá el log del día.');
+        } else {
+            window.ruedaTrabajando.ocultar();
+        }
+    }
     document.querySelectorAll('[data-facturando="1"]').forEach(b => {
         b.disabled = false;
         delete b.dataset.facturando;
