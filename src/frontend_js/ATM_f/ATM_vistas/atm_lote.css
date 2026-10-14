@@ -154,6 +154,14 @@
     background-color: #1a202c;
     padding: 5px 8px;
     border-radius: 4px;
+    /* La ruta no tiene espacios: sin esto el flex no la achica y se sale de la tarjeta */
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.lote-dir-container .lote-btn-abrir-carpeta {
+    flex-shrink: 0;
+    margin-left: 8px;
 }
 
 /* ========================================
