@@ -19,7 +19,7 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
     ipcMain.handle('datosRegistrales:procesar', async (_event, datos) => {
         const { contribuyentes, visible } = datos || {};
         if (!Array.isArray(contribuyentes) || contribuyentes.length === 0) {
-            return { success: false, message: 'No se recibieron contribuyentes para procesar' };
+            return { success: false, error: 'MISSING_CONTRIBUYENTES', message: 'No se recibieron contribuyentes para procesar' };
         }
 
         const total = contribuyentes.length;
@@ -31,11 +31,11 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
         };
 
         // Cierra un contribuyente: lo suma a resultados, avisa al front y al historial.
-        const cerrar = (contribuyente, { success, message, rutaPdf, downloadDir }) => {
-            resultados.push({ contribuyente, success, message, rutaPdf, downloadDir });
+        const cerrar = (contribuyente, { success, error, message, rutaPdf, downloadDir }) => {
+            resultados.push({ contribuyente, success, error, message, rutaPdf, downloadDir });
             enviar({
                 tipo: 'resultado', id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
-                estado: success ? 'exito' : 'error', mensaje: message, rutaPdf, downloadDir,
+                estado: success ? 'exito' : 'error', error, mensaje: message, rutaPdf, downloadDir,
                 procesados: resultados.length, total
             });
             historialRepo.registrar({
@@ -54,7 +54,7 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
             try {
                 const acceso = await repo.resolverAcceso(contribuyente.cuit, 'afip');
                 if (!acceso) {
-                    cerrar(contribuyente, { success: false, message: 'Sin acceso AFIP (ni clave propia ni representante con clave)' });
+                    cerrar(contribuyente, { success: false, error: 'SIN_ACCESO', message: 'Sin acceso AFIP (ni clave propia ni representante con clave)' });
                     continue;
                 }
                 contribuyente.nombre = acceso.objetivoNombre || contribuyente.nombre;
@@ -66,7 +66,7 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
                 }
                 grupos.get(acceso.loginCuit).items.push(contribuyente);
             } catch (e) {
-                cerrar(contribuyente, { success: false, message: e.message });
+                cerrar(contribuyente, { success: false, error: 'UNEXPECTED_ERROR', message: e.message });
             }
         }
 
@@ -74,7 +74,7 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
         const corte = crearCorteCaptchaAfip();
         for (const [loginCuit, grupo] of grupos) {
             if (corte.activo) {
-                grupo.items.forEach(c => cerrar(c, { success: false, message: corte.mensaje }));
+                grupo.items.forEach(c => cerrar(c, { success: false, error: 'CAPTCHA_BLOQUEO', message: corte.mensaje }));
                 continue;
             }
 
@@ -95,11 +95,12 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
                     // Falló el login (o el navegador): nadie del grupo se procesó.
                     const msg = `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
                     const yaCerrados = new Set(resultados.map(x => x.contribuyente.cuit));
-                    grupo.items.filter(c => !yaCerrados.has(c.cuit)).forEach(c => cerrar(c, { success: false, message: msg }));
+                    const error = (r && r.error) || 'LOGIN_FAILED';
+                    grupo.items.filter(c => !yaCerrados.has(c.cuit)).forEach(c => cerrar(c, { success: false, error, message: msg }));
                 }
             } catch (e) {
                 const yaCerrados = new Set(resultados.map(x => x.contribuyente.cuit));
-                grupo.items.filter(c => !yaCerrados.has(c.cuit)).forEach(c => cerrar(c, { success: false, message: e.message }));
+                grupo.items.filter(c => !yaCerrados.has(c.cuit)).forEach(c => cerrar(c, { success: false, error: 'UNEXPECTED_ERROR', message: e.message }));
             }
         }
 
