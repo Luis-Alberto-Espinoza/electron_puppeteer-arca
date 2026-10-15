@@ -1,0 +1,25 @@
+<div class="dr-container">
+    <div class="dr-header">
+        <h2>Datos registrales</h2>
+        <p class="dr-subtitulo">Baja el PDF "Reflejo de datos registrados" de Sistema Registral a la carpeta archivos_afip de cada cliente.</p>
+    </div>
+
+    <!-- Clientes (SelectorUsuarios, modelo plano) -->
+    <div id="selector-contribuyentes-dr"></div>
+
+    <div class="dr-procesar">
+        <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
+        <label class="ui-switch">
+            <input type="checkbox" id="chk-visible-dr" checked>
+            Mostrar navegador
+        </label>
+        <button id="btnProcesarDr" class="ui-btn ui-btn--accion" disabled>
+            ▶ Descargar datos registrales
+        </button>
+    </div>
+
+    <div id="resultadosDr" class="dr-seccion" style="display:none">
+        <div class="dr-seccion-titulo">Resultados <span id="contadorDr" class="dr-contador"></span></div>
+        <div id="resultadosContenidoDr"></div>
+    </div>
+</div>

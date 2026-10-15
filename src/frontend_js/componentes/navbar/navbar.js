@@ -22,6 +22,7 @@
         { clave: 'consultaComprobantes', label: 'Consulta Comprobantes' },
         { clave: 'planesDePago', label: 'Planes de Pago' },
         { clave: 'declaracionJurada', label: 'Declaración Jurada' },
+        { clave: 'datosRegistrales', label: 'Datos registrales' },
     ];
 
     // Subservicios ATM: van todos a la vista ATM (lote) y activan su panel.

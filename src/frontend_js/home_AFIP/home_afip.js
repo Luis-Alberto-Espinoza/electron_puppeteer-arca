@@ -62,6 +62,13 @@ function inicializarHomeAfip() {
             document.dispatchEvent(new CustomEvent('cargarModuloDeclaracionJurada'));
         });
     }
+
+    const btnDatosRegistrales = document.getElementById('btnDatosRegistrales');
+    if (btnDatosRegistrales) {
+        btnDatosRegistrales.addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('cargarModuloDatosRegistrales'));
+        });
+    }
 }
 
 /**

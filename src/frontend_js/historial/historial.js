@@ -16,7 +16,8 @@
         declaracionJurada: 'Declaración Jurada',
         tasaCero: 'Tasa Cero',
         retenciones: 'Retenciones',
-        planDePago: 'Plan de Pago'
+        planDePago: 'Plan de Pago',
+        datosRegistrales: 'Datos registrales'
     };
 
     const LABEL_ESTADO = {

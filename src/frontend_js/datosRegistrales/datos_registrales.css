@@ -1,0 +1,57 @@
+/* Datos registrales — colores del tema AFIP (tema_afip.css: --v-*) */
+
+.dr-header {
+    margin-bottom: 16px;
+}
+.dr-subtitulo {
+    color: var(--v-texto-2);
+    margin-top: 4px;
+}
+
+.dr-procesar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 16px 0;
+}
+
+.dr-seccion {
+    background: var(--v-panel);
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+    padding: 12px 16px;
+}
+.dr-seccion-titulo {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.dr-contador {
+    font-weight: normal;
+    color: var(--v-texto-2);
+}
+
+.dr-resultado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    border-radius: var(--radio-sm);
+    overflow-wrap: anywhere;
+}
+.dr-resultado-texto {
+    flex: 1;
+    min-width: 0;
+}
+.dr-resultado-procesando { background: var(--v-info-bg);  color: var(--v-txt-info); }
+.dr-resultado-exito      { background: var(--v-ok-bg);    color: var(--v-txt-ok); }
+.dr-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
+.dr-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
+
+.dr-resultado .ui-btn {
+    padding: 4px 10px;
+    font-size: 0.85em;
+    flex-shrink: 0;
+}

@@ -127,6 +127,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onUpdate: (callback) => ipcRenderer.on('planesDePago:update', (_event, datos) => callback(datos))
     },
 
+    // APIs para Datos registrales (Sistema Registral → PDF, lote)
+    datosRegistrales: {
+        procesar: (datos) => ipcRenderer.invoke('datosRegistrales:procesar', datos),
+        onUpdate: (callback) => ipcRenderer.on('datosRegistrales:update', (_event, datos) => callback(datos))
+    },
+
     // APIs para VEP (Volante Electrónico de Pago)
     vep: {
         generar: (datos) => ipcRenderer.invoke('vep:generar', datos),
