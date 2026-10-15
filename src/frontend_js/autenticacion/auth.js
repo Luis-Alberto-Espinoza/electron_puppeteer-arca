@@ -5,23 +5,45 @@
 // proceso se registra UNA sola vez para todo el módulo: Facturas y Mercado Pago crean
 // cada uno su AuthManager, y si cada uno se suscribiera, se acumularían.
 let escuchandoFin = false;
+
+// Pantallas que saben responder a los avisos de PDV del paso 0. Cada una se
+// registra con el id de su desplegable de PDV (el "ancla"): auth.js no conoce
+// ninguna pantalla, solo le pasa el aviso a la que APRETÓ el botón. No sirve
+// mirar cuál está visible: Facturas y Mercado Pago pueden estar abiertos a la vez.
+const manejadoresPdv = new Map();   // anclaId → { noHabilitado, tipoCorregido }
+let anclaTrabajando = null;         // ancla de la pantalla que está facturando
+
+/**
+ * @param {string} anclaId  id del <select> de PDV de la pantalla
+ * @param {{noHabilitado: function(string[], string), tipoCorregido: function({puntoVenta: string, letra: string})}} manejador
+ */
+export function registrarManejadorPdv(anclaId, manejador) {
+    manejadoresPdv.set(anclaId, manejador);
+}
+
+// Si la pantalla se cerró mientras facturaba (MP vacía su HTML), no hay dónde
+// dibujar el aviso: cae al cartel de error común.
+function manejadorPdvDelTrabajo() {
+    const anclaId = anclaTrabajando;
+    anclaTrabajando = null;
+    return anclaId && document.getElementById(anclaId) ? manejadoresPdv.get(anclaId) || null : null;
+}
+
 function terminarTrabajo(resultado) {
     if (window.ruedaTrabajando) {
         // El backend contesta siempre por acá; si falló, el motivo queda a la vista
         // (antes solo se apagaba la rueda y el error vivía en la consola).
-        // Los avisos de abajo se dibujan en el formulario de Facturas: solo si está
-        // en pantalla (Mercado Pago usa este mismo listener y no lo tiene).
-        const enFacturas = !!document.getElementById('selectPuntoDeVentaFactura');
-        if (enFacturas && resultado && resultado.codigo === 'PDV_NO_HABILITADO' && window.mostrarPdvHabilitadosFactura) {
+        const manejador = manejadorPdvDelTrabajo();
+        if (manejador && resultado && resultado.codigo === 'PDV_NO_HABILITADO') {
             // No es un error para mostrar: AFIP nos dijo qué PDV ofrece → se
             // recarga el desplegable con esos y se pide elegir de nuevo.
             window.ruedaTrabajando.ocultar();
-            window.mostrarPdvHabilitadosFactura(resultado.pdvHabilitados, resultado.pdvElegido);
-        } else if (enFacturas && resultado && resultado.codigo === 'TIPO_PDV_DISTINTO' && window.mostrarTipoCorregidoFactura) {
+            manejador.noHabilitado(resultado.pdvHabilitados, resultado.pdvElegido);
+        } else if (manejador && resultado && resultado.codigo === 'TIPO_PDV_DISTINTO') {
             // AFIP dijo de qué tipo es el PDV y el backend ya corrigió el cliente:
-            // se vuelve al formulario con el tipo trabado en la letra correcta.
+            // se vuelve al formulario con el PDV recargado y el aviso.
             window.ruedaTrabajando.ocultar();
-            window.mostrarTipoCorregidoFactura(resultado.detalle);
+            manejador.tipoCorregido(resultado.detalle);
         } else if (resultado && resultado.success === false) {
             // `message` primero: cuando falla el navegador, `error` es solo un código
             // interno ('BROWSER_ERROR') y el texto legible viene en `message`.
@@ -47,6 +69,7 @@ export class AuthManager {
         this.loginButton = null;
         this.testButton = null;
         this.visibleSwitchId = null;
+        this.pdvAnclaId = null;
     }
 
     // Inicializa los eventos de autenticación con selectores personalizables
@@ -54,10 +77,12 @@ export class AuthManager {
         const {
             loginButtonId = 'loginButton',
             testButtonId = 'testButton',
-            visibleSwitchId = 'chk-visible-factura'
+            visibleSwitchId = 'chk-visible-factura',
+            pdvAnclaId = 'selectPuntoDeVentaFactura'   // ver registrarManejadorPdv
         } = config;
 
         this.visibleSwitchId = visibleSwitchId;
+        this.pdvAnclaId = pdvAnclaId;
         this.loginButton = document.getElementById(loginButtonId);
         this.testButton = document.getElementById(testButtonId);
 
@@ -67,6 +92,7 @@ export class AuthManager {
 
     // Rueda + botones bloqueados (evita mandar dos facturas con un doble click).
     _empezarTrabajo(esTest) {
+        anclaTrabajando = this.pdvAnclaId;
         for (const b of [this.loginButton, this.testButton]) {
             if (b) { b.disabled = true; b.dataset.facturando = '1'; }
         }

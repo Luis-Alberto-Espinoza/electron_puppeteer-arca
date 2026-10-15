@@ -547,46 +547,8 @@ async function manejarCambioEmpresa({ desdeUsuario } = {}) {  // eslint-disable-
     ocultarPdvInfo();   // el aviso de un cliente/corrida anterior no sigue colgado
     resetPdvSelect('Cargando puntos de venta…');
 
-    let pdvs = [];
-    try {
-        const resp = await window.electronAPI.contribuyente.puntosDeVenta(usuario.cuit);
-        pdvs = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
-    } catch (e) {
-        console.error('❌ Error obteniendo PDV:', e);
-    }
-
-    popularPdvSelect(pdvs, true);
-}
-
-/**
- * Filtro defensivo para selects de PDV en frontend.
- * Si el PDV tiene un `sistema` declarado (vino del ABM), exigir que sea uno de
- * los dos sabores de Factura en Línea: Responsable Inscripto (comprobante B) o
- * Monotributo (comprobante C). Los dos flujos existen en facturación (paso_0
- * elige el tipo por tipoContribuyente), así que los dos PDV son operables.
- * Si no tiene sistema (vino del fallback Comprobantes en Línea), dejar pasar.
- * Cubre datos viejos del JSON guardados antes del filtrado en backend.
- *
- * ESPEJO de SISTEMAS_OPERABLES en
- * src/backend/puppeteer/afip/empresa/flujo_abmPuntosDeVenta.js: si allá se
- * agrega o saca un sistema, hay que tocarlo acá también.
- *
- * NO se exige `activo === true`: por consulta con contador, la columna
- * "Usado" del ABM no es bloqueante — un PDV puede estar habilitado para
- * Factura en Línea aunque todavía no se haya emitido nunca desde ahí.
- */
-const _SISTEMAS_PDV_OPERABLES = new Set([
-    'factura en linea - responsable inscripto',
-    'factura en linea - monotributo'
-]);
-
-function _esPdvOperable(p) {
-    if (!p || !p.numero) return false;
-    if (p.sistema) {
-        const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        return _SISTEMAS_PDV_OPERABLES.has(norm(p.sistema));
-    }
-    return true;
+    // Misma regla que Facturas y Mercado Pago (frontend_js/facturas/pdvOfrecibles.js).
+    popularPdvSelect(await window.pdvOfrecibles(usuario.cuit), true);
 }
 
 /**
@@ -596,9 +558,6 @@ function _esPdvOperable(p) {
 function popularPdvSelect(pdvs, preseleccionarPrimero) {
     const selectPdv = document.getElementById('puntoDeVentaSelect');
     if (!selectPdv) return;
-
-    // Filtro defensivo por si el JSON tiene datos viejos sin filtrar.
-    pdvs = Array.isArray(pdvs) ? pdvs.filter(_esPdvOperable) : [];
 
     if (!Array.isArray(pdvs) || pdvs.length === 0) {
         selectPdv.innerHTML = '<option value="">— sin facturación habilitada —</option>';
@@ -1215,6 +1174,8 @@ async function manejarGenerar() {
     const form = document.getElementById('formFacturaTipificada');
 
     // Lista final de facturas distintas a generar (clon de las guardadas).
+    // `enviados` guarda cuál es cuál: el backend contesta por índice.
+    const enviados = grupos.slice();
     const gruposParaEnviar = grupos.map(g => clonar(g.datos));
 
     // Incluir el formulario actual si el usuario dejó datos cargados.
@@ -1262,11 +1223,22 @@ async function manejarGenerar() {
 
         console.log('📥 Resultado recibido:', resultado);
 
+        // Lote cortado por el PDV (otra letra o no habilitado): las facturas
+        // distintas que ya salieron completas se sacan de la lista, así volver a
+        // generar no las emite de nuevo.
+        const cortado = !!(resultado.tipoCorregido || resultado.pdvNoHabilitado);
+        const quitadas = cortado ? quitarGruposEmitidos(enviados, resultado.gruposEmitidos) : [];
+
         if (resultado.success) {
             if (resultado.modoTest) {
                 mostrarResultadoModoPrueba(resultado);
             } else if (resultado.resultados) {
-                mostrarResumenFinal(resultado.resultados);
+                mostrarResumenFinal(resultado.resultados, cortado
+                    ? 'El lote se cortó por el punto de venta: no se generó nada más después del error. ' +
+                      (quitadas.length
+                          ? `Las facturas distintas ${quitadas.join(', ')} ya salieron y se sacaron de la lista; las demás quedaron cargadas para volver a generar.`
+                          : 'Lo que no salió quedó cargado para volver a generar.')
+                    : null);
             }
         } else {
             mostrarError(resultado.message || 'Error al generar las facturas');
@@ -1276,6 +1248,10 @@ async function manejarGenerar() {
         // la pantalla se pone al día sin recargar ni volver a llenar nada.
         if (resultado.tipoCorregido) {
             await aplicarTipoCorregido(resultado.tipoCorregido);
+        }
+        // AFIP no habilita el PDV: se recarga el desplegable con los que ofrece.
+        if (resultado.pdvNoHabilitado) {
+            await aplicarPdvNoHabilitado(resultado.pdvNoHabilitado);
         }
 
     } catch (error) {
@@ -1343,6 +1319,55 @@ async function aplicarTipoCorregido({ puntoVenta, letra }) {
         'aviso'
     );
     document.getElementById('formFacturaTipificada')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/**
+ * Saca de `grupos` las facturas distintas que el backend emitió completas.
+ * @param {Array} enviados          copia de `grupos` al momento de mandar el lote
+ * @param {number[]} [indices]      índices (en `enviados`) emitidos; el form actual
+ *                                  va último y no está en `enviados`: se ignora
+ * @returns {number[]} números (1..N, como en las tarjetas) de las que se sacaron
+ */
+function quitarGruposEmitidos(enviados, indices) {
+    const emitidos = (indices || []).filter(i => enviados[i]);
+    if (emitidos.length === 0) return [];
+    const sacar = new Set(emitidos.map(i => enviados[i]));
+    const editado = grupoEnEdicion !== null ? grupos[grupoEnEdicion] : null;
+    grupos = grupos.filter(g => !sacar.has(g));
+    grupoEnEdicion = editado && grupos.includes(editado) ? grupos.indexOf(editado) : null;
+    actualizarBotonFacturaDistinta();
+    renderGruposGuardados();
+    return emitidos.map(i => i + 1);
+}
+
+/**
+ * Vuelta con `pdvNoHabilitado` (AFIP no ofrece ese PDV en Comprobantes en línea;
+ * el backend ya guardó la lista): se recarga el desplegable con los que ofrece,
+ * sin elegir ninguno, y SIN tocar lo cargado.
+ * @param {{habilitados: string[], elegido: string}} detalle
+ */
+async function aplicarPdvNoHabilitado({ habilitados, elegido }) {
+    const usuario = window.usuarioSeleccionado;
+    if (!usuario) return;
+
+    popularPdvSelect(await window.pdvOfrecibles(usuario.cuit, habilitados), false);
+
+    // Facturas distintas guardadas con ese PDV: van a fallar igual.
+    const aRevisar = [];
+    grupos.forEach((g, i) => {
+        if (g.datos && g.datos.datosComunes && g.datos.datosComunes.puntoVenta === elegido) aRevisar.push(i + 1);
+    });
+
+    mostrarPdvInfo(
+        `⚠️ AFIP no habilita el punto de venta ${elegido} para facturar. Estos son los que ofrece hoy: elegí uno y volvé a generar.` +
+        (aRevisar.length ? ` Cambiá también el punto de venta de la(s) factura(s) guardada(s) ${aRevisar.join(', ')}.` : ''),
+        'aviso'
+    );
+    const select = document.getElementById('puntoDeVentaSelect');
+    if (select) {
+        select.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        select.focus();
+    }
 }
 
 /**
@@ -2037,7 +2062,7 @@ function actualizarItemProgreso(numeroFactura, estado, mensaje = '') {
 /**
  * Muestra el resumen final de todas las facturas generadas
  */
-function mostrarResumenFinal(resultados) {
+function mostrarResumenFinal(resultados, nota = null) {
     const areaProgreso = document.getElementById('areaProgreso');
     const areaResultados = document.getElementById('areaResultados');
     const mensajeResultado = document.getElementById('mensajeResultado');
@@ -2055,23 +2080,31 @@ function mostrarResumenFinal(resultados) {
             <p><strong>Total procesadas:</strong> ${resultados.length}</p>
             <p><strong>✅ Exitosas:</strong> ${exitosas}</p>
             <p><strong>❌ Fallidas:</strong> ${fallidas}</p>
+            ${nota ? `<p><strong>⚠️ ${nota}</strong></p>` : ''}
             <hr>
             <h5>Detalles:</h5>
             <ul class="lista-resultados">
     `;
 
+    // Con varias facturas distintas se dice de cuál es cada comprobante
+    // (número de tarjeta al momento de generar).
+    const variosGrupos = new Set(resultados.map(r => r.grupo)).size > 1;
+    const etiquetaResultado = (r, index) => variosGrupos && r.grupo !== undefined
+        ? `Factura distinta ${r.grupo + 1} · comprobante #${r.numeroFactura}`
+        : `Factura #${index + 1}`;
+
     resultados.forEach((resultado, index) => {
         if (resultado.success) {
             html += `
                 <li class="resultado-exitoso">
-                    ✅ Factura #${index + 1}
+                    ✅ ${etiquetaResultado(resultado, index)}
                     ${resultado.pdfPath ? `<br><small>PDF: ${resultado.pdfPath}</small>` : ''}
                 </li>
             `;
         } else {
             html += `
                 <li class="resultado-error">
-                    ❌ Factura #${index + 1}: ${resultado.message || resultado.error}
+                    ❌ ${etiquetaResultado(resultado, index)}: ${resultado.message || resultado.error}
                 </li>
             `;
         }

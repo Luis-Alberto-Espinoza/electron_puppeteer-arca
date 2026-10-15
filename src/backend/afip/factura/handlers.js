@@ -6,6 +6,7 @@ const facturaManagerUnificado = require('./facturaManagerUnificado.js');
 const { listarRazonesSociales, normalizarNumeroPdv, tipoContribuyenteDesdePuntosDeVenta } = require('../../cliente/model.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
+const { aprenderPdvHabilitados, aprenderTipoDelPdv } = require('./aprenderPdv.js');
 
 // En facturas el CUIT puede venir como `cuit` o `cuil`; normalizamos acá.
 const clienteFactura = (u) => historialRepo.clienteDesdeUsuario(
@@ -18,72 +19,6 @@ let resultadoCodigo = null;
 let usuarioSeleccionado = null;
 let empresaElegida = null;
 let ultimaEmpresaElegida = null;
-
-/**
- * Guarda en el cliente los PDV que Comprobantes en línea ofreció (falle o no la
- * factura), así el desplegable deja de ofrecer PDV que AFIP ya no habilita. Si el
- * PDV elegido no estaba, marca el resultado con el código PDV_NO_HABILITADO y la
- * lista: el front recarga el desplegable en vez de mostrar un error.
- */
-async function aprenderPdvHabilitados(cuitObjetivo, resultado) {
-    const habilitados = resultadoCodigo && resultadoCodigo.pdvHabilitadosAfip;
-    if (!Array.isArray(habilitados) || habilitados.length === 0) return;
-
-    try {
-        await getContribuyenteRepo().actualizar(String(cuitObjetivo), {
-            pdvHabilitadosFacturacion: { numeros: habilitados, fecha: new Date().toISOString() }
-        });
-    } catch (e) {
-        console.warn(`No se pudieron guardar los PDV habilitados de ${cuitObjetivo}: ${e.message}`);
-    }
-
-    const elegido = normalizarNumeroPdv(resultadoCodigo.puntoVenta);
-    if (resultado && resultado.success === false && elegido && !habilitados.includes(elegido)) {
-        resultado.codigo = 'PDV_NO_HABILITADO';
-        resultado.pdvHabilitados = habilitados;
-        resultado.pdvElegido = elegido;
-    }
-}
-
-const SISTEMA_POR_LETRA = {
-    B: 'Factura en Linea - Responsable Inscripto',
-    C: 'Factura en Linea - Monotributo'
-};
-
-/**
- * El paso 0 avisa (TIPO_PDV_DISTINTO) cuando AFIP no ofrece el comprobante pedido
- * y, por lo que sí ofrece, de qué tipo es HOY ese PDV. Manda AFIP: se corrige el
- * sistema del PDV y el tipo del cliente, así la próxima vez el formulario ya
- * viene bien sin gastar otro login. Devuelve el detalle si corrigió, si no null.
- */
-async function aprenderTipoDelPdv(cuitObjetivo, resultado) {
-    const conCodigo = resultado && (resultado.codigo
-        ? resultado
-        : (resultado.data?.resultados || []).find(r => r && r.codigo));
-    if (!conCodigo || conCodigo.codigo !== 'TIPO_PDV_DISTINTO' || !conCodigo.detalle) return null;
-
-    const numero = normalizarNumeroPdv(conCodigo.detalle.puntoVenta);
-    const letra = conCodigo.detalle.letra;
-    if (!numero || !SISTEMA_POR_LETRA[letra]) return null;
-
-    try {
-        const repo = getContribuyenteRepo();
-        const cliente = await repo.getByCuit(String(cuitObjetivo));
-        if (!cliente) return null;
-        const pdvs = (cliente.puntosDeVenta || []).map(p =>
-            p.numero === numero ? { ...p, sistema: SISTEMA_POR_LETRA[letra] } : p);
-        if (!pdvs.some(p => p.numero === numero)) pdvs.push({ numero, sistema: SISTEMA_POR_LETRA[letra] });
-        await repo.actualizar(cliente.cuit, { puntosDeVenta: pdvs, tipoContribuyente: letra });
-        console.log(`🔄 ${cliente.cuit}: AFIP indica que el PDV ${numero} es ${letra} → se corrige el cliente (tenía ${cliente.tipoContribuyente || 'vacío'}).`);
-    } catch (e) {
-        console.warn(`No se pudo corregir el tipo del PDV ${numero} de ${cuitObjetivo}: ${e.message}`);
-        return null;
-    }
-
-    resultado.codigo = 'TIPO_PDV_DISTINTO';
-    resultado.detalle = { puntoVenta: numero, letra };
-    return resultado.detalle;
-}
 
 /**
  * Configura los handlers IPC para el dominio de facturacion
@@ -204,7 +139,7 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                 null,
                 { visible: data.visible } // false = navegador oculto
             );
-            await aprenderPdvHabilitados(cuitObjetivo, resultado);
+            await aprenderPdvHabilitados(cuitObjetivo, resultado, resultadoCodigo);
             await aprenderTipoDelPdv(cuitObjetivo, resultado);
             event.reply('login-automatizado', resultado);
 
@@ -343,12 +278,15 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
 
         const resultados = [];
         let indiceGlobal = 0; // 1..N a través de todos los grupos (id de progreso unico)
-        // Si AFIP corrige el tipo del PDV, los comprobantes que siguen fallarían
-        // igual (un login cada uno): se corta el lote.
+        // Si AFIP corrige el tipo del PDV o no lo habilita, los comprobantes que
+        // siguen fallarían igual (un login cada uno): se corta el lote.
         let tipoCorregido = null;
+        let pdvNoHabilitado = null;
 
         // Recorrer cada factura distinta (cabezal propio) y dentro sus comprobantes.
-        for (const grupo of grupos) {
+        // Cada resultado lleva su `grupo` (índice en `grupos`): si el lote se corta,
+        // el front saca los grupos ya emitidos y reintentar no los re-emite.
+        for (const [indiceGrupo, grupo] of grupos.entries()) {
             const datosComunes = grupo.datosComunes;
             const facturas = grupo.facturas || [];
 
@@ -412,8 +350,10 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                         null,
                         { visible: datos.visible } // una sola elección para todo el lote
                     );
-                    tipoCorregido = await aprenderTipoDelPdv(
-                        datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil, resultado);
+                    const cuitGrupo = datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil;
+                    // El paso 0 dejó en datosFactura lo que ofrece Comprobantes en línea.
+                    pdvNoHabilitado = await aprenderPdvHabilitados(cuitGrupo, resultado, datosFactura);
+                    tipoCorregido = await aprenderTipoDelPdv(cuitGrupo, resultado);
 
                     // Si es modo test, cortar despues del primer comprobante
                     if (usarModoTest) {
@@ -421,7 +361,7 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                         if (!resultado || resultado.success === false) {
                             const mensaje = resultado?.message || resultado?.error || 'La factura de prueba no se pudo generar.';
                             console.warn(`🧪 MODO PRUEBA con error: ${mensaje}`);
-                            return { success: false, modoTest: true, message: mensaje, tipoCorregido };
+                            return { success: false, modoTest: true, message: mensaje, tipoCorregido, pdvNoHabilitado };
                         }
                         console.log('🧪 MODO PRUEBA completado - Revisa la captura');
                         return {
@@ -465,12 +405,13 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
 
                         resultados.push({
                             success: false,
+                            grupo: indiceGrupo,
                             numeroFactura: indiceGlobal,
                             message: mensajeError,
                             error: mensajeError
                         });
 
-                        if (tipoCorregido) break;
+                        if (tipoCorregido || pdvNoHabilitado) break;
 
                         // Pausa antes del siguiente, igual que en el caso exitoso.
                         if (indiceGlobal < totalComprobantes) {
@@ -494,6 +435,7 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
 
                     resultados.push({
                         success: true,
+                        grupo: indiceGrupo,
                         numeroFactura: indiceGlobal,
                         message: resultado.message,
                         pdfPath: pdfPath
@@ -520,6 +462,7 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
 
                     resultados.push({
                         success: false,
+                        grupo: indiceGrupo,
                         numeroFactura: indiceGlobal,
                         message: error.message,
                         error: error.toString()
@@ -530,6 +473,10 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
             }
             if (tipoCorregido) {
                 console.warn(`Lote cortado: AFIP indica que el PDV ${tipoCorregido.puntoVenta} es ${tipoCorregido.letra}; se corrigió el cliente, revisá el tipo de comprobante y volvé a generar.`);
+                break;
+            }
+            if (pdvNoHabilitado) {
+                console.warn(`Lote cortado: AFIP no habilita el PDV ${pdvNoHabilitado.elegido}; ofrece ${pdvNoHabilitado.habilitados.join(', ')}.`);
                 break;
             }
         }
@@ -558,6 +505,14 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
             resultados: resultados,
             // AFIP corrigió el tipo del PDV: la pantalla se actualiza con esto.
             tipoCorregido,
+            // AFIP no habilita el PDV elegido: { habilitados, elegido } para recargar el desplegable.
+            pdvNoHabilitado,
+            // Grupos con TODOS sus comprobantes emitidos (índices en `grupos`).
+            gruposEmitidos: grupos.flatMap((g, i) => {
+                const cantidad = (g.facturas || []).length;
+                const ok = resultados.filter(r => r.grupo === i && r.success).length;
+                return cantidad > 0 && ok === cantidad ? [i] : [];
+            }),
             resumen: {
                 total: resultados.length,
                 exitosas: exitosas,

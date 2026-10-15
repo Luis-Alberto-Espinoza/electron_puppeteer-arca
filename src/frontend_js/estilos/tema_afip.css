@@ -288,3 +288,25 @@ html {
     background: #43e97b;
     box-shadow: none;
 }
+
+/* ===== 13. Aviso del PDV (Facturación normal y Mercado Pago) =====
+   Vuelta de AFIP: PDV no habilitado o de otra letra. Recuadro amarillo para que no
+   se confunda con un texto más del formulario; el desplegable de PDV queda marcado. */
+#modulosAfipDiv :is(#facturasDiv, #leerMercadoPagoDiv) .aviso-pdv-factura {
+    margin: 0 0 12px;
+    padding: 12px 14px;
+    border-radius: var(--radio);
+    border: 1px solid color-mix(in srgb, var(--c-acento), transparent 50%);
+    border-left: 5px solid var(--c-acento);
+    background: color-mix(in srgb, var(--c-acento), transparent 85%);
+    color: #fff8d6;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+#modulosAfipDiv :is(#facturasDiv, #leerMercadoPagoDiv) .aviso-pdv-factura::before {
+    content: "⚠️ ";
+}
+#modulosAfipDiv :is(#facturasDiv, #leerMercadoPagoDiv) .pdv-a-revisar select {
+    outline: 2px solid var(--c-acento);
+    outline-offset: 2px;
+}

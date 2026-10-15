@@ -1,4 +1,6 @@
 import { inicializarInterfazFacturas } from './facturas/interfazFacturas.js';
+// Deja window.pdvOfrecibles para Factura Tipificada (script clásico, no puede importar).
+import './facturas/pdvOfrecibles.js';
 
 /**
  * Oculta todos los submódulos al cambiar de módulo

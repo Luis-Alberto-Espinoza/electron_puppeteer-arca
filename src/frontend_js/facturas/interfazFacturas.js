@@ -2,6 +2,8 @@ import { procesarDatosTextareas } from './procesarDatosMasivos.js';
 import { procesarFormularioFactura } from './facturas.js'; // Removida la importación de realizarAccionFacturacion
 import { implementarSeguro } from './paraStorage.js';
 import { inicializarFacturas } from './index_01.js';
+import { pdvOfrecibles } from './pdvOfrecibles.js';
+import { registrarManejadorPdv } from '../autenticacion/auth.js';
 
 
 let datosMasivos = [];
@@ -297,40 +299,7 @@ async function popularPuntosDeVentaFactura(cuit, habilitadosForzados = null) {
     selectPdv.innerHTML = '<option value="">Cargando puntos de venta…</option>';
     selectPdv.disabled = true;
 
-    let todos = [];
-    let habilitados = habilitadosForzados;
-    try {
-        const resp = await window.electronAPI.contribuyente.puntosDeVenta(cuit);
-        todos = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
-        if (!habilitados && resp && resp.pdvHabilitadosFacturacion) {
-            habilitados = resp.pdvHabilitadosFacturacion.numeros;
-        }
-    } catch (e) {
-        console.error('Error obteniendo puntos de venta:', e);
-    }
-
-    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser uno de los
-    // dos sabores de Factura en Línea (Responsable Inscripto → B, Monotributo → C).
-    // ESPEJO de SISTEMAS_OPERABLES en
-    // src/backend/puppeteer/afip/empresa/flujo_abmPuntosDeVenta.js: si allá se
-    // agrega o saca un sistema, hay que tocarlo acá también.
-    // Sin requisito de `activo` (la columna "Usado" del ABM no es bloqueante — un
-    // PDV puede estar habilitado sin haber emitido todavía).
-    let pdvs;
-    if (Array.isArray(habilitados) && habilitados.length > 0) {
-        // Manda AFIP: los que ofrece, aunque no los tengamos del ABM (PDV creado
-        // después del análisis → solo el número).
-        pdvs = habilitados.map(n => todos.find(p => p && p.numero === n) || { numero: n });
-    } else {
-        pdvs = todos.filter(p => {
-            if (!p || !p.numero) return false;
-            if (p.sistema) {
-                return SISTEMAS_OPERABLES.has(normSistema(p.sistema));
-            }
-            return true;
-        });
-    }
-    pdvs.sort((a, b) => a.numero.localeCompare(b.numero));
+    const pdvs = await pdvOfrecibles(cuit, habilitadosForzados);
 
     selectPdv.innerHTML = '';
 
@@ -421,10 +390,6 @@ function letraDePdv(p) {
 }
 
 const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-const SISTEMAS_OPERABLES = new Set([
-    'factura en linea - responsable inscripto',
-    'factura en linea - monotributo'
-]);
 
 // La letra que va a salir depende del sistema del PDV (el backend decide igual):
 // mostrarla evita elegir a ciegas cuando todos tienen el mismo domicilio.
@@ -576,5 +541,9 @@ function mostrarResultadoFactura(resultado) {
 // Exportar funciones para que puedan ser llamadas desde controlador.js al cambiar de usuario
 window.configurarUsuarioEnFacturas = configurarUsuarioEnFacturas;
 window.configurarEmpresasDisponibles = configurarEmpresasDisponibles;
-window.mostrarPdvHabilitadosFactura = mostrarPdvHabilitadosFactura;
-window.mostrarTipoCorregidoFactura = mostrarTipoCorregidoFactura;
+
+// Vuelta del paso 0 con aviso de PDV (auth.js la reparte a la pantalla visible).
+registrarManejadorPdv('selectPuntoDeVentaFactura', {
+    noHabilitado: mostrarPdvHabilitadosFactura,
+    tipoCorregido: mostrarTipoCorregidoFactura
+});

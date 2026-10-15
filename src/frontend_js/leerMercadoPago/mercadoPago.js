@@ -1,5 +1,6 @@
 import { mercadoPagoFacturas } from '../facturas/facturas.js';
-import { AuthManager, realizarLoginNormal, realizarLoginTest, obtenerCredencialesAfip } from '../autenticacion/auth.js';
+import { AuthManager, realizarLoginNormal, realizarLoginTest, obtenerCredencialesAfip, registrarManejadorPdv } from '../autenticacion/auth.js';
+import { pdvOfrecibles } from '../facturas/pdvOfrecibles.js';
 
 function mostrarTablas(datos) {
     // Actualizar tabla de fechas (totales diarios)
@@ -401,7 +402,8 @@ function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
     authManager.inicializar({
         loginButtonId: 'loginButtonMP',
         testButtonId: 'testButtonMP',
-        visibleSwitchId: 'chk-visible-mp'
+        visibleSwitchId: 'chk-visible-mp',
+        pdvAnclaId: 'selectPuntoDeVentaMP'
     });
 }
 
@@ -470,42 +472,20 @@ document.addEventListener('DOMContentLoaded', () => {
 window.configurarUsuarioMercadoPago = inicializarUsuarioEmpresaActividadMP;
 
 /**
- * Pobla el <select id="selectPuntoDeVentaMP"> con los PDV cacheados de la empresa
- * en el índice dado. Cliente llega ya analizado (Fase 5), así que sin fetch lazy.
+ * Pobla el <select id="selectPuntoDeVentaMP"> con los PDV que se pueden ofrecer
+ * (misma regla que Facturas y Tipificada: ver pdvOfrecibles.js).
+ * @param {string} cuit
+ * @param {string[]|null} [habilitadosForzados] lista recién devuelta por AFIP
  */
-async function popularPuntosDeVentaMP(cuit) {
+async function popularPuntosDeVentaMP(cuit, habilitadosForzados = null) {
     const selectPdv = document.getElementById('selectPuntoDeVentaMP');
     if (!selectPdv) return;
 
+    if (!habilitadosForzados) mostrarAvisoPdvMP(null);
     selectPdv.innerHTML = '<option value="">Cargando puntos de venta…</option>';
     selectPdv.disabled = true;
 
-    let pdvs = [];
-    try {
-        const resp = await window.electronAPI.contribuyente.puntosDeVenta(cuit);
-        pdvs = (resp && resp.success && Array.isArray(resp.puntosDeVenta)) ? resp.puntosDeVenta : [];
-    } catch (e) {
-        console.error('Error obteniendo puntos de venta MP:', e);
-    }
-
-    // Filtro defensivo: si el PDV tiene `sistema` declarado, debe ser uno de los
-    // dos sabores de Factura en Línea (Responsable Inscripto → B, Monotributo → C).
-    // ESPEJO de SISTEMAS_OPERABLES en
-    // src/backend/puppeteer/afip/empresa/flujo_abmPuntosDeVenta.js: si allá se
-    // agrega o saca un sistema, hay que tocarlo acá también.
-    // Sin requisito de `activo` (la columna "Usado" del ABM no es bloqueante).
-    const normSistema = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
-    const SISTEMAS_OPERABLES = new Set([
-        'factura en linea - responsable inscripto',
-        'factura en linea - monotributo'
-    ]);
-    pdvs = pdvs.filter(p => {
-        if (!p || !p.numero) return false;
-        if (p.sistema) {
-            return SISTEMAS_OPERABLES.has(normSistema(p.sistema));
-        }
-        return true;
-    });
+    const pdvs = await pdvOfrecibles(cuit, habilitadosForzados);
 
     selectPdv.innerHTML = '';
 
@@ -531,8 +511,83 @@ async function popularPuntosDeVentaMP(cuit) {
 
     selectPdv.onchange = () => {
         window.puntoVentaElegidoMP = selectPdv.value;
+        mostrarAvisoPdvMP(null);
     };
 }
+
+// Aviso dentro del formulario, pegado al desplegable de PDV (null = sacarlo).
+// Misma clase que el de Facturas.
+function mostrarAvisoPdvMP(texto) {
+    const contenedor = document.getElementById('puntoDeVentaMPContainer');
+    if (!contenedor) return;
+    let aviso = document.getElementById('avisoPdvMP');
+    if (!texto) {
+        if (aviso) aviso.remove();
+        contenedor.classList.remove('pdv-a-revisar');
+        return;
+    }
+    if (!aviso) {
+        aviso = document.createElement('p');
+        aviso.id = 'avisoPdvMP';
+        aviso.className = 'aviso-pdv-factura';
+        contenedor.prepend(aviso);
+    }
+    aviso.textContent = texto;
+    contenedor.classList.add('pdv-a-revisar');
+}
+
+function llevarAlPdvMP() {
+    const selectPdv = document.getElementById('selectPuntoDeVentaMP');
+    if (selectPdv) {
+        selectPdv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        selectPdv.focus();
+    }
+}
+
+/**
+ * Vuelta del paso 0 con PDV_NO_HABILITADO: se recarga el desplegable con lo que
+ * AFIP ofreció y se pide elegir otro. Lo leído de Mercado Pago no se toca.
+ */
+async function mostrarPdvHabilitadosMP(habilitados, elegido) {
+    const usuario = window.usuarioSeleccionado;
+    if (!usuario) return;
+    await popularPuntosDeVentaMP(usuario.cuit, habilitados);
+    mostrarAvisoPdvMP(
+        `AFIP no habilita ${elegido ? `el punto de venta ${elegido}` : 'ese punto de venta'} para facturar. ` +
+        'Estos son los que ofrece hoy: elegí uno y volvé a generar.'
+    );
+    llevarAlPdvMP();
+}
+
+/**
+ * Vuelta con TIPO_PDV_DISTINTO: el backend ya corrigió el sistema del PDV y el tipo
+ * del cliente (MP no manda letra: el back usa la del PDV), así que reintentar con
+ * el mismo PDV ya sale con la letra correcta. Se recarga y se avisa.
+ */
+async function mostrarTipoCorregidoMP(detalle) {
+    const usuario = window.usuarioSeleccionado;
+    if (!usuario || !detalle) return;
+    usuario.tipoContribuyente = detalle.letra;
+    const selectPdv = document.getElementById('selectPuntoDeVentaMP');
+    const elegido = selectPdv ? selectPdv.value : null;
+    await popularPuntosDeVentaMP(usuario.cuit);
+    if (selectPdv && elegido && Array.from(selectPdv.options).some(o => o.value === elegido)) {
+        selectPdv.value = elegido;
+        window.puntoVentaElegidoMP = elegido;
+    }
+    const nombre = detalle.letra === 'B' ? 'Responsable Inscripto' : 'Monotributo';
+    mostrarAvisoPdvMP(
+        `AFIP indica que el punto de venta ${detalle.puntoVenta} es de ${nombre} ` +
+        `(Factura ${detalle.letra}). Se corrigió el cliente: revisá y volvé a generar.`
+    );
+    llevarAlPdvMP();
+}
+
+// Vuelta del paso 0 con aviso de PDV (auth.js la reparte a la pantalla visible).
+registrarManejadorPdv('selectPuntoDeVentaMP', {
+    noHabilitado: mostrarPdvHabilitadosMP,
+    tipoCorregido: mostrarTipoCorregidoMP
+});
 
 // ========================================
 // FUNCIONES AUXILIARES
