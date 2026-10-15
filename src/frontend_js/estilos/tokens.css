@@ -42,6 +42,12 @@
       color-mix(in srgb, var(--c-atm-1), #fff var(--aclarado)) 0%,
       color-mix(in srgb, var(--c-atm-2), #fff var(--aclarado)) 100%);
 
+  /* ===== Lanzador de sesión (botón del menú AFIP y del Lote ATM: petróleo oscuro) ===== */
+  --c-lanzador-1: #0f2027;
+  --c-lanzador-2: #203a43;
+  --c-lanzador-3: #2c5364;
+  --grad-lanzador: linear-gradient(135deg, var(--c-lanzador-1) 0%, var(--c-lanzador-2) 50%, var(--c-lanzador-3) 100%);
+
   --c-accion: #007bff;        /* azul de botones de acción */
   --c-accion-hover: #0056b3;
 
@@ -94,6 +100,8 @@
   --radio-sm: 6px;
   --sombra: 0 10px 40px rgba(0, 0, 0, 0.2);
   --sombra-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --sombra-modal: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --velo-modal: rgba(0, 0, 0, 0.55);   /* fondo oscuro detrás de un modal */
 
   /* ===== Tipografía ===== */
   --fuente: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

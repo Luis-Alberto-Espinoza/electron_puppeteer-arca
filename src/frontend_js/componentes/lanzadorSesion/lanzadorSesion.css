@@ -2,7 +2,7 @@
 .lanzador-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--velo-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -23,8 +23,8 @@
     flex-direction: column;
     overflow: hidden;
     padding: 24px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
-    border-top: 6px solid #667eea;
+    box-shadow: var(--sombra-modal);
+    border-top: 6px solid var(--c-primario-1);
 }
 .lanzador-caja.lanzador-atm { --vista-tono: var(--c-atm-1); border-top-color: var(--c-atm-2); }
 
@@ -36,20 +36,20 @@
 }
 .lanzador-header h3 {
     margin: 0;
-    color: var(--v-texto, #2c3e50);
+    color: var(--v-texto, var(--texto-1));
     font-size: 1.4rem;
 }
 .lanzador-cerrar {
     background: transparent;
     border: none;
     font-size: 1.3rem;
-    color: var(--v-texto-2, #7f8c8d);
+    color: var(--v-texto-2, var(--texto-2));
     cursor: pointer;
     line-height: 1;
     padding: 4px 8px;
     border-radius: 6px;
 }
-.lanzador-cerrar:hover { background: var(--v-panel-2, #f0f0f0); color: var(--v-texto, #2c3e50); }
+.lanzador-cerrar:hover { background: var(--v-panel-2, var(--fondo-claro-2)); color: var(--v-texto, var(--texto-1)); }
 
 /* Mientras se abre un navegador la lista no acepta clicks (evita abrir dos). */
 .lanzador-bloqueado {
@@ -61,15 +61,16 @@
 .lanzador-tab {
     margin-left: auto;
     margin-right: 12px;
-    background: transparent;
-    border: 1px solid var(--v-borde, #d1d5db);
+    /* Fondo propio (más oscuro que la caja) para que se lea como botón, no como texto. */
+    background: var(--v-panel-2, var(--fondo-claro-2));
+    border: 1px solid var(--v-borde, var(--borde));
     border-radius: 8px;
     padding: 7px 14px;
     font-size: 0.95rem;
     color: var(--v-texto, var(--texto-1));
     cursor: pointer;
 }
-.lanzador-tab:hover { background: var(--v-panel-2, #f0f0f0); }
+.lanzador-tab:hover { background: color-mix(in srgb, var(--vista-tono, var(--c-primario-1)), white 15%); }
 
 /* Buscador del selector con menos relleno: más alto para la lista. */
 .lanzador-caja .buscador-section { padding: 14px 20px; }
@@ -83,24 +84,24 @@
 }
 .lanzador-campo span {
     font-size: 0.9rem;
-    color: var(--v-texto, #2c3e50);
+    color: var(--v-texto, var(--texto-1));
     font-weight: 600;
 }
 .lanzador-campo input {
     padding: 10px 12px;
-    border: 1px solid var(--v-borde, #d1d5db);
+    border: 1px solid var(--v-borde, var(--borde));
     border-radius: 8px;
     font-size: 1rem;
     outline: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .lanzador-campo input:focus {
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+    border-color: var(--c-primario-1);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primario-1) 15%, transparent);
 }
 .lanzador-atm .lanzador-campo input:focus {
-    border-color: #1e8e6f;
-    box-shadow: 0 0 0 3px rgba(30, 142, 111, 0.15);
+    border-color: var(--c-atm-1);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-atm-1) 15%, transparent);
 }
 
 /* Input de clave con botón "ojito" para mostrar/ocultar. */
@@ -126,7 +127,7 @@
     border-radius: 6px;
     opacity: 0.55;
 }
-.lanzador-ver-clave:hover { opacity: 0.9; background: var(--v-panel-2, #f0f0f0); }
+.lanzador-ver-clave:hover { opacity: 0.9; background: var(--v-panel-2, var(--fondo-claro-2)); }
 .lanzador-ver-clave.activo { opacity: 1; }
 
 .lanzador-estado {
@@ -134,9 +135,9 @@
     font-size: 0.95rem;
 }
 .lanzador-estado:empty { display: none; }
-.lanzador-estado.cargando { color: var(--v-txt-info, #2c6fbf); }
-.lanzador-estado.ok       { color: var(--v-txt-ok, #1e8e6f); font-weight: 600; }
-.lanzador-estado.error    { color: var(--v-txt-error, #c0392b); font-weight: 600; }
+.lanzador-estado.cargando { color: var(--v-txt-info, var(--c-accion)); }
+.lanzador-estado.ok       { color: var(--v-txt-ok, var(--c-ok-2)); font-weight: 600; }
+.lanzador-estado.error    { color: var(--v-txt-error, var(--c-peligro-2)); font-weight: 600; }
 
 .lanzador-acciones {
     display: flex;
@@ -146,19 +147,19 @@
 /* Secundario: aparece habilitado recién con un login manual exitoso. */
 .lanzador-btn-guardar {
     background: transparent;
-    color: var(--v-texto, #2c3e50);
-    border: 1px solid var(--v-borde, #d1d5db);
+    color: var(--v-texto, var(--texto-1));
+    border: 1px solid var(--v-borde, var(--borde));
     border-radius: 8px;
     padding: 12px 20px;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
 }
-.lanzador-btn-guardar:hover:not(:disabled) { background: var(--v-panel-2, #f0f0f0); }
+.lanzador-btn-guardar:hover:not(:disabled) { background: var(--v-panel-2, var(--fondo-claro-2)); }
 .lanzador-btn-guardar:disabled { opacity: 0.45; cursor: not-allowed; }
 .lanzador-campo input[readonly] { opacity: 0.7; }
 .lanzador-btn-abrir {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: var(--grad-primario);
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -167,11 +168,11 @@
     font-weight: 600;
     cursor: pointer;
     transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--c-primario-1) 40%, transparent);
 }
 .lanzador-atm .lanzador-btn-abrir {
-    background: linear-gradient(135deg, #1e8e6f 0%, #16a085 100%);
-    box-shadow: 0 4px 12px rgba(30, 142, 111, 0.4);
+    background: var(--grad-atm);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--c-atm-1) 40%, transparent);
 }
 .lanzador-btn-abrir:hover:not(:disabled) { transform: translateY(-2px); }
 .lanzador-btn-abrir:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -185,18 +186,18 @@
     max-width: 800px;
     margin: 0 auto 24px;
     padding: 22px 28px;
-    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    background: var(--grad-lanzador);
     border: 2px dashed rgba(255, 255, 255, 0.35);
     border-radius: 12px;
     color: #fff;
     cursor: pointer;
     text-align: left;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 15px rgba(15, 32, 39, 0.35);
+    box-shadow: 0 4px 15px color-mix(in srgb, var(--c-lanzador-1) 35%, transparent);
 }
 .btn-lanzador-afip:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 25px rgba(15, 32, 39, 0.5);
+    box-shadow: 0 8px 25px color-mix(in srgb, var(--c-lanzador-1) 50%, transparent);
 }
 .btn-lanzador-afip .icono-btn { font-size: 2.4rem; }
 .btn-lanzador-afip .texto-btn { font-size: 1.25rem; font-weight: 700; display: block; }
@@ -205,7 +206,7 @@
 
 /* ===== Botón lanzador en el header del lote ATM ===== */
 .btn-lanzador-atm {
-    background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    background: var(--grad-lanzador);
     color: #fff;
     border: 2px dashed rgba(255, 255, 255, 0.35);
     border-radius: 8px;
@@ -217,7 +218,7 @@
 }
 .btn-lanzador-atm:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(15, 32, 39, 0.5);
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--c-lanzador-1) 50%, transparent);
 }
 
 /* ===== Cuerpo: la lista (o el formulario manual) usa el alto que sobra ===== */
