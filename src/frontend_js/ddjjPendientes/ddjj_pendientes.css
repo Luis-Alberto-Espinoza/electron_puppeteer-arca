@@ -3,15 +3,6 @@
 .dp-header {
     margin-bottom: 16px;
 }
-.dp-btn-volver {
-    background: none;
-    border: none;
-    color: var(--v-txt-info);
-    cursor: pointer;
-    font-size: 14px;
-    padding: 4px 0;
-}
-.dp-btn-volver:hover { text-decoration: underline; }
 
 .dp-subtitulo {
     color: var(--v-texto-2);

@@ -213,8 +213,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cargarModuloGenerarFactura();
     });
 
-    document.addEventListener('volverHomeAfip', () => navegarVista('afip'));
-
     document.addEventListener('cargarModuloPlanesDePago', () => navegarVista('planesDePago'));
 
     document.addEventListener('cargarModuloCuentaTributaria', () => navegarVista('cuentaTributaria'));

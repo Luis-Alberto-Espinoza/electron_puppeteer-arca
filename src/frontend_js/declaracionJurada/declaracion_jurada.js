@@ -44,13 +44,7 @@ function inicializarDeclaracionJurada() {
     pintarCarpetaRetenciones();
 
     const btnCargar = document.getElementById('ddjj-btn-cargar');
-    const btnVolver = document.getElementById('ddjj-btn-volver');
 
-    if (btnVolver) {
-        btnVolver.addEventListener('click', () => {
-            document.dispatchEvent(new CustomEvent('volverHomeAfip'));
-        });
-    }
     if (btnCargar) {
         btnCargar.addEventListener('click', () => cargarDDJJ(btnCargar));
     }

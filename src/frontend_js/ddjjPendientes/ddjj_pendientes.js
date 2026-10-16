@@ -15,10 +15,6 @@ window.inicializarModuloDdjjPendientes = () => {
 
     let enCurso = false;
 
-    document.getElementById('dp-btn-volver').addEventListener('click', () => {
-        document.dispatchEvent(new CustomEvent('volverHomeAfip'));
-    });
-
     const selector = new SelectorUsuarios('selector-contribuyentes-dp', {
         mostrarTablaSeleccionados: true,
         fuente: 'contribuyentes',

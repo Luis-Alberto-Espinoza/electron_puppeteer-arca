@@ -3,15 +3,6 @@
 .il-header {
     margin-bottom: 16px;
 }
-.il-btn-volver {
-    background: none;
-    border: none;
-    color: var(--v-txt-info);
-    cursor: pointer;
-    font-size: 14px;
-    padding: 4px 0;
-}
-.il-btn-volver:hover { text-decoration: underline; }
 
 .il-subtitulo {
     color: var(--v-texto-2);

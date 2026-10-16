@@ -14,10 +14,6 @@ window.inicializarModuloDatosRegistrales = () => {
 
     let enCurso = false;
 
-    document.getElementById('dr-btn-volver').addEventListener('click', () => {
-        document.dispatchEvent(new CustomEvent('volverHomeAfip'));
-    });
-
     const selector = new SelectorUsuarios('selector-contribuyentes-dr', {
         mostrarTablaSeleccionados: true,
         // Modelo plano: el backend ya sabe si cada uno puede operar AFIP (clave propia

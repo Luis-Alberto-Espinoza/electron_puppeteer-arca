@@ -17,16 +17,6 @@
     font-size: 13px;
 }
 
-.ddjj-btn-volver {
-    background: none;
-    border: none;
-    color: var(--v-txt-info, #667eea);
-    cursor: pointer;
-    font-size: 14px;
-    padding: 4px 0;
-}
-.ddjj-btn-volver:hover { text-decoration: underline; }
-
 .ddjj-panel {
     margin-top: 20px;
     padding: 18px;

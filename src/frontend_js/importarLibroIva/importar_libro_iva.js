@@ -16,10 +16,6 @@ window.inicializarModuloImportarLibroIva = () => {
 
     let enCurso = false;
 
-    document.getElementById('il-btn-volver').addEventListener('click', () => {
-        document.dispatchEvent(new CustomEvent('volverHomeAfip'));
-    });
-
     // Por defecto, el mes anterior (el que se declara).
     const hoy = new Date();
     const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);

@@ -13,7 +13,6 @@ window.inicializarConsultaComprobantes = () => {
     const inputDesde      = document.getElementById('cc-fecha-desde');
     const inputHasta      = document.getElementById('cc-fecha-hasta');
     const btnConsultar    = document.getElementById('cc-btn-consultar');
-    const btnVolver       = document.getElementById('cc-btn-volver');
     const mensajeError    = document.getElementById('cc-mensaje-error');
     const procesando      = document.getElementById('cc-procesando');
     const procesandoText  = document.getElementById('cc-procesando-texto');
@@ -221,11 +220,6 @@ window.inicializarConsultaComprobantes = () => {
             && inputHasta.value;
         btnConsultar.disabled = !ok;
     }
-
-    // ===== Botón Volver =====
-    btnVolver.addEventListener('click', () => {
-        document.dispatchEvent(new CustomEvent('volverHomeAfip'));
-    });
 
     // ===== Botón Consultar =====
     btnConsultar.addEventListener('click', async () => {

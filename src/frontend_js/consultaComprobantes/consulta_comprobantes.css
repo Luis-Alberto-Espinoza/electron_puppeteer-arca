@@ -15,12 +15,6 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
-.cc-breadcrumb {
-    font-size: 13px;
-    color: var(--v-txt-info, #4a6582);
-    margin-bottom: 8px;
-}
-
 .cc-titulo {
     font-size: 24px;
     margin: 0 0 8px 0;
@@ -185,20 +179,6 @@
 .cc-btn-consultar:disabled {
     background: #bdc3c7;
     cursor: not-allowed;
-}
-
-.cc-btn-volver {
-    padding: 11px 18px;
-    background: var(--v-panel-2, #ecf0f1);
-    color: var(--v-texto, #2c3e50);
-    border: 1px solid var(--v-borde, #cbd5e0);
-    border-radius: 6px;
-    font-size: 14px;
-    cursor: pointer;
-}
-
-.cc-btn-volver:hover {
-    background: var(--v-panel-2, #d6dbdf);
 }
 
 .cc-mensaje-error {

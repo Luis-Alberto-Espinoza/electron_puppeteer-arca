@@ -4,7 +4,7 @@
  * Paso 2 del plan (ver docs/vistas/analisis_vista_inicial.md).
  *
  * Acá viven las piezas que HOY están copiadas en cada vista: el fondo de la app,
- * la "card" contenedora, el header con breadcrumb+título, y los botones.
+ * la "card" contenedora, el header con título, y los botones.
  *
  * Convención: todas las clases nuevas usan prefijo  .ui-
  *   ¿Por qué? Para no chocar con Bootstrap (que ya define .btn) ni con las clases
@@ -15,7 +15,6 @@
  *   .contenedor-principal-vep  →  .ui-page
  *   .header-vep                →  .ui-page-header
  *   .titulo-principal          →  .ui-page-title
- *   .breadcrumb                →  .ui-breadcrumb
  *   botones varios             →  .ui-btn (+ .ui-btn--ok / --danger / --accion)
  */
 
@@ -61,18 +60,12 @@ body {
 }
 
 /* ============================================================
-   3. HEADER DE VISTA (breadcrumb + título)
+   3. HEADER DE VISTA (título + subtítulo; sin migas de pan: se navega con la navbar)
    ============================================================ */
 .ui-page-header {
   margin-bottom: 30px;
   padding-bottom: 20px;
   border-bottom: 2px solid var(--borde);
-}
-
-.ui-breadcrumb {
-  font-size: 13px;
-  color: var(--texto-2);
-  margin-bottom: 12px;
 }
 
 .ui-page-title {

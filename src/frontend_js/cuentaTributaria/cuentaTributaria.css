@@ -39,15 +39,6 @@
     border-bottom: 2px solid var(--v-borde, #e5e7eb);
 }
 
-.contenedor-principal-ct .breadcrumb {
-    font-size: 13px;
-    color: var(--v-texto-2, #6b7280);
-    margin-bottom: 12px;
-    background: none;
-    padding: 0;
-    border-radius: 0;
-}
-
 .contenedor-principal-ct .titulo-principal {
     font-size: 28px;
     font-weight: 700;
