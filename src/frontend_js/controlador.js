@@ -96,7 +96,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'datosRegistralesDiv', 'ddjjPendientesDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv', 'plantillasExcelDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'datosRegistralesDiv', 'ddjjPendientesDiv', 'importarLibroIvaDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv', 'plantillasExcelDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -139,6 +139,7 @@ const REGISTRO_VISTAS = {
     planesDePago: { modulo: 'planesDePagoDiv', cargar: cargarModuloPlanesDePago },
     datosRegistrales: { modulo: 'datosRegistralesDiv', cargar: cargarModuloDatosRegistrales },
     ddjjPendientes: { modulo: 'ddjjPendientesDiv', cargar: cargarModuloDdjjPendientes },
+    importarLibroIva: { modulo: 'importarLibroIvaDiv', cargar: cargarModuloImportarLibroIva },
     cuentaTributaria: { modulo: 'cuentaTributariaDiv', cargar: cargarModuloCuentaTributaria },
     consultaComprobantes: { modulo: 'consultaComprobantesDiv', cargar: cargarModuloConsultaComprobantes },
     declaracionJurada: { modulo: 'declaracionJuradaDiv', cargar: cargarModuloDeclaracionJurada },
@@ -225,6 +226,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('cargarModuloDatosRegistrales', () => navegarVista('datosRegistrales'));
 
     document.addEventListener('cargarModuloDdjjPendientes', () => navegarVista('ddjjPendientes'));
+
+    document.addEventListener('cargarModuloImportarLibroIva', () => navegarVista('importarLibroIva'));
 });
 
 // ========================================
@@ -981,6 +984,53 @@ async function cargarModuloDdjjPendientes() {
     } catch (error) {
         console.error('Error cargando módulo DDJJ pendientes:', error);
         div.innerHTML = '<div style="color:red;">Error cargando el módulo de DDJJ pendientes.</div>';
+    }
+}
+
+/**
+ * Carga el módulo de Importar Libro IVA (selector de contribuyentes embebido).
+ * Mismo patrón que Planes de Pago: CSS+JS del SelectorUsuarios, luego HTML/CSS/JS del módulo.
+ */
+async function cargarModuloImportarLibroIva() {
+    mostrarSoloModulo('importarLibroIvaDiv');
+    const div = document.getElementById('importarLibroIvaDiv');
+    if (!div) return;
+    div.innerHTML = '';
+
+    const agregarCss = (href) => {
+        if (document.head.querySelector(`link[href="${href}"]`)) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.appendChild(link);
+    };
+    const cargarScript = (src, { recargar = false } = {}) => new Promise((resolve, reject) => {
+        const viejo = document.head.querySelector(`script[src="${src}"]`);
+        if (viejo && !recargar) { resolve(); return; }
+        if (viejo) viejo.remove();
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Error al cargar ${src}`));
+        document.head.appendChild(script);
+    });
+
+    try {
+        agregarCss('../componentes/selectorUsuarios/selectorUsuarios.css');
+        agregarCss('../importarLibroIva/importar_libro_iva.css');
+
+        const response = await fetch('../importarLibroIva/importar_libro_iva.html');
+        if (!response.ok) throw new Error('Error al cargar importar_libro_iva.html');
+        div.innerHTML = await response.text();
+
+        if (typeof SelectorUsuarios === 'undefined') {
+            await cargarScript('../componentes/selectorUsuarios/selectorUsuarios.js');
+        }
+        await cargarScript('../importarLibroIva/importar_libro_iva.js', { recargar: true });
+        if (window.inicializarModuloImportarLibroIva) window.inicializarModuloImportarLibroIva();
+    } catch (error) {
+        console.error('Error cargando módulo Importar Libro IVA:', error);
+        div.innerHTML = '<div style="color:red;">Error cargando el módulo de Importar Libro IVA.</div>';
     }
 }
 

@@ -1,0 +1,91 @@
+/* Importar Libro IVA — colores del tema AFIP (tema_afip.css: --v-*) */
+
+.il-header {
+    margin-bottom: 16px;
+}
+.il-btn-volver {
+    background: none;
+    border: none;
+    color: var(--v-txt-info);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 0;
+}
+.il-btn-volver:hover { text-decoration: underline; }
+
+.il-subtitulo {
+    color: var(--v-texto-2);
+    margin-top: 4px;
+}
+
+.il-procesar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 16px 0;
+}
+
+.il-seccion {
+    background: var(--v-panel);
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+    padding: 12px 16px;
+}
+.il-seccion-titulo {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.il-contador {
+    font-weight: normal;
+    color: var(--v-texto-2);
+}
+
+.il-cliente {
+    margin-bottom: 12px;
+}
+
+.il-resultado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    border-radius: var(--radio-sm);
+    overflow-wrap: anywhere;
+}
+.il-resultado-texto {
+    flex: 1;
+    min-width: 0;
+}
+.il-resultado-procesando { background: var(--v-info-bg);  color: var(--v-txt-info); }
+.il-resultado-exito      { background: var(--v-ok-bg);    color: var(--v-txt-ok); }
+.il-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
+.il-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
+
+.il-resultado .ui-btn {
+    padding: 4px 10px;
+    font-size: 0.85em;
+    flex-shrink: 0;
+}
+
+/* Letra en px (en la app los input heredan ~21px); sin width: Chrome lo calcula para el mes.
+   Colores de la caja y del calendario: los pone tema_afip.css. */
+.il-periodo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+.il-periodo input {
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+}
+
+/* Un renglón por libro (Ventas / Compras) debajo del renglón del cliente */
+.il-libro {
+    margin-left: 24px;
+}

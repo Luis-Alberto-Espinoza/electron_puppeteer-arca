@@ -1,0 +1,30 @@
+<div class="il-container">
+    <div class="il-header">
+        <button id="il-btn-volver" class="il-btn-volver">← Volver</button>
+        <h2>Importar Libro IVA</h2>
+        <p class="il-subtitulo">Entra a Portal IVA por cada cliente, abre la declaración del período e importa desde ARCA el Libro Ventas y el Libro Compras ("Conservar el comprobante previamente incluído"). Deja el borrador cargado, <strong>no presenta nada</strong>, y guarda el Excel de cada libro en la carpeta archivos_afip del cliente.</p>
+    </div>
+
+    <!-- Clientes (SelectorUsuarios, modelo plano) -->
+    <div id="selector-contribuyentes-il"></div>
+
+    <div class="il-procesar">
+        <label class="il-periodo">
+            Período
+            <input type="month" id="il-periodo">
+        </label>
+        <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
+        <label class="ui-switch">
+            <input type="checkbox" id="chk-visible-il" checked>
+            Mostrar navegador
+        </label>
+        <button id="btnProcesarIl" class="ui-btn ui-btn--accion" disabled>
+            ▶ Importar Libro IVA
+        </button>
+    </div>
+
+    <div id="resultadosIl" class="il-seccion" style="display:none">
+        <div class="il-seccion-titulo">Resultados <span id="contadorIl" class="il-contador"></span></div>
+        <div id="resultadosContenidoIl"></div>
+    </div>
+</div>

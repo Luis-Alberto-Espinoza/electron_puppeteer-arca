@@ -76,6 +76,13 @@ function inicializarHomeAfip() {
             document.dispatchEvent(new CustomEvent('cargarModuloDdjjPendientes'));
         });
     }
+
+    const btnImportarLibroIva = document.getElementById('btnImportarLibroIva');
+    if (btnImportarLibroIva) {
+        btnImportarLibroIva.addEventListener('click', () => {
+            document.dispatchEvent(new CustomEvent('cargarModuloImportarLibroIva'));
+        });
+    }
 }
 
 /**

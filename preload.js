@@ -139,6 +139,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onUpdate: (callback) => ipcRenderer.on('ddjjPendientes:update', (_event, datos) => callback(datos))
     },
 
+    // APIs para Importar Libro IVA (Portal IVA → importar Ventas y Compras desde ARCA + Excel, lote)
+    importarLibroIva: {
+        procesar: (datos) => ipcRenderer.invoke('importarLibroIva:procesar', datos),
+        onUpdate: (callback) => ipcRenderer.on('importarLibroIva:update', (_event, datos) => callback(datos))
+    },
+
     // APIs para VEP (Volante Electrónico de Pago)
     vep: {
         generar: (datos) => ipcRenderer.invoke('vep:generar', datos),

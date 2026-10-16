@@ -18,7 +18,8 @@
         retenciones: 'Retenciones',
         planDePago: 'Plan de Pago',
         datosRegistrales: 'Datos registrales',
-        ddjjPendientes: 'DDJJ pendientes'
+        ddjjPendientes: 'DDJJ pendientes',
+        importarLibroIva: 'Importar Libro IVA'
     };
 
     const LABEL_ESTADO = {
