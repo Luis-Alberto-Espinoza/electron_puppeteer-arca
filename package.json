@@ -1,6 +1,6 @@
 {
-  "name": "afip_atm",
-  "version": "2.3.0-plantillasYPDF",
+  "name": "escritorio-contable",
+  "version": "4.0.0",
   "main": "src/backend/home/main.js",
   "scripts": {
     "start": "electron .",
@@ -9,7 +9,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "GPL-3.0-or-later",
   "description": "",
   "devDependencies": {
     "@puppeteer/browsers": "^2.10.6",
@@ -29,8 +29,8 @@
     "xlsx-js-style": "^1.2.0"
   },
   "build": {
-    "appId": "com.tuorganizacion.afipelectron",
-    "productName": "Servie C P",
+    "appId": "io.github.luis-alberto-espinoza.escritoriocontable",
+    "productName": "Escritorio Contable",
     "asar": true,
     "npmRebuild": false,
     "directories": {

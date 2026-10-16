@@ -211,7 +211,7 @@ async function main() {
     const filas = construirFilas(contribuyentes, grupos);
 
     const libro = new ExcelJS.Workbook();
-    libro.creator = 'Servie C P';
+    libro.creator = 'Escritorio Contable';
     libro.created = new Date();
     pintarHojaClaves(libro.addWorksheet('Claves a revisar'), filas);
     pintarHojaInstrucciones(libro.addWorksheet('Instrucciones'), filas, contribuyentes.length, rutaEntrada);
