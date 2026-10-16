@@ -1,11 +1,25 @@
 /**
  * BUSCADOR GLOBAL — portada (#portadaDiv) y ventana Ctrl+K.
  * Clases con prefijo .bg- (buscador global). Usa tokens.css.
+ *
+ * Sin blancos: misma receta que el selector de clientes. Un tono base (--bg-tono) y
+ * todo sale de mezclarlo con negro (fondos) o con blanco (líneas y letras lavanda).
  */
+.bg-buscador,
+.portada {
+    --bg-tono: var(--tono-afip-inicio);
+    --bg-panel: color-mix(in srgb, var(--bg-tono), #000 30%);
+    --bg-panel-2: color-mix(in srgb, var(--bg-tono), #000 45%);
+    --bg-activo: color-mix(in srgb, var(--bg-tono), #000 8%);
+    --bg-linea: color-mix(in srgb, var(--bg-tono), #fff 25%);
+    --bg-texto: color-mix(in srgb, var(--bg-tono), #fff 85%);
+    --bg-texto-2: color-mix(in srgb, var(--bg-tono), #fff 60%);
+}
 
 /* ===== Caja del buscador (igual en portada y en la ventana) ===== */
 .bg-buscador {
-    background: var(--card);
+    background: var(--bg-panel);
+    border: 1px solid var(--bg-linea);
     border-radius: var(--radio);
     box-shadow: var(--sombra-modal);
     font-family: var(--fuente);
@@ -17,6 +31,7 @@
     align-items: center;
     gap: 10px;
     padding: 14px 16px;
+    background: var(--bg-panel-2);
 }
 
 .bg-lupa {
@@ -33,18 +48,19 @@
     outline: none;
     background: transparent;
     font-size: 18px;
-    color: var(--texto-1);
+    color: var(--bg-texto);
 }
 
-.bg-input::placeholder {
-    color: var(--texto-3);
+.bg-input-wrap .bg-input::placeholder {
+    color: var(--bg-texto-2);
+    opacity: 0.8;
 }
 
 .bg-atajo {
     font-size: 11px;
-    color: var(--texto-2);
-    background: var(--fondo-claro-2);
-    border: 1px solid var(--borde);
+    color: var(--bg-texto-2);
+    background: var(--bg-panel);
+    border: 1px solid var(--bg-linea);
     border-radius: 4px;
     padding: 2px 6px;
 }
@@ -59,7 +75,7 @@
 }
 
 .bg-resultados:not(:empty) {
-    border-top: 1px solid var(--borde);
+    border-top: 1px solid var(--bg-linea);
     padding: 6px;
 }
 
@@ -68,7 +84,7 @@
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: var(--texto-2);
+    color: var(--bg-texto-2);
     padding: 6px 10px 4px;
 }
 
@@ -80,25 +96,93 @@
     padding: 10px 12px;
     border-radius: var(--radio-sm);
     border-left: 3px solid transparent;
-    color: var(--texto-1);
+    color: var(--bg-texto);
     cursor: pointer;
 }
 
 .bg-item.activo {
-    background: var(--fondo-claro-2);
-    border-left-color: var(--c-primario-1);
+    background: var(--bg-activo);
+    border-left-color: var(--c-acento);
 }
 
-.bg-item mark {
+.bg-resultados mark {
     background: var(--c-acento);
-    color: inherit;
+    color: var(--texto-1);         /* letra oscura sobre el amarillo */
     padding: 0;
     border-radius: 2px;
 }
 
 .bg-vacio {
-    color: var(--texto-2);
+    color: var(--bg-texto-2);
     padding: 10px 12px;
+}
+
+/* ===== Cliente: nombre + CUIT, aviso de clave y sus acciones ===== */
+.bg-cliente {
+    padding: 8px 12px 10px;
+    border-radius: var(--radio-sm);
+}
+
+.bg-cliente + .bg-cliente {
+    border-top: 1px solid color-mix(in srgb, var(--bg-linea), transparent 50%);
+}
+
+.bg-cliente-datos {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    color: var(--bg-texto);
+}
+
+.bg-cuit {
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--bg-texto-2);
+    font-variant-numeric: tabular-nums;
+}
+
+.bg-cliente-aviso {
+    font-size: 12px;
+    color: var(--v-txt-warn, #fcd34d);
+    margin-top: 2px;
+}
+
+.bg-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+/* Cada acción con el color de su servicio (como los botones del resto de la app) */
+.bg-accion {
+    --accion-color: var(--c-lanzador-3);           /* Editar: petróleo */
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bg-texto);
+    background: color-mix(in srgb, var(--accion-color), #000 25%);
+    border: 1px solid color-mix(in srgb, var(--accion-color), #fff 25%);
+    border-radius: var(--radio-sm);
+    padding: 4px 10px;
+    cursor: pointer;
+}
+
+.bg-accion[data-accion="afip"] { --accion-color: var(--c-primario-2); }
+.bg-accion[data-accion="atm"] { --accion-color: var(--c-atm-1); }
+
+.bg-accion.activo,
+.bg-accion:hover {
+    background: var(--accion-color);
+    border-color: var(--c-acento);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-acento), transparent 55%);
+}
+
+/* No puede entrar (sin clave / incorrecta): igual abre el lanzador para arreglarla */
+.bg-accion.atenuada {
+    color: var(--bg-texto-2);
+    background: transparent;
+    border-style: dashed;
 }
 
 /* Etiqueta de grupo: dice de dónde es el servicio ("Planes de Pago" hay en AFIP y ATM) */
@@ -106,10 +190,10 @@
     flex-shrink: 0;
     font-size: 11px;
     font-weight: 700;
-    color: #fff;
+    color: var(--bg-texto);
     border-radius: 10px;
     padding: 2px 8px;
-    background: var(--texto-2);
+    background: var(--c-lanzador-3);
 }
 
 .bg-grupo-afip { background: var(--c-primario-2); }
@@ -142,9 +226,15 @@ body.bg-sin-scroll {
     margin: 12vh auto 0;
 }
 
+/* En la portada la caja arranca más abajo: la lista corta antes del borde de la ventana
+   (12vh del margen + ~213px de navbar, pregunta, input y el padding de abajo). */
+.portada .bg-resultados {
+    max-height: calc(88vh - 213px);
+}
+
 .portada-pregunta {
     text-align: center;
-    color: #fff;
+    color: var(--bg-texto);
     font-family: var(--fuente);
     font-size: 22px;
     font-weight: 600;

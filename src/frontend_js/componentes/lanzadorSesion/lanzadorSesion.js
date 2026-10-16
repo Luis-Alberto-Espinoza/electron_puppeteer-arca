@@ -4,7 +4,8 @@
  * Abre un modal para elegir UN cliente y abrir el navegador ya logueado (AFIP o ATM).
  * Reusa el componente SelectorUsuarios (modo single, solo clientes validados).
  *
- * Uso:  window.abrirLanzadorSesion('afip' | 'atm')
+ * Uso:  window.abrirLanzadorSesion('afip' | 'atm' [, { cuit }])
+ *       Con cuit (buscador global): abre filtrado en ese cliente y, si puede entrar, lanza solo.
  *
  * El backend (afip:abrirSesion / atm:abrirSesion) abre Chrome visible, loguea y deja
  * la ventana abierta para que el usuario opere a mano.
@@ -53,7 +54,7 @@
         }
     }
 
-    async function abrirLanzadorSesion(servicio) {
+    async function abrirLanzadorSesion(servicio, { cuit } = {}) {
         if (!SERVICIOS.includes(servicio)) {
             console.error('[Lanzador] Servicio inválido:', servicio);
             return;
@@ -207,6 +208,20 @@
                 lanzar(window.electronAPI.sesion[servicio](cliente.cuit), cliente);
             }
         });
+
+        // Viene con un cliente elegido (buscador global): se lo deja a la vista en la lista y,
+        // si puede entrar (o tiene clave sin validar: abrir la valida), se lanza sin otro click.
+        // Si no tiene clave o es incorrecta, queda su fila con el botón "Clave" para arreglarla.
+        if (cuit) {
+            await selector.listo;
+            const buscador = document.getElementById('lanzador-selector-buscador');
+            if (buscador) buscador.value = String(cuit);
+            selector.filtrar(String(cuit));
+            const cliente = selector.todosLosUsuarios.find(u => String(u.cuit) === String(cuit));
+            if (cliente && (cliente.puedeOperar || (cliente.tieneAcceso && !cliente.claveIncorrecta))) {
+                lanzar(window.electronAPI.sesion[servicio](cliente.cuit), cliente);
+            }
+        }
 
         btnAbrir.addEventListener('click', () => {
             const cuit = inputCuit.value.trim();

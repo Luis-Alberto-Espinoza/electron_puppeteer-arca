@@ -115,7 +115,8 @@ class SelectorUsuarios {
         // Con búsqueda: los no habilitados que coinciden se muestran al final, atenuados.
         this.idsAtenuados = new Set();
 
-        this.inicializar();
+        // Promesa de "ya cargó y se dibujó": para quien necesite operar apenas esté (ej. lanzador con cliente elegido).
+        this.listo = this.inicializar();
     }
 
     async inicializar() {
