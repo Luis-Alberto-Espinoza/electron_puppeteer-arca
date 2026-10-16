@@ -3,6 +3,10 @@
 // Con pendientes: tabla + PDF de AFIP + Excel. Sin pendientes: aviso + Excel de constancia.
 
 window.inicializarModuloDdjjPendientes = () => {
+    // Errores que se arreglan con la clave (login_arca.js y el resolver de acceso).
+    // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
+    const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
+
     const btnProcesar = document.getElementById('btnProcesarDp');
     const chkVisible  = document.getElementById('chk-visible-dp');
     const resultados  = document.getElementById('resultadosDp');
@@ -97,7 +101,9 @@ window.inicializarModuloDdjjPendientes = () => {
             if (datos.aviso) bloque.appendChild(el('div', 'dp-resultado dp-resultado-error', datos.aviso));
             bloque.appendChild(tablaPendientes(datos.pendientes || []));
         }
-        if (datos.estado === 'error' && datos.id != null) {
+        // Solo los errores de acceso van a la fila: ahí el selector ofrece "Clave". Un error de
+        // Seti o de ARCA con el botón de la llave asusta y no se arregla con la clave.
+        if (datos.estado === 'error' && datos.id != null && ERRORES_DE_ACCESO.has(datos.error)) {
             selector.marcarFila(datos.id, datos.mensaje, 'error');
         }
     }
