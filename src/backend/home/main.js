@@ -32,6 +32,7 @@ const setupDeclaracionJuradaHandlers = require('../afip/declaracionJurada/handle
 const setupLibroIvaHandlers = require('../afip/libroIVA/handlers.js');
 const setupSesionAfipHandlers = require('../afip/sesion/handlers.js');
 const setupDatosRegistralesHandlers = require('../afip/datosRegistrales/handlers.js');
+const setupDdjjPendientesHandlers = require('../afip/ddjjPendientes/handlers.js');
 
 // Importar handlers de ATM por servicio
 const setupConstanciaFiscalHandlers = require('../atm/constanciaFiscal/handlers.js');
@@ -300,6 +301,7 @@ app.whenReady().then(async () => {
         setupLibroIvaHandlers(ipcMain);
         setupSesionAfipHandlers(ipcMain); // usa contribuyenteRepo (resolverAcceso)
         setupDatosRegistralesHandlers(ipcMain, mainWindow, app);
+        setupDdjjPendientesHandlers(ipcMain, mainWindow, app);
 
         // Handlers de ATM por servicio
         setupConstanciaFiscalHandlers(ipcMain, mainWindow, app);

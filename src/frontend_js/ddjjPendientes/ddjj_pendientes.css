@@ -1,0 +1,88 @@
+/* DDJJ pendientes — colores del tema AFIP (tema_afip.css: --v-*) */
+
+.dp-header {
+    margin-bottom: 16px;
+}
+.dp-btn-volver {
+    background: none;
+    border: none;
+    color: var(--v-txt-info);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 0;
+}
+.dp-btn-volver:hover { text-decoration: underline; }
+
+.dp-subtitulo {
+    color: var(--v-texto-2);
+    margin-top: 4px;
+}
+
+.dp-procesar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 16px 0;
+}
+
+.dp-seccion {
+    background: var(--v-panel);
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+    padding: 12px 16px;
+}
+.dp-seccion-titulo {
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+.dp-contador {
+    font-weight: normal;
+    color: var(--v-texto-2);
+}
+
+.dp-cliente {
+    margin-bottom: 12px;
+}
+
+.dp-resultado {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    border-radius: var(--radio-sm);
+    overflow-wrap: anywhere;
+}
+.dp-resultado-texto {
+    flex: 1;
+    min-width: 0;
+}
+.dp-resultado-procesando { background: var(--v-info-bg);  color: var(--v-txt-info); }
+.dp-resultado-exito      { background: var(--v-ok-bg);    color: var(--v-txt-ok); }
+.dp-resultado-pendientes { background: var(--v-panel-2);  color: var(--v-texto); }
+.dp-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
+.dp-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
+
+.dp-resultado .ui-btn {
+    padding: 4px 10px;
+    font-size: 0.85em;
+    flex-shrink: 0;
+}
+
+.dp-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0 0;
+    color: var(--v-texto);
+}
+.dp-tabla th,
+.dp-tabla td {
+    text-align: left;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--v-borde);
+}
+.dp-tabla th {
+    background: var(--v-panel-2);
+}

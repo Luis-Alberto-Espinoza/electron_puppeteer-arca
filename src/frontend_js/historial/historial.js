@@ -17,7 +17,8 @@
         tasaCero: 'Tasa Cero',
         retenciones: 'Retenciones',
         planDePago: 'Plan de Pago',
-        datosRegistrales: 'Datos registrales'
+        datosRegistrales: 'Datos registrales',
+        ddjjPendientes: 'DDJJ pendientes'
     };
 
     const LABEL_ESTADO = {

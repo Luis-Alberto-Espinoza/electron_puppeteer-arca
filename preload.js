@@ -133,6 +133,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
         onUpdate: (callback) => ipcRenderer.on('datosRegistrales:update', (_event, datos) => callback(datos))
     },
 
+    // APIs para DDJJ pendientes (Presentación de DDJJ y Pagos → PDF + Excel, lote)
+    ddjjPendientes: {
+        procesar: (datos) => ipcRenderer.invoke('ddjjPendientes:procesar', datos),
+        onUpdate: (callback) => ipcRenderer.on('ddjjPendientes:update', (_event, datos) => callback(datos))
+    },
+
     // APIs para VEP (Volante Electrónico de Pago)
     vep: {
         generar: (datos) => ipcRenderer.invoke('vep:generar', datos),

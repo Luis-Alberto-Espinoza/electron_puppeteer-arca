@@ -1,0 +1,26 @@
+<div class="dp-container">
+    <div class="dp-header">
+        <button id="dp-btn-volver" class="dp-btn-volver">← Volver</button>
+        <h2>DDJJ pendientes</h2>
+        <p class="dp-subtitulo">Consulta en "Presentación de DDJJ y Pagos" las declaraciones juradas pendientes de presentación. Deja en la carpeta archivos_afip de cada cliente un Excel con la tabla completa (o la constancia de que no hay) y, si hay pendientes, el PDF de AFIP. Uno por día: repetir la consulta el mismo día los reemplaza.</p>
+    </div>
+
+    <!-- Clientes (SelectorUsuarios, modelo plano) -->
+    <div id="selector-contribuyentes-dp"></div>
+
+    <div class="dp-procesar">
+        <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
+        <label class="ui-switch">
+            <input type="checkbox" id="chk-visible-dp" checked>
+            Mostrar navegador
+        </label>
+        <button id="btnProcesarDp" class="ui-btn ui-btn--accion" disabled>
+            ▶ Consultar DDJJ pendientes
+        </button>
+    </div>
+
+    <div id="resultadosDp" class="dp-seccion" style="display:none">
+        <div class="dp-seccion-titulo">Resultados <span id="contadorDp" class="dp-contador"></span></div>
+        <div id="resultadosContenidoDp"></div>
+    </div>
+</div>

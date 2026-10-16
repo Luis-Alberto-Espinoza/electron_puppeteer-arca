@@ -23,6 +23,7 @@
         { clave: 'planesDePago', label: 'Planes de Pago' },
         { clave: 'declaracionJurada', label: 'Declaración Jurada' },
         { clave: 'datosRegistrales', label: 'Datos registrales' },
+        { clave: 'ddjjPendientes', label: 'DDJJ pendientes' },
     ];
 
     // Subservicios ATM: van todos a la vista ATM (lote) y activan su panel.

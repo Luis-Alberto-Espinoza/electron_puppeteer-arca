@@ -96,7 +96,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'datosRegistralesDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv', 'plantillasExcelDiv'].forEach(id => {
+    ['generarVEPDiv', 'selectorUsuarioDiv', 'modulosAfipDiv', 'planesDePagoDiv', 'datosRegistralesDiv', 'ddjjPendientesDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv', 'plantillasExcelDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -138,6 +138,7 @@ const REGISTRO_VISTAS = {
     vep: { modulo: 'generarVEPDiv', cargar: cargarModuloGenerarVEP },
     planesDePago: { modulo: 'planesDePagoDiv', cargar: cargarModuloPlanesDePago },
     datosRegistrales: { modulo: 'datosRegistralesDiv', cargar: cargarModuloDatosRegistrales },
+    ddjjPendientes: { modulo: 'ddjjPendientesDiv', cargar: cargarModuloDdjjPendientes },
     cuentaTributaria: { modulo: 'cuentaTributariaDiv', cargar: cargarModuloCuentaTributaria },
     consultaComprobantes: { modulo: 'consultaComprobantesDiv', cargar: cargarModuloConsultaComprobantes },
     declaracionJurada: { modulo: 'declaracionJuradaDiv', cargar: cargarModuloDeclaracionJurada },
@@ -222,6 +223,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('cargarModuloDeclaracionJurada', () => navegarVista('declaracionJurada'));
 
     document.addEventListener('cargarModuloDatosRegistrales', () => navegarVista('datosRegistrales'));
+
+    document.addEventListener('cargarModuloDdjjPendientes', () => navegarVista('ddjjPendientes'));
 });
 
 // ========================================
@@ -931,6 +934,53 @@ async function cargarModuloDatosRegistrales() {
     } catch (error) {
         console.error('Error cargando módulo Datos registrales:', error);
         div.innerHTML = '<div style="color:red;">Error cargando el módulo de Datos registrales.</div>';
+    }
+}
+
+/**
+ * Carga el módulo de DDJJ pendientes (selector de contribuyentes embebido).
+ * Mismo patrón que Planes de Pago: CSS+JS del SelectorUsuarios, luego HTML/CSS/JS del módulo.
+ */
+async function cargarModuloDdjjPendientes() {
+    mostrarSoloModulo('ddjjPendientesDiv');
+    const div = document.getElementById('ddjjPendientesDiv');
+    if (!div) return;
+    div.innerHTML = '';
+
+    const agregarCss = (href) => {
+        if (document.head.querySelector(`link[href="${href}"]`)) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.appendChild(link);
+    };
+    const cargarScript = (src, { recargar = false } = {}) => new Promise((resolve, reject) => {
+        const viejo = document.head.querySelector(`script[src="${src}"]`);
+        if (viejo && !recargar) { resolve(); return; }
+        if (viejo) viejo.remove();
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Error al cargar ${src}`));
+        document.head.appendChild(script);
+    });
+
+    try {
+        agregarCss('../componentes/selectorUsuarios/selectorUsuarios.css');
+        agregarCss('../ddjjPendientes/ddjj_pendientes.css');
+
+        const response = await fetch('../ddjjPendientes/ddjj_pendientes.html');
+        if (!response.ok) throw new Error('Error al cargar ddjj_pendientes.html');
+        div.innerHTML = await response.text();
+
+        if (typeof SelectorUsuarios === 'undefined') {
+            await cargarScript('../componentes/selectorUsuarios/selectorUsuarios.js');
+        }
+        await cargarScript('../ddjjPendientes/ddjj_pendientes.js', { recargar: true });
+        if (window.inicializarModuloDdjjPendientes) window.inicializarModuloDdjjPendientes();
+    } catch (error) {
+        console.error('Error cargando módulo DDJJ pendientes:', error);
+        div.innerHTML = '<div style="color:red;">Error cargando el módulo de DDJJ pendientes.</div>';
     }
 }
 

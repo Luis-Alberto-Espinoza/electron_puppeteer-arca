@@ -29,6 +29,7 @@
 #declaracionJuradaDiv         { --vista-tono: var(--tono-ddjj); }
 #planesDePagoDiv              { --vista-tono: var(--tono-planes); }
 #datosRegistralesDiv          { --vista-tono: var(--tono-datos-registrales); }
+#ddjjPendientesDiv            { --vista-tono: var(--tono-ddjj-pendientes); }
 
 /* ===== 2. Superficies y textos derivados del tono =====
    Se recalculan en CADA elemento que cambia de tono (por eso las secciones de
@@ -37,7 +38,7 @@
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
     #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) {
     --v-panel:    color-mix(in srgb, var(--vista-tono), black 18%);  /* lo que era blanco */
     --v-panel-2:  color-mix(in srgb, var(--vista-tono), black 32%);  /* lo que era gris claro */
     --v-input:    color-mix(in srgb, var(--vista-tono), black 45%);  /* cajas de texto */
@@ -61,7 +62,7 @@
 /* ===== 3. El marco de cada vista: su tono, mismo ancho en todas ===== */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv) {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv) {
     background: var(--vista-tono);
     border-radius: var(--radio);
     box-shadow: var(--sombra);
@@ -98,6 +99,7 @@
 #declaracionJuradaDiv .ddjj-container,
 #planesDePagoDiv .planes-container,
 #datosRegistralesDiv .dr-container,
+#ddjjPendientesDiv .dp-container,
 #facturasTipificadasSeccion .factura-tipificada-container,
 #lectorMpSeccion .inicio-container {
     max-width: none;
@@ -111,19 +113,19 @@
 /* ===== 4. Textos genéricos (títulos, etiquetas) ===== */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) :is(h1, h2, h3, h4, h5, h6, label, legend, th) {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) :is(h1, h2, h3, h4, h5, h6, label, legend, th) {
     color: var(--v-texto);
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) :is(.text-muted, .text-secondary, small) {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) :is(.text-muted, .text-secondary, small) {
     color: var(--v-texto-2) !important;
 }
 
 /* ===== 5. Cajas de texto y desplegables: oscuras con letra blanca ===== */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista)
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista)
     :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]),
         select, textarea, .form-control, .form-select) {
     background-color: var(--v-input);
@@ -132,39 +134,39 @@
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) :is(input, textarea)::placeholder {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) :is(input, textarea)::placeholder {
     color: rgba(255, 255, 255, 0.55);
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) :is(input, select, textarea):disabled {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) :is(input, select, textarea):disabled {
     opacity: 0.6;
 }
 /* Las opciones de un <select> abierto también: si no, lista blanca con letra blanca */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) option {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) option {
     background-color: var(--v-input);
     color: var(--v-texto);
 }
 /* El ícono del calendario de los input date viene negro: lo invertimos */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) input::-webkit-calendar-picker-indicator {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) input::-webkit-calendar-picker-indicator {
     filter: invert(1);
 }
 
 /* ===== 6. Piezas de Bootstrap que traen blanco de fábrica ===== */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) :is(.card, .list-group-item, .bg-white, .bg-light, .modal-content) {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) :is(.card, .list-group-item, .bg-white, .bg-light, .modal-content) {
     background-color: var(--v-panel) !important;
     color: var(--v-texto);
     border-color: var(--v-borde);
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) .table {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) .table {
     --bs-table-bg: transparent;
     --bs-table-color: var(--v-texto);
     --bs-table-striped-bg: rgba(0, 0, 0, 0.15);
@@ -213,7 +215,7 @@ html {
 /* ===== 10. Botones y acentos azules de la paleta vieja → tono del servicio ===== */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv) {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv) {
     --v-acento: color-mix(in srgb, var(--vista-tono), white 45%);   /* barritas y subrayados */
 }
 :is(#facturasSeccion, #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion) {
@@ -273,20 +275,20 @@ html {
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
     #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) .ui-switch {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) .ui-switch {
     color: var(--v-texto-2);
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
     #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) .ui-switch input {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) .ui-switch input {
     background: var(--v-input);
     box-shadow: inset 0 0 0 1px var(--v-borde);
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
     #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
-    #planesDePagoDiv, #datosRegistralesDiv, .tema-vista) .ui-switch input:checked {
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, .tema-vista) .ui-switch input:checked {
     background: #43e97b;
     box-shadow: none;
 }

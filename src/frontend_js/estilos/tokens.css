@@ -83,6 +83,7 @@
   --tono-ddjj:            hsl(290 38% 39%);
   --tono-planes:          hsl(264 36% 46%);
   --tono-datos-registrales: hsl(256 40% 36%);
+  --tono-ddjj-pendientes: hsl(282 34% 40%);
 
   /* ===== Tonos de las herramientas (ver estilos/tema_herramientas.css) =====
      Cada una con su PROPIA familia (ni violeta AFIP ni verde ATM): otra zona. */
