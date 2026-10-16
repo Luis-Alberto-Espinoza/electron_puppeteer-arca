@@ -1,0 +1,153 @@
+/**
+ * BUSCADOR GLOBAL — portada (#portadaDiv) y ventana Ctrl+K.
+ * Clases con prefijo .bg- (buscador global). Usa tokens.css.
+ */
+
+/* ===== Caja del buscador (igual en portada y en la ventana) ===== */
+.bg-buscador {
+    background: var(--card);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra-modal);
+    font-family: var(--fuente);
+    overflow: hidden;
+}
+
+.bg-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+}
+
+.bg-lupa {
+    font-size: 18px;
+}
+
+/* Doble clase: le gana a input[type="text"] global de index.css (borde, margen, padding). */
+.bg-input-wrap .bg-input {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 18px;
+    color: var(--texto-1);
+}
+
+.bg-input::placeholder {
+    color: var(--texto-3);
+}
+
+.bg-atajo {
+    font-size: 11px;
+    color: var(--texto-2);
+    background: var(--fondo-claro-2);
+    border: 1px solid var(--borde);
+    border-radius: 4px;
+    padding: 2px 6px;
+}
+
+/* ===== Resultados ===== */
+.bg-resultados {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.bg-resultados:not(:empty) {
+    border-top: 1px solid var(--borde);
+    padding: 6px;
+}
+
+.bg-seccion {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--texto-2);
+    padding: 6px 10px 4px;
+}
+
+.bg-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: var(--radio-sm);
+    border-left: 3px solid transparent;
+    color: var(--texto-1);
+    cursor: pointer;
+}
+
+.bg-item.activo {
+    background: var(--fondo-claro-2);
+    border-left-color: var(--c-primario-1);
+}
+
+.bg-item mark {
+    background: var(--c-acento);
+    color: inherit;
+    padding: 0;
+    border-radius: 2px;
+}
+
+.bg-vacio {
+    color: var(--texto-2);
+    padding: 10px 12px;
+}
+
+/* Etiqueta de grupo: dice de dónde es el servicio ("Planes de Pago" hay en AFIP y ATM) */
+.bg-grupo {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: #fff;
+    border-radius: 10px;
+    padding: 2px 8px;
+    background: var(--texto-2);
+}
+
+.bg-grupo-afip { background: var(--c-primario-2); }
+.bg-grupo-atm { background: var(--c-atm-1); }
+
+/* ===== Ventana flotante (Ctrl+K) ===== */
+.bg-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;              /* arriba de la navbar (1000) */
+    background: var(--velo-modal);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12vh 16px 0;
+}
+
+.bg-caja {
+    width: 100%;
+    max-width: 560px;
+}
+
+body.bg-sin-scroll {
+    overflow: hidden;
+}
+
+/* ===== Portada ===== */
+.portada {
+    max-width: 560px;
+    margin: 12vh auto 0;
+}
+
+.portada-pregunta {
+    text-align: center;
+    color: #fff;
+    font-family: var(--fuente);
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}

@@ -7,41 +7,23 @@
  *   - initNavbar()                 → inyecta la barra y cablea los botones.
  *   - actualizarNavbarUsuario(txt) → refresca el indicador de usuario activo.
  *
- * Depende de (definidas en controlador.js):
- *   - window.navegarVista(clave)
- *   - window.recargarVistaActual()
+ * Depende de:
+ *   - window.CATALOGO_SERVICIOS / window.ejecutarServicio (catalogoServicios.js):
+ *     los menús salen de ahí; un servicio nuevo se agrega en el catálogo, no acá.
+ *   - window.recargarVistaActual() (controlador.js)
  *
- * No conoce la lógica de navegación: solo dispara claves. Si el controlador
- * todavía no expuso esas funciones, avisa por consola y no rompe.
+ * No conoce la lógica de navegación: cada ítem lleva data-servicio y el catálogo
+ * sabe qué hacer. Si algo no está disponible todavía, avisa por consola y no rompe.
  */
 (function () {
-    // Servicios AFIP que navegan directo (su selector de usuario va embebido en la vista)
-    const SERVICIOS_AFIP = [
-        { clave: 'vep', label: 'Generar VEP' },
-        { clave: 'cuentaTributaria', label: 'Cuenta Tributaria' },
-        { clave: 'consultaComprobantes', label: 'Consulta Comprobantes' },
-        { clave: 'planesDePago', label: 'Planes de Pago' },
-        { clave: 'declaracionJurada', label: 'Declaración Jurada' },
-        { clave: 'datosRegistrales', label: 'Datos registrales' },
-        { clave: 'ddjjPendientes', label: 'DDJJ pendientes' },
-        { clave: 'importarLibroIva', label: 'Importar Libro IVA' },
-    ];
+    const catalogo = () => window.CATALOGO_SERVICIOS || [];
 
-    // Subservicios ATM: van todos a la vista ATM (lote) y activan su panel.
-    // `sub` = valor de data-sub del botón dentro de la vista (no es una vista aparte).
-    const SUBSERVICIOS_ATM = [
-        { sub: 'constancias', label: 'Constancias' },
-        { sub: 'planesPago', label: 'Planes de Pago' },
-        { sub: 'tasaCero', label: 'Tasa Cero' },
-        { sub: 'retenciones', label: 'Retenciones' },
-    ];
-
-    function navegar(clave) {
-        if (typeof window.navegarVista === 'function') {
-            window.navegarVista(clave);
-        } else {
-            console.warn('[navbar] window.navegarVista no está disponible todavía');
-        }
+    // Botones de un grupo del catálogo (los que van en la navbar).
+    function items(grupo, clase) {
+        return catalogo()
+            .filter(s => s.grupo === grupo && s.navbar !== false)
+            .map(s => `<button class="${clase}" data-servicio="${s.id}">${s.label}</button>`)
+            .join('');
     }
 
     function recargar() {
@@ -63,25 +45,13 @@
             <div class="nav-links">
                 <div class="nav-dropdown">
                     <button class="nav-btn nav-dropdown-toggle">AFIP ▾</button>
-                    <div class="nav-dropdown-menu">
-                        <button class="nav-drop-item" data-clave="afip">Inicio AFIP-ARCA</button>
-                        <button class="nav-drop-item" data-lanzador="afip">Lanzador</button>
-                        <button class="nav-drop-item" data-evento="cargarModuloFactura">Facturación</button>
-                        ${SERVICIOS_AFIP.map(s => `<button class="nav-drop-item" data-clave="${s.clave}">${s.label}</button>`).join('')}
-                    </div>
+                    <div class="nav-dropdown-menu">${items('AFIP', 'nav-drop-item')}</div>
                 </div>
                 <div class="nav-dropdown nav-dropdown-atm">
                     <button class="nav-btn nav-dropdown-toggle">ATM ▾</button>
-                    <div class="nav-dropdown-menu">
-                        <button class="nav-drop-item" data-clave="atm">Inicio ATM</button>
-                        <button class="nav-drop-item" data-lanzador="atm">Lanzador</button>
-                        ${SUBSERVICIOS_ATM.map(s => `<button class="nav-drop-item" data-sub="${s.sub}">${s.label}</button>`).join('')}
-                    </div>
+                    <div class="nav-dropdown-menu">${items('ATM', 'nav-drop-item')}</div>
                 </div>
-                <button class="nav-btn" data-clave="clientes">Clientes</button>
-                <button class="nav-btn" data-clave="pdf">PDF</button>
-                <button class="nav-btn" data-clave="plantillasExcel">Plantillas Excel</button>
-                <button class="nav-btn" data-clave="historial">Historial</button>
+                ${items('General', 'nav-btn')}
             </div>
             <div class="nav-right">
                 <span class="nav-usuario" id="navUsuario"></span>
@@ -96,45 +66,15 @@
             nav.querySelectorAll('.nav-dropdown-menu.abierto').forEach(m => m.classList.remove('abierto'));
         }
 
-        // Navegación por vista (botones principales + ítems con data-clave)
-        nav.querySelectorAll('[data-clave]').forEach(btn => {
+        // Todos los ítems (menús + botones sueltos): el catálogo sabe qué hace cada uno
+        // (vista, subservicio ATM, lanzador, evento de módulo).
+        nav.querySelectorAll('[data-servicio]').forEach(btn => {
             btn.addEventListener('click', () => {
-                navegar(btn.dataset.clave);
-                cerrarDropdowns();
-            });
-        });
-
-        // Navegación a subservicios ATM (ítems con data-sub): van a la vista ATM
-        // y activan su panel vía window.navegarAtmSub (definida en controlador.js).
-        nav.querySelectorAll('[data-sub]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (typeof window.navegarAtmSub === 'function') {
-                    window.navegarAtmSub(btn.dataset.sub);
+                if (typeof window.ejecutarServicio === 'function') {
+                    window.ejecutarServicio(btn.dataset.servicio);
                 } else {
-                    console.warn('[navbar] window.navegarAtmSub no está disponible todavía');
+                    console.warn('[navbar] window.ejecutarServicio no está disponible todavía');
                 }
-                cerrarDropdowns();
-            });
-        });
-
-        // Lanzador de sesión (ítems con data-lanzador="afip"|"atm"): abren el modal
-        // del lanzador vía window.abrirLanzadorSesion (componente global, cargado en index.html).
-        nav.querySelectorAll('[data-lanzador]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (typeof window.abrirLanzadorSesion === 'function') {
-                    window.abrirLanzadorSesion(btn.dataset.lanzador);
-                } else {
-                    console.warn('[navbar] window.abrirLanzadorSesion no está disponible todavía');
-                }
-                cerrarDropdowns();
-            });
-        });
-
-        // Ítems que disparan un evento de módulo (data-evento="cargarModuloFactura"):
-        // reusan el MISMO flujo que los botones de la home (ej. selector de usuario previo).
-        nav.querySelectorAll('[data-evento]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.dispatchEvent(new CustomEvent(btn.dataset.evento));
                 cerrarDropdowns();
             });
         });

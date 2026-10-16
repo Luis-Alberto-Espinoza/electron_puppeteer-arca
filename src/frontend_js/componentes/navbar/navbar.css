@@ -78,6 +78,9 @@ body {
     box-shadow: var(--sombra);
     padding: 6px;
     z-index: 1001;
+    /* Nunca más alto que la ventana: si se suman servicios, scrollea el menú. */
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
 }
 
 .app-navbar .nav-dropdown-atm .nav-dropdown-menu {
