@@ -653,6 +653,8 @@ class SelectorUsuarios {
             if (e.target.id === `${this.contenedorId}-buscador`) {
                 console.log('🔵 Filtrar:', e.target.value);
                 this.filtrar(e.target.value);
+                // Solo al tipear (no en recargar(), que también filtra): ahí la página no debe saltar.
+                this.mostrarPrimerResultado();
             }
         };
 
@@ -672,6 +674,22 @@ class SelectorUsuarios {
         this.textoBusqueda = texto.toLowerCase();
         this.calcularFiltrados();
         this.renderizarSoloListaDisponibles();
+    }
+
+    /**
+     * Al filtrar, que se vea el primer resultado: la lista vuelve a su tope y, si la
+     * primera fila quedó abajo de la ventana (ventana chica), la página baja hasta dejar
+     * el buscador arriba. Si ya se ve, no se mueve nada (no salta en cada tecla).
+     */
+    mostrarPrimerResultado() {
+        const lista = document.getElementById(`${this.contenedorId}-lista-disponibles`);
+        if (!lista) return;
+        lista.scrollTop = 0;
+
+        const primera = lista.querySelector('.usuario-fila') || lista;
+        if (primera.getBoundingClientRect().bottom <= window.innerHeight) return;
+        // scroll-margin-top del buscador (css) deja lugar para la navbar fija.
+        this.contenedor.querySelector('.buscador-section')?.scrollIntoView({ block: 'start' });
     }
 
     /** Habilitado = puede operar en el servicio (lo que se ve por default con filtroHabilitados). */

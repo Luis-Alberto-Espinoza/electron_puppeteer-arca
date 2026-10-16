@@ -50,6 +50,7 @@
     background: var(--sel-buscador);
     border-bottom: 2px solid var(--sel-linea);
     border-radius: 8px 8px 0 0;
+    scroll-margin-top: 70px;    /* al buscar se scrollea hasta acá: que no lo tape la navbar fija (60px) */
 }
 
 .buscador-titulo {
