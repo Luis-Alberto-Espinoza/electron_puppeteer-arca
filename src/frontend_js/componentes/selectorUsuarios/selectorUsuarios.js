@@ -677,19 +677,15 @@ class SelectorUsuarios {
     }
 
     /**
-     * Al filtrar, que se vea el primer resultado: la lista vuelve a su tope y, si la
-     * primera fila quedó abajo de la ventana (ventana chica), la página baja hasta dejar
-     * el buscador arriba. Si ya se ve, no se mueve nada (no salta en cada tecla).
+     * Al tipear, el buscador sube a lo más alto visible (debajo de la navbar) y la lista
+     * vuelve a su tope: la búsqueda queda en el centro. Si ya está arriba no se mueve; si
+     * la página no da para subirlo más (es corta), queda donde llegue.
      */
     mostrarPrimerResultado() {
         const lista = document.getElementById(`${this.contenedorId}-lista-disponibles`);
-        if (!lista) return;
-        lista.scrollTop = 0;
-
-        const primera = lista.querySelector('.usuario-fila') || lista;
-        if (primera.getBoundingClientRect().bottom <= window.innerHeight) return;
-        // scroll-margin-top del buscador (css) deja lugar para la navbar fija.
-        this.contenedor.querySelector('.buscador-section')?.scrollIntoView({ block: 'start' });
+        if (lista) lista.scrollTop = 0;
+        // scroll-margin-top del input (css) deja lugar para la navbar fija.
+        document.getElementById(`${this.contenedorId}-buscador`)?.scrollIntoView({ block: 'start' });
     }
 
     /** Habilitado = puede operar en el servicio (lo que se ve por default con filtroHabilitados). */
