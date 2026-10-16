@@ -2,6 +2,10 @@
 // El backend agrupa por login (representante) y avisa el progreso por onUpdate.
 
 window.inicializarModuloDatosRegistrales = () => {
+    // Errores que se arreglan con la clave (login_arca.js y el resolver de acceso).
+    // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
+    const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
+
     const btnProcesar = document.getElementById('btnProcesarDr');
     const chkVisible  = document.getElementById('chk-visible-dr');
     const resultados  = document.getElementById('resultadosDr');
@@ -63,7 +67,9 @@ window.inicializarModuloDatosRegistrales = () => {
             btnCarpeta.addEventListener('click', () => window.electronAPI.abrirDirectorio(datos.downloadDir));
             fila.append(btnPdf, btnCarpeta);
         }
-        if (datos.estado === 'error' && datos.id != null) {
+        // Solo los errores de acceso van a la fila: ahí el selector ofrece "Clave". Un error de
+        // Sistema Registral o de ARCA con el botón de la llave asusta y no se arregla con la clave.
+        if (datos.estado === 'error' && datos.id != null && ERRORES_DE_ACCESO.has(datos.error)) {
             selector.marcarFila(datos.id, datos.mensaje, 'error');
         }
     }
