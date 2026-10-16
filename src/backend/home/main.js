@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path');
 // Lo más arriba posible: así hasta los console.log de los require de abajo van al archivo.
 const { getCarpetaLogs } = require('../comun/rutasDatos.js');
@@ -129,6 +129,8 @@ function createWindow() {
         }
     });
 
+    if (!app.isPackaged) habilitarInspeccion(mainWindow.webContents);
+
     mainWindow.webContents.once('did-finish-load', () => {
         mainWindow.show();
 
@@ -145,6 +147,44 @@ function createWindow() {
                 mainWindow.focus();
             }, 100);
         }, 300);
+    });
+}
+
+// Solo en desarrollo (pnpm start). Electron no trae Ctrl+Shift+C: en Chrome lo
+// maneja el navegador, no la página. Lo agregamos a mano, igual que electron-debug,
+// más el clic derecho → "Inspeccionar elemento".
+function habilitarInspeccion(webContents) {
+    const entrarEnModoSeleccion = () => {
+        webContents.devToolsWebContents?.executeJavaScript('DevToolsAPI.enterInspectElementMode()');
+    };
+
+    webContents.on('before-input-event', (event, input) => {
+        if (input.type === 'keyDown' && input.control && input.shift && input.code === 'KeyC') {
+            event.preventDefault();
+            if (webContents.isDevToolsOpened()) {
+                entrarEnModoSeleccion();
+            } else {
+                webContents.once('devtools-opened', entrarEnModoSeleccion);
+                webContents.openDevTools({ mode: 'detach' });
+            }
+        }
+        // Ctrl+Shift+I: le ganamos al acelerador del menú nativo (que abre donde quedó la última vez)
+        if (input.type === 'keyDown' && input.control && input.shift && input.code === 'KeyI') {
+            event.preventDefault();
+            if (webContents.isDevToolsOpened()) webContents.closeDevTools();
+            else webContents.openDevTools({ mode: 'detach' });
+        }
+    });
+
+    webContents.on('context-menu', (event, params) => {
+        Menu.buildFromTemplate([{
+            label: 'Inspeccionar elemento',
+            click: () => {
+                // Si DevTools está cerrado, inspectElement lo abriría acoplado: lo abrimos antes en ventana aparte
+                if (!webContents.isDevToolsOpened()) webContents.openDevTools({ mode: 'detach' });
+                webContents.inspectElement(params.x, params.y);
+            }
+        }]).popup();
     });
 }
 
