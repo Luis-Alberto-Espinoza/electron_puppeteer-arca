@@ -25,12 +25,15 @@ body {
     font-family: var(--fuente);
 }
 
-.app-navbar .nav-brand {
-    font-weight: 700;
-    font-size: 18px;
-    color: #fff;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
+/* Lugar reservado para el ícono de la app (todavía no hay imagen): cuando esté,
+   va como <img> adentro o como background-image acá, y se borra el visibility. */
+.app-navbar .nav-logo {
+    visibility: hidden;         /* no se ve pero ocupa su lugar: al poner el ícono los botones no se corren */
+    flex: 0 0 32px;
+    height: 32px;
+    margin-top: 10px;           /* los .nav-btn heredan margin-top 10px global: alineado con ellos */
+    border: 1px dashed rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
 }
 
 .app-navbar .nav-links {

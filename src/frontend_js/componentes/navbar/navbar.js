@@ -59,7 +59,7 @@
         nav.id = 'appNavbar';
         nav.className = 'app-navbar';
         nav.innerHTML = `
-            <div class="nav-brand">AFIP · ARCA</div>
+            <div class="nav-logo" aria-hidden="true"></div>
             <div class="nav-links">
                 <div class="nav-dropdown">
                     <button class="nav-btn nav-dropdown-toggle">AFIP ▾</button>
