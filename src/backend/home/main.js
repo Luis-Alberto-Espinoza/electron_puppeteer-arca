@@ -94,6 +94,7 @@ function createWindow() {
         minWidth: 600,     // Más estrecha si es necesario  
         minHeight: 400,
         resizable: true,   // Permitir redimensionar si es necesario
+        title: 'Escritorio Contable', // fijo: app.getName() da el "name" (escritorio-contable)
         webPreferences: {
             preload: path.join(__dirname, '../../../preload.js'),
             nodeIntegration: false,
@@ -118,6 +119,9 @@ function createWindow() {
     });
 
     mainWindow.loadFile('src/frontend_js/home/index.html');
+
+    // El título lo fija el package.json: que el <title> del HTML no lo pise.
+    mainWindow.on('page-title-updated', (e) => e.preventDefault());
 
     // Ctrl+Shift+R: recarga COMPLETA de la ventana (vuelve al inicio y descarta
     // todo el estado en memoria). Es a propósito: sirve para limpiar el cliente/
