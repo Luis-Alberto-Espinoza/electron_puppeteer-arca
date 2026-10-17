@@ -99,6 +99,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
             generarLote: (datos) => ipcRenderer.invoke('atm:tasaCero:generarLote', datos),
             onUpdate: (callback) => ipcRenderer.on('atm:tasaCero:update', (_event, datos) => callback(datos))
         },
+        apremios: {
+            generarLote: (datos) => ipcRenderer.invoke('atm:apremios:generarLote', datos),
+            onUpdate: (callback) => ipcRenderer.on('atm:apremios:update', (_event, datos) => callback(datos))
+        },
         listas: {
             get:      (subservicio) => ipcRenderer.invoke('atm:listas:get', subservicio),
             guardar:  (datos)       => ipcRenderer.invoke('atm:listas:guardar', datos),

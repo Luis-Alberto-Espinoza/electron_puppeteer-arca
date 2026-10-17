@@ -42,6 +42,7 @@
         { id: 'atmPlanesPago', label: 'Planes de Pago', grupo: 'ATM', accion: { sub: 'planesPago' }, claves: ['cuotas'] },
         { id: 'atmTasaCero', label: 'Tasa Cero', grupo: 'ATM', accion: { sub: 'tasaCero' }, claves: ['iibb', 'ingresos brutos'] },
         { id: 'atmRetenciones', label: 'Retenciones', grupo: 'ATM', accion: { sub: 'retenciones' }, claves: ['percepciones'] },
+        { id: 'atmApremios', label: 'Apremios', grupo: 'ATM', accion: { sub: 'apremios' }, claves: ['inhibiciones', 'embargo', 'juicio', 'deuda'] },
 
         // ===== General (botones sueltos de la navbar) =====
         { id: 'clientes', label: 'Clientes', grupo: 'General', accion: { vista: 'clientes' }, claves: ['contribuyentes', 'alta', 'abm', 'usuarios'] },

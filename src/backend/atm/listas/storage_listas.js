@@ -4,7 +4,7 @@
 const fs = require('fs');
 const { rutaDato, escribirAtomico } = require('../../comun/rutasDatos.js');
 
-const SUBSERVICIOS_VALIDOS = ['constancias', 'planesPago', 'tasaCero', 'retenciones'];
+const SUBSERVICIOS_VALIDOS = ['constancias', 'planesPago', 'tasaCero', 'retenciones', 'apremios'];
 
 class ListasATMStorage {
     constructor() {

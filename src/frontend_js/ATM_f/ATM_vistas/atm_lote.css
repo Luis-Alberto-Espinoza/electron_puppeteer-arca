@@ -536,3 +536,63 @@
     color: #718096;
     cursor: not-allowed;
 }
+/* ========================================
+   APREMIOS - IMPUESTOS POR CLIENTE
+   ======================================== */
+
+.tabla-apremios {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.tabla-apremios th,
+.tabla-apremios td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #4a5568;
+    text-align: center;
+}
+
+.tabla-apremios th:first-child,
+.tabla-apremios td:first-child {
+    text-align: left;
+}
+
+.tabla-apremios th {
+    color: #a0aec0;
+    font-weight: 600;
+}
+
+.tabla-apremios .fila-todos td {
+    color: #f6e05e;
+    font-weight: 600;
+    background-color: #1a202c;
+}
+
+.tabla-apremios input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.tabla-apremios .fila-sin-impuestos td:first-child {
+    color: #fc8181;
+}
+
+/* Resultado por impuesto */
+.detalle-apremios {
+    margin: 6px 0 4px;
+    padding-left: 18px;
+    font-size: 13px;
+}
+
+.detalle-apremios .apremio-ok,
+.detalle-apremios .apremio-vacio { color: #68d391; }
+.detalle-apremios .apremio-con_saldo { color: #f6ad55; }
+.detalle-apremios .apremio-error { color: #fc8181; }
+
+.tabla-apremios .celda-todos,
+.tabla-apremios th:nth-child(2) {
+    border-right: 1px solid #4a5568;
+}

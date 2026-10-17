@@ -10,6 +10,7 @@
         <button class="btn btn-sub" data-sub="planesPago">Planes de Pago</button>
         <button class="btn btn-sub" data-sub="tasaCero">Tasa Cero</button>
         <button class="btn btn-sub" data-sub="retenciones">Retenciones</button>
+        <button class="btn btn-sub" data-sub="apremios">Apremios</button>
     </div>
 
     <!-- PASO 2-4: Panel de configuración (oculto hasta elegir subservicio) -->
@@ -65,6 +66,16 @@
 
         <!-- Tabla de clientes (SelectorUsuarios) -->
         <div id="selector-usuarios-atm"></div>
+
+        <!-- Impuestos por cliente (solo Apremios): cada cliente elige qué consultar -->
+        <div id="panel-apremios" class="lote-seccion" style="display:none">
+            <div class="lote-seccion-titulo">Impuestos a consultar por cliente <span class="lote-hint">(un Excel por cliente, una hoja por impuesto)</span></div>
+            <div id="apremios-sin-clientes" class="lote-hint">Seleccione clientes en la tabla de arriba.</div>
+            <table id="tabla-apremios" class="tabla-apremios" style="display:none">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
 
         <!-- Limpiar + Procesar -->
         <div class="lote-controles">

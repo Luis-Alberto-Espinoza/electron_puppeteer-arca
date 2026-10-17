@@ -40,6 +40,7 @@ const setupConstanciaFiscalHandlers = require('../atm/constanciaFiscal/handlers.
 const setupPlanDePagoHandlers = require('../atm/planDePago/handlers.js');
 const setupRetencionesHandlers = require('../atm/retenciones/handlers.js');
 const setupTasaCeroHandlers = require('../atm/tasaCero/handlers.js');
+const setupApremiosHandlers = require('../atm/apremios/handlers.js');
 const setupListasATMHandlers = require('../atm/listas/handlers.js');
 const setupSesionAtmHandlers = require('../atm/sesion/handlers.js');
 
@@ -350,6 +351,7 @@ app.whenReady().then(async () => {
         setupPlanDePagoHandlers(ipcMain, mainWindow, app);
         setupRetencionesHandlers(ipcMain, mainWindow, app);
         setupTasaCeroHandlers(ipcMain, mainWindow, app);
+        setupApremiosHandlers(ipcMain, mainWindow, app);
         setupListasATMHandlers(ipcMain);
         setupSesionAtmHandlers(ipcMain); // usa contribuyenteRepo (resolverAcceso)
 

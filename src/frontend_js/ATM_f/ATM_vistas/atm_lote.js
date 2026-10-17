@@ -27,14 +27,31 @@ window.inicializarModuloLoteATM = () => {
             rangoPeriodo:  true,         // permite descargar un rango de meses de una sola pasada
             periodoDefault: 'previous',  // índice 1 → mes anterior
             ejecutar:      (clientes, { visible }) => window.electronAPI.atm.retenciones.generarLote({ usuarios: clientes, visible })
+        },
+        apremios: {
+            label:         'Apremios',
+            tienePeriodo:  false,
+            impuestosPorCliente: true,   // cada cliente elige sus impuestos (panel-apremios)
+            ejecutar:      (clientes, { visible }) => window.electronAPI.atm.apremios.generarLote({ clientes, visible })
         }
     };
+
+    // Botones de "Consulta de Apremios" en ATM. Mismos ids que el backend (atm/apremios/tablaApremios.js).
+    const IMPUESTOS_APREMIOS = [
+        { id: 'automotor',      label: 'Automotor' },
+        { id: 'inmueble',       label: 'Inmueble' },
+        { id: 'ingresosBrutos', label: 'Ingresos Brutos' },
+        { id: 'multas',         label: 'Multas' },
+        { id: 'agentes',        label: 'Agentes' }
+    ];
 
     // =========================================================================
     // ESTADO
     // =========================================================================
     let subservicioActivo = null;
     let selectorUsuarios  = null;
+    // Apremios: id de cliente → Set de impuestos elegidos (un cliente nuevo arranca sin ninguno).
+    const impuestosPorCliente = new Map();
 
     // =========================================================================
     // ELEMENTOS DOM
@@ -64,6 +81,9 @@ window.inicializarModuloLoteATM = () => {
     const procesandoContainer = document.getElementById('lote-procesando-ahora');
     const finalizadosContainer= document.getElementById('lote-finalizados-container');
     const finalizadosDiv      = document.getElementById('lote-finalizados');
+    const panelApremios       = document.getElementById('panel-apremios');
+    const tablaApremios       = document.getElementById('tabla-apremios');
+    const apremiosSinClientes = document.getElementById('apremios-sin-clientes');
 
     // Ocultar paneles de resultados al iniciar
     procesandoContainer.style.display  = 'none';
@@ -206,6 +226,7 @@ window.inicializarModuloLoteATM = () => {
         },
         headersColumnasExtras: ['Estado'],
         onCambioSeleccion: (seleccionados) => {
+            renderizarPanelApremios(seleccionados);
             btnProcesar.disabled = seleccionados.length === 0;
             btnProcesar.textContent = subservicioActivo
                 ? `▶ Procesar ${CONFIG_SUB[subservicioActivo].label} (${seleccionados.length})`
@@ -240,6 +261,9 @@ window.inicializarModuloLoteATM = () => {
         // Mostrar/ocultar periodo
         const config = CONFIG_SUB[sub];
         panelPeriodo.style.display = config.tienePeriodo ? 'block' : 'none';
+        panelApremios.style.display = config.impuestosPorCliente ? 'block' : 'none';
+        impuestosPorCliente.clear();
+        renderizarPanelApremios([]);
 
         // Switch visible/oculto: vuelve a "visible" al cambiar de subservicio
         // (no se guarda preferencia).
@@ -546,6 +570,77 @@ window.inicializarModuloLoteATM = () => {
     }
 
     // =========================================================================
+    // APREMIOS: IMPUESTOS POR CLIENTE
+    // =========================================================================
+
+    function impuestosDe(id) {
+        const clave = String(id);
+        if (!impuestosPorCliente.has(clave)) {
+            impuestosPorCliente.set(clave, new Set());
+        }
+        return impuestosPorCliente.get(clave);
+    }
+
+    // Una fila por cliente seleccionado: "Todos" (los 5 de ese cliente) + un checkbox por
+    // impuesto. La fila de arriba marca/desmarca la columna entera para todos los clientes.
+    function renderizarPanelApremios(seleccionados) {
+        if (!subservicioActivo || !CONFIG_SUB[subservicioActivo].impuestosPorCliente) return;
+
+        apremiosSinClientes.style.display = seleccionados.length ? 'none' : 'block';
+        tablaApremios.style.display = seleccionados.length ? 'table' : 'none';
+        if (!seleccionados.length) return;
+
+        const todosMarcados = (impId) => seleccionados.every(c => impuestosDe(c.id).has(impId));
+        const filaCompleta = (id) => impuestosDe(id).size === IMPUESTOS_APREMIOS.length;
+        const marcado = (v) => v ? 'checked' : '';
+        tablaApremios.querySelector('thead').innerHTML = `
+            <tr><th>Cliente</th><th>Todos</th>${IMPUESTOS_APREMIOS.map(i => `<th>${i.label}</th>`).join('')}</tr>
+            <tr class="fila-todos"><td>Todos los clientes</td>
+                <td><input type="checkbox" data-todo="1" ${marcado(seleccionados.every(c => filaCompleta(c.id)))}></td>
+                ${IMPUESTOS_APREMIOS.map(i => `<td><input type="checkbox" data-columna="${i.id}" ${marcado(todosMarcados(i.id))}></td>`).join('')}</tr>`;
+
+        const tbody = tablaApremios.querySelector('tbody');
+        tbody.innerHTML = '';
+        seleccionados.forEach(c => {
+            const elegidos = impuestosDe(c.id);
+            const tr = document.createElement('tr');
+            const celdaNombre = document.createElement('td');
+            celdaNombre.textContent = `${c.nombre || ''} ${c.apellido || ''}`.trim() || c.cuit;
+            tr.appendChild(celdaNombre);
+            const celdaTodos = document.createElement('td');
+            celdaTodos.className = 'celda-todos';
+            celdaTodos.innerHTML = `<input type="checkbox" data-fila="${c.id}" ${marcado(filaCompleta(c.id))}>`;
+            tr.appendChild(celdaTodos);
+            IMPUESTOS_APREMIOS.forEach(i => {
+                const td = document.createElement('td');
+                td.innerHTML = `<input type="checkbox" data-cliente="${c.id}" data-impuesto="${i.id}" ${elegidos.has(i.id) ? 'checked' : ''}>`;
+                tr.appendChild(td);
+            });
+            if (elegidos.size === 0) tr.classList.add('fila-sin-impuestos');
+            tbody.appendChild(tr);
+        });
+    }
+
+    tablaApremios.addEventListener('change', (e) => {
+        const chk = e.target;
+        const llenar = (set) => chk.checked ? IMPUESTOS_APREMIOS.forEach(i => set.add(i.id)) : set.clear();
+        if (chk.dataset.todo) {
+            selectorUsuarios.obtenerSeleccionados().forEach(c => llenar(impuestosDe(c.id)));
+        } else if (chk.dataset.fila) {
+            llenar(impuestosDe(chk.dataset.fila));
+        } else if (chk.dataset.columna) {
+            selectorUsuarios.obtenerSeleccionados().forEach(c => {
+                const set = impuestosDe(c.id);
+                chk.checked ? set.add(chk.dataset.columna) : set.delete(chk.dataset.columna);
+            });
+        } else if (chk.dataset.cliente) {
+            const set = impuestosDe(chk.dataset.cliente);
+            chk.checked ? set.add(chk.dataset.impuesto) : set.delete(chk.dataset.impuesto);
+        }
+        renderizarPanelApremios(selectorUsuarios.obtenerSeleccionados());
+    });
+
+    // =========================================================================
     // LIMPIAR SELECCIÓN
     // =========================================================================
     btnLimpiar.addEventListener('click', () => {
@@ -589,18 +684,39 @@ window.inicializarModuloLoteATM = () => {
             }
         }
 
-        const nombresClientes = clientes.map(c => `${c.nombre || ''} ${c.apellido || ''}`.trim()).join('\n - ');
+        if (config.impuestosPorCliente) {
+            const sinImpuestos = [];
+            clientes.forEach(c => {
+                c.impuestos = IMPUESTOS_APREMIOS.map(i => i.id).filter(id => impuestosDe(c.id).has(id));
+                if (c.impuestos.length === 0) sinImpuestos.push(`${c.nombre || ''} ${c.apellido || ''}`.trim() || c.cuit);
+            });
+            if (sinImpuestos.length > 0) {
+                alert(`Estos clientes no tienen ningún impuesto marcado:\n\n - ${sinImpuestos.join('\n - ')}`);
+                return;
+            }
+        }
+
+        const etiquetaImpuestos = (c) => c.impuestos
+            ? ` (${c.impuestos.map(id => IMPUESTOS_APREMIOS.find(i => i.id === id).label).join(', ')})`
+            : '';
+        const nombresClientes = clientes.map(c => `${c.nombre || ''} ${c.apellido || ''}`.trim() + etiquetaImpuestos(c)).join('\n - ');
         const confirmacion = confirm(
             `Se iniciará el proceso de ${config.label} para ${clientes.length} cliente(s):\n\n - ${nombresClientes}${textoPeriodos}\n\n¿Desea continuar?`
         );
         if (!confirmacion) return;
 
         prepararUIParaProceso();
+        loteEnCurso = { label: config.label, total: clientes.length, terminados: 0 };
+        window.ruedaTrabajando?.mostrar(`${config.label}: iniciando sesión en ATM…`);
 
         try {
             await config.ejecutar(clientes, { visible: chkVisible.checked });
         } catch (error) {
             procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
+        } finally {
+            // El invoke vuelve cuando terminó el lote entero (o falló): la rueda se va siempre.
+            loteEnCurso = null;
+            window.ruedaTrabajando?.ocultar();
         }
     });
 
@@ -616,14 +732,23 @@ window.inicializarModuloLoteATM = () => {
     // MANEJO DE PROGRESO (compartido por todos los subservicios)
     // =========================================================================
     const userDivMap = new Map();
+    // Para el cartel de la rueda: { label, total, terminados } mientras corre un lote.
+    let loteEnCurso = null;
 
     const manejarActualizacionProgreso = (datos) => {
-        const { userId, clienteId, nombre, status, estado, mensaje, files = [], archivoPdf, downloadDir, resumen } = datos;
+        const { userId, clienteId, nombre, status, estado, mensaje, files = [], archivoPdf, downloadDir, resumen, detalleApremios } = datos;
         const idUsuario   = userId || clienteId;
         const estadoFinal = status || estado;
 
         if (estadoFinal === 'general')    return;
-        if (estadoFinal === 'finalizado') { procesandoContainer.style.display = 'none'; return; }
+        if (estadoFinal === 'finalizado') {
+            procesandoContainer.style.display = 'none';
+            // Llevar los resultados arriba de todo (con un solo cliente sube lo que da la página).
+            if (finalizadosContainer.style.display !== 'none') {
+                finalizadosContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            return;
+        }
 
         let userDiv = userDivMap.get(idUsuario);
         if (!userDiv) {
@@ -641,7 +766,17 @@ window.inicializarModuloLoteATM = () => {
             userDiv.appendChild(messageContainer);
         }
 
-        const isFinalStatus = ['exito_final', 'error', 'exito', 'no_habilitado'].includes(estadoFinal);
+        const isFinalStatus = ['exito_final', 'error', 'exito', 'no_habilitado', 'parcial'].includes(estadoFinal);
+
+        if (loteEnCurso) {
+            if (isFinalStatus) {
+                loteEnCurso.terminados++;
+            } else {
+                const n = Math.min(loteEnCurso.terminados + 1, loteEnCurso.total);
+                window.ruedaTrabajando?.mostrar(`${loteEnCurso.label}: ${nombre} (${n}/${loteEnCurso.total})`,
+                    `${mensaje} — No se colgó: está trabajando.`);
+            }
+        }
         const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado';
         const messageContainer = userDiv.querySelector('.message-container');
         messageContainer.innerHTML = `<div class="progreso-item">[${new Date().toLocaleTimeString()}] ${mensaje}</div>`;
@@ -656,8 +791,23 @@ window.inicializarModuloLoteATM = () => {
                 ? '<span class="badge bg-danger">FALLO</span>'
                 : estadoFinal === 'no_habilitado'
                     ? '<span class="badge bg-warning text-dark">NO HABILITADO</span>'
+                    : estadoFinal === 'parcial'
+                    ? '<span class="badge bg-warning text-dark">PARCIAL</span>'
                     : `<span class="badge bg-success">Éxito - ${files.length || (archivoPdf ? 1 : 0)} archivo(s)</span>`;
             userDiv.querySelector('h4').innerHTML = `${nombre} ${badge}`;
+
+            // Apremios: una línea por impuesto consultado (también cuando todos fallaron)
+            if (Array.isArray(detalleApremios) && detalleApremios.length > 0) {
+                const lista = document.createElement('ul');
+                lista.className = 'detalle-apremios';
+                detalleApremios.forEach(d => {
+                    const li = document.createElement('li');
+                    li.className = `apremio-${d.estado}`;
+                    li.textContent = d.texto;
+                    lista.appendChild(li);
+                });
+                userDiv.appendChild(lista);
+            }
 
             if (!esFallo) {
                 const archivosParaMostrar = files.length > 0 ? files : (archivoPdf ? [archivoPdf] : []);
@@ -719,6 +869,7 @@ window.inicializarModuloLoteATM = () => {
     window.electronAPI.atm.planDePago.onUpdate(manejarActualizacionProgreso);
     window.electronAPI.atm.retenciones.onUpdate(manejarActualizacionProgreso);
     window.electronAPI.atm.tasaCero.onUpdate(manejarActualizacionProgreso);
+    window.electronAPI.atm.apremios.onUpdate(manejarActualizacionProgreso);
 
     console.log('✅ Módulo de lote ATM inicializado completamente');
 };
