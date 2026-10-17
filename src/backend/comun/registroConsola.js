@@ -17,6 +17,8 @@ const METODOS = ['log', 'info', 'warn', 'error', 'debug'];
 // Campos sensibles: `clave: x`, `claveAFIP: 'x'`, `"password":"x"`, `contraseña=x`...
 // El lookahead (?![\wñ]) evita que "claveroja:" matchee y funciona con la ñ final.
 // No se tapan null/undefined/true/false: no son secretos y ayudan a diagnosticar.
+// La palabra suelta sin comillas se tapa a propósito (una clave de solo letras no se
+// distingue de prosa): en los mensajes no escribas "Contraseña: texto", usá otra forma.
 const RE_CLAVE = /((?:clave(?:AFIP|ATM|Fiscal)?|contrase[nñ]a|password)(?![\wñ])["']?\s*[:=]\s*)("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`|[^\s,;}\]]+)/gi;
 
 function taparClaves(texto) {

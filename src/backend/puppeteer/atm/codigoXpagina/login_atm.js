@@ -127,7 +127,7 @@ async function escribirVerificado(page, selector, valor, etiqueta, opciones = {}
 
     // Último recurso: asignamos el value directo y avisamos a la página con los eventos que
     // escucharía un tipeo real. Menos fiel que teclear, pero mejor que mandar un CUIT roto.
-    console.warn(`⚠️ [loginATM] ${etiqueta}: agotados los reintentos de tipeo, asignando por JS`);
+    console.warn(`⚠️ [loginATM] Campo ${etiqueta}, agotados los reintentos de tipeo, asignando por JS`);
     await page.$eval(selector, (el, v) => {
         el.value = v;
         el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -137,7 +137,7 @@ async function escribirVerificado(page, selector, valor, etiqueta, opciones = {}
     const quedoFinal = await page.$eval(selector, el => el.value);
     if (normalizar(quedoFinal) !== esperado) {
         console.error(
-            `❌ [loginATM] ${etiqueta}: no se pudo completar el campo ni por JS ` +
+            `❌ [loginATM] Campo ${etiqueta}, no se pudo completar ni por JS ` +
             `(quedó ${mostrar(quedoFinal)})`
         );
         return false;
