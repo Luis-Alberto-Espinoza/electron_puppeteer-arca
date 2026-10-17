@@ -440,17 +440,18 @@ async function procesarEnAbmSinSelector(page, modoActual) {
 
 /**
  * Vuelve a la lista de empresas. Usa goBack() porque AFIP rechaza la URL directa.
+ * Hoy AFIP necesita 2 pasos atrás; se verifica la URL tras cada paso para no pasarse.
  */
 async function volverAListaEmpresas(page) {
-    console.log('  → [ABM PDV] Volviendo a lista de empresas (goBack)...');
-    await page.goBack({ waitUntil: 'networkidle2', timeout: 30000 });
-    await esperar(800);
-    if (!page.url().includes(URLS.listaEmpresas)) {
-        console.log('  → [ABM PDV] goBack no me dejó en la lista, intento otro goBack...');
+    const MAX_PASOS = 3;
+    let pasos = 0;
+    while (pasos < MAX_PASOS && !page.url().includes(URLS.listaEmpresas)) {
         await page.goBack({ waitUntil: 'networkidle2', timeout: 30000 });
         await esperar(800);
+        pasos++;
     }
     verificarUrl(page, URLS.listaEmpresas, 'volver a lista empresas');
+    console.log(`  → [ABM PDV] De vuelta en la lista de empresas (${pasos} pasos atrás).`);
 }
 
 /**
