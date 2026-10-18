@@ -286,9 +286,13 @@ async function generarVEP() {
         return;
     }
 
-    const confirmacion = confirm(
-        `¿Generar VEP para ${usuariosSeleccionados.length} cliente(s)?`
-    );
+    const confirmacion = await showConfirmModal({
+        title: 'Generar VEP',
+        icon: '🚀',
+        message: `¿Generar VEP para ${usuariosSeleccionados.length} cliente(s)?`,
+        confirmText: 'Generar',
+        confirmBtnClass: 'tono'
+    });
 
     if (!confirmacion) return;
 
@@ -1194,9 +1198,13 @@ async function ejecutarConsultaDeuda() {
 
     console.log('📤 Enviando solicitud de consulta de deuda:', payload);
 
-    const confirmacion = confirm(
-        `¿Consultar deuda para ${usuariosSeleccionados.length} cliente(s)?`
-    );
+    const confirmacion = await showConfirmModal({
+        title: 'Consultar deuda',
+        icon: '🚀',
+        message: `¿Consultar deuda para ${usuariosSeleccionados.length} cliente(s)?`,
+        confirmText: 'Consultar',
+        confirmBtnClass: 'tono'
+    });
 
     if (!confirmacion) return;
 

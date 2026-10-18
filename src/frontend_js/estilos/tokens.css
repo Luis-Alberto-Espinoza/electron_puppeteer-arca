@@ -105,6 +105,9 @@
   --sombra-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
   --sombra-modal: 0 12px 40px rgba(0, 0, 0, 0.35);
   --velo-modal: rgba(0, 0, 0, 0.55);   /* fondo oscuro detrás de un modal */
+  /* Modales globales (.modal-global en base.css): cuánto se apartan del tono del servicio */
+  --modal-oscurecer: 40%;   /* fondo = tono + negro */
+  --modal-aclarar: 35%;     /* borde = tono + blanco */
 
   /* ===== Tipografía ===== */
   --fuente: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;

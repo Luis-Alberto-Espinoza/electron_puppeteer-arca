@@ -188,3 +188,63 @@ body {
 .ui-switch input:checked::after {
   transform: translateX(16px);
 }
+
+/* ============================================================
+   6. MODAL GLOBAL
+   .modal-global = modal de Bootstrap que se cuelga del body (fuera de las vistas),
+   así que no hereda el tema. Toma --modal-tono, que el JS copia del --vista-tono
+   de la vista activa al abrirlo (ver utils/confirmModal.js). Sin vista: violeta.
+   Fondo y borde salen del tono con los % de tokens.css (--modal-oscurecer/aclarar).
+   ============================================================ */
+.modal-global {
+  --modal-tono: var(--c-primario-2);
+  --modal-fondo: color-mix(in srgb, var(--modal-tono), black var(--modal-oscurecer));
+  --modal-borde: color-mix(in srgb, var(--modal-tono), white var(--modal-aclarar));
+}
+
+/* Ancho = el del renglón más largo (tope 90% de la ventana): una fila por cliente */
+.modal-global .modal-dialog {
+  width: fit-content;
+  min-width: min(420px, 90vw);
+  max-width: 90vw;
+}
+
+.modal-global .modal-content {
+  background: var(--modal-fondo);
+  border: 2px solid var(--modal-borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra-modal);
+  color: #fff;
+}
+
+.modal-global .modal-header,
+.modal-global .modal-footer {
+  background: color-mix(in srgb, var(--modal-fondo), black 20%);
+  border-color: color-mix(in srgb, var(--modal-tono), white 10%);
+}
+.modal-global .modal-header { border-radius: var(--radio) var(--radio) 0 0; }
+.modal-global .modal-footer { border-radius: 0 0 var(--radio) var(--radio); }
+
+.modal-global .modal-title { color: var(--modal-borde); }
+
+.modal-global .modal-body {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* Mensaje: respeta los \n y no corta renglones; si son muchos, scroll adentro */
+.modal-global .modal-mensaje {
+  white-space: pre;
+  max-height: 55vh;
+  overflow: auto;
+}
+
+/* Botón principal: el tono del servicio, más vivo */
+.modal-global .modal-footer .btn-tono {
+  background: color-mix(in srgb, var(--modal-tono), white 15%);
+  border: 1px solid var(--modal-borde);
+  color: #fff;
+}
+.modal-global .modal-footer .btn-tono:hover {
+  filter: brightness(1.12);
+}

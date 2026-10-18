@@ -2,6 +2,7 @@
 
 /* Estilos generales del contenedor del módulo */
 #atmsDiv {
+    --vista-tono: var(--c-atm-1);  /* lo usan los modales globales (confirmModal) */
     padding: 20px;
 }
 

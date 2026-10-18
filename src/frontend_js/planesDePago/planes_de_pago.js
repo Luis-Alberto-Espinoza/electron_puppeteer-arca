@@ -887,7 +887,14 @@ window.inicializarModuloPlanesDePago = () => {
             detalleMsg += `\n${lr.representante.nombre} (${lr.cuitsAProcesar.length} CUITs)`;
             lr.cuitsAProcesar.forEach(c => { detalleMsg += `\n  - ${c.alias} (${c.cuit})`; });
         });
-        if (!confirm(`Se procesaran ${loteRepresentantes.length} representante(s):${detalleMsg}\n\nSe bajan ${opciones.queSeBaja}.\n\nDesea continuar?`)) return;
+        const confirmado = await showConfirmModal({
+            title: 'Planes de Pago',
+            icon: '🚀',
+            message: `Se procesarán ${loteRepresentantes.length} representante(s):${detalleMsg}\n\nSe bajan ${opciones.queSeBaja}.\n\n¿Desea continuar?`,
+            confirmText: 'Iniciar',
+            confirmBtnClass: 'tono'
+        });
+        if (!confirmado) return;
 
         panelSeleccion.style.display = 'none';
         await descargar(loteRepresentantes, opciones.estados);
@@ -1076,7 +1083,14 @@ window.inicializarModuloPlanesDePago = () => {
         const loteRepresentantes = [...porRepresentante.values()];
         const totalPlanes = [...porCliente.values()].reduce((n, p) => n + p.length, 0);
 
-        if (!confirm(`Se descargan ${totalPlanes} plan(es) de ${porCliente.size} cliente(s).\n\nDesea continuar?`)) return;
+        const confirmado = await showConfirmModal({
+            title: 'Descargar planes',
+            icon: '🚀',
+            message: `Se descargan ${totalPlanes} plan(es) de ${porCliente.size} cliente(s).\n\n¿Desea continuar?`,
+            confirmText: 'Descargar',
+            confirmBtnClass: 'tono'
+        });
+        if (!confirmado) return;
         btnDescargarSeleccion.disabled = true;
         await descargar(loteRepresentantes, estadosListados);
         sincronizarSeleccion();

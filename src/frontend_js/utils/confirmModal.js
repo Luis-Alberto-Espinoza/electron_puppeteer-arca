@@ -25,20 +25,20 @@ function initConfirmModal() {
     // Template HTML del modal
     const modalHTML = `
         <!-- ==================== MODAL DE CONFIRMACIÓN REUTILIZABLE ==================== -->
-        <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal fade modal-global" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
             <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content bg-dark-custom">
-                    <div class="modal-header border-bottom-custom">
+                <div class="modal-content">
+                    <div class="modal-header">
                         <h5 class="modal-title" id="confirmModalLabel">
                             <span id="confirmModalIcon" class="me-2">⚠️</span>
                             <span id="confirmModalTitle">Confirmación</span>
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body text-light">
-                        <p id="confirmModalMessage" class="mb-0"></p>
+                    <div class="modal-body">
+                        <p id="confirmModalMessage" class="mb-0 modal-mensaje"></p>
                     </div>
-                    <div class="modal-footer border-top-custom">
+                    <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="confirmModalCancelBtn">
                             <span id="confirmModalCancelText">Cancelar</span>
                         </button>
@@ -60,6 +60,28 @@ function initConfirmModal() {
 }
 
 /**
+ * Devuelve el --vista-tono de la vista que se está viendo, o '' si no tiene.
+ * 1º el botón que abrió el modal (document.activeElement): hereda el tono de su
+ *    vista, por más anidada que esté (ej. Facturación dentro de módulos AFIP).
+ * 2º las vistas visibles (hermanas de #portadaDiv en home/index.html).
+ */
+function tonoVistaActiva() {
+    const leer = (el) => getComputedStyle(el).getPropertyValue('--vista-tono').trim();
+    const activo = document.activeElement;
+    if (activo && activo !== document.body) {
+        const tono = leer(activo);
+        if (tono) return tono;
+    }
+    const vistas = document.getElementById('portadaDiv')?.parentElement?.children || [];
+    for (const el of vistas) {
+        if (el.getClientRects().length === 0) continue;
+        const tono = leer(el);
+        if (tono) return tono;
+    }
+    return '';
+}
+
+/**
  * Muestra un modal de confirmación personalizable (reemplaza al confirm() nativo)
  *
  * @param {Object} options - Opciones de configuración del modal
@@ -68,7 +90,7 @@ function initConfirmModal() {
  * @param {string} options.icon - Emoji/icono a mostrar (default: "⚠️")
  * @param {string} options.confirmText - Texto del botón de confirmar (default: "Confirmar")
  * @param {string} options.cancelText - Texto del botón de cancelar (default: "Cancelar")
- * @param {string} options.confirmBtnClass - Clase CSS del botón confirmar: 'danger', 'success', o vacío (default: 'danger')
+ * @param {string} options.confirmBtnClass - Clase CSS del botón confirmar: 'danger', 'success' u otro valor = tono del servicio (default: 'danger')
  * @param {Function} options.onConfirm - Callback al confirmar (opcional)
  * @param {Function} options.onCancel - Callback al cancelar (opcional)
  *
@@ -139,8 +161,14 @@ function showConfirmModal(options = {}) {
             confirmBtn.classList.add('btn-danger');
         } else if (config.confirmBtnClass === 'success') {
             confirmBtn.classList.add('btn-success');
+        } else {
+            confirmBtn.classList.add('btn-tono'); // el tono del servicio (base.css)
         }
-        // Si no es danger ni success, usa el estilo amarillo por defecto del CSS
+
+        // El modal cuelga del body: le pasamos el tono de la vista activa
+        const tono = tonoVistaActiva();
+        if (tono) modalElement.style.setProperty('--modal-tono', tono);
+        else modalElement.style.removeProperty('--modal-tono');
 
         // Crear instancia del modal de Bootstrap
         const modal = new bootstrap.Modal(modalElement, {

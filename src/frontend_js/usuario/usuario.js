@@ -2500,7 +2500,14 @@ async function ejecutarProbarLote(servicios) {
     const salteados = seleccionados.length - aportaron.size;
     let msg = `¿Probar ${servicios.length === 1 ? 'la clave ' + nombreSvc : 'las claves ' + nombreSvc} de ${aportaron.size} cliente(s) seleccionado(s)?`;
     if (salteados > 0) msg += `\n\n${salteados} seleccionado(s) no tiene(n) clave ${nombreSvc} y se saltea(n).`;
-    if (!confirm(msg)) return;
+    const confirmado = await showConfirmModal({
+        title: `Probar claves ${nombreSvc}`,
+        icon: '🔐',
+        message: msg,
+        confirmText: 'Probar',
+        confirmBtnClass: 'tono'
+    });
+    if (!confirmado) return;
 
     reorderUsersBySelection();
 

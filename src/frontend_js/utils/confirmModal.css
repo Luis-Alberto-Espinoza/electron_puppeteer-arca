@@ -1,23 +1,5 @@
 /* ========== MODAL DE CONFIRMACIÓN REUTILIZABLE (BOOTSTRAP CUSTOM) ========== */
-
-.modal-content.bg-dark-custom {
-    background-color: #2d3748 !important;
-    border: 2px solid #f6e05e;
-    border-radius: 15px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-
-.modal-header.border-bottom-custom {
-    border-bottom: 2px solid #4a5568;
-    background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-    border-radius: 13px 13px 0 0;
-}
-
-.modal-footer.border-top-custom {
-    border-top: 2px solid #4a5568;
-    background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
-    border-radius: 0 0 13px 13px;
-}
+/* Fondo, borde y botón principal: los pone .modal-global (estilos/base.css). */
 
 .modal-title {
     color: #f6e05e;
@@ -68,18 +50,6 @@
     background-color: #718096;
     border-color: #a0aec0;
     transform: translateY(-2px);
-}
-
-#confirmModalConfirmBtn {
-    background-color: #f6e05e;
-    color: #1a202c;
-    border: none;
-}
-
-#confirmModalConfirmBtn:hover {
-    background-color: #faf089;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(246, 224, 94, 0.4);
 }
 
 #confirmModalConfirmBtn.btn-danger {

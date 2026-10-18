@@ -700,9 +700,13 @@ window.inicializarModuloLoteATM = () => {
             ? ` (${c.impuestos.map(id => IMPUESTOS_APREMIOS.find(i => i.id === id).label).join(', ')})`
             : '';
         const nombresClientes = clientes.map(c => `${c.nombre || ''} ${c.apellido || ''}`.trim() + etiquetaImpuestos(c)).join('\n - ');
-        const confirmacion = confirm(
-            `Se iniciará el proceso de ${config.label} para ${clientes.length} cliente(s):\n\n - ${nombresClientes}${textoPeriodos}\n\n¿Desea continuar?`
-        );
+        const confirmacion = await showConfirmModal({
+            title: config.label,
+            icon: '🚀',
+            message: `Se iniciará el proceso para ${clientes.length} cliente(s):\n\n - ${nombresClientes}${textoPeriodos}\n\n¿Desea continuar?`,
+            confirmText: 'Iniciar',
+            confirmBtnClass: 'tono'
+        });
         if (!confirmacion) return;
 
         prepararUIParaProceso();
