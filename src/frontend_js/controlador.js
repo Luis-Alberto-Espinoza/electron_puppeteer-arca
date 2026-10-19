@@ -7,7 +7,7 @@ import './facturas/pdvOfrecibles.js';
  */
 function ocultarSubmodulos() {
     // Oculta submódulos de AFIP
-    ['facturasDiv', 'facturasTipificadasDiv', 'leerMercadoPagoDiv', 'libroIvaDiv'].forEach(id => {
+    ['facturasDiv', 'facturasTipificadasDiv', 'leerMercadoPagoDiv'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.add('contenido-oculto');
     });
@@ -28,7 +28,7 @@ function ocultarSubmodulos() {
  */
 function limpiarPanelesAfip() {
     // Paneles on-demand: se reconstruyen al reabrirse → vaciar es seguro.
-    ['facturasTipificadasDiv', 'leerMercadoPagoDiv', 'libroIvaDiv'].forEach(id => {
+    ['facturasTipificadasDiv', 'leerMercadoPagoDiv'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.classList.add('contenido-oculto');
@@ -1503,7 +1503,6 @@ function inicializarModulosAfip() {
     inicializarInterfazFacturas(); // Módulo de facturas
     inicializarFacturasTipificadasModulo(); // Módulo de facturas tipificadas
     inicializarMercadoPago();      // Módulo de MercadoPago
-    inicializarLibroIVA();         // Módulo de Libro IVA
 }
 
 /**
@@ -1583,46 +1582,6 @@ function inicializarMercadoPago() {
             } catch (error) {
                 console.error('Error cargando módulo MercadoPago:', error);
                 lectorMPDiv.innerHTML = '<p>Error cargando el componente</p>';
-            }
-        });
-    }
-}
-
-/**
- * Inicializa el módulo de Libro IVA con carga dinámica
- */
-function inicializarLibroIVA() {
-    const btnLibroIVA = document.getElementById('btnLibroIVA');
-    const libroIvaDiv = document.getElementById('libroIvaDiv');
-
-    if (btnLibroIVA && libroIvaDiv) {
-        btnLibroIVA.addEventListener('click', async () => {
-            try {
-                // Toggle: si ya está visible, ocultarlo y limpiar
-                if (!libroIvaDiv.classList.contains('contenido-oculto')) {
-                    libroIvaDiv.classList.add('contenido-oculto');
-                    libroIvaDiv.innerHTML = '';
-                    return;
-                }
-
-                // Cargar HTML del módulo
-                const response = await fetch('../libroIVA/libroIVA.html');
-                const html = await response.text();
-                libroIvaDiv.innerHTML = html;
-                libroIvaDiv.classList.remove('contenido-oculto');
-
-                // Cargar JavaScript del módulo si no está presente
-                const scriptPath = '../libroIVA/inicializarLibroIVA.js';
-                if (!document.head.querySelector(`script[src="${scriptPath}"]`)) {
-                    const script = document.createElement('script');
-                    script.src = scriptPath;
-                    script.defer = true;
-                    document.head.appendChild(script);
-                }
-
-            } catch (error) {
-                console.error('Error cargando módulo Libro IVA:', error);
-                libroIvaDiv.innerHTML = '<p>Error cargando el componente Libro IVA</p>';
             }
         });
     }

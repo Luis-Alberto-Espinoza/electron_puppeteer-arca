@@ -4,7 +4,6 @@ const path = require('path');
 const { getCarpetaLogs } = require('../comun/rutasDatos.js');
 require('../comun/registroConsola.js').iniciarRegistroConsola(getCarpetaLogs());
 // comunicacionConFactura y facturaManager movidos a afip/factura/handlers.js
-// comunicacionConLibroIVA movido a afip/libroIVA/handlers.js
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
 const fs = require('fs');
 
@@ -29,7 +28,6 @@ const setupNotaCreditoDebitoHandlers = require('../afip/notaCreditoDebito/handle
 const setupEmpresaHandlers              = require('../afip/empresa/handlers.js');
 const setupCuentaTributariaHandlers = require('../afip/cuentaTributaria/handlers.js');
 const setupDeclaracionJuradaHandlers = require('../afip/declaracionJurada/handlers.js');
-const setupLibroIvaHandlers = require('../afip/libroIVA/handlers.js');
 const setupSesionAfipHandlers = require('../afip/sesion/handlers.js');
 const setupDatosRegistralesHandlers = require('../afip/datosRegistrales/handlers.js');
 const setupDdjjPendientesHandlers = require('../afip/ddjjPendientes/handlers.js');
@@ -273,7 +271,6 @@ module.exports = { getPuppeteerWindow };
 
 function setupIpcListeners() {
     // Handlers de factura movidos a: afip/factura/handlers.js
-    // Handlers de libroIVA movidos a: afip/libroIVA/handlers.js
 
     ipcMain.on('procesar-pdf', async (event, filePath) => {
         try {
@@ -344,7 +341,6 @@ app.whenReady().then(async () => {
         setupEmpresaHandlers(ipcMain);
         setupCuentaTributariaHandlers(ipcMain, mainWindow, app);
         setupDeclaracionJuradaHandlers(ipcMain, app);
-        setupLibroIvaHandlers(ipcMain);
         setupSesionAfipHandlers(ipcMain); // usa contribuyenteRepo (resolverAcceso)
         setupDatosRegistralesHandlers(ipcMain, mainWindow, app);
         setupDdjjPendientesHandlers(ipcMain, mainWindow, app);

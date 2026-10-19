@@ -22,7 +22,6 @@
 #facturasSeccion              { --vista-tono: var(--tono-facturacion); }
 #facturasTipificadasSeccion   { --vista-tono: var(--tono-tipificada); }
 #lectorMpSeccion              { --vista-tono: var(--tono-mercadopago); }
-#libroIvaSeccion              { --vista-tono: var(--tono-libroiva); }
 #generarVEPDiv                { --vista-tono: var(--tono-vep); }
 #cuentaTributariaDiv          { --vista-tono: var(--tono-cuenta-trib); }
 #consultaComprobantesDiv      { --vista-tono: var(--tono-comprobantes); }
@@ -37,7 +36,7 @@
    facturación también están en la lista). .tema-vista = componentes sueltos
    (lanzador, diálogo de clave) que traen su propio --vista-tono. */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
+    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) {
     --v-panel:    color-mix(in srgb, var(--vista-tono), black 18%);  /* lo que era blanco */
@@ -73,12 +72,12 @@
 }
 
 /* Secciones de facturación: cada una con su tono, dentro del marco de Facturación */
-:is(#facturasSeccion, #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion) {
+:is(#facturasSeccion, #facturasTipificadasSeccion, #lectorMpSeccion) {
     background: var(--vista-tono);
     border: 1px solid var(--v-borde);
     border-radius: var(--radio-sm);
 }
-#modulosAfipDiv :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv, #libroIvaDiv) {
+#modulosAfipDiv :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv) {
     background: var(--v-panel);
     max-width: none;
     margin: 12px 0 0;
@@ -220,7 +219,7 @@ html {
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv) {
     --v-acento: color-mix(in srgb, var(--vista-tono), white 45%);   /* barritas y subrayados */
 }
-:is(#facturasSeccion, #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion) {
+:is(#facturasSeccion, #facturasTipificadasSeccion, #lectorMpSeccion) {
     --v-acento: color-mix(in srgb, var(--vista-tono), white 45%);
 }
 #modulosAfipDiv .btn-principal {
@@ -275,20 +274,20 @@ html {
    de texto; prendido = verde, igual en todos los servicios. ATM no tiene tema
    y conserva su switch. */
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
+    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) .ui-switch {
     color: var(--v-texto-2);
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
+    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) .ui-switch input {
     background: var(--v-input);
     box-shadow: inset 0 0 0 1px var(--v-borde);
 }
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #libroIvaSeccion, #generarVEPDiv,
+    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) .ui-switch input:checked {
     background: #43e97b;

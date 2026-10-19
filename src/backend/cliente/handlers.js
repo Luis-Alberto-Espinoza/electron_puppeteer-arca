@@ -145,17 +145,6 @@ module.exports = function setupUserHandlers(ipcMain, mainWindow, dialog) {
         }
     });
 
-    ipcMain.handle('seleccionar-archivos', async () => {
-        const result = await dialog.showOpenDialog(mainWindow, {
-            properties: ['openFile'],
-            filters: [
-                { name: 'Text Files', extensions: ['txt'] },
-                { name: 'All Files', extensions: ['*'] }
-            ]
-        });
-        return result.filePaths;
-    });
-
 
 
     const { gestionarValidacion } = require('./service/verificacion.js');

@@ -17,18 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onFinProcesoAfip: (callback) => ipcRenderer.on('login-automatizado', (_event, resultado) => callback(resultado)),
     
     // no se para que se usa y si se usa 
-    enviarNumeroEliminar: (data) => ipcRenderer.send('numero-eliminar', data),
-    onResultadoNumeroEliminar: (callback) => ipcRenderer.on('resultado-numero-eliminar', (_event, resultado) => callback(resultado)),
     onStatusUpdate: (callback) => ipcRenderer.on('status-update', callback),
     
-    // API para manejar el libro IVA
-    procesarLibroIva: (data) => ipcRenderer.send('procesar-libro-iva', data),
-    onLibroIvaProcesado: (callback) => ipcRenderer.on('libro-iva-procesado', callback),
-    modificarSegunInforme: (data) => ipcRenderer.send('actualizar-segun-informe', data),
-    
-    // API para manejar archivos
-    seleccionarArchivos: () => ipcRenderer.invoke('seleccionar-archivos'),
-
     // APIs de MercadoPago
     mercadoPago: {
         seleccionarArchivo: () => ipcRenderer.invoke('mercadopago:seleccionar-archivo'),
