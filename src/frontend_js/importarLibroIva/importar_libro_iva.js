@@ -232,7 +232,7 @@ window.inicializarModuloImportarLibroIva = () => {
             if (!reintentando) contador.textContent = `(${datos.procesados}/${datos.total})`;
             if (datos.tipo === 'progreso' && window.ruedaTrabajando) {
                 window.ruedaTrabajando.mostrar(
-                    `Libro IVA: ${datos.nombre || datos.cuit} (${datos.procesados + 1}/${datos.total})`,
+                    `Portal IVA: ${datos.nombre || datos.cuit} (${datos.procesados + 1}/${datos.total})`,
                     datos.mensaje || 'No se colgó: está trabajando. ARCA es lento.');
             }
         } else if (datos.tipo === 'finalizado' && !reintentando) {
@@ -265,7 +265,7 @@ window.inicializarModuloImportarLibroIva = () => {
                 `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: ARCA procesa cada importación)`));
             irAResultados();
         }
-        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar('Libro IVA: iniciando sesión en AFIP…');
+        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar('Portal IVA: iniciando sesión en AFIP…');
 
         try {
             const r = await window.electronAPI.importarLibroIva.procesar({

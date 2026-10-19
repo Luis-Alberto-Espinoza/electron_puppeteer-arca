@@ -33,7 +33,7 @@
         { id: 'declaracionJurada', label: 'Declaración Jurada', grupo: 'AFIP', accion: { vista: 'declaracionJurada' }, claves: ['ddjj', 'dj', 'f5111'] },
         { id: 'datosRegistrales', label: 'Datos registrales', grupo: 'AFIP', accion: { vista: 'datosRegistrales' }, claves: ['sistema registral', 'reflejo', 'constancia'] },
         { id: 'ddjjPendientes', label: 'DDJJ pendientes', grupo: 'AFIP', accion: { vista: 'ddjjPendientes' }, claves: ['seti', 'presentacion', 'declaraciones'] },
-        { id: 'importarLibroIva', label: 'Importar Libro IVA', grupo: 'AFIP', accion: { vista: 'importarLibroIva' }, claves: ['portal iva', 'ventas', 'compras'] },
+        { id: 'importarLibroIva', label: 'Portal IVA', grupo: 'AFIP', accion: { vista: 'importarLibroIva' }, claves: ['importar libro iva', 'ventas', 'compras'] },
 
         // ===== ATM =====
         { id: 'inicioAtm', label: 'Inicio ATM', grupo: 'ATM', accion: { vista: 'atm' }, claves: ['mendoza', 'rentas', 'inicio'] },

@@ -1027,8 +1027,8 @@ async function cargarModuloImportarLibroIva() {
         await cargarScript('../importarLibroIva/importar_libro_iva.js', { recargar: true });
         if (window.inicializarModuloImportarLibroIva) window.inicializarModuloImportarLibroIva();
     } catch (error) {
-        console.error('Error cargando módulo Importar Libro IVA:', error);
-        div.innerHTML = '<div style="color:red;">Error cargando el módulo de Importar Libro IVA.</div>';
+        console.error('Error cargando módulo Portal IVA:', error);
+        div.innerHTML = '<div style="color:red;">Error cargando el módulo de Portal IVA.</div>';
     }
 }
 

@@ -19,7 +19,7 @@
         planDePago: 'Plan de Pago',
         datosRegistrales: 'Datos registrales',
         ddjjPendientes: 'DDJJ pendientes',
-        importarLibroIva: 'Importar Libro IVA'
+        importarLibroIva: 'Portal IVA'
     };
 
     const LABEL_ESTADO = {

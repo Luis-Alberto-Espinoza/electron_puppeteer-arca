@@ -15,8 +15,8 @@
 // También: borradorDescartado ('AAAAMM'), datosInicialesCargados y, con error, periodoBorrador
 // (BORRADOR_OTRO_PERIODO) o datosIniciales (DATOS_INICIALES_PENDIENTES) para preguntar.
 //
-// No vive en afip/libroIVA/: esa carpeta es el Libro IVA local (otro servicio) y en Windows
-// libroIva y libroIVA serían la misma carpeta.
+// En pantalla se llama "Portal IVA"; adentro (carpetas, IPC, dominio del Historial) sigue
+// siendo importarLibroIva para no romper el historial ya guardado.
 
 const importarLibroIvaManager = require('./importarLibroIvaManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
