@@ -1,0 +1,207 @@
+// Valida los 4 txt del Libro IVA Digital ANTES del login (un error acá no gasta un login).
+// ARCA recién avisa del formato después de importar, en el historial de tareas.
+//
+// Diseño de registro de ARCA (ancho fijo, ISO-8859-1, 1 byte = 1 carácter):
+//   Ventas comprobantes 266 · Ventas alícuotas 62 · Compras comprobantes 325 · Compras alícuotas 84
+// Cada archivo se reconoce por el largo de sus renglones (el nombre no importa); un archivo de
+// alícuotas vacío (todos los comprobantes con 0 alícuotas, ej. Facturas C) se reconoce por el nombre.
+//
+// Solo avisa: nunca corrige montos ni renglones.
+
+const fs = require('fs');
+const path = require('path');
+
+const MAX_BYTES = 10 * 1024 * 1024;   // el mismo límite que ARCA en "Importar Archivos"
+const MAX_ERRORES = 15;
+const MAX_RENGLONES_POR_ERROR = 5;
+
+const TIPOS = {
+    ventasCbte:       { largo: 266, libro: 'ventas',  nombre: 'Ventas (comprobantes)' },
+    ventasAlicuotas:  { largo: 62,  libro: 'ventas',  nombre: 'Ventas (alícuotas)' },
+    comprasCbte:      { largo: 325, libro: 'compras', nombre: 'Compras (comprobantes)' },
+    comprasAlicuotas: { largo: 84,  libro: 'compras', nombre: 'Compras (alícuotas)' }
+};
+
+// Por libro: dónde está la clave del comprobante en cada archivo y la cantidad de alícuotas.
+// La clave es tipo + punto de venta + número (+ documento del vendedor en Compras).
+const LIBROS = {
+    ventas: {
+        nombre: 'Ventas', cbte: 'ventasCbte', alicuotas: 'ventasAlicuotas',
+        claveCbte: l => l.slice(8, 36), claveAlicuota: l => l.slice(0, 28), cantidad: l => l[241],
+        fechaEnPeriodo: true
+    },
+    compras: {
+        nombre: 'Compras', cbte: 'comprasCbte', alicuotas: 'comprasAlicuotas',
+        claveCbte: l => l.slice(8, 36) + l.slice(52, 74), claveAlicuota: l => l.slice(0, 50), cantidad: l => l[237],
+        // Compras puede traer comprobantes de meses anteriores (crédito fiscal computado tarde).
+        fechaEnPeriodo: false
+    }
+};
+
+const etiqueta = (l) => `${l.slice(8, 11)}-${l.slice(11, 16)}-${l.slice(16, 36).replace(/^0+(?=\d)/, '')}`;
+
+function fechaValida(f) {
+    if (!/^\d{8}$/.test(f)) return false;
+    const d = new Date(Date.UTC(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8)));
+    return d.getUTCFullYear() === +f.slice(0, 4) && d.getUTCMonth() === +f.slice(4, 6) - 1 && d.getUTCDate() === +f.slice(6, 8);
+}
+
+// "renglones 3, 7, 9 y 4 más"
+function listaRenglones(nros) {
+    const vistos = nros.slice(0, MAX_RENGLONES_POR_ERROR).join(', ');
+    return nros.length > MAX_RENGLONES_POR_ERROR ? `${vistos} y ${nros.length - MAX_RENGLONES_POR_ERROR} más` : vistos;
+}
+
+/** Lee un archivo y adivina su tipo. Devuelve { ruta, nombre, tipo?, renglones, errores }. */
+function leerArchivo(ruta) {
+    const nombre = path.basename(ruta);
+    const r = { ruta, nombre, tipo: null, renglones: [], errores: [] };
+
+    if (path.extname(ruta).toLowerCase() !== '.txt') {
+        r.errores.push(`${nombre}: tiene que ser un .txt`);
+        return r;
+    }
+    let buffer;
+    try {
+        if (fs.statSync(ruta).size > MAX_BYTES) {
+            r.errores.push(`${nombre}: pesa más de 10 MB, ARCA no lo acepta`);
+            return r;
+        }
+        buffer = fs.readFileSync(ruta);
+    } catch (e) {
+        r.errores.push(`${nombre}: no se pudo leer (${e.code || e.message})`);
+        return r;
+    }
+
+    r.renglones = buffer.toString('latin1').split('\n')
+        .map((texto, i) => ({ n: i + 1, texto: texto.replace(/\r$/, '') }))
+        .filter(x => x.texto.trim() !== '');
+
+    if (r.renglones.length === 0) {
+        // Vacío: solo puede ser un archivo de alícuotas, y se reconoce por el nombre.
+        if (/al[ií]cuota/i.test(nombre) && /venta/i.test(nombre)) r.tipo = 'ventasAlicuotas';
+        else if (/al[ií]cuota/i.test(nombre) && /compra/i.test(nombre)) r.tipo = 'comprasAlicuotas';
+        else r.errores.push(`${nombre}: está vacío`);
+        return r;
+    }
+
+    // El tipo es el largo más repetido entre los conocidos.
+    const porLargo = new Map();
+    r.renglones.forEach(x => porLargo.set(x.texto.length, (porLargo.get(x.texto.length) || 0) + 1));
+    const candidatos = Object.entries(TIPOS).filter(([, t]) => porLargo.has(t.largo));
+    if (candidatos.length === 0) {
+        const largos = [...porLargo.keys()].sort((a, b) => a - b).join(', ');
+        r.errores.push(`${nombre}: no tiene el formato de ARCA (renglones de ${largos} caracteres)`);
+        return r;
+    }
+    candidatos.sort((a, b) => porLargo.get(b[1].largo) - porLargo.get(a[1].largo));
+    r.tipo = candidatos[0][0];
+
+    const largo = TIPOS[r.tipo].largo;
+    const malos = r.renglones.filter(x => x.texto.length !== largo).map(x => x.n);
+    if (malos.length) {
+        // Una Ñ o un acento guardados en UTF-8 ocupan 2 bytes y estiran el renglón.
+        const utf8 = /\xC3[\x80-\xBF]/.test(buffer.toString('latin1'));
+        r.errores.push(`${nombre}: ${malos.length} renglón(es) sin los ${largo} caracteres de ${TIPOS[r.tipo].nombre} ` +
+            `(renglones ${listaRenglones(malos)})${utf8 ? '. Parece guardado en UTF-8: tiene que ser ANSI / ISO-8859-1' : ''}`);
+    }
+    return r;
+}
+
+/** Cruza comprobantes con alícuotas de un libro y revisa las fechas. */
+function revisarLibro(def, cbte, alicuotas, periodo) {
+    const errores = [];
+    const largoCbte = TIPOS[def.cbte].largo;
+    const filas = cbte.renglones.filter(x => x.texto.length === largoCbte);
+
+    const fechasMalas = filas.filter(x => !fechaValida(x.texto.slice(0, 8))).map(x => x.n);
+    if (fechasMalas.length) errores.push(`${def.nombre}: fecha inválida (renglones ${listaRenglones(fechasMalas)})`);
+    if (def.fechaEnPeriodo && periodo) {
+        const fuera = filas.filter(x => fechaValida(x.texto.slice(0, 8)) && !x.texto.startsWith(periodo)).map(x => x.n);
+        if (fuera.length) {
+            errores.push(`${def.nombre}: comprobantes fuera del período ${periodo.slice(4, 6)}/${periodo.slice(0, 4)} (renglones ${listaRenglones(fuera)})`);
+        }
+    }
+
+    // Sin el archivo de alícuotas ya está el "Falta": el cruce solo sumaría errores de arrastre.
+    if (!alicuotas) return { errores, comprobantes: filas.length };
+
+    // Cuántos renglones de alícuotas tiene cada comprobante.
+    const enAlicuotas = new Map();
+    const largoAli = TIPOS[def.alicuotas].largo;
+    alicuotas.renglones.filter(x => x.texto.length === largoAli).forEach(x => {
+        const k = def.claveAlicuota(x.texto);
+        if (!enAlicuotas.has(k)) enAlicuotas.set(k, []);
+        enAlicuotas.get(k).push(x.n);
+    });
+
+    const claves = new Set();
+    filas.forEach(x => {
+        const k = def.claveCbte(x.texto);
+        claves.add(k);
+        const dice = def.cantidad(x.texto);
+        const hay = (enAlicuotas.get(k) || []).length;
+        if (!/^\d$/.test(dice)) {
+            errores.push(`${def.nombre}: renglón ${x.n} (${etiqueta(x.texto)}): cantidad de alícuotas inválida`);
+        } else if (Number(dice) !== hay) {
+            errores.push(`${def.nombre}: renglón ${x.n} (${etiqueta(x.texto)}): dice ${dice} alícuota(s) y el archivo de alícuotas tiene ${hay}`);
+        }
+    });
+    const huerfanas = [...enAlicuotas].filter(([k]) => !claves.has(k)).flatMap(([, nros]) => nros);
+    if (huerfanas.length) {
+        errores.push(`${def.nombre}: alícuotas sin comprobante (renglones ${listaRenglones(huerfanas)} del archivo de alícuotas)`);
+    }
+    return { errores, comprobantes: filas.length };
+}
+
+/**
+ * @param {string[]} rutas  los archivos que eligió el usuario (en cualquier orden)
+ * @param {string} periodo  'AAAAMM'
+ * @returns {{ ok: boolean, archivos: Object<string,string>, detalle: Array<{ruta, nombre, tipo, tipoNombre}>,
+ *            resumen: {ventas?: number, compras?: number}, errores: string[] }}
+ *   archivos = { ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas } → ruta
+ */
+function validarArchivosIva(rutas, periodo) {
+    const errores = [];
+    const archivos = {};
+    const leidos = (Array.isArray(rutas) ? rutas : []).map(leerArchivo);
+
+    leidos.forEach(a => {
+        errores.push(...a.errores);
+        if (!a.tipo) return;
+        if (archivos[a.tipo]) {
+            // Con la carpeta: pueden llamarse igual y venir de lugares distintos.
+            const conCarpeta = (r) => path.join(path.basename(path.dirname(r)), path.basename(r));
+            errores.push(`Hay dos archivos de ${TIPOS[a.tipo].nombre}: ${conCarpeta(archivos[a.tipo])} y ${conCarpeta(a.ruta)}`);
+        } else {
+            archivos[a.tipo] = a.ruta;
+        }
+    });
+    const faltan = Object.keys(TIPOS).filter(t => !archivos[t]);
+    if (faltan.length) errores.push(`Falta: ${faltan.map(t => TIPOS[t].nombre).join(', ')}`);
+
+    const resumen = {};
+    for (const [libro, def] of Object.entries(LIBROS)) {
+        const cbte = leidos.find(a => a.ruta === archivos[def.cbte]);
+        if (!cbte) continue;
+        const r = revisarLibro(def, cbte, leidos.find(a => a.ruta === archivos[def.alicuotas]), periodo);
+        errores.push(...r.errores);
+        resumen[libro] = r.comprobantes;
+    }
+
+    const recortados = errores.length > MAX_ERRORES
+        ? [...errores.slice(0, MAX_ERRORES), `… y ${errores.length - MAX_ERRORES} error(es) más`]
+        : errores;
+    return {
+        ok: errores.length === 0,
+        archivos,
+        // En el orden de TIPOS (Ventas antes que Compras), no en el que se eligieron.
+        detalle: leidos
+            .map(a => ({ ruta: a.ruta, nombre: a.nombre, tipo: a.tipo, tipoNombre: a.tipo ? TIPOS[a.tipo].nombre : null }))
+            .sort((x, y) => Object.keys(TIPOS).indexOf(x.tipo) - Object.keys(TIPOS).indexOf(y.tipo)),
+        resumen,
+        errores: recortados
+    };
+}
+
+module.exports = { validarArchivosIva, TIPOS };

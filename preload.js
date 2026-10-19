@@ -136,6 +136,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // APIs para Importar Libro IVA (Portal IVA → importar Ventas y Compras desde ARCA + Excel, lote)
     importarLibroIva: {
         procesar: (datos) => ipcRenderer.invoke('importarLibroIva:procesar', datos),
+        elegirArchivos: () => ipcRenderer.invoke('importarLibroIva:elegirArchivos'),
+        validarArchivos: (rutas, periodo) => ipcRenderer.invoke('importarLibroIva:validarArchivos', { rutas, periodo }),
         onUpdate: (callback) => ipcRenderer.on('importarLibroIva:update', (_event, datos) => callback(datos))
     },
 

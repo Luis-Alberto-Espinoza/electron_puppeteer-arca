@@ -5,8 +5,11 @@
 // resolver dice con qué clave entra cada uno: la propia o la del representante). Un
 // navegador y un login por grupo.
 //
-// datos = { contribuyentes: [{ id, cuit, nombre, descartarPeriodo?, datosIniciales? }], periodo: 'AAAAMM',
-//          visible, descartarBorrador }
+// datos = { contribuyentes: [{ id, cuit, nombre, origen?, archivos?, descartarPeriodo?, datosIniciales? }],
+//          periodo: 'AAAAMM', visible, descartarBorrador }
+//   origen: 'arca' (importa desde ARCA, por defecto) o 'archivos' (los 4 txt en `archivos`, rutas):
+//   los txt se validan acá, ANTES del login; el que falla no entra al lote.
+//   datosIniciales también puede venir de la Preparación (se usa solo si ARCA los pide).
 //   descartarBorrador: casilla del formulario (descarta el borrador de otro período, sea cual sea).
 //   descartarPeriodo / datosIniciales: lo que el usuario respondió en Resultados (reintento de un cliente).
 // Progreso por 'importarLibroIva:update': { tipo: 'progreso'|'resultado'|'finalizado', ... }
@@ -18,7 +21,9 @@
 // En pantalla se llama "Portal IVA"; adentro (carpetas, IPC, dominio del Historial) sigue
 // siendo importarLibroIva para no romper el historial ya guardado.
 
+const { dialog } = require('electron');
 const importarLibroIvaManager = require('./importarLibroIvaManager.js');
+const { validarArchivosIva } = require('./service/validarArchivosIva.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { crearCorteCaptchaAfip } = require('../corteCaptchaAfip.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
@@ -32,6 +37,18 @@ function resumenLibro(nombre, l) {
 
 function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
     const repo = getContribuyenteRepo();
+
+    // Preparación: elegir los txt de un cliente y validarlos sin login.
+    ipcMain.handle('importarLibroIva:elegirArchivos', async () => {
+        const r = await dialog.showOpenDialog(mainWindow, {
+            title: 'Los 4 archivos del Libro IVA Digital (Ventas y Compras)',
+            properties: ['openFile', 'multiSelections'],
+            filters: [{ name: 'Libro IVA Digital', extensions: ['txt'] }]
+        });
+        return r.canceled ? [] : r.filePaths;
+    });
+    ipcMain.handle('importarLibroIva:validarArchivos', async (_event, { rutas, periodo } = {}) =>
+        validarArchivosIva(rutas, periodo));
 
     ipcMain.handle('importarLibroIva:procesar', async (_event, datos) => {
         const { contribuyentes, periodo, visible, descartarBorrador } = datos || {};
@@ -82,6 +99,22 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
             // Respuestas del usuario para este cliente (reintento desde Resultados).
             if (/^\d{6}$/.test(String(c.descartarPeriodo || ''))) contribuyente.descartarPeriodo = String(c.descartarPeriodo);
             if (c.datosIniciales && typeof c.datosIniciales === 'object') contribuyente.datosIniciales = c.datosIniciales;
+            if (c.origen === 'archivos') {
+                // Se vuelve a validar: el archivo pudo cambiar desde que se eligió.
+                const v = validarArchivosIva(c.archivos, periodo);
+                if (!v.ok) {
+                    cerrar(contribuyente, { success: false, error: 'ARCHIVOS_INVALIDOS', message: `Archivos con errores: ${v.errores.join(' · ')}` });
+                    continue;
+                }
+                // TEMPORAL hasta que el flujo cargue los archivos en ARCA: se informa y no se entra.
+                resultados.push({ contribuyente, success: true });
+                enviar({
+                    tipo: 'resultado', id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
+                    estado: 'exito', procesados: resultados.length, total,
+                    mensaje: `archivos válidos (Ventas ${v.resumen.ventas}, Compras ${v.resumen.compras} comprobantes). La carga en ARCA todavía no está hecha: no se entró.`
+                });
+                continue;
+            }
             try {
                 const acceso = await repo.resolverAcceso(contribuyente.cuit, 'afip');
                 if (!acceso) {

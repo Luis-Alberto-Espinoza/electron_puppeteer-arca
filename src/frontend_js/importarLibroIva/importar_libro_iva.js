@@ -1,6 +1,8 @@
 // Importar Libro IVA — elegir clientes y período; por cada uno, Portal IVA importa desde ARCA
 // el Libro Ventas y el Libro Compras al borrador (no presenta) y baja el Excel de cada libro.
 // El backend agrupa por login (representante) y avisa el progreso por onUpdate.
+// Preparación (antes del login), por cliente: origen de los comprobantes (ARCA o los 4 txt,
+// validados al elegirlos) y Datos Iniciales por si ARCA los pide (así no hace falta otra vuelta).
 // Dos casos los decide el usuario desde Resultados (y se reintenta solo ese cliente):
 //   - borrador de otro período sin presentar → "Descartar borrador MM/AAAA y reintentar"
 //     (o la casilla del formulario, que lo descarta sin preguntar);
@@ -19,6 +21,8 @@ window.inicializarModuloImportarLibroIva = () => {
     const resultados  = document.getElementById('resultadosIl');
     const contenido   = document.getElementById('resultadosContenidoIl');
     const contador    = document.getElementById('contadorIl');
+    const preparacion = document.getElementById('preparacionIl');
+    const prepContenido = document.getElementById('preparacionContenidoIl');
 
     let enCurso = false;
     let reintentando = false;
@@ -30,11 +34,21 @@ window.inicializarModuloImportarLibroIva = () => {
     const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
     inpPeriodo.value = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, '0')}`;
 
+    // Preparación por CUIT. Sobrevive a sacar y volver a elegir un cliente (no se pierden los archivos).
+    const prep = new Map();   // cuit → { origen, rutas, validacion, validando, turno, campos, nodo, ... }
+    const periodoActual = () => inpPeriodo.value.replace('-', '');   // 'AAAA-MM' → 'AAAAMM'
+    const nombreDe = (u) => u.razonSocial || [u.nombre, u.apellido].filter(Boolean).join(' ');
+
     // `let` + null: el selector puede avisar un cambio mientras se construye.
     let selector = null;
+    // Un cliente con "Mis archivos" necesita los 4 txt validados antes de arrancar.
+    const archivosListos = (lista) => lista.every(u => {
+        const p = prep.get(String(u.cuit));
+        return !p || p.origen !== 'archivos' || (!p.validando && p.validacion && p.validacion.ok);
+    });
     const actualizarBoton = () => {
-        const elegidos = selector ? selector.obtenerSeleccionados().length : 0;
-        btnProcesar.disabled = enCurso || !inpPeriodo.value || elegidos === 0;
+        const elegidos = selector ? selector.obtenerSeleccionados() : [];
+        btnProcesar.disabled = enCurso || !inpPeriodo.value || elegidos.length === 0 || !archivosListos(elegidos);
     };
 
     selector = new SelectorUsuarios('selector-contribuyentes-il', {
@@ -43,9 +57,13 @@ window.inicializarModuloImportarLibroIva = () => {
         servicio: 'afip',
         // Lote: no deja elegir los de clave incorrecta (fallarían y acercan el captcha).
         ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selector, { lote: true }) : {}),
-        onCambioSeleccion: () => actualizarBoton()
+        onCambioSeleccion: () => { if (selector) pintarPreparacion(); actualizarBoton(); }
     });
-    inpPeriodo.addEventListener('change', actualizarBoton);
+    // Ventas se valida contra el período: si cambia, se revisan de nuevo los archivos ya elegidos.
+    inpPeriodo.addEventListener('change', () => {
+        prep.forEach(p => { if (p.rutas.length) validarArchivos(p); });
+        actualizarBoton();
+    });
 
     // ===== Resultados =====
     function el(tag, clase, texto) {
@@ -92,13 +110,11 @@ window.inicializarModuloImportarLibroIva = () => {
         ['3', 'Con prorrateo por asignación directa y global']
     ];
 
-    function formDatosIniciales(datos) {
-        const info = datos.datosIniciales;
-        const actuales = info.actuales || {};
-        const caja = el('div', 'il-accion il-accion-columna');
-        caja.appendChild(el('div', 'il-accion-titulo',
-            `Datos Iniciales ${legible(info.periodo || lote.periodo)}: indicá si el cliente realiza alguna de estas operaciones`));
-
+    /**
+     * Las casillas de Datos Iniciales dentro de `caja` (Resultados y Preparación usan las mismas).
+     * @returns {{ leer: () => object, algunaMarcada: () => boolean, alCambiar: (fn) => void }}
+     */
+    function camposDatosIniciales(caja, actuales, conAnterior) {
         const ops = OPERACIONES.map(([clave, texto]) => {
             const c = casilla(texto, actuales[clave]);
             caja.appendChild(c.label);
@@ -117,17 +133,16 @@ window.inicializarModuloImportarLibroIva = () => {
         caja.appendChild(ninguna.label);
 
         let anterior = null;
-        if (info.importarAnteriorVisible) {
+        if (conAnterior) {
             anterior = casilla('Importar datos de la presentación anterior', false);
             caja.appendChild(anterior.label);
         }
 
-        const btn = el('button', 'ui-btn ui-btn--accion il-btn-reintento', 'Continuar');
-        caja.appendChild(btn);
-
+        const algunaMarcada = () => ninguna.input.checked || ops.some(o => o.input.checked);
+        const avisos = [];
         const refrescar = () => {
             filaProrrateo.style.display = ops[0].input.checked ? '' : 'none';
-            btn.disabled = !(ninguna.input.checked || ops.some(o => o.input.checked));
+            avisos.forEach(fn => fn());
         };
         // "Ninguna" es excluyente con las operaciones (igual que en ARCA).
         ops.forEach(o => o.input.addEventListener('change', () => {
@@ -140,13 +155,162 @@ window.inicializarModuloImportarLibroIva = () => {
         });
         refrescar();
 
-        btn.addEventListener('click', () => {
-            const elegidos = { ningunaOperacion: ninguna.input.checked, importarDatosAnterior: !!(anterior && anterior.input.checked) };
-            ops.forEach(o => { elegidos[o.clave] = o.input.checked; });
-            if (elegidos.operacionesNoGravadasExentas) elegidos.tipoProrrateo = selProrrateo.value;
-            reintentar(datos.cuit, { datosIniciales: elegidos });
-        });
+        return {
+            algunaMarcada,
+            alCambiar: (fn) => avisos.push(fn),
+            leer: () => {
+                const elegidos = { ningunaOperacion: ninguna.input.checked, importarDatosAnterior: !!(anterior && anterior.input.checked) };
+                ops.forEach(o => { elegidos[o.clave] = o.input.checked; });
+                if (elegidos.operacionesNoGravadasExentas) elegidos.tipoProrrateo = selProrrateo.value;
+                return elegidos;
+            }
+        };
+    }
+
+    function formDatosIniciales(datos) {
+        const info = datos.datosIniciales;
+        const caja = el('div', 'il-accion il-accion-columna');
+        caja.appendChild(el('div', 'il-accion-titulo',
+            `Datos Iniciales ${legible(info.periodo || lote.periodo)}: indicá si el cliente realiza alguna de estas operaciones`));
+        const campos = camposDatosIniciales(caja, info.actuales || {}, info.importarAnteriorVisible);
+
+        const btn = el('button', 'ui-btn ui-btn--accion il-btn-reintento', 'Continuar');
+        caja.appendChild(btn);
+        const habilitar = () => { btn.disabled = !campos.algunaMarcada(); };
+        campos.alCambiar(habilitar);
+        habilitar();
+
+        btn.addEventListener('click', () => reintentar(datos.cuit, { datosIniciales: campos.leer() }));
         return caja;
+    }
+
+    // ===== Preparación =====
+    function pintarEstadoArchivos(p) {
+        p.estado.innerHTML = '';
+        if (p.validando) {
+            p.estado.appendChild(el('div', 'il-prep-nota', '⏳ Revisando los archivos…'));
+            return;
+        }
+        const v = p.validacion;
+        if (!v || p.rutas.length === 0) {
+            p.estado.appendChild(el('div', 'il-prep-nota',
+                'Agregá los 4 txt, juntos o de a uno desde distintas carpetas: la app reconoce cuál es cuál.'));
+            return;
+        }
+        const titulo = v.ok
+            ? `✓ Formato correcto: Ventas ${v.resumen.ventas} y Compras ${v.resumen.compras} comprobante(s)`
+            : '✗ Hay que corregir los archivos antes de arrancar:';
+        p.estado.appendChild(el('div', v.ok ? 'il-prep-ok' : 'il-prep-error', titulo));
+        const lista = el('ul', 'il-prep-lista');
+        if (!v.ok) v.errores.forEach(e => lista.appendChild(el('li', 'il-prep-error', e)));
+        // Todos los archivos, también los no reconocidos, cada uno con su ✕ para sacarlo.
+        (v.detalle || []).forEach(d => {
+            const li = el('li', null, `${d.tipoNombre || 'No reconocido'}: ${d.nombre} `);
+            const quitar = el('button', 'il-prep-quitar', '✕');
+            quitar.title = `Sacar ${d.ruta}`;
+            quitar.addEventListener('click', () => {
+                p.rutas = p.rutas.filter(r => r !== d.ruta);
+                if (p.rutas.length) {
+                    validarArchivos(p);
+                } else {
+                    p.validacion = null;
+                    pintarEstadoArchivos(p);
+                    actualizarBoton();
+                }
+            });
+            li.appendChild(quitar);
+            lista.appendChild(li);
+        });
+        p.estado.appendChild(lista);
+    }
+
+    async function validarArchivos(p) {
+        const turno = ++p.turno;   // si se pide otra validación mientras tanto, gana la última
+        p.validando = true;
+        pintarEstadoArchivos(p);
+        actualizarBoton();
+        let v;
+        try {
+            v = await window.electronAPI.importarLibroIva.validarArchivos(p.rutas, periodoActual());
+        } catch (e) {
+            v = { ok: false, errores: [e.message], detalle: [] };
+        }
+        if (turno !== p.turno) return;
+
+        // Agregado de a uno: si un archivo nuevo es de un tipo que ya estaba, reemplaza al viejo.
+        // Dos nuevos del mismo tipo (elegidos en la misma vez) no se tocan: queda el error.
+        const nuevas = p.nuevas;
+        p.nuevas = null;
+        if (nuevas && v.detalle) {
+            const viejasPisadas = v.detalle.filter(d => d.tipo && !nuevas.has(d.ruta) &&
+                v.detalle.some(o => o.tipo === d.tipo && nuevas.has(o.ruta)));
+            if (viejasPisadas.length) {
+                p.rutas = p.rutas.filter(r => !viejasPisadas.some(d => d.ruta === r));
+                return validarArchivos(p);
+            }
+        }
+        p.validacion = v;
+        p.validando = false;
+        pintarEstadoArchivos(p);
+        actualizarBoton();
+    }
+
+    function tarjetaPreparacion(u) {
+        const cuit = String(u.cuit);
+        const p = { origen: 'arca', rutas: [], validacion: null, validando: false, turno: 0 };
+        p.nodo = el('div', 'il-prep-cliente');
+        p.nodo.appendChild(el('div', 'il-prep-nombre', `${nombreDe(u)} (${cuit})`));
+
+        const cajaArchivos = el('div', 'il-prep-archivos');
+        const filaOrigen = el('div', 'il-prep-origen');
+        [['arca', 'Importar desde ARCA'], ['archivos', 'Mis archivos (los 4 txt)']].forEach(([valor, texto]) => {
+            const label = el('label', 'il-check');
+            const input = el('input');
+            input.type = 'radio';
+            input.name = `il-origen-${cuit}`;
+            input.value = valor;
+            input.checked = valor === p.origen;
+            input.addEventListener('change', () => {
+                p.origen = valor;
+                cajaArchivos.style.display = valor === 'archivos' ? '' : 'none';
+                actualizarBoton();
+            });
+            label.append(input, document.createTextNode(texto));
+            filaOrigen.appendChild(label);
+        });
+
+        // Se suman a los que ya estaban: los 4 pueden venir de carpetas distintas.
+        const btnElegir = el('button', 'ui-btn', 'Agregar archivos…');
+        btnElegir.addEventListener('click', async () => {
+            const elegidas = await window.electronAPI.importarLibroIva.elegirArchivos();
+            const nuevas = (elegidas || []).filter(r => !p.rutas.includes(r));
+            if (nuevas.length === 0) return;
+            p.rutas = [...p.rutas, ...nuevas];
+            p.nuevas = new Set(nuevas);
+            validarArchivos(p);
+        });
+        p.estado = el('div', 'il-prep-estado');
+        cajaArchivos.append(btnElegir, p.estado);
+        cajaArchivos.style.display = 'none';
+        pintarEstadoArchivos(p);
+
+        const datos = el('details', 'il-prep-datos');
+        datos.appendChild(el('summary', null, 'Datos Iniciales (se usan solo si ARCA los pide para el período)'));
+        p.campos = camposDatosIniciales(datos, {}, false);
+
+        p.nodo.append(filaOrigen, cajaArchivos, datos);
+        return p;
+    }
+
+    function pintarPreparacion() {
+        const elegidos = selector.obtenerSeleccionados();
+        prepContenido.innerHTML = '';   // las tarjetas viven en `prep`: solo se sacan de la vista
+        elegidos.forEach(u => {
+            const cuit = String(u.cuit);
+            if (!prep.has(cuit)) prep.set(cuit, tarjetaPreparacion(u));
+            prepContenido.appendChild(prep.get(cuit).nodo);
+        });
+        preparacion.style.display = elegidos.length ? '' : 'none';
     }
 
     // Un bloque por cliente: renglón del cliente + un renglón por libro.
@@ -300,13 +464,19 @@ window.inicializarModuloImportarLibroIva = () => {
         const seleccionados = selector.obtenerSeleccionados();
         if (seleccionados.length === 0 || !inpPeriodo.value) return;
 
-        const contribuyentes = seleccionados.map(u => ({
-            id: u.id,
-            cuit: u.cuit,
-            nombre: u.razonSocial || [u.nombre, u.apellido].filter(Boolean).join(' ')
-        }));
-        lote.periodo = inpPeriodo.value.replace('-', '');   // 'AAAA-MM' → 'AAAAMM'
+        if (!archivosListos(seleccionados)) return;
+
+        const contribuyentes = seleccionados.map(u => {
+            const c = { id: u.id, cuit: u.cuit, nombre: nombreDe(u) };
+            const p = prep.get(String(u.cuit));
+            if (p && p.origen === 'archivos') Object.assign(c, { origen: 'archivos', archivos: p.rutas });
+            if (p && p.campos.algunaMarcada()) c.datosIniciales = p.campos.leer();
+            return c;
+        });
+        lote.periodo = periodoActual();
         lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
         correr(contribuyentes, lote.periodo, false);
     });
+
+    pintarPreparacion();
 };
