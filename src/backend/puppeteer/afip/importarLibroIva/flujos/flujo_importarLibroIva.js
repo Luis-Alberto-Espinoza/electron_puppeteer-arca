@@ -2,7 +2,8 @@
 //   portal → "portal iva" → Portal IVA (pestaña nueva) → representar al cliente →
 //   Nueva declaración jurada → período → IVA Simple (Libro IVA, borrador) →
 //   Libro Ventas: importar desde ARCA + Excel → Libro Compras: importar desde ARCA + Excel.
-// NUNCA presenta la DDJJ: deja el borrador cargado.
+// NUNCA presenta la DDJJ: deja el borrador cargado. Puede descartar un borrador de OTRO período
+// y completar los Datos Iniciales, solo con lo que autorizó/eligió el usuario (paso 3a/3b).
 // Cada libro es independiente: si Ventas falla, igual se intenta Compras.
 
 const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
@@ -32,12 +33,14 @@ async function procesarLibro(liva, tipo, contribuyente, { periodo, downloadsPath
 
 /**
  * @param {import('puppeteer').Page} page  Pestaña del portal AFIP (logueada).
- * @param {{cuit: string, nombre?: string}} contribuyente  el OBJETIVO (no el login)
- * @param {{periodo: string, downloadsPath: string}} opciones  periodo 'AAAAMM'
+ * @param {{cuit: string, nombre?: string, descartarPeriodo?: string, datosIniciales?: object}} contribuyente
+ *        el OBJETIVO (no el login), con lo que el usuario respondió en Resultados (reintento)
+ * @param {{periodo: string, downloadsPath: string, descartarBorrador?: boolean}} opciones  periodo 'AAAAMM'
  * @param {(msg: string) => void} [avisar]
- * @returns {Promise<{success, error?, message, ventas?, compras?, downloadDir?}>}
+ * @returns {Promise<{success, error?, message, ventas?, compras?, downloadDir?,
+ *          borradorDescartado?, datosInicialesCargados?, periodoBorrador?, datosIniciales?}>}
  */
-async function procesarCliente(page, contribuyente, { periodo, downloadsPath }, avisar = () => {}) {
+async function procesarCliente(page, contribuyente, { periodo, downloadsPath, descartarBorrador }, avisar = () => {}) {
     const cuit = String(contribuyente.cuit);
     let portal = null;
     let liva = null;
@@ -46,7 +49,14 @@ async function procesarCliente(page, contribuyente, { periodo, downloadsPath }, 
         portal = await abrirPortalIva(page);
         await elegirRepresentado(portal, cuit);
         avisar('Abriendo el Libro IVA del período…');
-        liva = await abrirPeriodo(portal, periodo, avisar);
+        const abierto = await abrirPeriodo(portal, periodo, avisar, {
+            cuit,
+            descartarBorrador,
+            descartarPeriodo: contribuyente.descartarPeriodo,
+            datosIniciales: contribuyente.datosIniciales
+        });
+        liva = abierto.liva;
+        const { borradorDescartado, datosInicialesCargados } = abierto;
 
         const ventas = await procesarLibro(liva, 'ventas', contribuyente, { periodo, downloadsPath }, avisar);
         const compras = await procesarLibro(liva, 'compras', contribuyente, { periodo, downloadsPath }, avisar);
@@ -57,10 +67,16 @@ async function procesarCliente(page, contribuyente, { periodo, downloadsPath }, 
             ? 'Ventas y Compras importados'
             : [ventas.success ? null : `Ventas: ${ventas.message}`, compras.success ? null : `Compras: ${compras.message}`]
                 .filter(Boolean).join(' · ');
-        return { success, error: success ? undefined : (ventas.error || compras.error), message, ventas, compras, downloadDir };
+        return {
+            success, error: success ? undefined : (ventas.error || compras.error), message, ventas, compras, downloadDir,
+            borradorDescartado, datosInicialesCargados
+        };
     } catch (error) {
         console.error(`        [ImportarLibroIva] ERROR ${cuit}: ${error.message}`);
-        return { success: false, error: error.code || 'FLUJO_ERROR', message: error.message };
+        if (error.liva) liva = error.liva;
+        // error.datos: lo que el front necesita para ofrecer la acción (período del borrador,
+        // opciones de Datos Iniciales) y lo que ya se hizo (borradorDescartado).
+        return { success: false, error: error.code || 'FLUJO_ERROR', message: error.message, ...(error.datos || {}) };
     } finally {
         // El próximo cliente arranca de nuevo desde el portal.
         for (const p of new Set([liva, portal])) {

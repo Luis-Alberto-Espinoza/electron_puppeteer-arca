@@ -13,11 +13,32 @@ const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
 const soloDigitos = (s) => String(s || '').replace(/\D/g, '');
 
-/** Error con código (llega al front como `error`). */
-function errorConCodigo(code, message) {
+/**
+ * Error con código (llega al front como `error`). `datos` viaja junto al error hasta el front:
+ * lo que hace falta para ofrecer la acción (ej. el período del borrador a descartar).
+ */
+function errorConCodigo(code, message, datos) {
     const e = new Error(message);
     e.code = code;
+    if (datos) e.datos = datos;
     return e;
+}
+
+/**
+ * Espera que la pestaña llegue a una URL que matchee `regex` y termine de cargar.
+ * Se pregunta en vuelta (no waitForFunction): en el medio hay navegaciones que destruyen el contexto.
+ * @returns {Promise<boolean>} false si se agota el tiempo.
+ */
+async function esperarUrl(page, regex, timeoutMs = 60000) {
+    const limite = Date.now() + timeoutMs;
+    while (Date.now() < limite) {
+        if (regex.test(page.url())) {
+            const lista = await page.evaluate(() => document.readyState === 'complete').catch(() => false);
+            if (lista) return true;
+        }
+        await esperar(500);
+    }
+    return false;
 }
 
 /**
@@ -48,4 +69,4 @@ function periodoLegible(periodo) {
     return `${periodo.slice(4, 6)}/${periodo.slice(0, 4)}`;
 }
 
-module.exports = { esperar, soloDigitos, errorConCodigo, clickReal, esperarArchivoListo, periodoLegible };
+module.exports = { esperar, soloDigitos, errorConCodigo, esperarUrl, clickReal, esperarArchivoListo, periodoLegible };

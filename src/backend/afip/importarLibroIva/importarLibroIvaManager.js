@@ -12,7 +12,7 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 /**
  * @param {{usuario: string, contrasena: string}} credenciales  login del grupo
  * @param {Array<{id, cuit, nombre}>} contribuyentes            los que entran con ese login
- * @param {{periodo: string, downloadsPath: string}} opcionesFlujo  periodo 'AAAAMM'
+ * @param {{periodo: string, downloadsPath: string, descartarBorrador?: boolean}} opcionesFlujo  periodo 'AAAAMM'
  * @param {Function} onProgreso  (datos) => void: 'progreso' (varias por cliente) y 'resultado'
  * @param {Object} [opciones]
  * @param {boolean} [opciones.visible]  false = navegador oculto; si no llega, visible

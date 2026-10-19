@@ -54,6 +54,7 @@
 .il-resultado-exito      { background: var(--v-ok-bg);    color: var(--v-txt-ok); }
 .il-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
 .il-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
+.il-resultado-aviso      { background: var(--v-warn-bg);  color: var(--v-txt-warn); }
 
 .il-resultado .ui-btn {
     padding: 4px 10px;
@@ -79,4 +80,63 @@
 /* Un renglón por libro (Ventas / Compras) debajo del renglón del cliente */
 .il-libro {
     margin-left: 24px;
+}
+
+/* Lo que decide el usuario en Resultados (borrador de otro período, Datos Iniciales) */
+.il-accion {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 4px 0 4px 24px;
+    padding: 10px 12px;
+    background: var(--v-panel-2);
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+    font-size: 14px;
+}
+.il-accion-columna {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+.il-accion-texto {
+    flex: 1;
+    min-width: 0;
+}
+.il-accion-titulo {
+    font-weight: 600;
+}
+.il-accion .ui-btn {
+    padding: 4px 12px;
+    font-size: 0.9em;
+}
+.il-check,
+.il-prorrateo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: normal;
+    font-size: 14px;
+    cursor: pointer;
+}
+.il-check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+.il-prorrateo {
+    margin-left: 24px;
+}
+.il-prorrateo select {
+    font-size: 14px;
+    padding: 2px 6px;
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+}
+
+/* Mientras corre algo, los botones de reintento no responden (el backend corre un lote a la vez). */
+.il-ocupado .il-btn-reintento {
+    opacity: 0.5;
+    pointer-events: none;
 }

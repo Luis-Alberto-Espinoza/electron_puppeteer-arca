@@ -17,6 +17,12 @@
             <input type="checkbox" id="chk-visible-il" checked>
             Mostrar navegador
         </label>
+        <!-- Arranca desmarcada en cada entrada y no se guarda: descartar borra lo cargado en ese borrador.
+             Sin marcar, el cliente vuelve con el aviso y se descarta desde Resultados. -->
+        <label class="ui-switch" title="ARCA no abre un período nuevo si hay un borrador de otro período sin presentar. Lo cargado en ese borrador se pierde.">
+            <input type="checkbox" id="chk-descartar-borrador-il">
+            Descartar borrador de otro período
+        </label>
         <button id="btnProcesarIl" class="ui-btn ui-btn--accion" disabled>
             ▶ Importar Libro IVA
         </button>

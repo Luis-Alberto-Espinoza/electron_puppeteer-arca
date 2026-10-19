@@ -5,10 +5,15 @@
 // resolver dice con qué clave entra cada uno: la propia o la del representante). Un
 // navegador y un login por grupo.
 //
-// datos = { contribuyentes: [{ id, cuit, nombre }], periodo: 'AAAAMM', visible }
+// datos = { contribuyentes: [{ id, cuit, nombre, descartarPeriodo?, datosIniciales? }], periodo: 'AAAAMM',
+//          visible, descartarBorrador }
+//   descartarBorrador: casilla del formulario (descarta el borrador de otro período, sea cual sea).
+//   descartarPeriodo / datosIniciales: lo que el usuario respondió en Resultados (reintento de un cliente).
 // Progreso por 'importarLibroIva:update': { tipo: 'progreso'|'resultado'|'finalizado', ... }
 // En 'resultado': ventas / compras = { success, encontrados, agregados, yaExistentes,
 // noImportados, totalLibro, rutaExcel, aviso } o { success:false, message }, y downloadDir.
+// También: borradorDescartado ('AAAAMM'), datosInicialesCargados y, con error, periodoBorrador
+// (BORRADOR_OTRO_PERIODO) o datosIniciales (DATOS_INICIALES_PENDIENTES) para preguntar.
 //
 // No vive en afip/libroIVA/: esa carpeta es el Libro IVA local (otro servicio) y en Windows
 // libroIva y libroIVA serían la misma carpeta.
@@ -29,7 +34,7 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
     const repo = getContribuyenteRepo();
 
     ipcMain.handle('importarLibroIva:procesar', async (_event, datos) => {
-        const { contribuyentes, periodo, visible } = datos || {};
+        const { contribuyentes, periodo, visible, descartarBorrador } = datos || {};
         if (!Array.isArray(contribuyentes) || contribuyentes.length === 0) {
             return { success: false, error: 'MISSING_CONTRIBUYENTES', message: 'No se recibieron contribuyentes' };
         }
@@ -46,20 +51,26 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
         };
 
         // Cierra un contribuyente: lo suma a resultados, avisa al front y al historial.
-        const cerrar = (contribuyente, { success, error, message, ventas, compras, downloadDir }) => {
+        const cerrar = (contribuyente, { success, error, message, ventas, compras, downloadDir,
+            borradorDescartado, datosInicialesCargados, periodoBorrador, datosIniciales }) => {
             resultados.push({ contribuyente, success });
             enviar({
                 tipo: 'resultado', id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
                 estado: success ? 'exito' : 'error',
                 error, mensaje: message, ventas, compras, downloadDir,
+                borradorDescartado, datosInicialesCargados, periodoBorrador, datosIniciales,
                 procesados: resultados.length, total
             });
             historialRepo.registrar({
                 dominio: 'importarLibroIva', accion: 'importar', estado: success ? 'exito' : 'error',
                 cliente: { id: contribuyente.id, nombre: contribuyente.nombre, cuit: contribuyente.cuit },
-                resumen: [`Período ${periodo.slice(4, 6)}/${periodo.slice(0, 4)}`, resumenLibro('Ventas', ventas), resumenLibro('Compras', compras)]
-                    .filter(Boolean).join(' · '),
-                detalle: downloadDir ? { periodo, carpeta: downloadDir } : { periodo },
+                resumen: [
+                    `Período ${periodo.slice(4, 6)}/${periodo.slice(0, 4)}`,
+                    borradorDescartado ? `Borrador ${borradorDescartado.slice(4, 6)}/${borradorDescartado.slice(0, 4)} DESCARTADO` : null,
+                    datosInicialesCargados ? 'Datos Iniciales cargados' : null,
+                    resumenLibro('Ventas', ventas), resumenLibro('Compras', compras)
+                ].filter(Boolean).join(' · '),
+                detalle: { periodo, ...(downloadDir ? { carpeta: downloadDir } : {}), ...(borradorDescartado ? { borradorDescartado } : {}) },
                 error: success ? null : message
             });
         };
@@ -68,6 +79,9 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
         const grupos = new Map(); // loginCuit → { credenciales, items }
         for (const c of contribuyentes) {
             const contribuyente = { id: c.id, cuit: String(c.cuit), nombre: c.nombre };
+            // Respuestas del usuario para este cliente (reintento desde Resultados).
+            if (/^\d{6}$/.test(String(c.descartarPeriodo || ''))) contribuyente.descartarPeriodo = String(c.descartarPeriodo);
+            if (c.datosIniciales && typeof c.datosIniciales === 'object') contribuyente.datosIniciales = c.datosIniciales;
             try {
                 const acceso = await repo.resolverAcceso(contribuyente.cuit, 'afip');
                 if (!acceso) {
@@ -110,7 +124,7 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
 
             try {
                 const r = await importarLibroIvaManager.procesarGrupo(
-                    grupo.credenciales, grupo.items, { periodo, downloadsPath }, onProgreso, { visible }
+                    grupo.credenciales, grupo.items, { periodo, downloadsPath, descartarBorrador: descartarBorrador === true }, onProgreso, { visible }
                 );
                 corte.registrar(r);
                 if (!r || r.success === false) {
