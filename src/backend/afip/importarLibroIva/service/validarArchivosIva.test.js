@@ -12,13 +12,15 @@ function ventaCbte(fecha, nro, cant) {
     l[241] = String(cant);
     return l.join('');
 }
-const ventaAli = (nro) => relleno(`001${'00003'}${String(nro).padStart(20, '0')}`, 62);
+const poner = (l, desde, texto) => l.slice(0, desde) + texto + l.slice(desde + texto.length);
+// Código de alícuota 0005 (21%).
+const ventaAli = (nro) => poner(relleno(`001${'00003'}${String(nro).padStart(20, '0')}`, 62), 43, '0005');
 function compraCbte(fecha, nro, cant) {
     const l = relleno(`${fecha}001${'00001'}${String(nro).padStart(20, '0')}${' '.repeat(16)}80${'30500001735'.padStart(20, '0')}`, 325).split('');
     l[237] = String(cant);
     return l.join('');
 }
-const compraAli = (nro) => relleno(`001${'00001'}${String(nro).padStart(20, '0')}80${'30500001735'.padStart(20, '0')}`, 84);
+const compraAli = (nro) => poner(relleno(`001${'00001'}${String(nro).padStart(20, '0')}80${'30500001735'.padStart(20, '0')}`, 84), 65, '0005');
 
 function carpeta(archivos) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'livatest-'));
@@ -59,12 +61,21 @@ test('renglón con otro largo, y la pista de UTF-8', () => {
     assert.ok(r.errores.some(e => /1 renglón\(es\) sin los 325 caracteres.*renglones 2.*UTF-8/.test(e)), r.errores.join('\n'));
 });
 
-test('cantidad de alícuotas que no cierra y alícuotas sin comprobante', () => {
+test('cantidad de alícuotas que no cierra (error) y alícuotas sin comprobante (aviso)', () => {
     const a = base();
     a['b.txt'] = [ventaAli(3), ventaAli(9)];
     const r = validarArchivosIva(carpeta(a), '202609');
     assert.ok(r.errores.some(e => /renglón 1 \(001-00003-3\): dice 2 alícuota\(s\) y el archivo de alícuotas tiene 1/.test(e)), r.errores.join('\n'));
-    assert.ok(r.errores.some(e => /alícuotas sin comprobante \(renglones 2/.test(e)), r.errores.join('\n'));
+    assert.deepStrictEqual(r.avisos, ['Ventas: alícuotas sin comprobante (renglones 2 del archivo de alícuotas)']);
+});
+
+test('alícuota sin comprobante sola: pasa, con aviso', () => {
+    const a = base();
+    a['b.txt'] = [ventaAli(3), ventaAli(3), ventaAli(9)];
+    const r = validarArchivosIva(carpeta(a), '202609');
+    assert.ok(r.ok);
+    assert.deepStrictEqual(r.errores, []);
+    assert.deepStrictEqual(r.avisos, ['Ventas: alícuotas sin comprobante (renglones 3 del archivo de alícuotas)']);
 });
 
 test('falta uno, sobra uno, y no-txt', () => {
@@ -99,4 +110,40 @@ test('sin el archivo de alícuotas: solo el "Falta", sin errores de arrastre', (
     delete a['b.txt'];
     const r = validarArchivosIva(carpeta(a), '202609');
     assert.deepStrictEqual(r.errores, ['Falta: Ventas (alícuotas)']);
+});
+
+test('código de alícuota inválido', () => {
+    const a = base();
+    a['b.txt'] = [ventaAli(3), poner(ventaAli(3), 43, '0099')];
+    const r = validarArchivosIva(carpeta(a), '202609');
+    assert.deepStrictEqual(r.errores, ['Ventas: código de alícuota inválido (renglones 2 del archivo de alícuotas; valen 3, 4, 5, 6, 8 y 9)']);
+});
+
+test('importe con letras, en comprobantes y en alícuotas', () => {
+    const a = base();
+    a['a.txt'] = [poner(ventaCbte('20260930', 3, 2), 108, '0000000731544AB')];
+    a['d.txt'] = [poner(compraAli(1), 69, '00000000001234X')];
+    const r = validarArchivosIva(carpeta(a), '202609');
+    assert.deepStrictEqual(r.errores, [
+        'Ventas: importes con caracteres que no son números (renglones 1)',
+        'Compras: importes con caracteres que no son números (renglones 1 del archivo de alícuotas)'
+    ]);
+});
+
+test('CUIT con dígito verificador inválido (solo si el documento es 80)', () => {
+    const a = base();
+    a['a.txt'] = [poner(ventaCbte('20260930', 3, 2), 56, '80' + '30500001736'.padStart(20, '0'))];
+    let r = validarArchivosIva(carpeta(a), '202609');
+    assert.deepStrictEqual(r.errores, ['Ventas: CUIT del comprador inválida (renglones 1)']);
+    // DNI (96): no se controla.
+    a['a.txt'] = [poner(ventaCbte('20260930', 3, 2), 56, '96' + '30500001736'.padStart(20, '0'))];
+    r = validarArchivosIva(carpeta(a), '202609');
+    assert.deepStrictEqual(r.errores, []);
+});
+
+test('comprobante repetido', () => {
+    const a = base();
+    a['c.txt'] = [compraCbte('20260702', 1, 1), compraCbte('20260901', 2, 0), compraCbte('20260901', 2, 0)];
+    const r = validarArchivosIva(carpeta(a), '202609');
+    assert.deepStrictEqual(r.errores, ['Compras: comprobante 001-00001-2 repetido (renglones 2, 3)']);
 });

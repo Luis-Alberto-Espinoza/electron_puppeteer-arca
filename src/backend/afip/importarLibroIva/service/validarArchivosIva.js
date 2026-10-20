@@ -6,7 +6,8 @@
 // Cada archivo se reconoce por el largo de sus renglones (el nombre no importa); un archivo de
 // alícuotas vacío (todos los comprobantes con 0 alícuotas, ej. Facturas C) se reconoce por el nombre.
 //
-// Solo avisa: nunca corrige montos ni renglones.
+// Solo avisa: nunca corrige montos ni renglones. Los errores frenan; los avisos son cosas que
+// ARCA acepta igual (ej. alícuotas sin comprobante: las ignora sin decir nada) y no frenan.
 
 const fs = require('fs');
 const path = require('path');
@@ -24,19 +25,34 @@ const TIPOS = {
 
 // Por libro: dónde está la clave del comprobante en cada archivo y la cantidad de alícuotas.
 // La clave es tipo + punto de venta + número (+ documento del vendedor en Compras).
+// montos = [desde, hasta) de cada importe (y el tipo de cambio); documento = código + número
+// del comprador (Ventas) o del vendedor (Compras); codigoAlicuota = desde dónde, 4 caracteres.
 const LIBROS = {
     ventas: {
         nombre: 'Ventas', cbte: 'ventasCbte', alicuotas: 'ventasAlicuotas',
         claveCbte: l => l.slice(8, 36), claveAlicuota: l => l.slice(0, 28), cantidad: l => l[241],
+        montosCbte: [...importes(108, 8), [231, 241], [243, 258]], montosAlicuota: [[28, 43], [47, 62]],
+        documento: l => [l.slice(56, 58), l.slice(58, 78)], quien: 'comprador', codigoAlicuota: 43,
         fechaEnPeriodo: true
     },
     compras: {
         nombre: 'Compras', cbte: 'comprasCbte', alicuotas: 'comprasAlicuotas',
         claveCbte: l => l.slice(8, 36) + l.slice(52, 74), claveAlicuota: l => l.slice(0, 50), cantidad: l => l[237],
+        montosCbte: [...importes(104, 8), [227, 237], [239, 254], [254, 269], [310, 325]], montosAlicuota: [[50, 65], [69, 84]],
+        documento: l => [l.slice(52, 54), l.slice(54, 74)], quien: 'vendedor', codigoAlicuota: 65,
         // Compras puede traer comprobantes de meses anteriores (crédito fiscal computado tarde).
         fechaEnPeriodo: false
     }
 };
+
+// n importes seguidos de 15 caracteres desde `desde`.
+function importes(desde, n) {
+    return Array.from({ length: n }, (_, i) => [desde + 15 * i, desde + 15 * (i + 1)]);
+}
+
+// Los que acepta ARCA: 3 = 0%, 4 = 10,5%, 5 = 21%, 6 = 27%, 8 = 5%, 9 = 2,5%.
+const CODIGOS_ALICUOTA = ['0003', '0004', '0005', '0006', '0008', '0009'];
+const DOC_CUIT = '80';
 
 const etiqueta = (l) => `${l.slice(8, 11)}-${l.slice(11, 16)}-${l.slice(16, 36).replace(/^0+(?=\d)/, '')}`;
 
@@ -45,6 +61,16 @@ function fechaValida(f) {
     const d = new Date(Date.UTC(+f.slice(0, 4), +f.slice(4, 6) - 1, +f.slice(6, 8)));
     return d.getUTCFullYear() === +f.slice(0, 4) && d.getUTCMonth() === +f.slice(4, 6) - 1 && d.getUTCDate() === +f.slice(6, 8);
 }
+
+function cuitValido(cuit) {
+    if (!/^\d{11}$/.test(cuit)) return false;
+    const suma = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2].reduce((a, m, i) => a + m * Number(cuit[i]), 0);
+    const dv = 11 - (suma % 11);
+    return (dv === 11 ? 0 : dv === 10 ? 9 : dv) === Number(cuit[10]);
+}
+
+// Solo dígitos (con un '-' adelante, por las notas de crédito en negativo).
+const montosMalos = (l, montos) => montos.some(([d, h]) => !/^-?\d+$/.test(l.slice(d, h)));
 
 // "renglones 3, 7, 9 y 4 más"
 function listaRenglones(nros) {
@@ -123,13 +149,46 @@ function revisarLibro(def, cbte, alicuotas, periodo) {
         }
     }
 
+    const conLetras = filas.filter(x => montosMalos(x.texto, def.montosCbte)).map(x => x.n);
+    if (conLetras.length) errores.push(`${def.nombre}: importes con caracteres que no son números (renglones ${listaRenglones(conLetras)})`);
+
+    // El número de documento son 20 caracteres con ceros adelante: la CUIT son los últimos 11.
+    const cuitMala = filas.filter(x => {
+        const [codigo, numero] = def.documento(x.texto);
+        return codigo === DOC_CUIT && !cuitValido(numero.slice(-11));
+    }).map(x => x.n);
+    if (cuitMala.length) errores.push(`${def.nombre}: CUIT del ${def.quien} inválida (renglones ${listaRenglones(cuitMala)})`);
+
+    // ARCA no lo ve como repetido: corta el archivo por "no se encontró la cantidad de alícuotas".
+    const porClave = new Map();
+    filas.forEach(x => {
+        const k = def.claveCbte(x.texto);
+        if (!porClave.has(k)) porClave.set(k, []);
+        porClave.get(k).push(x);
+    });
+    [...porClave.values()].filter(v => v.length > 1).forEach(v => {
+        errores.push(`${def.nombre}: comprobante ${etiqueta(v[0].texto)} repetido (renglones ${listaRenglones(v.map(x => x.n))})`);
+    });
+
+    const avisos = [];
     // Sin el archivo de alícuotas ya está el "Falta": el cruce solo sumaría errores de arrastre.
-    if (!alicuotas) return { errores, comprobantes: filas.length };
+    if (!alicuotas) return { errores, avisos, comprobantes: filas.length };
 
     // Cuántos renglones de alícuotas tiene cada comprobante.
     const enAlicuotas = new Map();
     const largoAli = TIPOS[def.alicuotas].largo;
-    alicuotas.renglones.filter(x => x.texto.length === largoAli).forEach(x => {
+    const filasAli = alicuotas.renglones.filter(x => x.texto.length === largoAli);
+
+    const codigoMalo = filasAli.filter(x => !CODIGOS_ALICUOTA.includes(x.texto.slice(def.codigoAlicuota, def.codigoAlicuota + 4))).map(x => x.n);
+    if (codigoMalo.length) {
+        errores.push(`${def.nombre}: código de alícuota inválido (renglones ${listaRenglones(codigoMalo)} del archivo de alícuotas; valen 3, 4, 5, 6, 8 y 9)`);
+    }
+    const aliConLetras = filasAli.filter(x => montosMalos(x.texto, def.montosAlicuota)).map(x => x.n);
+    if (aliConLetras.length) {
+        errores.push(`${def.nombre}: importes con caracteres que no son números (renglones ${listaRenglones(aliConLetras)} del archivo de alícuotas)`);
+    }
+
+    filasAli.forEach(x => {
         const k = def.claveAlicuota(x.texto);
         if (!enAlicuotas.has(k)) enAlicuotas.set(k, []);
         enAlicuotas.get(k).push(x.n);
@@ -148,17 +207,19 @@ function revisarLibro(def, cbte, alicuotas, periodo) {
         }
     });
     const huerfanas = [...enAlicuotas].filter(([k]) => !claves.has(k)).flatMap(([, nros]) => nros);
+    // ARCA las ignora sin avisar (probado 2026-10-20): se carga, pero el libro queda distinto del txt.
     if (huerfanas.length) {
-        errores.push(`${def.nombre}: alícuotas sin comprobante (renglones ${listaRenglones(huerfanas)} del archivo de alícuotas)`);
+        avisos.push(`${def.nombre}: alícuotas sin comprobante (renglones ${listaRenglones(huerfanas)} del archivo de alícuotas)`);
     }
-    return { errores, comprobantes: filas.length };
+    return { errores, avisos, comprobantes: filas.length };
 }
 
 /**
  * @param {string[]} rutas  los archivos que eligió el usuario (en cualquier orden)
  * @param {string} periodo  'AAAAMM'
  * @returns {{ ok: boolean, archivos: Object<string,string>, detalle: Array<{ruta, nombre, tipo, tipoNombre}>,
- *            resumen: {ventas?: number, compras?: number}, errores: string[] }}
+ *            resumen: {ventas?: number, compras?: number}, errores: string[], avisos: string[] }}
+ *   ok = sin errores (los avisos no frenan)
  *   archivos = { ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas } → ruta
  */
 function validarArchivosIva(rutas, periodo) {
@@ -181,11 +242,13 @@ function validarArchivosIva(rutas, periodo) {
     if (faltan.length) errores.push(`Falta: ${faltan.map(t => TIPOS[t].nombre).join(', ')}`);
 
     const resumen = {};
+    const avisos = [];
     for (const [libro, def] of Object.entries(LIBROS)) {
         const cbte = leidos.find(a => a.ruta === archivos[def.cbte]);
         if (!cbte) continue;
         const r = revisarLibro(def, cbte, leidos.find(a => a.ruta === archivos[def.alicuotas]), periodo);
         errores.push(...r.errores);
+        avisos.push(...r.avisos);
         resumen[libro] = r.comprobantes;
     }
 
@@ -200,7 +263,8 @@ function validarArchivosIva(rutas, periodo) {
             .map(a => ({ ruta: a.ruta, nombre: a.nombre, tipo: a.tipo, tipoNombre: a.tipo ? TIPOS[a.tipo].nombre : null }))
             .sort((x, y) => Object.keys(TIPOS).indexOf(x.tipo) - Object.keys(TIPOS).indexOf(y.tipo)),
         resumen,
-        errores: recortados
+        errores: recortados,
+        avisos
     };
 }
 

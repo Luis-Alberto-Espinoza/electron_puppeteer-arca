@@ -185,6 +185,7 @@
 .il-prep-nota  { color: var(--v-texto-2); }
 .il-prep-ok    { color: var(--v-txt-ok); }
 .il-prep-error { color: var(--v-txt-error); }
+.il-prep-aviso { color: var(--v-txt-warn); }
 .il-prep-lista {
     margin: 4px 0 0;
     padding-left: 20px;

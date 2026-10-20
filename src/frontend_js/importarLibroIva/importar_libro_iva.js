@@ -234,6 +234,8 @@ window.inicializarModuloImportarLibroIva = () => {
         // "Falta: …" ya se ve en los lugares vacíos.
         const errores = (v.errores || []).filter(e => !e.startsWith('Falta:'));
         const faltan = ARCHIVOS.filter(([tipo]) => !detalle.some(d => d.tipo === tipo)).length;
+        // Cosas que ARCA acepta igual: no frenan.
+        const avisos = v.avisos || [];
 
         let titulo;
         if (v.ok) titulo = `✓ Los 4 archivos están bien: Ventas ${v.resumen.ventas} y Compras ${v.resumen.compras} comprobante(s)`;
@@ -266,6 +268,14 @@ window.inicializarModuloImportarLibroIva = () => {
             const listaErrores = el('ul', 'il-prep-lista');
             errores.forEach(e => listaErrores.appendChild(el('li', 'il-prep-error', e)));
             p.estado.appendChild(listaErrores);
+        }
+        if (avisos.length) {
+            p.estado.appendChild(el('div', 'il-prep-aviso', v.ok
+                ? '⚠ Se puede cargar, pero revisá (ARCA lo acepta y lo ignora sin avisar):'
+                : '⚠ Además (ARCA lo acepta y lo ignora sin avisar):'));
+            const listaAvisos = el('ul', 'il-prep-lista');
+            avisos.forEach(a => listaAvisos.appendChild(el('li', 'il-prep-aviso', a)));
+            p.estado.appendChild(listaAvisos);
         }
     }
 
