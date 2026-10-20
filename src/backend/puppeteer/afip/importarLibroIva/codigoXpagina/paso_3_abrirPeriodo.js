@@ -93,11 +93,13 @@ async function entrarAlPeriodo(portal, periodo, avisar) {
  * @param {boolean} [opciones.descartarBorrador]  casilla del formulario: descartar el borrador de otro período, sea cual sea
  * @param {string}  [opciones.descartarPeriodo]   'AAAAMM' confirmado en Resultados: descartar SOLO ese borrador
  * @param {object}  [opciones.datosIniciales]     lo que eligió el usuario (ver paso_3b)
+ * @param {boolean} [opciones.soloVistaPrevia]    si ARCA pide Datos Iniciales no hay nada que ver:
+ *                                                SIN_DECLARACION_INICIADA (sin preguntar ni cargar)
  * @returns {Promise<{liva, borradorDescartado: string|null, datosInicialesCargados: boolean}>}
  *          liva = IVA Simple en el menú del Libro IVA.
  */
 async function abrirPeriodo(portal, periodo, avisar = () => {}, opciones = {}) {
-    const { cuit, descartarBorrador: descartarCualquiera, descartarPeriodo, datosIniciales } = opciones;
+    const { cuit, descartarBorrador: descartarCualquiera, descartarPeriodo, datosIniciales, soloVistaPrevia } = opciones;
     let liva = await entrarAlPeriodo(portal, periodo, avisar);
     let borradorDescartado = null;
     try {
@@ -126,6 +128,10 @@ async function abrirPeriodo(portal, periodo, avisar = () => {}, opciones = {}) {
 
         let datosInicialesCargados = false;
         if (/verDatosInicialesPresentacion/.test(liva.url())) {
+            if (soloVistaPrevia) {
+                throw errorConCodigo('SIN_DECLARACION_INICIADA',
+                    `El período ${periodoLegible(periodo)} no tiene declaración iniciada (ARCA pide los Datos Iniciales): no hay Vista Previa. El navegador quedó en esa pantalla por si querés seguir a mano.`);
+            }
             const info = await leerDatosIniciales(liva);
             if (!datosIniciales) {
                 throw errorConCodigo('DATOS_INICIALES_PENDIENTES',

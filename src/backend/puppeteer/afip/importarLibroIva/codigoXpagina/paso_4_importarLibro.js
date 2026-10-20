@@ -73,6 +73,69 @@ async function listarTareas(liva, tipoOperacion) {
     return Array.isArray(r.json.datos) ? r.json.datos : [];
 }
 
+// Texto de una tarea con error, en renglones. ARCA lo manda así:
+//   "#Archivo comprobantes: línea 1;Error en la longitud del registro…"  ("#" = de dónde, ";" separa)
+//   → ["Archivo comprobantes: línea 1 — Error en la longitud del registro…"]
+function detalleErrorTarea(texto) {
+    const renglones = [];
+    let donde = null;
+    String(texto || '').split(';').map(x => x.trim()).filter(Boolean).forEach(parte => {
+        if (parte.startsWith('#')) {
+            if (donde) renglones.push(donde);   // un "#" sin mensaje atrás
+            donde = parte.slice(1).trim();
+            return;
+        }
+        renglones.push(donde ? `${donde} — ${parte}` : parte);
+        donde = null;
+    });
+    if (donde) renglones.push(donde);
+    return renglones;
+}
+
+// Tipos de tarea del historial: 1 = Importar desde ARCA, 2 = Importar Archivos.
+const TAREA_ARCA = 1;
+const TAREA_ARCHIVOS = 2;
+
+/**
+ * Espera la tarea NUEVA (código que no estaba en `antes`) de `tipoTarea` hasta que termine.
+ * @returns {Promise<{codigo, encontrados, agregados, yaExistentes, noImportados}>}  contadores de ARCA
+ */
+async function esperarTarea(liva, tipo, { tipoOperacion, tipoTarea, antes }, avisar = () => {}) {
+    const libro = LIBROS[tipo];
+    const inicio = Date.now();
+    let tarea = null;
+    while (Date.now() - inicio < TIMEOUT_TAREA) {
+        await esperar(INTERVALO_TAREA);
+        tarea = (await listarTareas(liva, tipoOperacion)).find(t => !antes.has(t.codigo) && Number(t.tipoTarea) === tipoTarea) || null;
+        if (tarea && ['TE', 'ER', 'CA'].includes(tarea.estado)) break;
+        const seg = Math.round((Date.now() - inicio) / 1000);
+        avisar(`Libro ${libro.nombre}: ARCA está procesando la importación (${seg} s)…`);
+    }
+
+    if (!tarea || !['TE', 'ER', 'CA'].includes(tarea.estado)) {
+        throw errorConCodigo('IMPORTACION_SIN_TERMINAR',
+            `ARCA no terminó de importar el Libro ${libro.nombre} en ${TIMEOUT_TAREA / 60000} min: revisá el Historial de Importaciones a mano.`);
+    }
+    if (tarea.estado === 'ER') {
+        const e = errorConCodigo('IMPORTACION_ERROR',
+            `ARCA rechazó la importación del Libro ${libro.nombre} completa: no cargó nada.`);
+        e.detalle = detalleErrorTarea(tarea.errores);
+        if (!e.detalle.length) e.message = e.message.replace(/\.$/, ' (ARCA no dijo por qué).');
+        throw e;
+    }
+    if (tarea.estado === 'CA') {
+        throw errorConCodigo('IMPORTACION_CANCELADA', `La importación del Libro ${libro.nombre} quedó cancelada.`);
+    }
+
+    return {
+        codigo: tarea.codigo,
+        encontrados: Number(tarea.cantidadRegistros) || 0,
+        agregados: Number(tarea.cantidadAgregados) || 0,
+        yaExistentes: Number(tarea.cantidadIgnorados) || 0,
+        noImportados: Number(tarea.cantidadErroneos) || 0
+    };
+}
+
 /**
  * @param {import('puppeteer').Page} liva   Página de IVA Simple (de paso 3).
  * @param {'ventas'|'compras'} tipo
@@ -122,34 +185,7 @@ async function importarLibro(liva, tipo, { cuit, periodo }, avisar = () => {}) {
     }
 
     // Esperar la tarea nueva hasta que termine.
-    const inicio = Date.now();
-    let tarea = null;
-    while (Date.now() - inicio < TIMEOUT_TAREA) {
-        await esperar(INTERVALO_TAREA);
-        tarea = (await listarTareas(liva, tipoOperacion)).find(t => !antes.has(t.codigo) && Number(t.tipoTarea) === 1) || null;
-        if (tarea && ['TE', 'ER', 'CA'].includes(tarea.estado)) break;
-        const seg = Math.round((Date.now() - inicio) / 1000);
-        avisar(`Libro ${libro.nombre}: ARCA está procesando la importación (${seg} s)…`);
-    }
-
-    if (!tarea || !['TE', 'ER', 'CA'].includes(tarea.estado)) {
-        throw errorConCodigo('IMPORTACION_SIN_TERMINAR',
-            `ARCA no terminó de importar el Libro ${libro.nombre} en ${TIMEOUT_TAREA / 60000} min: revisá el Historial de Importaciones a mano.`);
-    }
-    if (tarea.estado === 'ER') {
-        throw errorConCodigo('IMPORTACION_ERROR',
-            `ARCA marcó con error la importación del Libro ${libro.nombre}${tarea.errores ? `: ${tarea.errores}` : '.'}`);
-    }
-    if (tarea.estado === 'CA') {
-        throw errorConCodigo('IMPORTACION_CANCELADA', `La importación del Libro ${libro.nombre} quedó cancelada.`);
-    }
-
-    return {
-        encontrados: Number(tarea.cantidadRegistros) || 0,
-        agregados: Number(tarea.cantidadAgregados) || 0,
-        yaExistentes: Number(tarea.cantidadIgnorados) || 0,
-        noImportados: Number(tarea.cantidadErroneos) || 0
-    };
+    return esperarTarea(liva, tipo, { tipoOperacion, tipoTarea: TAREA_ARCA, antes }, avisar);
 }
 
-module.exports = { importarLibro, abrirLibro, LIBROS };
+module.exports = { importarLibro, abrirLibro, listarTareas, esperarTarea, LIBROS, TAREA_ARCHIVOS, TIMEOUT_PAGINA };

@@ -6,15 +6,19 @@
 // navegador y un login por grupo.
 //
 // datos = { contribuyentes: [{ id, cuit, nombre, origen?, archivos?, descartarPeriodo?, datosIniciales? }],
-//          periodo: 'AAAAMM', visible, descartarBorrador }
+//          periodo: 'AAAAMM', visible, descartarBorrador, soloVistaPrevia }
+//   soloVistaPrevia: no importa nada (ni valida archivos): abre la Vista Previa de cada cliente y
+//   deja el navegador abierto para revisarla a mano.
 //   origen: 'arca' (importa desde ARCA, por defecto) o 'archivos' (los 4 txt en `archivos`, rutas):
-//   los txt se validan acá, ANTES del login; el que falla no entra al lote.
+//   los txt se validan acá, ANTES del login; el que falla no entra al lote. respaldo: true = Excel
+//   de lo que había antes de "Eliminar todo" (si no se pide, no se genera).
 //   datosIniciales también puede venir de la Preparación (se usa solo si ARCA los pide).
 //   descartarBorrador: casilla del formulario (descarta el borrador de otro período, sea cual sea).
 //   descartarPeriodo / datosIniciales: lo que el usuario respondió en Resultados (reintento de un cliente).
 // Progreso por 'importarLibroIva:update': { tipo: 'progreso'|'resultado'|'finalizado', ... }
 // En 'resultado': ventas / compras = { success, encontrados, agregados, yaExistentes,
 // noImportados, totalLibro, rutaExcel, aviso } o { success:false, message }, y downloadDir.
+// Con origen 'archivos' además: origen, eliminados (lo que había) y rutaRespaldo (su Excel).
 // También: borradorDescartado ('AAAAMM'), datosInicialesCargados y, con error, periodoBorrador
 // (BORRADOR_OTRO_PERIODO) o datosIniciales (DATOS_INICIALES_PENDIENTES) para preguntar.
 //
@@ -30,9 +34,10 @@ const { historialRepo } = require('../../historial/historialRepo.js');
 
 function resumenLibro(nombre, l) {
     if (!l) return null;
-    return l.success
-        ? `${nombre}: ${l.encontrados} encontrados, ${l.agregados} agregados`
-        : `${nombre}: error`;
+    if (!l.success) return `${nombre}: error`;
+    return l.origen === 'archivos'
+        ? `${nombre}: desde archivos, ${l.agregados} agregados${l.noImportados ? `, ${l.noImportados} con error` : ''}${l.eliminados ? `, ${l.eliminados} eliminados antes` : ''}`
+        : `${nombre}: ${l.encontrados} encontrados, ${l.agregados} agregados`;
 }
 
 function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
@@ -52,6 +57,7 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
 
     ipcMain.handle('importarLibroIva:procesar', async (_event, datos) => {
         const { contribuyentes, periodo, visible, descartarBorrador } = datos || {};
+        const soloVistaPrevia = (datos || {}).soloVistaPrevia === true;
         if (!Array.isArray(contribuyentes) || contribuyentes.length === 0) {
             return { success: false, error: 'MISSING_CONTRIBUYENTES', message: 'No se recibieron contribuyentes' };
         }
@@ -68,23 +74,25 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
         };
 
         // Cierra un contribuyente: lo suma a resultados, avisa al front y al historial.
-        const cerrar = (contribuyente, { success, error, message, ventas, compras, downloadDir,
+        const cerrar = (contribuyente, { success, error, message, ventas, compras, downloadDir, vistaPrevia, sinDeclaracion,
             borradorDescartado, datosInicialesCargados, periodoBorrador, datosIniciales }) => {
             resultados.push({ contribuyente, success });
             enviar({
                 tipo: 'resultado', id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
                 estado: success ? 'exito' : 'error',
-                error, mensaje: message, ventas, compras, downloadDir,
+                error, mensaje: message, ventas, compras, downloadDir, vistaPrevia, sinDeclaracion,
                 borradorDescartado, datosInicialesCargados, periodoBorrador, datosIniciales,
                 procesados: resultados.length, total
             });
             historialRepo.registrar({
-                dominio: 'importarLibroIva', accion: 'importar', estado: success ? 'exito' : 'error',
+                dominio: 'importarLibroIva', accion: soloVistaPrevia ? 'vistaPrevia' : 'importar', estado: success ? 'exito' : 'error',
                 cliente: { id: contribuyente.id, nombre: contribuyente.nombre, cuit: contribuyente.cuit },
                 resumen: [
                     `Período ${periodo.slice(4, 6)}/${periodo.slice(0, 4)}`,
                     borradorDescartado ? `Borrador ${borradorDescartado.slice(4, 6)}/${borradorDescartado.slice(0, 4)} DESCARTADO` : null,
                     datosInicialesCargados ? 'Datos Iniciales cargados' : null,
+                    vistaPrevia ? 'Vista Previa abierta (sin importar)' : null,
+                    sinDeclaracion ? 'Sin declaración iniciada: no hay Vista Previa' : null,
                     resumenLibro('Ventas', ventas), resumenLibro('Compras', compras)
                 ].filter(Boolean).join(' · '),
                 detalle: { periodo, ...(downloadDir ? { carpeta: downloadDir } : {}), ...(borradorDescartado ? { borradorDescartado } : {}) },
@@ -99,21 +107,16 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
             // Respuestas del usuario para este cliente (reintento desde Resultados).
             if (/^\d{6}$/.test(String(c.descartarPeriodo || ''))) contribuyente.descartarPeriodo = String(c.descartarPeriodo);
             if (c.datosIniciales && typeof c.datosIniciales === 'object') contribuyente.datosIniciales = c.datosIniciales;
-            if (c.origen === 'archivos') {
+            if (c.origen === 'archivos' && !soloVistaPrevia) {
                 // Se vuelve a validar: el archivo pudo cambiar desde que se eligió.
                 const v = validarArchivosIva(c.archivos, periodo);
                 if (!v.ok) {
                     cerrar(contribuyente, { success: false, error: 'ARCHIVOS_INVALIDOS', message: `Archivos con errores: ${v.errores.join(' · ')}` });
                     continue;
                 }
-                // TEMPORAL hasta que el flujo cargue los archivos en ARCA: se informa y no se entra.
-                resultados.push({ contribuyente, success: true });
-                enviar({
-                    tipo: 'resultado', id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
-                    estado: 'exito', procesados: resultados.length, total,
-                    mensaje: `archivos válidos (Ventas ${v.resumen.ventas}, Compras ${v.resumen.compras} comprobantes). La carga en ARCA todavía no está hecha: no se entró.`
-                });
-                continue;
+                contribuyente.origen = 'archivos';
+                contribuyente.archivos = v.archivos;
+                contribuyente.respaldo = c.respaldo === true;
             }
             try {
                 const acceso = await repo.resolverAcceso(contribuyente.cuit, 'afip');
@@ -157,7 +160,7 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
 
             try {
                 const r = await importarLibroIvaManager.procesarGrupo(
-                    grupo.credenciales, grupo.items, { periodo, downloadsPath, descartarBorrador: descartarBorrador === true }, onProgreso, { visible }
+                    grupo.credenciales, grupo.items, { periodo, downloadsPath, descartarBorrador: descartarBorrador === true, soloVistaPrevia }, onProgreso, { visible }
                 );
                 corte.registrar(r);
                 if (!r || r.success === false) {

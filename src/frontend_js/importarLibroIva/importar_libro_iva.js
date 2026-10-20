@@ -7,6 +7,7 @@
 //   - borrador de otro período sin presentar → "Descartar borrador MM/AAAA y reintentar"
 //     (o la casilla del formulario, que lo descarta sin preguntar);
 //   - Datos Iniciales del período → las mismas opciones que ARCA + Continuar.
+// "Abrir Vista Previa": no importa nada; deja el navegador abierto en la Vista Previa de cada cliente.
 
 window.inicializarModuloImportarLibroIva = () => {
     // Errores que se arreglan con la clave (login_arca.js y el resolver de acceso).
@@ -14,6 +15,7 @@ window.inicializarModuloImportarLibroIva = () => {
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
     const btnProcesar = document.getElementById('btnProcesarIl');
+    const btnVistaPrevia = document.getElementById('btnVistaPreviaIl');
     const chkVisible  = document.getElementById('chk-visible-il');
     const chkDescartar = document.getElementById('chk-descartar-borrador-il');
     const contenedor  = btnProcesar.closest('.il-container');
@@ -27,7 +29,8 @@ window.inicializarModuloImportarLibroIva = () => {
     let enCurso = false;
     let reintentando = false;
     // Lo último que se corrió: el reintento usa ESE período (no el del campo, que pudo cambiar).
-    const lote = { periodo: null, porCuit: new Map() };
+    const lote = { periodo: null, porCuit: new Map(), soloVistaPrevia: false };
+    const conAvisos = new Set();   // CUIT cargados con renglones rechazados por ARCA (para el "Terminado")
 
     // Por defecto, el mes anterior (el que se declara).
     const hoy = new Date();
@@ -49,6 +52,8 @@ window.inicializarModuloImportarLibroIva = () => {
     const actualizarBoton = () => {
         const elegidos = selector ? selector.obtenerSeleccionados() : [];
         btnProcesar.disabled = enCurso || !inpPeriodo.value || elegidos.length === 0 || !archivosListos(elegidos);
+        // La Vista Previa no usa los archivos: no espera a que estén validados.
+        btnVistaPrevia.disabled = enCurso || !inpPeriodo.value || elegidos.length === 0;
     };
 
     selector = new SelectorUsuarios('selector-contribuyentes-il', {
@@ -174,54 +179,94 @@ window.inicializarModuloImportarLibroIva = () => {
             `Datos Iniciales ${legible(info.periodo || lote.periodo)}: indicá si el cliente realiza alguna de estas operaciones`));
         const campos = camposDatosIniciales(caja, info.actuales || {}, info.importarAnteriorVisible);
 
+        const botones = el('div', 'il-accion-botones');
         const btn = el('button', 'ui-btn ui-btn--accion il-btn-reintento', 'Continuar');
-        caja.appendChild(btn);
+        // Cancelar: no se carga nada en ARCA; el cliente queda sin procesar (se puede volver a correr).
+        const btnCancelar = el('button', 'ui-btn il-btn-reintento', 'Cancelar');
+        botones.append(btn, btnCancelar);
+        caja.appendChild(botones);
         const habilitar = () => { btn.disabled = !campos.algunaMarcada(); };
         campos.alCambiar(habilitar);
         habilitar();
 
         btn.addEventListener('click', () => reintentar(datos.cuit, { datosIniciales: campos.leer() }));
+        btnCancelar.addEventListener('click', () => caja.replaceWith(el('div', 'il-resultado il-resultado-aviso il-libro',
+            `Cancelado: no se cargaron los Datos Iniciales ${legible(info.periodo || lote.periodo)}. El cliente quedó sin procesar.`)));
         return caja;
     }
 
     // ===== Preparación =====
+    // Los 4 lugares fijos (mismas claves que service/validarArchivosIva.js).
+    const ARCHIVOS = [
+        ['ventasCbte', 'Ventas (comprobantes)'],
+        ['ventasAlicuotas', 'Ventas (alícuotas)'],
+        ['comprasCbte', 'Compras (comprobantes)'],
+        ['comprasAlicuotas', 'Compras (alícuotas)']
+    ];
+
+    function quitarArchivo(p, ruta) {
+        p.rutas = p.rutas.filter(r => r !== ruta);
+        if (p.rutas.length) return validarArchivos(p);
+        p.validacion = null;
+        pintarEstadoArchivos(p);
+        actualizarBoton();
+    }
+
+    function renglonArchivo(p, clase, texto, ruta) {
+        const li = el('li', clase, texto);
+        if (ruta) {
+            const quitar = el('button', 'il-prep-quitar', '✕');
+            quitar.title = `Sacar ${ruta}`;
+            quitar.addEventListener('click', () => quitarArchivo(p, ruta));
+            li.appendChild(quitar);
+        }
+        return li;
+    }
+
     function pintarEstadoArchivos(p) {
         p.estado.innerHTML = '';
         if (p.validando) {
             p.estado.appendChild(el('div', 'il-prep-nota', '⏳ Revisando los archivos…'));
             return;
         }
-        const v = p.validacion;
-        if (!v || p.rutas.length === 0) {
-            p.estado.appendChild(el('div', 'il-prep-nota',
-                'Agregá los 4 txt, juntos o de a uno desde distintas carpetas: la app reconoce cuál es cuál.'));
-            return;
-        }
-        const titulo = v.ok
-            ? `✓ Formato correcto: Ventas ${v.resumen.ventas} y Compras ${v.resumen.compras} comprobante(s)`
-            : '✗ Hay que corregir los archivos antes de arrancar:';
-        p.estado.appendChild(el('div', v.ok ? 'il-prep-ok' : 'il-prep-error', titulo));
-        const lista = el('ul', 'il-prep-lista');
-        if (!v.ok) v.errores.forEach(e => lista.appendChild(el('li', 'il-prep-error', e)));
-        // Todos los archivos, también los no reconocidos, cada uno con su ✕ para sacarlo.
-        (v.detalle || []).forEach(d => {
-            const li = el('li', null, `${d.tipoNombre || 'No reconocido'}: ${d.nombre} `);
-            const quitar = el('button', 'il-prep-quitar', '✕');
-            quitar.title = `Sacar ${d.ruta}`;
-            quitar.addEventListener('click', () => {
-                p.rutas = p.rutas.filter(r => r !== d.ruta);
-                if (p.rutas.length) {
-                    validarArchivos(p);
-                } else {
-                    p.validacion = null;
-                    pintarEstadoArchivos(p);
-                    actualizarBoton();
-                }
+        const v = (p.rutas.length && p.validacion) || { ok: false, errores: [], detalle: [] };
+        const detalle = v.detalle || [];
+        // "Falta: …" ya se ve en los lugares vacíos.
+        const errores = (v.errores || []).filter(e => !e.startsWith('Falta:'));
+        const faltan = ARCHIVOS.filter(([tipo]) => !detalle.some(d => d.tipo === tipo)).length;
+
+        let titulo;
+        if (v.ok) titulo = `✓ Los 4 archivos están bien: Ventas ${v.resumen.ventas} y Compras ${v.resumen.compras} comprobante(s)`;
+        else if (errores.length) titulo = '✗ Hay que corregir los archivos antes de arrancar:';
+        else titulo = faltan === 4
+            ? 'Agregá los 4 txt, juntos o de a uno desde distintas carpetas: la app reconoce cuál es cuál.'
+            : `Falta(n) ${faltan} archivo(s).`;
+        p.estado.appendChild(el('div', v.ok ? 'il-prep-ok' : (errores.length ? 'il-prep-error' : 'il-prep-nota'), titulo));
+
+        // Un renglón por lugar: ✓ cargado, ⚠ cargado con errores de formato, ✗ falta.
+        // Los no reconocidos van aparte, con su ✕ para sacarlos.
+        const lista = el('ul', 'il-prep-lista il-prep-lugares');
+        ARCHIVOS.forEach(([tipo, nombre]) => {
+            const cargados = detalle.filter(d => d.tipo === tipo);
+            if (cargados.length === 0) {
+                lista.appendChild(renglonArchivo(p, 'il-prep-falta', `✗ ${nombre}: falta`));
+                return;
+            }
+            cargados.forEach(d => {
+                const conError = errores.some(e => e.startsWith(`${d.nombre}:`)) || cargados.length > 1;
+                lista.appendChild(renglonArchivo(p, conError ? 'il-prep-error' : 'il-prep-ok',
+                    `${conError ? '⚠' : '✓'} ${nombre}: ${d.nombre} `, d.ruta));
             });
-            li.appendChild(quitar);
-            lista.appendChild(li);
         });
+        detalle.filter(d => !d.tipo).forEach(d =>
+            lista.appendChild(renglonArchivo(p, 'il-prep-error', `? No reconocido: ${d.nombre} `, d.ruta)));
         p.estado.appendChild(lista);
+
+        if (errores.length) {
+            const listaErrores = el('ul', 'il-prep-lista');
+            errores.forEach(e => listaErrores.appendChild(el('li', 'il-prep-error', e)));
+            p.estado.appendChild(listaErrores);
+        }
     }
 
     async function validarArchivos(p) {
@@ -290,7 +335,12 @@ window.inicializarModuloImportarLibroIva = () => {
             validarArchivos(p);
         });
         p.estado = el('div', 'il-prep-estado');
-        cajaArchivos.append(btnElegir, p.estado);
+        // Lo que había en el libro se recupera con "Importar desde ARCA", salvo lo cargado a mano
+        // o por archivo: para eso, el respaldo (si no se pide, no se genera).
+        const respaldo = casilla('Guardar en Excel lo que había en el libro antes de borrarlo', false);
+        respaldo.label.title = 'Lo que vino de ARCA se recupera con "Importar desde ARCA"; lo cargado a mano o por archivo, no.';
+        p.respaldo = respaldo.input;
+        cajaArchivos.append(btnElegir, p.estado, respaldo.label);
         cajaArchivos.style.display = 'none';
         pintarEstadoArchivos(p);
 
@@ -302,6 +352,9 @@ window.inicializarModuloImportarLibroIva = () => {
         return p;
     }
 
+    // Los CUIT que había antes del último cambio: para saber cuál se acaba de elegir.
+    let mostrados = new Set();
+
     function pintarPreparacion() {
         const elegidos = selector.obtenerSeleccionados();
         prepContenido.innerHTML = '';   // las tarjetas viven en `prep`: solo se sacan de la vista
@@ -311,6 +364,17 @@ window.inicializarModuloImportarLibroIva = () => {
             prepContenido.appendChild(prep.get(cuit).nodo);
         });
         preparacion.style.display = elegidos.length ? '' : 'none';
+
+        // Cliente recién elegido: el foco pasa a su tarjeta (lo próximo que hay que completar).
+        // Para sumar otro cliente, se vuelve al buscador.
+        const nuevo = elegidos.find(u => !mostrados.has(String(u.cuit)));
+        mostrados = new Set(elegidos.map(u => String(u.cuit)));
+        if (nuevo) {
+            const p = prep.get(String(nuevo.cuit));
+            p.nodo.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const radio = p.nodo.querySelector('input[type=radio]:checked');
+            if (radio) radio.focus({ preventScroll: true });
+        }
     }
 
     // Un bloque por cliente: renglón del cliente + un renglón por libro.
@@ -324,17 +388,32 @@ window.inicializarModuloImportarLibroIva = () => {
         return bloque;
     }
 
+    // Cargado pero con renglones que ARCA no aceptó: ni ✓ ni ✗, aviso.
+    const conRechazos = (libro) => !!(libro && libro.success && libro.noImportados > 0);
+
     function renglonLibro(nombre, libro) {
-        const fila = el('div', `il-resultado il-libro il-resultado-${libro.success ? 'exito' : 'error'}`);
+        const estado = !libro.success ? 'error' : (conRechazos(libro) ? 'aviso' : 'exito');
+        const fila = el('div', `il-resultado il-libro il-resultado-${estado}`);
+        const importado = libro.origen === 'archivos'
+            ? `desde archivos: ${libro.agregados} de ${libro.encontrados} agregados` +
+              (libro.noImportados ? `, ${libro.noImportados} con error` : '') +
+              (libro.eliminados ? ` (antes se eliminaron los ${libro.eliminados} que había)` : '')
+            : `${libro.encontrados} encontrados en ARCA, ${libro.agregados} agregados, ${libro.yaExistentes} ya estaban`;
         const texto = libro.success
-            ? `${libro.encontrados} encontrados en ARCA, ${libro.agregados} agregados, ${libro.yaExistentes} ya estaban` +
+            ? importado +
               (libro.totalLibro != null ? ` — el libro tiene ${libro.totalLibro}` : '') +
               (libro.aviso ? ` ⚠ ${libro.aviso}` : '')
             : (libro.message || 'Error');
         const span = el('span', 'il-resultado-texto');
-        span.appendChild(el('strong', null, `${libro.success ? '✓' : '✗'} ${nombre}`));
+        span.appendChild(el('strong', null, `${{ exito: '✓', aviso: '⚠', error: '✗' }[estado]} ${nombre}`));
         span.appendChild(document.createTextNode(` — ${texto}`));
         fila.appendChild(span);
+        if (libro.rutaRespaldo) {
+            const btnAntes = el('button', 'ui-btn', 'Excel anterior');
+            btnAntes.title = 'Lo que había en el libro antes de "Eliminar todo"';
+            btnAntes.addEventListener('click', () => window.electronAPI.abrirArchivo(libro.rutaRespaldo));
+            fila.appendChild(btnAntes);
+        }
         if (libro.rutaExcel) {
             const btnExcel = el('button', 'ui-btn', 'Abrir Excel');
             btnExcel.addEventListener('click', () => window.electronAPI.abrirArchivo(libro.rutaExcel));
@@ -343,21 +422,59 @@ window.inicializarModuloImportarLibroIva = () => {
         return fila;
     }
 
+    // Lo que ARCA dijo de cada renglón que no importó ("Procesada (con errores)").
+    function erroresArca(libro) {
+        if (!libro || !Array.isArray(libro.erroresFilas) || libro.erroresFilas.length === 0) return null;
+        const caja = el('div', 'il-errores-arca');
+        caja.appendChild(el('div', 'il-errores-arca-titulo',
+            `ARCA no aceptó ${libro.noImportados} renglón(es) del txt de comprobantes:`));
+        const lista = el('ul', 'il-errores-arca-lista');
+        libro.erroresFilas.forEach(e => {
+            const li = el('li');
+            li.appendChild(el('strong', null, `Renglón ${e.fila}`));
+            if (e.filaAlicuota != null) li.appendChild(el('span', 'il-errores-arca-ali', ` · alícuotas renglón ${e.filaAlicuota}`));
+            li.appendChild(el('div', null, e.error));
+            lista.appendChild(li);
+        });
+        caja.appendChild(lista);
+        if (libro.noImportados > libro.erroresFilas.length) {
+            caja.appendChild(el('div', null, `… y ${libro.noImportados - libro.erroresFilas.length} más en el Historial de Importaciones de ARCA.`));
+        }
+        return caja;
+    }
+
+    // ARCA rechazó la importación entera (tarea con error): lo que dijo, en renglones.
+    function detalleRechazo(libro) {
+        if (!libro || libro.success || !Array.isArray(libro.detalle) || libro.detalle.length === 0) return null;
+        const caja = el('div', 'il-errores-arca il-errores-arca--error');
+        caja.appendChild(el('div', 'il-errores-arca-titulo', 'Lo que informó ARCA:'));
+        const lista = el('ul', 'il-errores-arca-lista');
+        libro.detalle.forEach(d => lista.appendChild(el('li', null, d)));
+        caja.appendChild(lista);
+        return caja;
+    }
+
     function pintarCliente(datos) {
         const bloque = bloqueDe(datos.cuit);
         bloque.innerHTML = '';
 
-        const icono = { procesando: '⏳', exito: '✓', error: '✗' }[datos.estado] || '';
+        // Cargado, pero ARCA rechazó renglones de algún libro: aviso (no es un éxito limpio).
+        const rechazados = [datos.ventas, datos.compras].filter(conRechazos).reduce((n, l) => n + l.noImportados, 0);
+        const estado = datos.estado === 'exito' && (rechazados || datos.sinDeclaracion) ? 'aviso' : datos.estado;
+        if (estado === 'aviso') conAvisos.add(String(datos.cuit)); else conAvisos.delete(String(datos.cuit));
+        const icono = { procesando: '⏳', exito: '✓', aviso: '⚠', error: '✗' }[estado] || '';
         // Con libros, el detalle va en cada renglón: el del cliente queda corto.
         const conLibros = datos.ventas || datos.compras;
-        const texto = conLibros ? (datos.estado === 'exito' ? 'importado' : 'con errores') : (datos.mensaje || '');
-        const fila = el('div', `il-resultado il-resultado-${datos.estado}`);
+        const texto = conLibros
+            ? { exito: 'cargado', aviso: `cargado, con ${rechazados} renglón(es) rechazado(s) por ARCA`, error: 'con errores' }[estado]
+            : (datos.mensaje || '');
+        const fila = el('div', `il-resultado il-resultado-${estado}`);
         const span = el('span', 'il-resultado-texto');
         span.appendChild(el('strong', null, `${icono} ${datos.nombre || ''} (${datos.cuit})`));
         span.appendChild(document.createTextNode(` — ${texto}`));
         fila.appendChild(span);
         if (datos.downloadDir) {
-            const btnCarpeta = el('button', 'ui-btn ui-btn--ghost', 'Abrir carpeta');
+            const btnCarpeta = el('button', 'ui-btn', 'Abrir carpeta');
             btnCarpeta.addEventListener('click', () => window.electronAPI.abrirDirectorio(datos.downloadDir));
             fila.appendChild(btnCarpeta);
         }
@@ -367,8 +484,12 @@ window.inicializarModuloImportarLibroIva = () => {
             bloque.appendChild(el('div', 'il-resultado il-resultado-aviso il-libro',
                 `⚠ Se descartó el borrador ${legible(datos.borradorDescartado)} sin presentar: lo cargado en él se perdió.`));
         }
-        if (datos.ventas) bloque.appendChild(renglonLibro('Ventas', datos.ventas));
-        if (datos.compras) bloque.appendChild(renglonLibro('Compras', datos.compras));
+        [['Ventas', datos.ventas], ['Compras', datos.compras]].forEach(([nombre, libro]) => {
+            if (!libro) return;
+            bloque.appendChild(renglonLibro(nombre, libro));
+            const errores = erroresArca(libro) || detalleRechazo(libro);
+            if (errores) bloque.appendChild(errores);
+        });
         if (datos.estado === 'error' && datos.error === 'BORRADOR_OTRO_PERIODO' && datos.periodoBorrador) {
             bloque.appendChild(accionBorrador(datos));
         }
@@ -400,8 +521,13 @@ window.inicializarModuloImportarLibroIva = () => {
                     datos.mensaje || 'No se colgó: está trabajando. ARCA es lento.');
             }
         } else if (datos.tipo === 'finalizado' && !reintentando) {
-            contenido.appendChild(el('div', 'il-resultado il-resultado-fin',
-                `Terminado: ${datos.exitosos} importado(s), ${datos.fallidos} con error.`));
+            contenido.appendChild(el('div', 'il-resultado il-resultado-fin', lote.soloVistaPrevia
+                ? `Terminado: ${datos.exitosos - conAvisos.size} Vista(s) Previa(s) abierta(s)` +
+                  (conAvisos.size ? `, ${conAvisos.size} sin declaración iniciada` : '') +
+                  `, ${datos.fallidos} con error. El navegador queda abierto: cerralo a mano.`
+                : `Terminado: ${datos.exitosos - conAvisos.size} cargado(s)` +
+                  (conAvisos.size ? `, ${conAvisos.size} con renglones rechazados` : '') +
+                  `, ${datos.fallidos} con error.`));
             irAResultados();
         }
     }
@@ -420,13 +546,19 @@ window.inicializarModuloImportarLibroIva = () => {
         reintentando = reintento;
         contenedor.classList.add('il-ocupado');
         btnProcesar.disabled = true;
+        btnVistaPrevia.disabled = true;
+        const boton = lote.soloVistaPrevia ? btnVistaPrevia : btnProcesar;
+        const textoBoton = boton.textContent;
         if (!reintento) {
-            btnProcesar.textContent = '⏳ Importando...';
+            boton.textContent = lote.soloVistaPrevia ? '⏳ Abriendo...' : '⏳ Cargando...';
             contenido.innerHTML = '';
             contador.textContent = '';
+            conAvisos.clear();
             resultados.style.display = 'block';
             contenido.appendChild(el('div', 'il-resultado il-resultado-procesando il-inicio',
-                `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: ARCA procesa cada importación)`));
+                lote.soloVistaPrevia
+                    ? `⏳ Abriendo la Vista Previa de ${contribuyentes.length} cliente(s)... (no se importa nada)`
+                    : `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: ARCA procesa cada importación)`));
             irAResultados();
         }
         if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar('Portal IVA: iniciando sesión en AFIP…');
@@ -437,7 +569,8 @@ window.inicializarModuloImportarLibroIva = () => {
                 periodo,
                 visible: chkVisible.checked,
                 // En el reintento manda lo que el usuario eligió para ESE cliente, no la casilla.
-                descartarBorrador: !reintento && chkDescartar.checked
+                descartarBorrador: !reintento && chkDescartar.checked,
+                soloVistaPrevia: lote.soloVistaPrevia
             });
             if (!r || !r.success) {
                 contenido.appendChild(el('div', 'il-resultado il-resultado-error', (r && r.message) || 'Error desconocido'));
@@ -449,7 +582,7 @@ window.inicializarModuloImportarLibroIva = () => {
             enCurso = false;
             reintentando = false;
             contenedor.classList.remove('il-ocupado');
-            btnProcesar.textContent = '▶ Importar Libro IVA';
+            boton.textContent = textoBoton;
             actualizarBoton();
         }
     }
@@ -469,12 +602,29 @@ window.inicializarModuloImportarLibroIva = () => {
         const contribuyentes = seleccionados.map(u => {
             const c = { id: u.id, cuit: u.cuit, nombre: nombreDe(u) };
             const p = prep.get(String(u.cuit));
-            if (p && p.origen === 'archivos') Object.assign(c, { origen: 'archivos', archivos: p.rutas });
+            if (p && p.origen === 'archivos') Object.assign(c, { origen: 'archivos', archivos: p.rutas, respaldo: p.respaldo.checked });
             if (p && p.campos.algunaMarcada()) c.datosIniciales = p.campos.leer();
             return c;
         });
         lote.periodo = periodoActual();
         lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
+        lote.soloVistaPrevia = false;
+        correr(contribuyentes, lote.periodo, false);
+    });
+
+    // Solo los datos para entrar al período (Datos Iniciales por si ARCA los pide): no se importa.
+    btnVistaPrevia.addEventListener('click', () => {
+        const seleccionados = selector.obtenerSeleccionados();
+        if (seleccionados.length === 0 || !inpPeriodo.value) return;
+        const contribuyentes = seleccionados.map(u => {
+            const c = { id: u.id, cuit: u.cuit, nombre: nombreDe(u) };
+            const p = prep.get(String(u.cuit));
+            if (p && p.campos.algunaMarcada()) c.datosIniciales = p.campos.leer();
+            return c;
+        });
+        lote.periodo = periodoActual();
+        lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
+        lote.soloVistaPrevia = true;
         correr(contribuyentes, lote.periodo, false);
     });
 

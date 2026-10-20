@@ -11,11 +11,17 @@
 
 .il-procesar {
     display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    margin: 16px 0;
+}
+.il-fila {
+    display: flex;
     align-items: center;
     justify-content: flex-end;
     flex-wrap: wrap;
     gap: 16px;
-    margin: 16px 0;
 }
 
 .il-seccion {
@@ -103,6 +109,10 @@
 .il-accion-texto {
     flex: 1;
     min-width: 0;
+}
+.il-accion-botones {
+    display: flex;
+    gap: 8px;
 }
 .il-accion-titulo {
     font-weight: 600;
@@ -209,3 +219,36 @@
 .il-prep-quitar:hover {
     color: var(--v-txt-error);
 }
+.il-prep-falta { color: var(--v-texto-2); }
+.il-prep-lugares {
+    list-style: none;
+    padding-left: 0;
+}
+.il-prep-archivos .il-check {
+    margin-top: 8px;
+}
+
+/* Renglones que ARCA no aceptó, debajo del libro (mismo tono que el aviso del libro) */
+.il-errores-arca {
+    margin: -2px 0 6px 24px;
+    padding: 8px 12px;
+    background: var(--v-panel-2);
+    border-left: 4px solid var(--v-txt-warn);
+    border-radius: var(--radio-sm);
+    color: var(--v-texto);
+    font-size: 14px;
+    overflow-wrap: anywhere;
+}
+.il-errores-arca--error { border-left-color: var(--v-txt-error); }
+.il-errores-arca--error .il-errores-arca-titulo { color: var(--v-txt-error); }
+.il-errores-arca-titulo {
+    color: var(--v-txt-warn);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+.il-errores-arca-lista {
+    margin: 0;
+    padding-left: 18px;
+}
+.il-errores-arca-lista li + li { margin-top: 6px; }
+.il-errores-arca-ali { color: var(--v-texto-2); }

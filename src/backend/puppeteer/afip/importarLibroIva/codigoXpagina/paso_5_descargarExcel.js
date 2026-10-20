@@ -15,24 +15,19 @@ const { abrirLibro, LIBROS } = require('./paso_4_importarLibro.js');
 const TIMEOUT_GRILLA = 60000;
 const TIMEOUT_DESCARGA = 60000;
 
-// libro_iva_ventas_<cuit>_<AAAA-MM>.xlsx: uno por libro y período (re-importar el mismo mes lo pisa).
-function nombreExcel(tipo, cuit, periodo) {
-    return `libro_iva_${tipo}_${cuit}_${periodo.slice(0, 4)}-${periodo.slice(4, 6)}.xlsx`;
+// libro_iva_ventas_<cuit>_<AAAA-MM><sufijo>.xlsx: uno por libro y período (re-importar el mismo
+// mes lo pisa). sufijo '_antes' = respaldo de lo que había antes de "Eliminar todo".
+function nombreExcel(tipo, cuit, periodo, sufijo = '') {
+    return `libro_iva_${tipo}_${cuit}_${periodo.slice(0, 4)}-${periodo.slice(4, 6)}${sufijo}.xlsx`;
 }
 
 /**
- * @param {import('puppeteer').Page} liva
- * @param {'ventas'|'compras'} tipo
- * @param {{cuit: string, nombre?: string, periodo: string, downloadsPath: string}} datos
- * @returns {Promise<{rutaExcel?: string, totalLibro?: number, aviso?: string}>}
+ * Abre (recarga) el libro y espera la grilla.
+ * @returns {Promise<{totalLibro: number, serverSide: boolean, tipoOperacion: number}>}
  */
-async function descargarExcel(liva, tipo, { cuit, nombre, periodo, downloadsPath }) {
+async function leerLibro(liva, tipo, { cuit, periodo }) {
     const libro = LIBROS[tipo];
-    const { serverSide } = await abrirLibro(liva, tipo, { cuit, periodo });
-    if (serverSide) {
-        return { aviso: `Libro ${libro.nombre}: ARCA no ofrece Excel con tantos comprobantes (solo CSV); no se descargó.` };
-    }
-
+    const { serverSide, tipoOperacion } = await abrirLibro(liva, tipo, { cuit, periodo });
     // Grilla cargada (la respuesta de la API ya llegó y DataTables la dibujó).
     await liva.waitForFunction(() => {
         try { return window.jQuery('#tablaDataTables').DataTable().ajax.json() != null; } catch (_) { return false; }
@@ -40,6 +35,21 @@ async function descargarExcel(liva, tipo, { cuit, nombre, periodo, downloadsPath
         throw errorConCodigo('GRILLA_NO_CARGO', `No cargó la grilla del Libro ${libro.nombre}.`);
     });
     const totalLibro = await liva.evaluate(() => window.jQuery('#tablaDataTables').DataTable().page.info().recordsTotal);
+    return { totalLibro, serverSide, tipoOperacion };
+}
+
+/**
+ * @param {import('puppeteer').Page} liva
+ * @param {'ventas'|'compras'} tipo
+ * @param {{cuit: string, nombre?: string, periodo: string, downloadsPath: string, sufijo?: string}} datos
+ * @returns {Promise<{rutaExcel?: string, totalLibro?: number, aviso?: string}>}
+ */
+async function descargarExcel(liva, tipo, { cuit, nombre, periodo, downloadsPath, sufijo = '' }) {
+    const libro = LIBROS[tipo];
+    const { totalLibro, serverSide } = await leerLibro(liva, tipo, { cuit, periodo });
+    if (serverSide) {
+        return { totalLibro, aviso: `Libro ${libro.nombre}: ARCA no ofrece Excel con tantos comprobantes (solo CSV); no se descargó.` };
+    }
 
     let tempDir = null;
     try {
@@ -54,7 +64,7 @@ async function descargarExcel(liva, tipo, { cuit, nombre, periodo, downloadsPath
         }
 
         const carpeta = await getDownloadPathContribuyente(downloadsPath, cuit, nombre || '', 'archivos_afip');
-        const rutaExcel = path.join(carpeta, nombreExcel(tipo, cuit, periodo));
+        const rutaExcel = path.join(carpeta, nombreExcel(tipo, cuit, periodo, sufijo));
         // copy + rm (no rename): el temporal puede estar en otro disco.
         await fs.copyFile(path.join(tempDir, archivo), rutaExcel);
         return { rutaExcel, totalLibro };
@@ -63,4 +73,4 @@ async function descargarExcel(liva, tipo, { cuit, nombre, periodo, downloadsPath
     }
 }
 
-module.exports = { descargarExcel, nombreExcel };
+module.exports = { descargarExcel, leerLibro, nombreExcel };

@@ -51,7 +51,7 @@ async function ejecutar(callback, opciones = {}) {
     } finally {
         if (browser) {
             if (dejarAbiertoSiempre) {
-                console.log('[PuppeteerManager] ⚠️  dejarAbiertoSiempre=true → navegador queda abierto (modo debug). Cerralo manualmente.');
+                console.log('[PuppeteerManager] El navegador queda abierto a disposición del usuario: lo cierra él.');
             } else if (huboError && dejarAbiertoEnError) {
                 console.log('[PuppeteerManager] ⚠️  Hubo error y dejarAbiertoEnError=true → navegador queda abierto para inspección. Cerralo manualmente.');
             } else {
