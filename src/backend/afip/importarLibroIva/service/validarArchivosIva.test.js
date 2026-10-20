@@ -59,6 +59,7 @@ test('renglón con otro largo, y la pista de UTF-8', () => {
     a['c.txt'] = [compraCbte('20260702', 1, 1), compraCbte('20260901', 2, 0).replace(/0$/, 'Ã±')];
     const r = validarArchivosIva(carpeta(a), '202609');
     assert.ok(r.errores.some(e => /1 renglón\(es\) sin los 325 caracteres.*renglones 2.*UTF-8/.test(e)), r.errores.join('\n'));
+    assert.ok(r.conError.includes('comprasCbte'));
 });
 
 test('cantidad de alícuotas que no cierra (error) y alícuotas sin comprobante (aviso)', () => {
@@ -117,6 +118,8 @@ test('código de alícuota inválido', () => {
     a['b.txt'] = [ventaAli(3), poner(ventaAli(3), 43, '0099')];
     const r = validarArchivosIva(carpeta(a), '202609');
     assert.deepStrictEqual(r.errores, ['Ventas: código de alícuota inválido (renglones 2 del archivo de alícuotas; valen 3, 4, 5, 6, 8 y 9)']);
+    // El ⚠ de la pantalla va en el archivo de alícuotas, no en los otros.
+    assert.deepStrictEqual(r.conError, ['ventasAlicuotas']);
 });
 
 test('importe con letras, en comprobantes y en alícuotas', () => {
@@ -146,4 +149,5 @@ test('comprobante repetido', () => {
     a['c.txt'] = [compraCbte('20260702', 1, 1), compraCbte('20260901', 2, 0), compraCbte('20260901', 2, 0)];
     const r = validarArchivosIva(carpeta(a), '202609');
     assert.deepStrictEqual(r.errores, ['Compras: comprobante 001-00001-2 repetido (renglones 2, 3)']);
+    assert.deepStrictEqual(r.conError, ['comprasCbte']);
 });

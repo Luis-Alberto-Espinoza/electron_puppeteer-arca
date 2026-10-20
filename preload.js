@@ -16,9 +16,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // Fin del proceso de iniciarSesion (éxito o error): el backend SIEMPRE contesta por acá.
     onFinProcesoAfip: (callback) => ipcRenderer.on('login-automatizado', (_event, resultado) => callback(resultado)),
     
-    // no se para que se usa y si se usa 
-    onStatusUpdate: (callback) => ipcRenderer.on('status-update', callback),
-    
     // APIs de MercadoPago
     mercadoPago: {
         seleccionarArchivo: () => ipcRenderer.invoke('mercadopago:seleccionar-archivo'),

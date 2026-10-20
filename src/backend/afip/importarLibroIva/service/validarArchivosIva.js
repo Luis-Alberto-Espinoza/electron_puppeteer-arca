@@ -137,27 +137,31 @@ function leerArchivo(ruta) {
 /** Cruza comprobantes con alícuotas de un libro y revisa las fechas. */
 function revisarLibro(def, cbte, alicuotas, periodo) {
     const errores = [];
+    // Qué archivo tiene cada error, para la pantalla (los textos dicen "Ventas:", no el archivo).
+    const conError = new Set();
+    const errorCbte = (texto) => { errores.push(texto); conError.add(def.cbte); };
+    const errorAli = (texto) => { errores.push(texto); conError.add(def.alicuotas); };
     const largoCbte = TIPOS[def.cbte].largo;
     const filas = cbte.renglones.filter(x => x.texto.length === largoCbte);
 
     const fechasMalas = filas.filter(x => !fechaValida(x.texto.slice(0, 8))).map(x => x.n);
-    if (fechasMalas.length) errores.push(`${def.nombre}: fecha inválida (renglones ${listaRenglones(fechasMalas)})`);
+    if (fechasMalas.length) errorCbte(`${def.nombre}: fecha inválida (renglones ${listaRenglones(fechasMalas)})`);
     if (def.fechaEnPeriodo && periodo) {
         const fuera = filas.filter(x => fechaValida(x.texto.slice(0, 8)) && !x.texto.startsWith(periodo)).map(x => x.n);
         if (fuera.length) {
-            errores.push(`${def.nombre}: comprobantes fuera del período ${periodo.slice(4, 6)}/${periodo.slice(0, 4)} (renglones ${listaRenglones(fuera)})`);
+            errorCbte(`${def.nombre}: comprobantes fuera del período ${periodo.slice(4, 6)}/${periodo.slice(0, 4)} (renglones ${listaRenglones(fuera)})`);
         }
     }
 
     const conLetras = filas.filter(x => montosMalos(x.texto, def.montosCbte)).map(x => x.n);
-    if (conLetras.length) errores.push(`${def.nombre}: importes con caracteres que no son números (renglones ${listaRenglones(conLetras)})`);
+    if (conLetras.length) errorCbte(`${def.nombre}: importes con caracteres que no son números (renglones ${listaRenglones(conLetras)})`);
 
     // El número de documento son 20 caracteres con ceros adelante: la CUIT son los últimos 11.
     const cuitMala = filas.filter(x => {
         const [codigo, numero] = def.documento(x.texto);
         return codigo === DOC_CUIT && !cuitValido(numero.slice(-11));
     }).map(x => x.n);
-    if (cuitMala.length) errores.push(`${def.nombre}: CUIT del ${def.quien} inválida (renglones ${listaRenglones(cuitMala)})`);
+    if (cuitMala.length) errorCbte(`${def.nombre}: CUIT del ${def.quien} inválida (renglones ${listaRenglones(cuitMala)})`);
 
     // ARCA no lo ve como repetido: corta el archivo por "no se encontró la cantidad de alícuotas".
     const porClave = new Map();
@@ -167,12 +171,12 @@ function revisarLibro(def, cbte, alicuotas, periodo) {
         porClave.get(k).push(x);
     });
     [...porClave.values()].filter(v => v.length > 1).forEach(v => {
-        errores.push(`${def.nombre}: comprobante ${etiqueta(v[0].texto)} repetido (renglones ${listaRenglones(v.map(x => x.n))})`);
+        errorCbte(`${def.nombre}: comprobante ${etiqueta(v[0].texto)} repetido (renglones ${listaRenglones(v.map(x => x.n))})`);
     });
 
     const avisos = [];
     // Sin el archivo de alícuotas ya está el "Falta": el cruce solo sumaría errores de arrastre.
-    if (!alicuotas) return { errores, avisos, comprobantes: filas.length };
+    if (!alicuotas) return { errores, conError, avisos, comprobantes: filas.length };
 
     // Cuántos renglones de alícuotas tiene cada comprobante.
     const enAlicuotas = new Map();
@@ -181,11 +185,11 @@ function revisarLibro(def, cbte, alicuotas, periodo) {
 
     const codigoMalo = filasAli.filter(x => !CODIGOS_ALICUOTA.includes(x.texto.slice(def.codigoAlicuota, def.codigoAlicuota + 4))).map(x => x.n);
     if (codigoMalo.length) {
-        errores.push(`${def.nombre}: código de alícuota inválido (renglones ${listaRenglones(codigoMalo)} del archivo de alícuotas; valen 3, 4, 5, 6, 8 y 9)`);
+        errorAli(`${def.nombre}: código de alícuota inválido (renglones ${listaRenglones(codigoMalo)} del archivo de alícuotas; valen 3, 4, 5, 6, 8 y 9)`);
     }
     const aliConLetras = filasAli.filter(x => montosMalos(x.texto, def.montosAlicuota)).map(x => x.n);
     if (aliConLetras.length) {
-        errores.push(`${def.nombre}: importes con caracteres que no son números (renglones ${listaRenglones(aliConLetras)} del archivo de alícuotas)`);
+        errorAli(`${def.nombre}: importes con caracteres que no son números (renglones ${listaRenglones(aliConLetras)} del archivo de alícuotas)`);
     }
 
     filasAli.forEach(x => {
@@ -201,9 +205,9 @@ function revisarLibro(def, cbte, alicuotas, periodo) {
         const dice = def.cantidad(x.texto);
         const hay = (enAlicuotas.get(k) || []).length;
         if (!/^\d$/.test(dice)) {
-            errores.push(`${def.nombre}: renglón ${x.n} (${etiqueta(x.texto)}): cantidad de alícuotas inválida`);
+            errorCbte(`${def.nombre}: renglón ${x.n} (${etiqueta(x.texto)}): cantidad de alícuotas inválida`);
         } else if (Number(dice) !== hay) {
-            errores.push(`${def.nombre}: renglón ${x.n} (${etiqueta(x.texto)}): dice ${dice} alícuota(s) y el archivo de alícuotas tiene ${hay}`);
+            errorCbte(`${def.nombre}: renglón ${x.n} (${etiqueta(x.texto)}): dice ${dice} alícuota(s) y el archivo de alícuotas tiene ${hay}`);
         }
     });
     const huerfanas = [...enAlicuotas].filter(([k]) => !claves.has(k)).flatMap(([, nros]) => nros);
@@ -211,15 +215,16 @@ function revisarLibro(def, cbte, alicuotas, periodo) {
     if (huerfanas.length) {
         avisos.push(`${def.nombre}: alícuotas sin comprobante (renglones ${listaRenglones(huerfanas)} del archivo de alícuotas)`);
     }
-    return { errores, avisos, comprobantes: filas.length };
+    return { errores, conError, avisos, comprobantes: filas.length };
 }
 
 /**
  * @param {string[]} rutas  los archivos que eligió el usuario (en cualquier orden)
  * @param {string} periodo  'AAAAMM'
  * @returns {{ ok: boolean, archivos: Object<string,string>, detalle: Array<{ruta, nombre, tipo, tipoNombre}>,
- *            resumen: {ventas?: number, compras?: number}, errores: string[], avisos: string[] }}
- *   ok = sin errores (los avisos no frenan)
+ *            resumen: {ventas?: number, compras?: number}, errores: string[], avisos: string[],
+ *            conError: string[] }}
+ *   ok = sin errores (los avisos no frenan); conError = tipos de archivo con algún error
  *   archivos = { ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas } → ruta
  */
 function validarArchivosIva(rutas, periodo) {
@@ -227,8 +232,10 @@ function validarArchivosIva(rutas, periodo) {
     const archivos = {};
     const leidos = (Array.isArray(rutas) ? rutas : []).map(leerArchivo);
 
+    const conError = new Set();
     leidos.forEach(a => {
         errores.push(...a.errores);
+        if (a.tipo && a.errores.length) conError.add(a.tipo);
         if (!a.tipo) return;
         if (archivos[a.tipo]) {
             // Con la carpeta: pueden llamarse igual y venir de lugares distintos.
@@ -249,6 +256,7 @@ function validarArchivosIva(rutas, periodo) {
         const r = revisarLibro(def, cbte, leidos.find(a => a.ruta === archivos[def.alicuotas]), periodo);
         errores.push(...r.errores);
         avisos.push(...r.avisos);
+        r.conError.forEach(t => conError.add(t));
         resumen[libro] = r.comprobantes;
     }
 
@@ -264,7 +272,8 @@ function validarArchivosIva(rutas, periodo) {
             .sort((x, y) => Object.keys(TIPOS).indexOf(x.tipo) - Object.keys(TIPOS).indexOf(y.tipo)),
         resumen,
         errores: recortados,
-        avisos
+        avisos,
+        conError: [...conError]
     };
 }
 

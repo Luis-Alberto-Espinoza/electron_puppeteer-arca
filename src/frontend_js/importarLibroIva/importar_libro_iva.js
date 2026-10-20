@@ -255,7 +255,7 @@ window.inicializarModuloImportarLibroIva = () => {
                 return;
             }
             cargados.forEach(d => {
-                const conError = errores.some(e => e.startsWith(`${d.nombre}:`)) || cargados.length > 1;
+                const conError = (v.conError || []).includes(tipo) || cargados.length > 1;
                 lista.appendChild(renglonArchivo(p, conError ? 'il-prep-error' : 'il-prep-ok',
                     `${conError ? '⚠' : '✓'} ${nombre}: ${d.nombre} `, d.ruta));
             });
