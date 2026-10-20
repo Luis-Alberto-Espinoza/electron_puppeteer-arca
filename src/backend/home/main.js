@@ -3,6 +3,8 @@ const path = require('path');
 // Lo más arriba posible: así hasta los console.log de los require de abajo van al archivo.
 const { getCarpetaLogs } = require('../comun/rutasDatos.js');
 require('../comun/registroConsola.js').iniciarRegistroConsola(getCarpetaLogs());
+// Antes que cualquier lector de PDF: carga pdfjs sin el aviso de canvas (ver el archivo).
+require('../comun/pdfjsSinAviso.js');
 // comunicacionConFactura y facturaManager movidos a afip/factura/handlers.js
 const { screen } = require('electron'); // Necesitamos el módulo 'screen'
 const fs = require('fs');
