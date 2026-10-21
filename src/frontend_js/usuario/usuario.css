@@ -427,9 +427,9 @@ body {
    de rojo, como el viejo 🔁, pero sin cambiar el verbo. */
 .menu-probar--urgente > .menu-probar-toggle,
 .btn-accion-afip.menu-probar--urgente {
-    background: #fff5f5;
-    color: #c53030;
-    border-color: #fc8181;
+    background: color-mix(in srgb, var(--u-peligro), transparent 80%);
+    color: var(--u-peligro);
+    border-color: var(--u-peligro);
 }
 /* Flyout: OCULTO por defecto; se revela al pasar el mouse (:hover) o al entrar con
    teclado (:focus-within, cubre Tab). Sin JS de abrir/cerrar. El pequeño delay de
@@ -443,10 +443,10 @@ body {
     flex-direction: column;
     min-width: 150px;
     padding: 4px;
-    background: #fff;
-    border: 1px solid #cbd5e0;
+    background: var(--u-superficie);
+    border: 1px solid var(--u-borde);
     border-radius: 8px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.14);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
     opacity: 0;
     visibility: hidden;          /* saca el flyout del foco/tab cuando está cerrado */
     transform: translateY(-4px);
@@ -464,13 +464,13 @@ body {
     border: 0;
     border-radius: 6px;
     background: transparent;
-    color: var(--u-superficie);
+    color: var(--u-texto);
     font-size: 13px;
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
 }
-.menu-probar-lista button:hover { background: #edf2f7; }
+.menu-probar-lista button:hover { background: var(--u-borde); color: var(--u-acento); }
 
 /* Variante en la barra de lote: el disparador es un .btn ancho a la izquierda del
    grupo, así que el flyout cae alineado a la IZQUIERDA (no a la derecha como en la
