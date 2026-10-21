@@ -163,15 +163,15 @@
                 <input type="checkbox" id="chk-visible-factura" checked>
                 Mostrar navegador
             </label>
-            <button id="testButton" class="btn-test">
-                🧪 Abrir AFIP - Modo Test
-            </button>
-            <button id="loginButton" class="btn-login">
-                🔐 Abrir AFIP - Modo Producción
-            </button>
-            <div class="info-container">
-                <p><strong>Modo Test:</strong> Para pruebas y desarrollo</p>
-                <p><strong>Modo Producción:</strong> Para facturación real</p>
+            <div class="ui-modo-botones">
+                <div class="ui-modo-opcion">
+                    <button id="testButton" class="btn-test">🧪 Abrir AFIP - Modo Test</button>
+                    <small class="ui-modo-nota">Prueba: no confirma la factura</small>
+                </div>
+                <div class="ui-modo-opcion">
+                    <button id="loginButton" class="btn-login">🔐 Abrir AFIP - Modo Producción</button>
+                    <small class="ui-modo-nota">Facturación real</small>
+                </div>
             </div>
         </div>
     </div>

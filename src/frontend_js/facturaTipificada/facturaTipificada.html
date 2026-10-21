@@ -263,25 +263,28 @@
 
                 <!-- BOTONES DE ACCIÓN -->
                 <div class="acciones-form">
-                    <div class="modo-prueba-container">
-                        <label class="checkbox-label modo-prueba-label">
-                            <input type="checkbox" id="modoPrueba" name="modoPrueba">
-                            <span>🧪 Modo Prueba</span>
-                            <small>(Solo procesa la 1ra factura sin confirmar, muestra captura para verificar)</small>
-                        </label>
-                        <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
-                        <label class="ui-switch">
-                            <input type="checkbox" id="chk-visible-tipificada" checked>
-                            Mostrar navegador
-                        </label>
-                    </div>
+                    <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
+                    <label class="ui-switch">
+                        <input type="checkbox" id="chk-visible-tipificada" checked>
+                        Mostrar navegador
+                    </label>
                     <div class="botones-container">
                         <button type="button" id="btnCancelar" class="btn-cancelar">
                             Cancelar
                         </button>
-                        <button type="button" id="btnGenerar" class="btn-generar">
-                            🧾 Generar <span id="contadorFacturas">1</span> Factura(s)
-                        </button>
+                        <!-- Modo prueba = el botón que se toca (antes era una casilla) -->
+                        <div class="ui-modo-botones">
+                            <div class="ui-modo-opcion">
+                                <button type="button" id="btnProbar" class="btn-generar btn-probar">🧪 Probar 1ra factura</button>
+                                <small class="ui-modo-nota">Sin confirmar, con captura para verificar</small>
+                            </div>
+                            <div class="ui-modo-opcion">
+                                <button type="button" id="btnGenerar" class="btn-generar">
+                                    🧾 Generar <span id="contadorFacturas">1</span> Factura(s)
+                                </button>
+                                <small class="ui-modo-nota">Factura real en AFIP</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </form>

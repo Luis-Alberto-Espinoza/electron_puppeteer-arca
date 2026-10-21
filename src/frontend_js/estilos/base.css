@@ -248,3 +248,31 @@ body {
 .modal-global .modal-footer .btn-tono:hover {
   filter: brightness(1.12);
 }
+
+/* ============================================================
+   7. MODO PRUEBA / REAL
+   .ui-modo-botones = fila de opciones; .ui-modo-opcion = botón + nota chica abajo.
+   Uso: Facturación (Modo Test / Producción) y Tipificada (Probar 1ra / Generar).
+   Mismo tamaño lado a lado; en ventana angosta bajan de renglón.
+   Colores: prueba = verde (--c-ok), real = azul (--c-accion), los pone cada vista.
+   ============================================================ */
+.ui-modo-botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ui-modo-opcion {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 200px;
+}
+.ui-modo-opcion > button {
+  width: 100%;
+  margin: 0;
+}
+.ui-modo-nota {
+  font-size: 12px;
+  text-align: center;
+  opacity: 0.8;
+}

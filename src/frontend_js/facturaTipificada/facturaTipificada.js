@@ -9,6 +9,8 @@ let contadoresLineasPorFactura = {}; // { facturaId: contadorLineas }
 // --- Estado del modo Nota de Crédito/Débito (picker de Excel) ---
 // modoNotaActivo: false (factura normal) | 'credito' | 'debito'.
 let modoNotaActivo = false;
+// Modo prueba: lo decide el botón que se tocó (🧪 Probar = true, 🧾 Generar = false).
+let modoPruebaPedido = false;
 // Últimas facturas leídas del Excel elegido.
 let facturasDelExcel = [];
 // Facturas tildadas para hacerles nota: key `PV||Nro` → { factura, montoOverride }.
@@ -161,6 +163,8 @@ function aplicarModoNota(tipoNota) {
             btnGenerar.innerHTML = '🧾 Generar <span id="contadorFacturas">1</span> Factura(s)';
         }
     }
+    const btnProbar = document.getElementById('btnProbar');
+    if (btnProbar) btnProbar.textContent = esNota ? '🧪 Probar 1ra nota' : '🧪 Probar 1ra factura';
 
     if (esNota) {
         cargarExcelsParaNotas();
@@ -791,7 +795,11 @@ function inicializarEventListeners() {
     // ya hay facturas distintas guardadas y el form quedó en blanco).
     const btnGenerar = document.getElementById('btnGenerar');
     if (btnGenerar) {
-        btnGenerar.addEventListener('click', manejarGenerar);
+        btnGenerar.addEventListener('click', () => { modoPruebaPedido = false; manejarGenerar(); });
+    }
+    const btnProbar = document.getElementById('btnProbar');
+    if (btnProbar) {
+        btnProbar.addEventListener('click', () => { modoPruebaPedido = true; manejarGenerar(); });
     }
 
     // Enter dentro del form no debe recargar la página: lo enrutamos a generar.
@@ -799,6 +807,7 @@ function inicializarEventListeners() {
     if (form) {
         form.addEventListener('submit', (e) => {
             e.preventDefault();
+            modoPruebaPedido = false;
             manejarGenerar();
         });
     }
@@ -1189,14 +1198,15 @@ async function manejarGenerar() {
         return;
     }
 
-    // Modo prueba: fuente de verdad = el checkbox actual, aplicado a todos los grupos.
-    const modoTest = document.getElementById('modoPrueba')?.checked || false;
+    // Modo prueba: fuente de verdad = el botón que se tocó, aplicado a todos los grupos.
+    const modoTest = modoPruebaPedido;
     gruposParaEnviar.forEach(g => { g.datosComunes.modoTest = modoTest; });
 
     const btnGenerar = document.getElementById('btnGenerar');
 
     try {
         btnGenerar.disabled = true;
+        setProbarHabilitado(false);
         btnGenerar.innerHTML = '<span class="loading-spinner"></span> Generando...';
 
         // Total de comprobantes sumando todos los grupos.
@@ -1259,6 +1269,7 @@ async function manejarGenerar() {
         mostrarError('Error: ' + error.message);
     } finally {
         btnGenerar.disabled = false;
+        setProbarHabilitado(true);
         const total = document.querySelectorAll('.factura-item').length
             + grupos.reduce((s, g) => s + (g.datos.facturas?.length || 0), 0);
         btnGenerar.innerHTML = `🧾 Generar <span id="contadorFacturas">${total}</span> Factura(s)`;
@@ -1391,7 +1402,7 @@ async function generarNotasDesdePicker() {
     }
 
     const fechaComprobante = document.getElementById('fechaComprobanteTipificada')?.value || '';
-    const modoTest = document.getElementById('modoPrueba')?.checked || false;
+    const modoTest = modoPruebaPedido;
 
     // Construir y validar el lote (monto > 0 y ≤ total original).
     const notas = [];
@@ -1417,6 +1428,7 @@ async function generarNotasDesdePicker() {
     const btnGenerar = document.getElementById('btnGenerar');
     try {
         btnGenerar.disabled = true;
+        setProbarHabilitado(false);
         btnGenerar.innerHTML = '<span class="loading-spinner"></span> Generando...';
 
         mostrarAreaProgreso(notas.length);
@@ -1445,8 +1457,15 @@ async function generarNotasDesdePicker() {
         mostrarError('Error: ' + error.message);
     } finally {
         btnGenerar.disabled = false;
+        setProbarHabilitado(true);
         btnGenerar.innerHTML = '🧾 Generar Nota(s)';
     }
+}
+
+/** El botón 🧪 Probar se apaga junto con Generar mientras corre un lote. */
+function setProbarHabilitado(habilitado) {
+    const btnProbar = document.getElementById('btnProbar');
+    if (btnProbar) btnProbar.disabled = !habilitado;
 }
 
 /**
@@ -1502,7 +1521,7 @@ function recopilarDatosFormulario() {
         },
 
         // Modo prueba (solo procesa 1ra factura sin confirmar)
-        modoTest: document.getElementById('modoPrueba')?.checked || false,
+        modoTest: modoPruebaPedido,
 
         // Las facturas normales no llevan comprobante asociado; las NC/ND se generan
         // por el picker de notas (otro flujo), no por este formulario.
@@ -2149,8 +2168,7 @@ function mostrarResultadoModoPrueba(resultado) {
             <div class="acciones-modo-prueba">
                 <p><strong>Si todo está correcto:</strong></p>
                 <ol>
-                    <li>Desmarca la opción "Modo Prueba"</li>
-                    <li>Haz clic en "Generar Factura(s)" nuevamente</li>
+                    <li>Hacé clic en "🧾 Generar" (el botón verde de prueba no confirma)</li>
                 </ol>
             </div>
             ${resultado.screenshotPath ? `
@@ -2163,11 +2181,6 @@ function mostrarResultadoModoPrueba(resultado) {
     areaResultados.classList.remove('contenido-oculto');
     areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-    // Desmarcar el checkbox de modo prueba para la siguiente ejecución
-    const checkboxModoPrueba = document.getElementById('modoPrueba');
-    if (checkboxModoPrueba) {
-        checkboxModoPrueba.checked = false;
-    }
 }
 
 // Exponer funciones globalmente
