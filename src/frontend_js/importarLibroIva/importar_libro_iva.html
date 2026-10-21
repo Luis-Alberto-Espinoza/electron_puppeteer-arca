@@ -1,14 +1,14 @@
 <div class="il-container">
     <div class="il-header">
         <h2>Portal IVA</h2>
-        <p class="il-subtitulo">Entra a Portal IVA por cada cliente, abre la declaración del período y carga el Libro Ventas y el Libro Compras: desde ARCA ("Conservar el comprobante previamente incluído") o desde los 4 archivos txt del cliente. Deja el borrador cargado, <strong>no presenta nada</strong>, y guarda el Excel de cada libro en la carpeta archivos_afip del cliente.</p>
+        <p class="il-subtitulo">Entra a Portal IVA por cada cliente, abre la declaración del período y carga el Libro Ventas y el Libro Compras: desde ARCA ("Conservar el comprobante previamente incluído") o desde los archivos txt del cliente (2 por libro; puede ser solo Ventas o solo Compras). Deja el borrador cargado, <strong>no presenta nada</strong>, y guarda el Excel de cada libro en la carpeta archivos_afip del cliente.</p>
     </div>
 
     <!-- Clientes (SelectorUsuarios, modelo plano) -->
     <div id="selector-contribuyentes-il"></div>
 
     <!-- Lo que se decide ANTES de entrar a ARCA, por cliente: de dónde salen los comprobantes
-         (ARCA o los 4 txt, validados acá sin login) y los Datos Iniciales por si ARCA los pide. -->
+         (ARCA o los txt, validados acá sin login) y los Datos Iniciales por si ARCA los pide. -->
     <div id="preparacionIl" class="il-seccion" style="display:none">
         <div class="il-seccion-titulo">Preparación <span class="il-contador">se decide antes de entrar a ARCA</span></div>
         <div id="preparacionContenidoIl"></div>

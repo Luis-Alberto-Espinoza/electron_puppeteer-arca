@@ -1,7 +1,7 @@
 // Importar Libro IVA — elegir clientes y período; por cada uno, Portal IVA importa desde ARCA
 // el Libro Ventas y el Libro Compras al borrador (no presenta) y baja el Excel de cada libro.
 // El backend agrupa por login (representante) y avisa el progreso por onUpdate.
-// Preparación (antes del login), por cliente: origen de los comprobantes (ARCA o los 4 txt,
+// Preparación (antes del login), por cliente: origen de los comprobantes (ARCA o los txt,
 // validados al elegirlos) y Datos Iniciales por si ARCA los pide (así no hace falta otra vuelta).
 // Dos casos los decide el usuario desde Resultados (y se reintenta solo ese cliente):
 //   - borrador de otro período sin presentar → "Descartar borrador MM/AAAA y reintentar"
@@ -44,7 +44,7 @@ window.inicializarModuloImportarLibroIva = () => {
 
     // `let` + null: el selector puede avisar un cambio mientras se construye.
     let selector = null;
-    // Un cliente con "Mis archivos" necesita los 4 txt validados antes de arrancar.
+    // Un cliente con "Mis archivos" necesita sus txt validados antes de arrancar (Ventas, Compras o los dos).
     const archivosListos = (lista) => lista.every(u => {
         const p = prep.get(String(u.cuit));
         return !p || p.origen !== 'archivos' || (!p.validando && p.validacion && p.validacion.ok);
@@ -233,25 +233,33 @@ window.inicializarModuloImportarLibroIva = () => {
         const detalle = v.detalle || [];
         // "Falta: …" ya se ve en los lugares vacíos.
         const errores = (v.errores || []).filter(e => !e.startsWith('Falta:'));
-        const faltan = ARCHIVOS.filter(([tipo]) => !detalle.some(d => d.tipo === tipo)).length;
+        // Libros que se cargan (los que tienen algún archivo). Sin ninguno, cuentan los dos.
+        const libros = (v.libros && v.libros.length) ? v.libros : ['ventas', 'compras'];
+        const seCarga = (tipo) => libros.some(l => tipo.startsWith(l));
+        const faltan = ARCHIVOS.filter(([tipo]) => seCarga(tipo) && !detalle.some(d => d.tipo === tipo)).length;
         // Cosas que ARCA acepta igual: no frenan.
         const avisos = v.avisos || [];
 
         let titulo;
-        if (v.ok) titulo = `✓ Los 4 archivos están bien: Ventas ${v.resumen.ventas} y Compras ${v.resumen.compras} comprobante(s)`;
+        if (v.ok) titulo = '✓ Archivos bien: ' + [['ventas', 'Ventas'], ['compras', 'Compras']]
+            .map(([l, n]) => v.libros.includes(l) ? `${n} ${v.resumen[l]} comprobante(s)` : `${n} no se carga (sin archivos)`)
+            .join('; ');
         else if (errores.length) titulo = '✗ Hay que corregir los archivos antes de arrancar:';
-        else titulo = faltan === 4
-            ? 'Agregá los 4 txt, juntos o de a uno desde distintas carpetas: la app reconoce cuál es cuál.'
+        else titulo = !(v.libros && v.libros.length)
+            ? 'Agregá los txt de Ventas y/o de Compras (2 por libro), juntos o de a uno: la app reconoce cuál es cuál.'
             : `Falta(n) ${faltan} archivo(s).`;
         p.estado.appendChild(el('div', v.ok ? 'il-prep-ok' : (errores.length ? 'il-prep-error' : 'il-prep-nota'), titulo));
 
-        // Un renglón por lugar: ✓ cargado, ⚠ cargado con errores de formato, ✗ falta.
+        // Un renglón por lugar: ✓ cargado, ⚠ cargado con errores de formato, ✗ falta,
+        // — el libro no se carga (no tiene ningún archivo).
         // Los no reconocidos van aparte, con su ✕ para sacarlos.
         const lista = el('ul', 'il-prep-lista il-prep-lugares');
         ARCHIVOS.forEach(([tipo, nombre]) => {
             const cargados = detalle.filter(d => d.tipo === tipo);
             if (cargados.length === 0) {
-                lista.appendChild(renglonArchivo(p, 'il-prep-falta', `✗ ${nombre}: falta`));
+                lista.appendChild(seCarga(tipo)
+                    ? renglonArchivo(p, 'il-prep-falta', `✗ ${nombre}: falta`)
+                    : renglonArchivo(p, 'il-prep-nota', `— ${nombre}: no se carga (sin archivos)`));
                 return;
             }
             cargados.forEach(d => {
@@ -318,7 +326,7 @@ window.inicializarModuloImportarLibroIva = () => {
 
         const cajaArchivos = el('div', 'il-prep-archivos');
         const filaOrigen = el('div', 'il-prep-origen');
-        [['arca', 'Importar desde ARCA'], ['archivos', 'Mis archivos (los 4 txt)']].forEach(([valor, texto]) => {
+        [['arca', 'Importar desde ARCA'], ['archivos', 'Mis archivos (txt)']].forEach(([valor, texto]) => {
             const label = el('label', 'il-check');
             const input = el('input');
             input.type = 'radio';
@@ -334,7 +342,7 @@ window.inicializarModuloImportarLibroIva = () => {
             filaOrigen.appendChild(label);
         });
 
-        // Se suman a los que ya estaban: los 4 pueden venir de carpetas distintas.
+        // Se suman a los que ya estaban: pueden venir de carpetas distintas.
         const btnElegir = el('button', 'ui-btn', 'Agregar archivos…');
         btnElegir.addEventListener('click', async () => {
             const elegidas = await window.electronAPI.importarLibroIva.elegirArchivos();
@@ -402,6 +410,10 @@ window.inicializarModuloImportarLibroIva = () => {
     const conRechazos = (libro) => !!(libro && libro.success && libro.noImportados > 0);
 
     function renglonLibro(nombre, libro) {
+        if (libro.sinArchivos) {
+            return el('div', 'il-resultado il-libro il-resultado-nota',
+                `— ${nombre}: sin archivos, no se tocó (en ARCA tiene ${libro.totalLibro} comprobante(s))`);
+        }
         const estado = !libro.success ? 'error' : (conRechazos(libro) ? 'aviso' : 'exito');
         const fila = el('div', `il-resultado il-libro il-resultado-${estado}`);
         const importado = libro.origen === 'archivos'

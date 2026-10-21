@@ -1,5 +1,7 @@
-// Valida los 4 txt del Libro IVA Digital ANTES del login (un error acá no gasta un login).
+// Valida los txt del Libro IVA Digital ANTES del login (un error acá no gasta un login).
 // ARCA recién avisa del formato después de importar, en el historial de tareas.
+// Se carga un libro por cada par completo (comprobantes + alícuotas): alcanza con Ventas o con
+// Compras. Un par a medias frena (casi siempre es un olvido).
 //
 // Diseño de registro de ARCA (ancho fijo, ISO-8859-1, 1 byte = 1 carácter):
 //   Ventas comprobantes 266 · Ventas alícuotas 62 · Compras comprobantes 325 · Compras alícuotas 84
@@ -223,8 +225,9 @@ function revisarLibro(def, cbte, alicuotas, periodo) {
  * @param {string} periodo  'AAAAMM'
  * @returns {{ ok: boolean, archivos: Object<string,string>, detalle: Array<{ruta, nombre, tipo, tipoNombre}>,
  *            resumen: {ventas?: number, compras?: number}, errores: string[], avisos: string[],
- *            conError: string[] }}
+ *            conError: string[], libros: string[] }}
  *   ok = sin errores (los avisos no frenan); conError = tipos de archivo con algún error
+ *   libros = los que se cargan ('ventas' / 'compras'): los que tienen algún archivo
  *   archivos = { ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas } → ruta
  */
 function validarArchivosIva(rutas, periodo) {
@@ -245,7 +248,9 @@ function validarArchivosIva(rutas, periodo) {
             archivos[a.tipo] = a.ruta;
         }
     });
-    const faltan = Object.keys(TIPOS).filter(t => !archivos[t]);
+    // Sin ningún archivo reconocido, faltan los 4; si no, solo lo que falta de cada libro empezado.
+    const libros = Object.keys(LIBROS).filter(l => archivos[LIBROS[l].cbte] || archivos[LIBROS[l].alicuotas]);
+    const faltan = Object.keys(TIPOS).filter(t => !archivos[t] && (libros.length === 0 || libros.includes(TIPOS[t].libro)));
     if (faltan.length) errores.push(`Falta: ${faltan.map(t => TIPOS[t].nombre).join(', ')}`);
 
     const resumen = {};
@@ -273,7 +278,8 @@ function validarArchivosIva(rutas, periodo) {
         resumen,
         errores: recortados,
         avisos,
-        conError: [...conError]
+        conError: [...conError],
+        libros
     };
 }
 

@@ -9,7 +9,7 @@
 //          periodo: 'AAAAMM', visible, descartarBorrador, soloVistaPrevia }
 //   soloVistaPrevia: no importa nada (ni valida archivos): abre la Vista Previa de cada cliente y
 //   deja el navegador abierto para revisarla a mano.
-//   origen: 'arca' (importa desde ARCA, por defecto) o 'archivos' (los 4 txt en `archivos`, rutas):
+//   origen: 'arca' (importa desde ARCA, por defecto) o 'archivos' (los txt en `archivos`, rutas; Ventas, Compras o los dos):
 //   los txt se validan acá, ANTES del login; el que falla no entra al lote. respaldo: true = Excel
 //   de lo que había antes de "Eliminar todo" (si no se pide, no se genera).
 //   datosIniciales también puede venir de la Preparación (se usa solo si ARCA los pide).
@@ -35,6 +35,7 @@ const { historialRepo } = require('../../historial/historialRepo.js');
 function resumenLibro(nombre, l) {
     if (!l) return null;
     if (!l.success) return `${nombre}: error`;
+    if (l.sinArchivos) return `${nombre}: sin archivos, no se tocó (${l.totalLibro} en ARCA)`;
     return l.origen === 'archivos'
         ? `${nombre}: desde archivos, ${l.agregados} agregados${l.noImportados ? `, ${l.noImportados} con error` : ''}${l.eliminados ? `, ${l.eliminados} eliminados antes` : ''}`
         : `${nombre}: ${l.encontrados} encontrados, ${l.agregados} agregados`;
@@ -46,7 +47,7 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
     // Preparación: elegir los txt de un cliente y validarlos sin login.
     ipcMain.handle('importarLibroIva:elegirArchivos', async () => {
         const r = await dialog.showOpenDialog(mainWindow, {
-            title: 'Los 4 archivos del Libro IVA Digital (Ventas y Compras)',
+            title: 'Los archivos del Libro IVA Digital (Ventas y/o Compras)',
             properties: ['openFile', 'multiSelections'],
             filters: [{ name: 'Libro IVA Digital', extensions: ['txt'] }]
         });
@@ -116,6 +117,7 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
                 }
                 contribuyente.origen = 'archivos';
                 contribuyente.archivos = v.archivos;
+                contribuyente.libros = v.libros;
                 contribuyente.respaldo = c.respaldo === true;
             }
             try {

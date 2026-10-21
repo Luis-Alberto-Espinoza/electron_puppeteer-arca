@@ -151,3 +151,34 @@ test('comprobante repetido', () => {
     assert.deepStrictEqual(r.errores, ['Compras: comprobante 001-00001-2 repetido (renglones 2, 3)']);
     assert.deepStrictEqual(r.conError, ['comprasCbte']);
 });
+
+test('solo Ventas o solo Compras: se carga ese libro', () => {
+    const a = base();
+    delete a['c.txt'];
+    delete a['d.txt'];
+    let r = validarArchivosIva(carpeta(a), '202609');
+    assert.deepStrictEqual(r.errores, []);
+    assert.deepStrictEqual(r.libros, ['ventas']);
+    assert.deepStrictEqual(r.resumen, { ventas: 1 });
+
+    const b = base();
+    delete b['a.txt'];
+    delete b['b.txt'];
+    r = validarArchivosIva(carpeta(b), '202609');
+    assert.ok(r.ok);
+    assert.deepStrictEqual(r.libros, ['compras']);
+});
+
+test('un par a medias frena; sin ningún archivo faltan los 4', () => {
+    const a = base();
+    delete a['a.txt'];
+    delete a['b.txt'];
+    delete a['d.txt'];
+    let r = validarArchivosIva(carpeta(a), '202609');
+    assert.deepStrictEqual(r.errores, ['Falta: Compras (alícuotas)']);
+    assert.deepStrictEqual(r.libros, ['compras']);
+
+    r = validarArchivosIva([], '202609');
+    assert.deepStrictEqual(r.errores, ['Falta: Ventas (comprobantes), Ventas (alícuotas), Compras (comprobantes), Compras (alícuotas)']);
+    assert.deepStrictEqual(r.libros, []);
+});

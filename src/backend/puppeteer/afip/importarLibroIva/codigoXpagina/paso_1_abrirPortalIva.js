@@ -18,11 +18,11 @@ async function abrirPortalIva(page) {
         urlNuevaPestana: 'siapweb.cloud.afip.gob.ar'
     });
 
-    // La app React tarda en armarse: esperar la cabecera con "Representando a" y el link
-    // de cambio de relación.
+    // La app React tarda en armarse: esperar la cabecera con el usuario "NOMBRE [CUIT …]".
+    // "Representando a" y el link de cambio de relación NO siempre están: ARCA los dibuja solo
+    // si el login tiene más de una relación (una persona sola no representa a nadie).
     await portal.waitForFunction(
-        () => !!document.querySelector('a[href*="#/changeRelation"]') &&
-              /representando a/i.test(document.body ? document.body.innerText : ''),
+        () => /\[CUIT\s*[\d-]+\]/i.test((document.querySelector('#usernav') || {}).textContent || ''),
         { timeout: TIMEOUT_PORTAL }
     ).catch(() => {
         throw errorConCodigo('PORTAL_IVA_NO_ABRIO', 'No cargó Portal IVA.');

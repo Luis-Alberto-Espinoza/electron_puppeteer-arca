@@ -61,6 +61,7 @@
 .il-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
 .il-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
 .il-resultado-aviso      { background: var(--v-warn-bg);  color: var(--v-txt-warn); }
+.il-resultado-nota       { background: var(--v-panel-2);  color: var(--v-texto-2); }
 
 .il-resultado .ui-btn {
     padding: 4px 10px;

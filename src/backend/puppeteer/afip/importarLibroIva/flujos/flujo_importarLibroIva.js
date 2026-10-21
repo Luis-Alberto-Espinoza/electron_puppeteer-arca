@@ -4,6 +4,8 @@
 //   Libro Ventas → Libro Compras, cada uno según el origen que eligió el usuario:
 //     - ARCA (por defecto): importar desde ARCA + Excel.
 //     - archivos: (Excel de respaldo, si se pidió) + Eliminar todo + Importar Archivos (los txt) + Excel.
+//       Un libro sin archivos (el cliente no tiene compras, o no tiene ventas) no se toca: solo
+//       se cuenta lo que tiene en ARCA, para que se vea si quedó algo viejo.
 // NUNCA presenta la DDJJ: deja el borrador cargado. Puede descartar un borrador de OTRO período
 // y completar los Datos Iniciales, solo con lo que autorizó/eligió el usuario (paso 3a/3b).
 // Cada libro es independiente: si Ventas falla, igual se intenta Compras.
@@ -107,9 +109,19 @@ async function desdeArchivos(liva, tipo, contribuyente, { periodo, downloadsPath
     return { success: true, origen: 'archivos', eliminados: habia, rutaRespaldo: respaldo.rutaExcel, ...importacion, ...excel, aviso };
 }
 
+async function sinArchivos(liva, tipo, contribuyente, { periodo }) {
+    const cuit = String(contribuyente.cuit);
+    const { totalLibro } = await leerLibro(liva, tipo, { cuit, periodo });
+    console.log(`${LOG} ${cuit} ${LIBROS[tipo].nombre}: sin archivos, no se toca (tiene ${totalLibro} comprobante(s))`);
+    return { success: true, origen: 'archivos', sinArchivos: true, totalLibro };
+}
+
 async function procesarLibro(liva, tipo, contribuyente, opciones, avisar) {
     const cuit = String(contribuyente.cuit);
     try {
+        if (contribuyente.origen === 'archivos' && !(contribuyente.libros || []).includes(tipo)) {
+            return await sinArchivos(liva, tipo, contribuyente, opciones);
+        }
         return contribuyente.origen === 'archivos'
             ? await desdeArchivos(liva, tipo, contribuyente, opciones, avisar)
             : await desdeArca(liva, tipo, contribuyente, opciones, avisar);
@@ -126,6 +138,7 @@ async function procesarLibro(liva, tipo, contribuyente, opciones, avisar) {
  *          descartarPeriodo?: string, datosIniciales?: object}} contribuyente
  *        el OBJETIVO (no el login), con lo que eligió el usuario (Preparación o Resultados).
  *        archivos = { ventasCbte, ventasAlicuotas, comprasCbte, comprasAlicuotas } (rutas ya validadas)
+ *        libros = ['ventas'] / ['compras'] / los dos: los que tienen archivos (el resto no se toca)
  * @param {{periodo: string, downloadsPath: string, descartarBorrador?: boolean}} opciones  periodo 'AAAAMM'
  * @param {(msg: string) => void} [avisar]
  * @returns {Promise<{success, error?, message, ventas?, compras?, downloadDir?,
@@ -168,8 +181,10 @@ async function procesarCliente(page, contribuyente, { periodo, downloadsPath, de
         const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuit, contribuyente.nombre || '', 'archivos_afip');
 
         const success = ventas.success && compras.success;
+        const cargados = [ventas, compras].filter(l => !l.sinArchivos).length === 2 ? 'Ventas y Compras'
+            : (ventas.sinArchivos ? 'Compras' : 'Ventas');
         const message = success
-            ? (contribuyente.origen === 'archivos' ? 'Ventas y Compras cargados desde los archivos' : 'Ventas y Compras importados')
+            ? (contribuyente.origen === 'archivos' ? `${cargados} cargado(s) desde los archivos` : 'Ventas y Compras importados')
             : [ventas.success ? null : `Ventas: ${ventas.message}`, compras.success ? null : `Compras: ${compras.message}`]
                 .filter(Boolean).join(' · ');
         return {
