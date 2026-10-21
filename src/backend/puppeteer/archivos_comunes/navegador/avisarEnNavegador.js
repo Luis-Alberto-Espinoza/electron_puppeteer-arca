@@ -24,16 +24,20 @@ async function avisarEnNavegador(page, texto, { titulo = 'El navegador quedó a 
             'font:14px/1.5 Arial,Helvetica,sans-serif'
         ].join(';');
 
+        // Colores = los de .modal-global de la app (base.css §6) con el violeta --c-primario-2 (#764ba2):
+        // fondo = tono + 40% negro, borde = tono + 35% blanco, botón = tono + 15% blanco.
+        // Valores fijos: esta página es de AFIP, acá no llegan los tokens de la app.
         const caja = document.createElement('div');
         caja.style.cssText = [
-            'background:#fff', 'max-width:440px', 'width:90%', 'border-radius:12px',
+            'background:#472d61', 'border:2px solid #a68ac2', 'color:#fff',
+            'max-width:440px', 'width:90%', 'border-radius:12px',
             'padding:24px 26px', 'text-align:center', 'box-shadow:0 12px 40px rgba(0,0,0,.35)'
         ].join(';');
         caja.innerHTML =
             '<div style="font-size:40px;line-height:1;margin-bottom:10px">🌐</div>' +
-            '<h3 style="margin:0 0 10px;color:#1f3a5f;font-size:18px"></h3>' +
-            '<p style="margin:0 0 16px;color:#374151">' + msg + '</p>' +
-            '<button type="button" style="background:#667eea;color:#fff;border:none;border-radius:8px;' +
+            '<h3 style="margin:0 0 10px;color:#a68ac2;font-size:18px"></h3>' +
+            '<p style="margin:0 0 16px;color:rgba(255,255,255,.92)">' + msg + '</p>' +
+            '<button type="button" style="background:#8a66b0;color:#fff;border:1px solid #a68ac2;border-radius:8px;' +
             'padding:11px 22px;font-size:15px;font-weight:600;cursor:pointer">Entendido</button>';
 
         caja.querySelector('h3').textContent = tit;

@@ -25,12 +25,12 @@
 
         const wrap = document.createElement('div');
         wrap.innerHTML = `
-        <div class="modal fade" id="gestionGruposModal" tabindex="-1" aria-hidden="true">
+        <div class="modal fade modal-global" id="gestionGruposModal" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content gg-content">
+            <div class="modal-content">
               <div class="modal-header">
                 <h5 class="modal-title">🏢 Estudios / Grupos</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
               </div>
               <div class="modal-body">
                 <p class="gg-desc">Agrupá tus clientes por estudio. Eliminar un estudio

@@ -267,36 +267,46 @@
     overflow: hidden;
 }
 
-/* Popup modal "navegador a tu disposición" */
+/* Popup modal "navegador a tu disposición".
+   Se cuelga del body (fuera de #declaracionJuradaDiv): colores de .modal-global (base.css §6)
+   con el tono de DDJJ. */
 .ddjj-modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.55);
+    background: var(--velo-modal, rgba(15, 23, 42, 0.55));
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
 }
+.ddjj-modal-overlay.modal-global { --modal-tono: var(--tono-ddjj); }
 .ddjj-modal {
-    background: var(--v-panel, #fff);
-    border-radius: 12px;
+    background: var(--modal-fondo);
+    border: 2px solid var(--modal-borde);
+    border-radius: var(--radio, 12px);
     padding: 24px 22px;
     max-width: 420px;
     width: calc(100% - 40px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--sombra-modal);
     text-align: center;
+    color: #fff;
 }
 .ddjj-modal-icono { font-size: 34px; }
-.ddjj-modal-titulo { margin: 8px 0 10px; font-size: 18px; color: var(--v-texto, #1f2937); }
-.ddjj-modal-texto { margin: 0 0 10px; font-size: 13.5px; color: var(--v-texto, #374151); line-height: 1.5; }
+.ddjj-modal-titulo { margin: 8px 0 10px; font-size: 18px; color: var(--modal-borde); }
+.ddjj-modal-texto { margin: 0 0 10px; font-size: 13.5px; color: rgba(255, 255, 255, 0.92); line-height: 1.5; }
 .ddjj-modal-warn {
-    color: var(--v-txt-warn, #92400e);
-    background: var(--v-warn-bg, #fffbeb);
-    border: 1px solid #fde68a;
+    color: var(--c-acento);
+    background: color-mix(in srgb, var(--c-acento), transparent 85%);
+    border: 1px solid color-mix(in srgb, var(--c-acento), transparent 50%);
     border-radius: 8px;
     padding: 8px 10px;
 }
 .ddjj-modal .ddjj-modal-cerrar { margin-top: 8px; }
+.ddjj-modal .ddjj-modal-cerrar {
+    background: color-mix(in srgb, var(--modal-tono), white 15%);
+    border: 1px solid var(--modal-borde);
+}
+.ddjj-modal .ddjj-modal-cerrar:hover { background: color-mix(in srgb, var(--modal-tono), white 15%); filter: brightness(1.12); }
 
 /* Retenciones / percepciones: una fila por tipo (asignar .txt) */
 .ddjj-retenciones {

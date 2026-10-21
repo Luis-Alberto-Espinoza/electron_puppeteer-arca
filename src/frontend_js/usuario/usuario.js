@@ -2339,16 +2339,16 @@ function mostrarPendienteDeAnalisis() {
 function mostrarModalProgreso(total) {
     const overlay = document.createElement('div');
     overlay.id = 'modalProgresoAnalisis';
-    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+    overlay.className = 'modal-global progreso-analisis'; // colores: usuario.css (con los de .modal-global)
     overlay.innerHTML = `
-        <div style="background:white;padding:30px;border-radius:8px;min-width:420px;max-width:640px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-            <h3 style="margin:0 0 10px 0;">🔍 Analizando ${total === 1 ? 'cliente' : `${total} clientes`}</h3>
-            <div id="modalProgresoTexto" style="margin:15px 0;font-size:14px;color:#444;">Preparando...</div>
-            <div style="background:#eee;border-radius:4px;height:18px;overflow:hidden;">
-                <div id="modalProgresoBarra" style="background:linear-gradient(90deg,#28a745,#20c997);height:100%;width:0%;transition:width .3s;"></div>
+        <div class="progreso-analisis-caja">
+            <h3>🔍 Analizando ${total === 1 ? 'cliente' : `${total} clientes`}</h3>
+            <div id="modalProgresoTexto" class="progreso-analisis-texto">Preparando...</div>
+            <div class="progreso-analisis-pista">
+                <div id="modalProgresoBarra" class="progreso-analisis-barra"></div>
             </div>
-            <div id="modalProgresoStats" style="margin-top:15px;font-size:13px;color:#666;"></div>
-            <div style="margin-top:10px;font-size:11px;color:#999;">El proceso no se puede cancelar a mitad. Se agrupa por credencial: un login por clave AFIP.</div>
+            <div id="modalProgresoStats" class="progreso-analisis-stats"></div>
+            <div class="progreso-analisis-nota">El proceso no se puede cancelar a mitad. Se agrupa por credencial: un login por clave AFIP.</div>
         </div>
     `;
     document.body.appendChild(overlay);

@@ -1654,3 +1654,42 @@ html {
     white-space: nowrap;
 }
 /* ========== FIN ESTUDIOS / GRUPOS ========== */
+
+/* ===== Modal de progreso de "Analizar cliente" (mostrarModalProgreso en usuario.js) =====
+   Se cuelga del body: toma fondo/borde de .modal-global (estilos/base.css §6). */
+.progreso-analisis {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--velo-modal, rgba(0, 0, 0, 0.6));
+}
+.progreso-analisis-caja {
+    min-width: 420px;
+    max-width: 640px;
+    padding: 30px;
+    text-align: center;
+    background: var(--modal-fondo);
+    border: 2px solid var(--modal-borde);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra-modal);
+    color: #fff;
+}
+.progreso-analisis-caja h3 { margin: 0 0 10px; color: var(--modal-borde); }
+.progreso-analisis-texto { margin: 15px 0; font-size: 14px; color: rgba(255, 255, 255, 0.92); }
+.progreso-analisis-pista {
+    height: 18px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.3);
+}
+.progreso-analisis-barra {
+    width: 0%;
+    height: 100%;
+    background: var(--grad-ok);
+    transition: width 0.3s;
+}
+.progreso-analisis-stats { margin-top: 15px; font-size: 13px; color: rgba(255, 255, 255, 0.8); }
+.progreso-analisis-nota { margin-top: 10px; font-size: 11px; color: rgba(255, 255, 255, 0.55); }

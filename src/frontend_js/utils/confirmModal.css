@@ -1,14 +1,15 @@
 /* ========== MODAL DE CONFIRMACIÓN REUTILIZABLE (BOOTSTRAP CUSTOM) ========== */
-/* Fondo, borde y botón principal: los pone .modal-global (estilos/base.css). */
+/* Fondo, borde y botón principal: los pone .modal-global (estilos/base.css).
+   :where(#confirmModal) las encierra en su modal sin sumarles peso (sueltas pisaban a todos). */
 
-.modal-title {
+:where(#confirmModal) .modal-title {
     color: #f6e05e;
     font-weight: 700;
     display: flex;
     align-items: center;
 }
 
-.modal-title #confirmModalIcon {
+:where(#confirmModal) .modal-title #confirmModalIcon {
     font-size: 28px;
     animation: modalIconPulse 2s ease-in-out infinite;
 }
@@ -18,7 +19,7 @@
     50% { transform: scale(1.1); }
 }
 
-.modal-body {
+:where(#confirmModal) .modal-body {
     background-color: #2d3748;
     color: #e2e8f0;
     font-size: 16px;
@@ -26,11 +27,11 @@
     line-height: 1.6;
 }
 
-.modal-footer {
+:where(#confirmModal) .modal-footer {
     padding: 15px 20px;
 }
 
-.modal-footer .btn {
+:where(#confirmModal) .modal-footer .btn {
     min-width: 100px;
     font-weight: 600;
     text-transform: uppercase;
@@ -40,13 +41,13 @@
     transition: all 0.3s ease;
 }
 
-.modal-footer .btn-secondary {
+:where(#confirmModal) .modal-footer .btn-secondary {
     background-color: #4a5568;
     border: 1px solid #718096;
     color: #e2e8f0;
 }
 
-.modal-footer .btn-secondary:hover {
+:where(#confirmModal) .modal-footer .btn-secondary:hover {
     background-color: #718096;
     border-color: #a0aec0;
     transform: translateY(-2px);

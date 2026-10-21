@@ -1,12 +1,13 @@
-/* CONFIG DATOS — estilos del modal de carpeta de datos. Usa tokens de tokens.css. */
+/* CONFIG DATOS — estilos del modal de carpeta de datos.
+   Fondo, borde, título y botón principal (.btn-tono) los pone .modal-global (estilos/base.css §6).
+   Acá solo lo propio, sobre fondo oscuro: translúcidos de los tokens. */
 
-#configDatosModal .cd-content {
-    border: none;
-    border-radius: var(--radio, 12px);
+#configDatosModal .modal-dialog {
+    max-width: min(660px, 90vw);
 }
 
 #configDatosModal .cd-desc {
-    color: var(--texto-2, #6b7280);
+    color: rgba(255, 255, 255, 0.7);
     font-size: 0.9rem;
     margin-bottom: 14px;
 }
@@ -16,8 +17,8 @@
     flex-direction: column;
     gap: 8px;
     padding: 12px;
-    background: var(--fondo-claro, #f9fafb);
-    border: 1px solid var(--borde, #e5e7eb);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--modal-borde);
     border-radius: var(--radio-sm, 6px);
 }
 
@@ -27,30 +28,67 @@
     font-weight: 600;
     padding: 3px 10px;
     border-radius: 999px;
-    background: var(--fondo-claro-2, #f3f4f6);
-    color: var(--texto-2, #6b7280);
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.85);
 }
-#configDatosModal .cd-badge--elegida { background: #e0e7ff; color: #4338ca; }
-#configDatosModal .cd-badge--portable { background: #d1fae5; color: #047857; }
+#configDatosModal .cd-badge--elegida {
+    background: color-mix(in srgb, var(--c-primario-1), transparent 65%);
+    color: color-mix(in srgb, var(--c-primario-1), white 55%);
+}
+#configDatosModal .cd-badge--portable {
+    background: color-mix(in srgb, var(--c-ok-1), transparent 70%);
+    color: color-mix(in srgb, var(--c-ok-1), white 50%);
+}
 
 #configDatosModal .cd-ruta {
     display: block;
     word-break: break-all;
     font-size: 0.85rem;
-    color: var(--texto-1, #1f2937);
+    color: #fff;
 }
 
+/* Aviso de reinicio: amarillo de acento, con su botón adentro */
 #configDatosModal .cd-aviso {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin-top: 14px;
     padding: 10px 12px;
     font-size: 0.85rem;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
+    background: color-mix(in srgb, var(--c-acento), transparent 85%);
+    border: 1px solid color-mix(in srgb, var(--c-acento), transparent 50%);
     border-radius: var(--radio-sm, 6px);
-    color: #92400e;
+    color: var(--c-acento);
 }
+#configDatosModal .cd-aviso[hidden] { display: none; }
+#configDatosModal .cd-btn-reiniciar {
+    flex-shrink: 0;
+    background: var(--c-acento);
+    color: var(--texto-1);
+    font-weight: 600;
+    border: none;
+}
+#configDatosModal .cd-btn-reiniciar:hover { filter: brightness(1.08); }
 
+/* Footer: Ver a la izquierda, Cambiar a la derecha */
 #configDatosModal .cd-footer {
+    justify-content: space-between;
     flex-wrap: wrap;
+    gap: 8px 16px;
+}
+#configDatosModal .cd-grupo:last-child { margin-left: auto; } /* si hace wrap, Cambiar sigue a la derecha */
+#configDatosModal .cd-grupo {
+    display: flex;
     gap: 6px;
 }
+#configDatosModal .cd-btn-ver {
+    background: transparent;
+    border: 1px solid var(--modal-borde);
+    color: rgba(255, 255, 255, 0.9);
+    white-space: nowrap;
+}
+#configDatosModal .cd-btn-ver:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+#configDatosModal .cd-footer .btn-tono { white-space: nowrap; }

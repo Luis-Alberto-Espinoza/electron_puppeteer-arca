@@ -17,12 +17,12 @@
 
         const wrap = document.createElement('div');
         wrap.innerHTML = `
-        <div class="modal fade" id="configDatosModal" tabindex="-1" aria-hidden="true">
+        <div class="modal fade modal-global" id="configDatosModal" tabindex="-1" aria-hidden="true">
           <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content cd-content">
+            <div class="modal-content">
               <div class="modal-header">
                 <h5 class="modal-title">📁 Carpeta de datos</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
               </div>
               <div class="modal-body">
                 <p class="cd-desc">Acá se guardan tus clientes, listas e historial. Podés dejarlos
@@ -32,15 +32,20 @@
                   <code id="cdRuta" class="cd-ruta">—</code>
                 </div>
                 <div id="cdAviso" class="cd-aviso" hidden>
-                  ✅ Guardado. Hay que <strong>reiniciar</strong> para que el programa lea la carpeta nueva.
+                  <span>✅ Guardado. Hay que <strong>reiniciar</strong> para que el programa lea la carpeta nueva.</span>
+                  <button type="button" class="btn btn-sm cd-btn-reiniciar" id="cdReiniciar">Reiniciar ahora</button>
                 </div>
               </div>
               <div class="modal-footer cd-footer">
-                <button type="button" class="btn btn-outline-secondary" id="cdAbrir">Abrir carpeta</button>
-                <button type="button" class="btn btn-outline-secondary" id="cdLogs" title="Registro de lo que hizo el programa, un archivo por día">📄 Abrir logs</button>
-                <button type="button" class="btn btn-outline-secondary" id="cdDefault">Volver al valor por defecto</button>
-                <button type="button" class="btn btn-primary" id="cdCambiar">Cambiar carpeta…</button>
-                <button type="button" class="btn btn-success" id="cdReiniciar" hidden>Reiniciar ahora</button>
+                <!-- Ver (izquierda) · Cambiar (derecha) -->
+                <div class="cd-grupo">
+                  <button type="button" class="btn btn-sm cd-btn-ver" id="cdAbrir">📂 Abrir carpeta</button>
+                  <button type="button" class="btn btn-sm cd-btn-ver" id="cdLogs" title="Registro de lo que hizo el programa, un archivo por día">📄 Abrir logs</button>
+                </div>
+                <div class="cd-grupo">
+                  <button type="button" class="btn btn-sm cd-btn-ver" id="cdDefault" title="Volver a la carpeta por defecto">Por defecto</button>
+                  <button type="button" class="btn btn-sm btn-tono" id="cdCambiar">Cambiar carpeta…</button>
+                </div>
               </div>
             </div>
           </div>
@@ -76,7 +81,6 @@
 
     function marcarPendienteReinicio() {
         document.getElementById('cdAviso').hidden = false;
-        document.getElementById('cdReiniciar').hidden = false;
     }
 
     async function refrescar() {
@@ -109,7 +113,6 @@
         ensureModal();
         // resetear el aviso de reinicio cada vez que se abre
         document.getElementById('cdAviso').hidden = true;
-        document.getElementById('cdReiniciar').hidden = true;
         await refrescar();
         if (!modalInstance) {
             modalInstance = new bootstrap.Modal(document.getElementById('configDatosModal'));

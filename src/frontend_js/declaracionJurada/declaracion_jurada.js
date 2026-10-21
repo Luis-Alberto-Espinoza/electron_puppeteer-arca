@@ -612,7 +612,7 @@ function mostrarPopupNavegador(titulo) {
     if (prev) prev.remove();
     const overlay = document.createElement('div');
     overlay.id = 'ddjj-modal-overlay';
-    overlay.className = 'ddjj-modal-overlay';
+    overlay.className = 'ddjj-modal-overlay modal-global'; // cuelga del body: el tema de la vista no le llega
     overlay.innerHTML = `
         <div class="ddjj-modal" role="dialog" aria-modal="true">
             <div class="ddjj-modal-icono">🌐</div>
