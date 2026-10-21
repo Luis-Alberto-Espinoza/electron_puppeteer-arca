@@ -67,6 +67,11 @@ async function leerRegistrador(page) {
  * OJO con la comparación: esa misma máscara reformatea 30618222302 → "30-61822230-2". Por eso
  * `normalizar` permite comparar ignorando el formato (para el CUIT, solo los dígitos).
  *
+ * OJO con el maxlength: #password de ATM tiene maxlength="13". Tipeando (o pegando a mano) el
+ * navegador corta en 13 y ATM entra con esos 13. Si esperábamos la clave entera, los reintentos
+ * "fallaban" y el fallback por JS (que saltea el maxlength) mandaba los 20 → clave incorrecta.
+ * Por eso esperamos solo lo que entra en el campo, igual que con un humano.
+ *
  * @param {import('puppeteer').Page} page
  * @param {string} selector
  * @param {string} valor
@@ -77,7 +82,15 @@ async function leerRegistrador(page) {
  */
 async function escribirVerificado(page, selector, valor, etiqueta, opciones = {}) {
     const { sensible = false, intentos = 3, normalizar = (v) => v, registrar = false } = opciones;
-    const texto = String(valor);
+    let texto = String(valor);
+    const maximo = await page.$eval(selector, el => el.maxLength);
+    if (maximo > 0 && texto.length > maximo) {
+        console.warn(
+            `⚠️ [loginATM] ${etiqueta}: el valor tiene ${texto.length} caracteres y el campo de ATM ` +
+            `acepta ${maximo}; se usan los primeros ${maximo} (como al escribirlo a mano)`
+        );
+        texto = texto.slice(0, maximo);
+    }
     const esperado = normalizar(texto);
     const paraLog = sensible ? `(${texto.length} caracteres)` : texto;
     const mostrar = (v) => (sensible ? `(${v.length} caracteres)` : `"${v}"`);
