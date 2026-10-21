@@ -19,6 +19,22 @@ function generarId() {
 
 const ESTADOS_VALIDOS = new Set(['exito', 'error', 'parcial', 'sinDeuda']);
 
+const ICONO_ESTADO = { exito: '✅', error: '❌', parcial: '⚠️', sinDeuda: '✅' };
+
+// Marca de cierre en el log del día (logs/AAAA-MM-DD.log): una línea por acción,
+// siempre con el mismo formato para que los scripts de logs puedan cortar el día en bloques.
+//   ■ retenciones · descargar · Screw Fix S.a. (30707262431) · ✅ Retenciones descargadas
+function lineaDeCierre(e) {
+    const partes = [e.dominio, e.accion];
+    if (e.cliente) {
+        const cuit = e.cliente.cuit ? ` (${e.cliente.cuit})` : '';
+        partes.push(`${e.cliente.nombre || 'sin nombre'}${cuit}`);
+    }
+    const texto = e.estado === 'error' ? (e.error || e.resumen) : e.resumen;
+    partes.push(`${ICONO_ESTADO[e.estado]} ${texto}`.trim());
+    return '■ ' + partes.join(' · ');
+}
+
 const historialRepo = {
     /**
      * Construye el objeto `cliente` del historial a partir del usuario que manejan
@@ -72,6 +88,7 @@ const historialRepo = {
                 error: datos.error || null
             };
 
+            console.log(lineaDeCierre(entrada));
             const ok = historialStore.append(entrada);
             return ok ? entrada : null;
         } catch (e) {
