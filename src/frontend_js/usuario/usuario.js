@@ -1200,12 +1200,12 @@ function displayUsers(users) {
                         <button data-probar-lote="atm">Solo ATM</button>
                     </div>
                 </div>
+                <button class="btn btn-warning" id="btnAnalizarLote" style="display:none"></button>
+                <button class="btn btn-info" id="btnReanalizarTodos" style="display:none"></button>
                 <label class="ui-switch" title="Aplica a Probar (lote y por fila) y a la verificación de la carga masiva. El alta verifica siempre visible.">
                     <input type="checkbox" id="chk-visible-listado" checked>
                     Mostrar navegador
                 </label>
-                <button class="btn btn-warning" id="btnAnalizarLote" style="display:none"></button>
-                <button class="btn btn-info" id="btnReanalizarTodos" style="display:none"></button>
             </div>
         </div>
     `;
