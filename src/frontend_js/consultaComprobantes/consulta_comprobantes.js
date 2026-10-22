@@ -283,29 +283,11 @@ window.inicializarConsultaComprobantes = () => {
         totalCantidad.textContent = cantidad;
         totalSuma.textContent = formatearMoneda(suma);
 
-        // Bloque de archivo Excel generado
+        // Excel generado: componente común (componentes/archivoResultado)
         const archivoBox = document.getElementById('cc-archivo-excel');
-        const archivoRuta = document.getElementById('cc-archivo-ruta');
-        const btnAbrirArchivo = document.getElementById('cc-btn-abrir-archivo');
-        const btnAbrirCarpeta = document.getElementById('cc-btn-abrir-carpeta');
-
+        archivoBox.innerHTML = '';
         if (data.rutaCompleta) {
-            archivoRuta.textContent = data.rutaCompleta;
-            archivoBox.style.display = 'flex';
-
-            btnAbrirArchivo.onclick = () => {
-                if (window.electronAPI?.abrirArchivo) {
-                    window.electronAPI.abrirArchivo(data.rutaCompleta);
-                }
-            };
-            btnAbrirCarpeta.onclick = () => {
-                if (window.electronAPI?.abrirDirectorio) {
-                    const carpeta = data.rutaCompleta.replace(/[\\/][^\\/]+$/, '');
-                    window.electronAPI.abrirDirectorio(carpeta);
-                }
-            };
-        } else {
-            archivoBox.style.display = 'none';
+            archivoBox.appendChild(window.archivoResultado.crearBloque(data.rutaCompleta, { titulo: 'Excel generado' }));
         }
 
         // Tabla detallada

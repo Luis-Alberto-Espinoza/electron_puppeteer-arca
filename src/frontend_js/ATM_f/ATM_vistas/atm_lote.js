@@ -832,35 +832,17 @@ window.inicializarModuloLoteATM = () => {
                 }
 
                 // Botones de carpeta y archivos
+                // Componente común (componentes/archivoResultado): un renglón por archivo + la carpeta
                 if (downloadDir && archivosParaMostrar.length > 0) {
-                    const dirWrapper = document.createElement('div');
-                    dirWrapper.className = 'lote-dir-container d-flex justify-content-between align-items-center';
-                    dirWrapper.innerHTML = `<code>${downloadDir}</code>`;
-
-                    const openDirBtn = document.createElement('button');
-                    openDirBtn.textContent = 'Abrir Carpeta';
-                    openDirBtn.className = 'btn btn-sm lote-btn-abrir-carpeta';
-                    openDirBtn.onclick = () => window.electronAPI.abrirDirectorio(downloadDir);
-                    dirWrapper.appendChild(openDirBtn);
-                    userDiv.appendChild(dirWrapper);
-
-                    const fileList = document.createElement('ul');
-                    fileList.className = 'list-group mt-1';
-                    archivosParaMostrar.forEach(filePath => {
-                        const fileItem = document.createElement('li');
-                        fileItem.className = 'list-group-item bg-transparent text-light d-flex justify-content-between align-items-center p-1';
-                        const fileName = document.createElement('span');
-                        fileName.textContent = filePath.split('/').pop().split('\\').pop();
-                        fileName.style.marginRight = '15px';
-                        fileItem.appendChild(fileName);
-                        const openFileBtn = document.createElement('button');
-                        openFileBtn.textContent = 'Abrir Archivo';
-                        openFileBtn.className = 'btn btn-sm lote-btn-abrir-archivo';
-                        openFileBtn.onclick = () => window.electronAPI.abrirArchivo(filePath);
-                        fileItem.appendChild(openFileBtn);
-                        fileList.appendChild(fileItem);
+                    const bloqueArchivos = document.createElement('div');
+                    bloqueArchivos.className = 'ar-bloque';
+                    archivosParaMostrar.forEach(rutaArchivo => {
+                        bloqueArchivos.appendChild(window.archivoResultado.crearFila(rutaArchivo, { carpeta: false, etiquetaAbrir: 'Abrir' }));
                     });
-                    userDiv.appendChild(fileList);
+                    bloqueArchivos.appendChild(window.archivoResultado.crearBotones(null, {
+                        abrir: false, rutaCarpeta: downloadDir, etiquetaCarpeta: 'Abrir carpeta del cliente'
+                    }));
+                    userDiv.appendChild(bloqueArchivos);
                 }
             }
         } else {

@@ -67,6 +67,7 @@
     margin-bottom: 6px;
 }
 
+/* Archivo de ENTRADA elegido (pantalla "¿qué querés generar?"); el generado usa archivoResultado */
 .px-ruta {
     font-family: monospace;
     font-size: 0.85rem;
@@ -81,12 +82,6 @@
     color: var(--texto-2);
     font-size: 0.85rem;
     margin-bottom: 10px;
-}
-
-.px-acciones {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
 }
 
 /* Avisos de la plantilla (ej. Totales diarios): un renglón por aviso, con el

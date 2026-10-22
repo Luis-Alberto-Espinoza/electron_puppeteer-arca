@@ -56,9 +56,8 @@
 .dp-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
 .dp-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
 
-.dp-resultado .ui-btn {
-    padding: 4px 10px;
-    font-size: 0.85em;
+/* Botones de archivo (componentes/archivoResultado): no se achican */
+.dp-resultado .ar-acciones {
     flex-shrink: 0;
 }
 

@@ -65,15 +65,8 @@ window.inicializarEventosExtraerTablasPDF = function() {
             if (resultado && resultado.exito) {
                 statusMessage.textContent = '¡PDF procesado exitosamente!';
                 if (resultado.rutaExcel) {
-                    const rutaExcelGenerado = resultado.rutaExcel;
-                    csvPathDiv.innerHTML = `
-                        <span>Archivo Excel generado:</span>
-                        <input type="text" value="${rutaExcelGenerado}" readonly style="width:60%;margin:5px;">
-                        <button id="abrirCsvBtn" style="margin-left:10px;">Abrir Archivo</button>
-                    `;
-                    document.getElementById('abrirCsvBtn').onclick = () => {
-                        api.abrirArchivo(rutaExcelGenerado);
-                    };
+                    // Excel generado: componente común (componentes/archivoResultado)
+                    csvPathDiv.appendChild(window.archivoResultado.crearBloque(resultado.rutaExcel, { titulo: 'Excel generado' }));
                 }
             } else {
                 statusMessage.textContent = 'Error al procesar el PDF: ' + (resultado && resultado.error ? resultado.error : 'Error desconocido');
@@ -146,12 +139,15 @@ window.inicializarEventosProcesoPorLotes = function() {
 
                     let html = `<strong>${result.fileName}:</strong> `;
                     if (result.success && result.outputPath) {
-                        html += `<span class="status-success">✓ Éxito</span>
-                                 <button class="open-file-btn" data-path="${result.outputPath}">Abrir Archivo</button>`;
+                        html += `<span class="status-success">✓ Éxito</span>`;
                     } else {
                         html += `<span class="status-error">✗ Error: ${result.error || 'Desconocido'}</span>`;
                     }
                     resultElement.innerHTML = html;
+                    // Botones del Excel: componente común (componentes/archivoResultado)
+                    if (result.success && result.outputPath) {
+                        resultElement.appendChild(window.archivoResultado.crearBotones(result.outputPath, { etiquetaCarpeta: 'Carpeta' }));
+                    }
                     batchResultsDiv.appendChild(resultElement);
                 });
 
@@ -170,16 +166,6 @@ window.inicializarEventosProcesoPorLotes = function() {
         } finally {
             selectFolderBtn.disabled = false;
             processFolderBtn.disabled = false;
-        }
-    });
-
-    // Usar delegación de eventos para los botones "Abrir"
-    batchResultsDiv.addEventListener('click', (event) => {
-        if (event.target.classList.contains('open-file-btn')) {
-            const filePath = event.target.getAttribute('data-path');
-            if (filePath) {
-                api.abrirArchivo(filePath);
-            }
         }
     });
 };

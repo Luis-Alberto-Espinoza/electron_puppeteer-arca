@@ -138,33 +138,6 @@
     background-color: #4a5568 !important;
 }
 
-/* Botones para abrir archivos/carpetas */
-.lote-btn-abrir-carpeta, .lote-btn-abrir-archivo {
-    background-color: #f6e05e !important;
-    color: #1a202c !important;
-    font-weight: bold;
-    border: none;
-}
-
-.lote-btn-abrir-carpeta:hover, .lote-btn-abrir-archivo:hover {
-    background-color: #faf089 !important;
-}
-
-.lote-dir-container code {
-    color: #a0aec0;
-    background-color: #1a202c;
-    padding: 5px 8px;
-    border-radius: 4px;
-    /* La ruta no tiene espacios: sin esto el flex no la achica y se sale de la tarjeta */
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.lote-dir-container .lote-btn-abrir-carpeta {
-    flex-shrink: 0;
-    margin-left: 8px;
-}
-
 /* ========================================
    ESTILOS PARA COMPONENTE SELECTOR DE USUARIOS
    (Integración con tema oscuro ATM)

@@ -860,27 +860,6 @@
     font-weight: 600;
 }
 
-/* Botón abrir carpeta */
-.planes-btn-abrir-carpeta {
-    display: inline-block;
-    margin-top: 8px;
-    padding: 8px 20px;
-    background: var(--v-input, #0f3460);
-    color: var(--v-texto, #a0c4ff);
-    border: 1px solid #2a3a5c;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.planes-btn-abrir-carpeta:hover {
-    background: var(--v-panel, #1a2744);
-    border-color: #a0c4ff;
-    color: #ffffff;
-}
-
 /* Mensaje sin asociados */
 .planes-mensaje-info {
     background: var(--v-panel, #1a2744);

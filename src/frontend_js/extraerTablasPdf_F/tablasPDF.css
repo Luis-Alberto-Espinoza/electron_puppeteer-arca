@@ -95,33 +95,6 @@
     min-height: 28px;
 }
 
-.tpdf #csvPathDiv {
-    margin-top: 15px;
-    font-size: 15px;
-    color: var(--texto-1);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--fondo-claro-2);
-    border-radius: var(--radio-sm);
-    padding: 10px 12px;
-}
-
-.tpdf #csvPathDiv input[type="text"] {
-    background: var(--card);
-    border-color: var(--c-primario-1);
-    font-weight: 500;
-}
-
-.tpdf #abrirCsvBtn {
-    background: var(--grad-ok);
-    border-radius: 18px;
-    padding: 8px 18px;
-    font-size: 14px;
-    min-width: 0;
-    margin-left: 8px;
-}
-
 @media (max-width: 600px) {
     .tpdf {
         padding: 18px 8px;
@@ -130,18 +103,13 @@
     .tpdf h2 {
         font-size: 1.3rem;
     }
-    .tpdf button,
-    .tpdf #abrirCsvBtn {
+    .tpdf button {
         font-size: 15px;
         padding: 10px 16px;
     }
     .tpdf input[type="text"] {
         font-size: 14px;
         padding: 8px;
-    }
-    .tpdf #csvPathDiv {
-        font-size: 14px;
-        padding: 8px 6px;
     }
 }
 
@@ -229,20 +197,6 @@
     white-space: pre-wrap;
     flex-grow: 1;
     margin-left: 10px;
-}
-
-.tpdf .open-file-btn {
-    background: var(--c-accion);
-    padding: 5px 12px;
-    font-size: 13px;
-    border-radius: 15px;
-    margin: 0 0 0 10px;
-    min-width: 0;
-    flex-shrink: 0;
-}
-
-.tpdf .open-file-btn:hover:not(:disabled) {
-    background: var(--c-accion-hover);
 }
 
 /* --- Cambio de modo --- */

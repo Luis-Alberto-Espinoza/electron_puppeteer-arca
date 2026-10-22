@@ -1949,19 +1949,15 @@ function mostrarExito(resultado) {
             <p>${resultado.message || 'La factura se generó correctamente'}</p>
     `;
 
-    if (resultado.data?.pdfPath) {
-        html += `
-            <p><strong>PDF guardado en:</strong><br>
-            <code>${resultado.data.pdfPath}</code></p>
-            <button type="button" onclick="abrirCarpetaPDF('${resultado.data.pdfPath}')" class="btn-secundario">
-                📁 Abrir carpeta del PDF
-            </button>
-        `;
-    }
-
     html += `</div>`;
 
     mensajeResultado.innerHTML = html;
+    // PDF generado: componente común (componentes/archivoResultado)
+    if (resultado.data?.pdfPath) {
+        mensajeResultado.querySelector('.mensaje-exito').appendChild(
+            window.archivoResultado.crearBloque(resultado.data.pdfPath, { titulo: 'PDF de la factura', etiquetaAbrir: 'Abrir PDF' })
+        );
+    }
     areaResultados.classList.remove('contenido-oculto');
 
     // Scroll hacia resultados
@@ -1986,18 +1982,6 @@ function mostrarError(mensaje) {
 
     areaResultados.classList.remove('contenido-oculto');
     areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
-
-/**
- * Abre la carpeta donde se guardó el PDF
- */
-function abrirCarpetaPDF(rutaPDF) {
-    if (window.electronAPI && window.electronAPI.abrirDirectorio) {
-        const carpeta = rutaPDF.substring(0, rutaPDF.lastIndexOf('/'));
-        window.electronAPI.abrirDirectorio(carpeta);
-    } else {
-        alert('Carpeta: ' + rutaPDF);
-    }
 }
 
 /**
@@ -2117,7 +2101,7 @@ function mostrarResumenFinal(resultados, nota = null) {
             html += `
                 <li class="resultado-exitoso">
                     ✅ ${etiquetaResultado(resultado, index)}
-                    ${resultado.pdfPath ? `<br><small>PDF: ${resultado.pdfPath}</small>` : ''}
+                    ${resultado.pdfPath ? `<div class="lugar-archivo" data-indice="${index}"></div>` : ''}
                 </li>
             `;
         } else {
@@ -2135,6 +2119,11 @@ function mostrarResumenFinal(resultados, nota = null) {
     `;
 
     mensajeResultado.innerHTML = html;
+    // PDF de cada factura: un renglón del componente común (componentes/archivoResultado)
+    mensajeResultado.querySelectorAll('.lugar-archivo').forEach(lugar => {
+        const ruta = resultados[Number(lugar.dataset.indice)].pdfPath;
+        lugar.appendChild(window.archivoResultado.crearFila(ruta, { etiquetaAbrir: 'Abrir PDF', etiquetaCarpeta: 'Carpeta' }));
+    });
     areaResultados.classList.remove('contenido-oculto');
     areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
@@ -2171,13 +2160,16 @@ function mostrarResultadoModoPrueba(resultado) {
                     <li>Hacé clic en "🧾 Generar" (el botón verde de prueba no confirma)</li>
                 </ol>
             </div>
-            ${resultado.screenshotPath ? `
-                <p class="ruta-captura"><small>Captura guardada en: ${resultado.screenshotPath}</small></p>
-            ` : ''}
         </div>
     `;
 
     mensajeResultado.innerHTML = html;
+    // Captura de la prueba: componente común (componentes/archivoResultado)
+    if (resultado.screenshotPath) {
+        mensajeResultado.querySelector('.resultado-modo-prueba').appendChild(
+            window.archivoResultado.crearBloque(resultado.screenshotPath, { titulo: 'Captura de la prueba', etiquetaAbrir: 'Ver captura' })
+        );
+    }
     areaResultados.classList.remove('contenido-oculto');
     areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -2188,7 +2180,6 @@ window.inicializarFacturasTipificadas = inicializarFacturasTipificadas;
 window.eliminarFactura = eliminarFactura;
 window.eliminarLineaDeFactura = eliminarLineaDeFactura;
 window.agregarLineaAFactura = agregarLineaAFactura;
-window.abrirCarpetaPDF = abrirCarpetaPDF;
 window.mostrarInfoUsuario = mostrarInfoUsuario; // Para actualizar cuando se cambia de usuario
 window.editarGrupo = editarGrupo;   // Facturas distintas: editar tarjeta
 window.eliminarGrupo = eliminarGrupo; // Facturas distintas: quitar tarjeta

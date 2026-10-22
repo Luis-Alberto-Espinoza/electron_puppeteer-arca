@@ -75,21 +75,11 @@ window.inicializarModuloDdjjPendientes = () => {
         fila.appendChild(span);
 
         if (datos.estado === 'pendientes' || datos.estado === 'exito') {
-            if (datos.rutaPdf) {
-                const btnPdf = el('button', 'ui-btn', 'Abrir PDF');
-                btnPdf.addEventListener('click', () => window.electronAPI.abrirArchivo(datos.rutaPdf));
-                fila.appendChild(btnPdf);
-            }
-            if (datos.rutaExcel) {
-                const btnExcel = el('button', 'ui-btn', 'Abrir Excel');
-                btnExcel.addEventListener('click', () => window.electronAPI.abrirArchivo(datos.rutaExcel));
-                fila.appendChild(btnExcel);
-            }
-            if (datos.downloadDir) {
-                const btnCarpeta = el('button', 'ui-btn ui-btn--ghost', 'Abrir carpeta');
-                btnCarpeta.addEventListener('click', () => window.electronAPI.abrirDirectorio(datos.downloadDir));
-                fila.appendChild(btnCarpeta);
-            }
+            // Botones: componente común (componentes/archivoResultado)
+            const componenteArchivos = window.archivoResultado;
+            if (datos.rutaPdf) fila.appendChild(componenteArchivos.crearBotones(datos.rutaPdf, { etiquetaAbrir: 'Abrir PDF', carpeta: false }));
+            if (datos.rutaExcel) fila.appendChild(componenteArchivos.crearBotones(datos.rutaExcel, { etiquetaAbrir: 'Abrir Excel', carpeta: false }));
+            if (datos.downloadDir) fila.appendChild(componenteArchivos.crearBotones(null, { abrir: false, rutaCarpeta: datos.downloadDir, etiquetaCarpeta: 'Carpeta' }));
         }
         bloque.appendChild(fila);
 

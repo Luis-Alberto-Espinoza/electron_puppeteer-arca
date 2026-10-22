@@ -430,16 +430,18 @@ window.inicializarModuloImportarLibroIva = () => {
         span.appendChild(el('strong', null, `${{ exito: '✓', aviso: '⚠', error: '✗' }[estado]} ${nombre}`));
         span.appendChild(document.createTextNode(` — ${texto}`));
         fila.appendChild(span);
+        // Botones: componente común (componentes/archivoResultado)
         if (libro.rutaRespaldo) {
-            const btnAntes = el('button', 'ui-btn', 'Excel anterior');
-            btnAntes.title = 'Lo que había en el libro antes de "Eliminar todo"';
-            btnAntes.addEventListener('click', () => window.electronAPI.abrirArchivo(libro.rutaRespaldo));
-            fila.appendChild(btnAntes);
+            // "Excel anterior" = lo que había en el libro antes de "Eliminar todo" (discreto)
+            fila.appendChild(window.archivoResultado.crearBotones(libro.rutaRespaldo, {
+                etiquetaAbrir: 'Excel anterior', destacado: false, carpeta: false
+            }));
         }
         if (libro.rutaExcel) {
-            const btnExcel = el('button', 'ui-btn', 'Abrir Excel');
-            btnExcel.addEventListener('click', () => window.electronAPI.abrirArchivo(libro.rutaExcel));
-            fila.appendChild(btnExcel);
+            // Sin botón de carpeta: ya está en el renglón del cliente
+            fila.appendChild(window.archivoResultado.crearBotones(libro.rutaExcel, {
+                etiquetaAbrir: 'Abrir Excel', carpeta: false
+            }));
         }
         return fila;
     }
@@ -496,9 +498,10 @@ window.inicializarModuloImportarLibroIva = () => {
         span.appendChild(document.createTextNode(` — ${texto}`));
         fila.appendChild(span);
         if (datos.downloadDir) {
-            const btnCarpeta = el('button', 'ui-btn', 'Abrir carpeta');
-            btnCarpeta.addEventListener('click', () => window.electronAPI.abrirDirectorio(datos.downloadDir));
-            fila.appendChild(btnCarpeta);
+            // Carpeta del cliente: componente común (componentes/archivoResultado)
+            fila.appendChild(window.archivoResultado.crearBotones(null, {
+                abrir: false, rutaCarpeta: datos.downloadDir, etiquetaCarpeta: 'Carpeta'
+            }));
         }
         bloque.appendChild(fila);
 

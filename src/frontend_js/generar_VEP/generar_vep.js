@@ -761,7 +761,7 @@ function enfocarArchivosDescargados() {
         const seccion = document.getElementById('seccion-archivos-descargados');
         if (seccion && seccion.style.display !== 'none') {
             seccion.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-            const primerAbrir = seccion.querySelector('.btn-abrir-archivo');
+            const primerAbrir = seccion.querySelector('.ar-btn--principal');
             if (primerAbrir) {
                 primerAbrir.focus({ preventScroll: true });
             }
@@ -1241,7 +1241,7 @@ function mostrarResultadosConsultaDeuda(resultados) {
     const listaArchivos = document.getElementById('lista-archivos-deuda');
 
     // Renderizar archivos
-    listaArchivos.innerHTML = resultados.map(r => {
+    listaArchivos.innerHTML = resultados.map((r, indice) => {
         const nombreCompleto = formatearNombreCompleto(r.usuario);
 
         if (r.status === 'success') {
@@ -1254,14 +1254,7 @@ function mostrarResultadosConsultaDeuda(resultados) {
                             <div class="archivo-nombre">${r.archivoExcel}</div>
                         </div>
                     </div>
-                    <div class="archivo-acciones">
-                        <button class="btn-abrir-archivo" onclick="abrirArchivoDeuda('${r.rutaCompleta}')" title="Abrir archivo Excel">
-                            📄 Abrir
-                        </button>
-                        <button class="btn-abrir-carpeta" onclick="abrirCarpetaDeuda('${r.rutaCompleta}')" title="Abrir carpeta que contiene el archivo">
-                            📁 Ver Carpeta
-                        </button>
-                    </div>
+                    <div class="archivo-acciones" data-indice="${indice}"></div>
                 </div>
             `;
         } else {
@@ -1279,6 +1272,12 @@ function mostrarResultadosConsultaDeuda(resultados) {
         }
     }).join('');
 
+    // Botones Abrir / Carpeta: componente común (componentes/archivoResultado)
+    listaArchivos.querySelectorAll('.archivo-acciones[data-indice]').forEach(lugar => {
+        const ruta = resultados[Number(lugar.dataset.indice)].rutaCompleta;
+        lugar.appendChild(window.archivoResultado.crearBotones(ruta, { etiquetaAbrir: 'Abrir', etiquetaCarpeta: 'Carpeta' }));
+    });
+
     // Mostrar sección
     seccionResultados.style.display = 'block';
 
@@ -1289,32 +1288,6 @@ function mostrarResultadosConsultaDeuda(resultados) {
             block: 'start'
         });
     }, 300);
-}
-
-/**
- * Abre un archivo de deuda descargado
- */
-async function abrirArchivoDeuda(rutaArchivo) {
-    try {
-        const api = window.electronAPI || window.api;
-        await api.abrirArchivo(rutaArchivo);
-    } catch (error) {
-        console.error('❌ Error abriendo archivo:', error);
-        mostrarMensaje('error', `Error al abrir archivo: ${error.message}`);
-    }
-}
-
-/**
- * Abre la carpeta que contiene el archivo de deuda
- */
-async function abrirCarpetaDeuda(rutaArchivo) {
-    try {
-        const api = window.electronAPI || window.api;
-        await api.abrirDirectorio(rutaArchivo);
-    } catch (error) {
-        console.error('❌ Error abriendo carpeta:', error);
-        mostrarMensaje('error', `Error al abrir carpeta: ${error.message}`);
-    }
 }
 
 /**
@@ -1338,10 +1311,6 @@ function iniciarNuevaConsultaDeuda() {
 
     console.log('🔄 Iniciando nueva consulta de deuda');
 }
-
-// Exponer funciones globales
-window.abrirArchivoDeuda = abrirArchivoDeuda;
-window.abrirCarpetaDeuda = abrirCarpetaDeuda;
 
 // Estilos para animaciones
 const style = document.createElement('style');

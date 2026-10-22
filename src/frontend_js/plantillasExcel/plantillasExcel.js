@@ -79,17 +79,14 @@
         mostrarEstado('ok', `
             <div class="px-estado-titulo">✅ ${esc(plantilla.nombre)}: listo</div>
             <div>${esc(res.mensaje)}</div>
-            <div class="px-ruta">${esc(res.archivoGenerado)}</div>
+            <div id="pxArchivo"></div>
             ${controles ? `<div class="px-controles">Controles: ${controles}</div>` : ''}
             ${listaAvisos(res.avisos)}
-            <div class="px-acciones">
-                <button type="button" class="ui-btn ui-btn--ok" id="pxAbrir">Abrir archivo</button>
-                <button type="button" class="ui-btn ui-btn--ghost" id="pxCarpeta">Mostrar en la carpeta</button>
-            </div>
         `);
-        const ruta = res.archivoGenerado;
-        document.getElementById('pxAbrir').addEventListener('click', () => window.electronAPI.abrirArchivo(ruta));
-        document.getElementById('pxCarpeta').addEventListener('click', () => window.electronAPI.abrirDirectorio(ruta));
+        // Archivo generado: componente común (componentes/archivoResultado)
+        document.getElementById('pxArchivo').appendChild(
+            window.archivoResultado.crearBloque(res.archivoGenerado, { titulo: 'Excel generado' })
+        );
     }
 
     function mostrarError(titulo, mensaje) {

@@ -57,11 +57,10 @@ window.inicializarModuloDatosRegistrales = () => {
         fila.appendChild(texto);
 
         if (datos.estado === 'exito' && datos.rutaPdf) {
-            const btnPdf = el('button', 'ui-btn', 'Abrir PDF');
-            btnPdf.addEventListener('click', () => window.electronAPI.abrirArchivo(datos.rutaPdf));
-            const btnCarpeta = el('button', 'ui-btn ui-btn--ghost', 'Abrir carpeta');
-            btnCarpeta.addEventListener('click', () => window.electronAPI.abrirDirectorio(datos.downloadDir));
-            fila.append(btnPdf, btnCarpeta);
+            // Botones: componente común (componentes/archivoResultado)
+            fila.appendChild(window.archivoResultado.crearBotones(datos.rutaPdf, {
+                etiquetaAbrir: 'Abrir PDF', rutaCarpeta: datos.downloadDir, etiquetaCarpeta: 'Carpeta'
+            }));
         }
         // Solo los errores de acceso van a la fila: ahí el selector ofrece "Clave". Un error de
         // Sistema Registral o de ARCA con el botón de la llave asusta y no se arregla con la clave.

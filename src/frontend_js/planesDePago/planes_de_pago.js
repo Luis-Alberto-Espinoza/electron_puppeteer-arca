@@ -1209,18 +1209,14 @@ window.inicializarModuloPlanesDePago = () => {
                 agregarResumenPlanesUI(datos.resumenPlanes);
             }
 
-            // Botón abrir carpeta si hay downloadDir
+            // Botón abrir carpeta si hay downloadDir: componente común (componentes/archivoResultado)
             if (datos.downloadDir && datos.estado === 'exito') {
                 const btnContainer = document.createElement('div');
                 btnContainer.style.paddingLeft = '20px';
                 btnContainer.style.marginBottom = '4px';
-                const btnAbrir = document.createElement('button');
-                btnAbrir.className = 'planes-btn-abrir-carpeta';
-                btnAbrir.textContent = 'Abrir carpeta';
-                btnAbrir.addEventListener('click', () => {
-                    window.electronAPI.abrirDirectorio(datos.downloadDir);
-                });
-                btnContainer.appendChild(btnAbrir);
+                btnContainer.appendChild(window.archivoResultado.crearBotones(null, {
+                    abrir: false, rutaCarpeta: datos.downloadDir, etiquetaCarpeta: 'Abrir carpeta del cliente'
+                }));
                 resultadosContenido.appendChild(btnContainer);
             }
         } else if (datos.tipo === 'representante-fin') {
@@ -1233,28 +1229,15 @@ window.inicializarModuloPlanesDePago = () => {
             // Redirigir el foco al panel de resultados
             resultadosContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-            // Si se generó el Excel consolidado, mostrar botón para abrirlo
+            // Si se generó el Excel consolidado: componente común (componentes/archivoResultado)
             if (datos.consolidado && datos.consolidado.path) {
                 const t = datos.consolidado.totales || {};
                 const btnContainer = document.createElement('div');
-                btnContainer.style.padding = '10px 20px';
-                btnContainer.style.marginTop = '8px';
-
-                const infoTexto = document.createElement('div');
-                infoTexto.style.fontSize = '13px';
-                infoTexto.style.marginBottom = '6px';
-                infoTexto.textContent = `Resumen consolidado generado (${t.clientes || 0} cliente/s, ${t.planes || 0} plan/es, ${t.impagas || 0} impaga/s)`;
-                btnContainer.appendChild(infoTexto);
-
-                const btnAbrir = document.createElement('button');
-                btnAbrir.className = 'planes-btn-abrir-carpeta';
-                btnAbrir.textContent = 'Abrir Excel consolidado';
-                btnAbrir.addEventListener('click', () => {
-                    window.electronAPI.abrirArchivo
-                        ? window.electronAPI.abrirArchivo(datos.consolidado.path)
-                        : window.electronAPI.abrirDirectorio(datos.consolidado.path.split(/[\\/]/).slice(0, -1).join('/'));
-                });
-                btnContainer.appendChild(btnAbrir);
+                btnContainer.style.padding = '0 20px 10px';
+                btnContainer.appendChild(window.archivoResultado.crearBloque(datos.consolidado.path, {
+                    titulo: `Resumen consolidado (${t.clientes || 0} cliente/s, ${t.planes || 0} plan/es, ${t.impagas || 0} impaga/s)`,
+                    etiquetaAbrir: 'Abrir Excel consolidado'
+                }));
                 resultadosContenido.appendChild(btnContainer);
             }
         }

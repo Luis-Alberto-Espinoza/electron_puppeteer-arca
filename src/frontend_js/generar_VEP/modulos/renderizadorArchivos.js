@@ -66,51 +66,17 @@ export function renderizarArchivosDescargados(resultados) {
                     <div class="archivo-nombre">${pdfDescargado.nombre || 'VEP.pdf'}</div>
                 </div>
             </div>
-            <button class="btn-abrir-archivo" data-path="${pdfDescargado.path}">
-                Abrir
-            </button>
         `;
+        // Botones Abrir / Carpeta: componente común (componentes/archivoResultado)
+        archivoItem.appendChild(window.archivoResultado.crearBotones(pdfDescargado.path, { etiquetaAbrir: 'Abrir', etiquetaCarpeta: 'Carpeta' }));
 
         listaArchivos.appendChild(archivoItem);
     });
-
-    // Configurar eventos de los botones
-    configurarEventosAbrir();
 
     // Mostrar la sección
     mostrarSeccionArchivos();
 
     console.log(`✅ Renderizados ${archivosDescargados.length} archivo(s) descargado(s)`);
-}
-
-/**
- * Configura los eventos click de los botones "Abrir"
- */
-function configurarEventosAbrir() {
-    const botones = document.querySelectorAll('.btn-abrir-archivo');
-
-    botones.forEach(boton => {
-        boton.addEventListener('click', async () => {
-            const path = boton.dataset.path;
-
-            if (!path) {
-                console.error('❌ No se encontró el path del archivo');
-                return;
-            }
-
-            try {
-                console.log(`📂 Abriendo archivo: ${path}`);
-
-                const api = window.electronAPI || window.api;
-                await api.abrirArchivo(path);
-
-                console.log(`✅ Archivo abierto correctamente`);
-            } catch (error) {
-                console.error('❌ Error al abrir archivo:', error);
-                alert(`Error al abrir el archivo: ${error.message}`);
-            }
-        });
-    });
 }
 
 /**

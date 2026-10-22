@@ -1166,56 +1166,11 @@ th br {
     font-family: 'Courier New', monospace;
 }
 
-.btn-abrir-archivo {
-    padding: 10px 24px;
-    background: var(--c-ok-1);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 14px;
-}
-
-.btn-abrir-archivo:hover {
-    background: var(--c-ok-2);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.btn-abrir-archivo:active {
-    transform: translateY(0);
-}
-
 /* Contenedor de botones para cada archivo */
 .archivo-acciones {
     display: flex;
     gap: 8px;
     align-items: center;
-}
-
-/* Botón para abrir carpeta */
-.btn-abrir-carpeta {
-    padding: 10px 20px;
-    background: #6366f1;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-size: 14px;
-}
-
-.btn-abrir-carpeta:hover {
-    background: #4f46e5;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.btn-abrir-carpeta:active {
-    transform: translateY(0);
 }
 
 .archivos-acciones {

@@ -12,8 +12,6 @@ import { formatearCUIT, formatearMedioPago, capitalizarTexto } from './utilidade
 const ID_SECCION = 'seccion-archivos-descargados-ct';
 const ID_LISTA   = 'lista-archivos-descargados-ct';
 
-let delegacionInicializada = false;
-
 // ============================================================
 // VISIBILIDAD
 // ============================================================
@@ -58,8 +56,6 @@ export function renderizarArchivosDescargados(resultadosSegundaPasada = [], { in
         return;
     }
 
-    inicializarDelegacionSiNoLoEsta();
-
     const bloques = [];
 
     // Excels de la 1ra pasada (los que tengan path). Solo Flujo A.
@@ -102,6 +98,8 @@ export function renderizarArchivosDescargados(resultadosSegundaPasada = [], { in
     }
 
     lista.innerHTML = bloques.join('');
+    // Botones Abrir / Carpeta: componente común (componentes/archivoResultado)
+    window.archivoResultado.completarBotones(lista, { etiquetaAbrir: 'Abrir', etiquetaCarpeta: 'Carpeta' });
     mostrarSeccionArchivos();
     console.log(`✅ Archivos CT renderizados: ${excels.length} Excel(s), ${pdfs.length} PDF(s), ${erroresOrange.length} con problemas`);
 }
@@ -129,10 +127,7 @@ function renderItemExcel({ cliente, cuitAsociado, archivo }) {
                     <div class="archivo-nombre">${escapeHtml(archivo.nombre || 'Excel')}</div>
                 </div>
             </div>
-            <div class="archivo-acciones">
-                <button class="btn-abrir-archivo" data-accion="abrir" data-path="${escapeAttr(archivo.path)}">Abrir</button>
-                <button class="btn-abrir-carpeta" data-accion="carpeta" data-path="${escapeAttr(archivo.path)}">Carpeta</button>
-            </div>
+            <div class="archivo-acciones" data-ruta-archivo="${escapeAttr(archivo.path)}"></div>
         </div>
     `;
 }
@@ -163,10 +158,7 @@ function renderItemPdf(resultado) {
                     ${lineaMeta ? `<div class="archivo-meta">${escapeHtml(lineaMeta)}</div>` : ''}
                 </div>
             </div>
-            <div class="archivo-acciones">
-                <button class="btn-abrir-archivo" data-accion="abrir" data-path="${escapeAttr(pdfDescargado.path)}">Abrir</button>
-                <button class="btn-abrir-carpeta" data-accion="carpeta" data-path="${escapeAttr(pdfDescargado.path)}">Carpeta</button>
-            </div>
+            <div class="archivo-acciones" data-ruta-archivo="${escapeAttr(pdfDescargado.path)}"></div>
         </div>
     `;
 }
@@ -186,43 +178,6 @@ function renderItemError(resultado) {
             </div>
         </div>
     `;
-}
-
-// ============================================================
-// DELEGACIÓN DE EVENTOS (Abrir / Carpeta)
-// ============================================================
-
-function inicializarDelegacionSiNoLoEsta() {
-    if (delegacionInicializada) return;
-    const lista = document.getElementById(ID_LISTA);
-    if (!lista) return;
-
-    lista.addEventListener('click', async (ev) => {
-        const btn = ev.target.closest('button[data-accion]');
-        if (!btn) return;
-        const accion = btn.dataset.accion;
-        const path = btn.dataset.path;
-        if (!path) return;
-
-        const api = window.electronAPI || window.api;
-        if (!api) {
-            alert('No hay API de Electron disponible');
-            return;
-        }
-
-        try {
-            if (accion === 'abrir' && api.abrirArchivo) {
-                await api.abrirArchivo(path);
-            } else if (accion === 'carpeta' && api.abrirDirectorio) {
-                await api.abrirDirectorio(path);
-            }
-        } catch (error) {
-            console.error(`❌ Error al ${accion}:`, error);
-            alert(`Error al ${accion === 'abrir' ? 'abrir' : 'abrir la carpeta de'} el archivo: ${error.message}`);
-        }
-    });
-
-    delegacionInicializada = true;
 }
 
 // ============================================================
