@@ -785,59 +785,6 @@
 }
 
 /* ========================================
-   MODAL DE PROGRESO
-   ======================================== */
-.modal-progreso {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    backdrop-filter: blur(4px);
-}
-
-.modal-progreso .modal-contenido {
-    background: var(--v-panel, white);
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    min-width: 400px;
-    text-align: center;
-}
-
-.modal-progreso .modal-contenido h3 {
-    font-size: 20px;
-    color: var(--v-texto, #1f2937);
-    margin-bottom: 20px;
-}
-
-.modal-progreso .progreso-barra {
-    width: 100%;
-    height: 8px;
-    background: var(--v-panel-2, #e5e7eb);
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 16px;
-}
-
-.modal-progreso .progreso-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-    width: 0%;
-    transition: width 0.3s ease;
-}
-
-#progreso-texto-ct {
-    font-size: 14px;
-    color: var(--v-texto-2, #6b7280);
-}
-
-/* ========================================
    RESPONSIVE
    ======================================== */
 @media (max-width: 768px) {
@@ -872,10 +819,6 @@
         width: 100%;
     }
 
-    .modal-progreso .modal-contenido {
-        min-width: 300px;
-        padding: 30px 20px;
-    }
 }
 
 /* ========================================

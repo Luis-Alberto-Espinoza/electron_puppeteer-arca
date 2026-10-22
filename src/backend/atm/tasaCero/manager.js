@@ -5,6 +5,7 @@ const { ejecutarFlujoPuppeteerTasaCero } = require('../../puppeteer/atm/flujosDe
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
+const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
 
 // Constantes de configuración
 const CONSTANTS = {
@@ -20,20 +21,15 @@ const CONSTANTS = {
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
 async function procesarLote({ clientes, downloadsPath, visible }, enviarProgreso) {
-    enviarProgreso({
-        estado: 'general',
-        mensaje: `Iniciando proceso de Tasa Cero para ${clientes.length} cliente(s).`
-    });
+    // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
+    const aviso = crearAvisoProgreso(enviarProgreso, clientes.length);
+    aviso.general(`Iniciando proceso de Tasa Cero para ${clientes.length} cliente(s).`);
 
     for (let i = 0; i < clientes.length; i++) {
         const cliente = clientes[i];
 
-        enviarProgreso({
-            estado: 'general',
-            mensaje: `Procesando cliente ${i + 1} de ${clientes.length}...`
-        });
-
-        await procesarCliente(cliente, downloadsPath, enviarProgreso, visible);
+        await procesarCliente(cliente, downloadsPath, aviso, visible);
+        aviso.clienteTerminado();
 
         // Pausa entre clientes para no sobrecargar el sistema
         if (i < clientes.length - 1) {
@@ -41,16 +37,13 @@ async function procesarLote({ clientes, downloadsPath, visible }, enviarProgreso
         }
     }
 
-    enviarProgreso({
-        estado: 'finalizado',
-        mensaje: 'El proceso de Tasa Cero ha finalizado para todos los clientes.'
-    });
+    aviso.finalizado('El proceso de Tasa Cero ha finalizado para todos los clientes.');
 }
 
 /**
  * Procesa un único cliente
  */
-async function procesarCliente(cliente, downloadsPath, enviarProgreso, visible) {
+async function procesarCliente(cliente, downloadsPath, aviso, visible) {
     const { cuit, nombre = '', apellido = '', id, periodo } = cliente;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -58,15 +51,8 @@ async function procesarCliente(cliente, downloadsPath, enviarProgreso, visible) 
     const partesNombre = [nombre, apellido].filter(parte => parte && parte.trim());
     const nombreParaArchivos = (partesNombre.length > 0 ? partesNombre.join('_') : cuit).replace(/\s+/g, '_');
 
-    const enviarProgresoCliente = (estado, mensaje, datosAdicionales = {}) => {
-        enviarProgreso({
-            clienteId: id || cuit,
-            nombre: nombreCompleto,
-            estado,
-            mensaje: `[Cliente: ${nombreCompleto}] ${mensaje}`,
-            ...datosAdicionales
-        });
-    };
+    // (estado, mensaje, datosExtra): el nombre va aparte, NO dentro del mensaje.
+    const enviarProgresoCliente = aviso.paraCliente({ id: id || cuit, cuit, nombre: nombreCompleto });
 
     enviarProgresoCliente('iniciando', `Iniciando proceso de Tasa Cero para periodo ${periodo}...`);
 

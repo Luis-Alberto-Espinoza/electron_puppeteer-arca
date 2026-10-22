@@ -5,6 +5,7 @@ const { flujoDescargaRetenciones } = require('../../puppeteer/atm/flujosDeTareas
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
+const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
 
 /**
  * Procesa un lote de usuarios para descargar retenciones
@@ -15,14 +16,14 @@ const { logErrorCliente } = require('../logErrorCliente.js');
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
 async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso) {
-    enviarProgreso({
-        status: 'general',
-        mensaje: `Iniciando proceso de Descarga de Retenciones para ${usuarios.length} usuario(s).`
-    });
+    // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
+    const aviso = crearAvisoProgreso(enviarProgreso, usuarios.length);
+    aviso.general(`Iniciando proceso de Descarga de Retenciones para ${usuarios.length} usuario(s).`);
 
     for (let i = 0; i < usuarios.length; i++) {
         const usuario = usuarios[i];
-        await procesarUsuario(usuario, downloadsPath, enviarProgreso, visible);
+        await procesarUsuario(usuario, downloadsPath, aviso, visible);
+        aviso.clienteTerminado();
 
         // Pausa entre usuarios para no sobrecargar el sistema
         if (i < usuarios.length - 1) {
@@ -30,16 +31,13 @@ async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso
         }
     }
 
-    enviarProgreso({
-        status: 'finalizado',
-        mensaje: 'El proceso de Descarga de Retenciones ha finalizado.'
-    });
+    aviso.finalizado('El proceso de Descarga de Retenciones ha finalizado.');
 }
 
 /**
  * Procesa un único usuario
  */
-async function procesarUsuario(usuario, downloadsPath, enviarProgreso, visible) {
+async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
     const { cuit, nombre = '', apellido = '', id, periodo = '', periodos } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -58,15 +56,8 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso, visible) 
     const partesNombre = [nombre, apellido].filter(parte => parte && parte.trim());
     const nombreParaArchivos = (partesNombre.length > 0 ? partesNombre.join('_') : cuit).replace(/\s+/g, '_');
 
-    const enviarProgresoUsuario = (status, mensaje, datosAdicionales = {}) => {
-        enviarProgreso({
-            userId: id,
-            nombre: nombreCompleto,
-            status,
-            mensaje: `[Usuario: ${nombreCompleto}] ${mensaje}`,
-            ...datosAdicionales
-        });
-    };
+    // (estado, mensaje, datosExtra): el nombre va aparte, NO dentro del mensaje.
+    const enviarProgresoUsuario = aviso.paraCliente({ id, cuit, nombre: nombreCompleto });
 
     enviarProgresoUsuario('iniciando', `Iniciando descarga de Retenciones (${descripcionPeriodos})...`);
 
@@ -94,7 +85,7 @@ async function procesarUsuario(usuario, downloadsPath, enviarProgreso, visible) 
             enviarProgresoUsuario(
                 incompleta ? 'error' : 'exito_final',
                 incompleta
-                    ? `⚠️ Descarga INCOMPLETA para ${nombreCompleto}: ${resultadoFlujo.mensaje}`
+                    ? `⚠️ Descarga INCOMPLETA: ${resultadoFlujo.mensaje}`
                     : 'Retenciones descargadas con éxito.',
                 resultadoFlujo
             );

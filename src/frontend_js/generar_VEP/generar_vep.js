@@ -686,10 +686,13 @@ function limpiarSelecciones() {
     });
 }
 
-function mostrarProgreso(mostrar) {
-    const modal = document.getElementById('modal-progreso');
-    if (modal) {
-        modal.style.display = mostrar ? 'flex' : 'none';
+// Rueda común (componentes/rueda): no bloquea y gira siempre, así no parece colgado.
+function mostrarProgreso(mostrar, mensaje = 'Generando VEPs…') {
+    if (!window.ruedaTrabajando) return;
+    if (mostrar) {
+        window.ruedaTrabajando.mostrar({ servicio: 'ARCA', subservicio: 'Generar VEP', mensaje });
+    } else {
+        window.ruedaTrabajando.ocultar();
     }
 }
 
@@ -1209,7 +1212,7 @@ async function ejecutarConsultaDeuda() {
     if (!confirmacion) return;
 
     try {
-        mostrarProgreso(true);
+        mostrarProgreso(true, `Consultando deuda de ${usuariosSeleccionados.length} cliente(s)…`);
 
         const api = window.electronAPI || window.api;
         const visible = document.getElementById('chk-visible-consulta-deuda')?.checked !== false;

@@ -6,6 +6,7 @@ const { flujoApremios } = require('../../puppeteer/atm/flujosDeTareas/flujo_apre
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
+const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
 const { IMPUESTO_POR_ID, normalizarImpuestos } = require('./tablaApremios.js');
 
 const PAUSA_ENTRE_CLIENTES = 1000;
@@ -30,25 +31,26 @@ function describirResultado(r) {
  * @param {Function} enviarProgreso
  */
 async function procesarLote({ clientes, downloadsPath, visible }, enviarProgreso) {
-    enviarProgreso({ estado: 'general', mensaje: `Iniciando Apremios ATM para ${clientes.length} cliente(s).` });
+    // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
+    const aviso = crearAvisoProgreso(enviarProgreso, clientes.length);
+    aviso.general(`Iniciando Apremios ATM para ${clientes.length} cliente(s).`);
 
     for (let i = 0; i < clientes.length; i++) {
-        await procesarCliente(clientes[i], downloadsPath, enviarProgreso, visible);
+        await procesarCliente(clientes[i], downloadsPath, aviso, visible);
+        aviso.clienteTerminado();
         if (i < clientes.length - 1) await new Promise(r => setTimeout(r, PAUSA_ENTRE_CLIENTES));
     }
 
-    enviarProgreso({ estado: 'finalizado', mensaje: 'Apremios ATM finalizado.' });
+    aviso.finalizado('Apremios ATM finalizado.');
 }
 
-async function procesarCliente(cliente, downloadsPath, enviarProgreso, visible) {
+async function procesarCliente(cliente, downloadsPath, aviso, visible) {
     const { cuit, id } = cliente;
     const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() || String(cuit);
     const impuestos = normalizarImpuestos(cliente.impuestos);
     const clienteHist = historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit });
 
-    const enviar = (estado, mensaje, extra = {}) => enviarProgreso({
-        clienteId: id || cuit, nombre: nombreCompleto, estado, mensaje, ...extra
-    });
+    const enviar = aviso.paraCliente({ id: id || cuit, cuit, nombre: nombreCompleto });
 
     if (impuestos.length === 0) {
         enviar('error', 'No se eligió ningún impuesto para consultar.');

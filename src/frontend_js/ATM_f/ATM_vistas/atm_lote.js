@@ -710,8 +710,9 @@ window.inicializarModuloLoteATM = () => {
         if (!confirmacion) return;
 
         prepararUIParaProceso();
-        loteEnCurso = { label: config.label, total: clientes.length, terminados: 0 };
-        window.ruedaTrabajando?.mostrar(`${config.label}: iniciando sesión en ATM…`);
+        window.ruedaTrabajando?.mostrar({
+            servicio: 'ATM', subservicio: config.label, mensaje: 'Iniciando sesión en ATM…'
+        });
 
         try {
             await config.ejecutar(clientes, { visible: chkVisible.checked });
@@ -719,7 +720,6 @@ window.inicializarModuloLoteATM = () => {
             procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         } finally {
             // El invoke vuelve cuando terminó el lote entero (o falló): la rueda se va siempre.
-            loteEnCurso = null;
             window.ruedaTrabajando?.ocultar();
         }
     });
@@ -736,13 +736,15 @@ window.inicializarModuloLoteATM = () => {
     // MANEJO DE PROGRESO (compartido por todos los subservicios)
     // =========================================================================
     const userDivMap = new Map();
-    // Para el cartel de la rueda: { label, total, terminados } mientras corre un lote.
-    let loteEnCurso = null;
 
+    // Los 5 subservicios mandan el aviso con el contrato de la rueda (backend/comun/avisoProgreso.js):
+    // { tipo, id, cuit, nombre, estado, mensaje, procesados, total, ...files/downloadDir/resumen }
     const manejarActualizacionProgreso = (datos) => {
-        const { userId, clienteId, nombre, status, estado, mensaje, files = [], archivoPdf, downloadDir, resumen, detalleApremios } = datos;
-        const idUsuario   = userId || clienteId;
-        const estadoFinal = status || estado;
+        const { id, nombre, estado, mensaje, files = [], archivoPdf, downloadDir, resumen, detalleApremios } = datos;
+        const idUsuario   = id;
+        const estadoFinal = estado;
+
+        window.ruedaTrabajando?.recibirAviso(datos);   // solo usa los de tipo 'progreso'
 
         if (estadoFinal === 'general')    return;
         if (estadoFinal === 'finalizado') {
@@ -772,15 +774,6 @@ window.inicializarModuloLoteATM = () => {
 
         const isFinalStatus = ['exito_final', 'error', 'exito', 'no_habilitado', 'parcial'].includes(estadoFinal);
 
-        if (loteEnCurso) {
-            if (isFinalStatus) {
-                loteEnCurso.terminados++;
-            } else {
-                const n = Math.min(loteEnCurso.terminados + 1, loteEnCurso.total);
-                window.ruedaTrabajando?.mostrar(`${loteEnCurso.label}: ${nombre} (${n}/${loteEnCurso.total})`,
-                    `${mensaje} — No se colgó: está trabajando.`);
-            }
-        }
         const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado';
         const messageContainer = userDiv.querySelector('.message-container');
         messageContainer.innerHTML = `<div class="progreso-item">[${new Date().toLocaleTimeString()}] ${mensaje}</div>`;

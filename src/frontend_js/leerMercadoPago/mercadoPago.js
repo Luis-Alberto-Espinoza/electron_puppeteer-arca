@@ -403,7 +403,8 @@ function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
         loginButtonId: 'loginButtonMP',
         testButtonId: 'testButtonMP',
         visibleSwitchId: 'chk-visible-mp',
-        pdvAnclaId: 'selectPuntoDeVentaMP'
+        pdvAnclaId: 'selectPuntoDeVentaMP',
+        nombreServicio: 'Mercado Pago'
     });
 }
 

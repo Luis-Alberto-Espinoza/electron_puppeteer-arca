@@ -106,9 +106,7 @@ window.inicializarModuloDdjjPendientes = () => {
             pintarCliente(datos);
             contador.textContent = `(${datos.procesados}/${datos.total})`;
             if (datos.tipo === 'progreso' && window.ruedaTrabajando) {
-                window.ruedaTrabajando.mostrar(
-                    `DDJJ pendientes: ${datos.nombre || datos.cuit} (${datos.procesados + 1}/${datos.total})`,
-                    'No se colgó: está trabajando. La consulta de AFIP es lenta.');
+                window.ruedaTrabajando.recibirAviso(datos);
             }
         } else if (datos.tipo === 'finalizado') {
             contenido.appendChild(el('div', 'dp-resultado dp-resultado-fin',
@@ -144,7 +142,9 @@ window.inicializarModuloDdjjPendientes = () => {
         contenido.appendChild(el('div', 'dp-resultado dp-resultado-procesando dp-inicio',
             `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: la consulta de AFIP es lenta)`));
         irAResultados();
-        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar('DDJJ pendientes: iniciando sesión en AFIP…');
+        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
+            servicio: 'ARCA', subservicio: 'DDJJ pendientes', mensaje: 'Iniciando sesión en AFIP…'
+        });
 
         try {
             const r = await window.electronAPI.ddjjPendientes.procesar({

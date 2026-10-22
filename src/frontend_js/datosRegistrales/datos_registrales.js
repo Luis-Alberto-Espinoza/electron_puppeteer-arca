@@ -82,9 +82,7 @@ window.inicializarModuloDatosRegistrales = () => {
             pintarFila(datos);
             contador.textContent = `(${datos.procesados}/${datos.total})`;
             if (datos.tipo === 'progreso' && window.ruedaTrabajando) {
-                window.ruedaTrabajando.mostrar(
-                    `Datos registrales: ${datos.nombre || datos.cuit} (${datos.procesados + 1}/${datos.total})`,
-                    'No se colgó: está trabajando. La consulta de AFIP es lenta.');
+                window.ruedaTrabajando.recibirAviso(datos);
             }
         } else if (datos.tipo === 'finalizado') {
             const fin = el('div', 'dr-resultado dr-resultado-fin',
@@ -121,7 +119,9 @@ window.inicializarModuloDatosRegistrales = () => {
         contenido.appendChild(el('div', 'dr-resultado dr-resultado-procesando dr-inicio',
             `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: la consulta de AFIP es lenta)`));
         irAResultados();
-        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar('Datos registrales: iniciando sesión en AFIP…');
+        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
+            servicio: 'ARCA', subservicio: 'Datos registrales', mensaje: 'Iniciando sesión en AFIP…'
+        });
 
         try {
             const r = await window.electronAPI.datosRegistrales.procesar({

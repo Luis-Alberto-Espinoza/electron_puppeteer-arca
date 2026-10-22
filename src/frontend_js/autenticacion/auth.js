@@ -70,6 +70,7 @@ export class AuthManager {
         this.testButton = null;
         this.visibleSwitchId = null;
         this.pdvAnclaId = null;
+        this.nombreServicio = 'Facturación';
     }
 
     // Inicializa los eventos de autenticación con selectores personalizables
@@ -78,9 +79,11 @@ export class AuthManager {
             loginButtonId = 'loginButton',
             testButtonId = 'testButton',
             visibleSwitchId = 'chk-visible-factura',
-            pdvAnclaId = 'selectPuntoDeVentaFactura'   // ver registrarManejadorPdv
+            pdvAnclaId = 'selectPuntoDeVentaFactura',  // ver registrarManejadorPdv
+            nombreServicio = 'Facturación'             // título de la rueda: "ARCA · Facturación"
         } = config;
 
+        this.nombreServicio = nombreServicio;
         this.visibleSwitchId = visibleSwitchId;
         this.pdvAnclaId = pdvAnclaId;
         this.loginButton = document.getElementById(loginButtonId);
@@ -98,12 +101,13 @@ export class AuthManager {
         }
         if (window.ruedaTrabajando) {
             const oculto = !this._leerVisible();
-            window.ruedaTrabajando.mostrar(
-                esTest ? 'Facturando en AFIP (modo prueba)…' : 'Facturando en AFIP…',
-                oculto
-                    ? 'El navegador está oculto, por eso no ves nada: está trabajando. Puede tardar un par de minutos.'
-                    : 'No se colgó: está trabajando. Puede tardar un par de minutos.'
-            );
+            window.ruedaTrabajando.mostrar({
+                servicio: 'ARCA',
+                subservicio: this.nombreServicio,
+                mensaje: esTest ? 'Facturando en AFIP (modo prueba)… Puede tardar un par de minutos.'
+                                : 'Facturando en AFIP… Puede tardar un par de minutos.',
+                extra: oculto ? 'El navegador está oculto, por eso no ves nada: está trabajando.' : undefined
+            });
         }
     }
 

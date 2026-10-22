@@ -1,7 +1,7 @@
 /* ===== Rueda "está trabajando" (componente común) =====
    .rueda-giratoria: el círculo que gira, para usar donde sea (ej. diálogo de clave).
-   .rueda-aviso: cartel flotante abajo al centro con la rueda + texto, para procesos
-   largos sin nada que mirar (ej. facturar con el navegador oculto). */
+   .rueda-aviso: cartel flotante abajo al centro con la rueda + texto, para cualquier
+   automatización corriendo. Ver rueda.js (renglones fijos: título / cliente / mensaje x2 / extra). */
 .rueda-giratoria {
     flex-shrink: 0;
     width: 28px;
@@ -14,6 +14,9 @@
 @keyframes rueda-girar { to { transform: rotate(360deg); } }
 
 .rueda-aviso {
+    /* Tono del servicio (lo pone rueda.js); sin vista con tono, el violeta primario.
+       Mismos % que .modal-global: fondo = tono + negro, borde = tono + blanco. */
+    --rueda-tono: var(--c-primario-2);
     position: fixed;
     left: 50%;
     bottom: 24px;
@@ -21,27 +24,113 @@
     z-index: 10002;
     display: flex;
     align-items: center;
-    gap: 14px;
-    max-width: min(640px, 92vw);
+    gap: 16px;
+    /* Ancho FIJO: que no se agrande ni se achique con cada mensaje. */
+    width: min(460px, 92vw);
+    box-sizing: border-box;
     padding: 14px 20px;
     border-radius: var(--radio);
-    background: color-mix(in srgb, var(--c-primario-2), black 35%);
-    border: 1px solid color-mix(in srgb, var(--c-primario-1), white 30%);
-    box-shadow: var(--sombra);
+    background: color-mix(in srgb, var(--rueda-tono), black var(--modal-oscurecer, 40%));
+    border: 1px solid color-mix(in srgb, var(--rueda-tono), white var(--modal-aclarar, 35%));
+    box-shadow: var(--sombra-modal);
     color: #ffffff;
     font-family: var(--fuente);
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: left;
 }
-.rueda-aviso-titulo { font-weight: 700; }
-.rueda-aviso-sub { font-size: 0.85rem; color: rgba(255, 255, 255, 0.78); margin-top: 2px; }
 
-/* Variante error: roja y con ✕ (no se va sola). */
+.rueda-aviso-textos {
+    flex: 1;
+    min-width: 0;   /* sin esto el texto largo empuja y no se corta con "…" */
+}
+
+/* 1. Título fijo: servicio · subservicio, y el contador a la derecha. */
+.rueda-aviso-cabecera {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+}
+.rueda-aviso-titulo {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 15px;
+    font-weight: 700;
+}
+.rueda-aviso-contador {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;   /* "9 / 10" → "10 / 10" no mueve nada */
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* 2. Cliente: nombre (se corta con "…") + CUIT (nunca se corta). Alto reservado aunque
+   todavía no haya cliente (ej. "Iniciando sesión…"), así el cartel no salta. */
+.rueda-aviso-cliente {
+    display: flex;
+    gap: 6px;
+    min-height: 1.4em;
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.88);
+}
+.rueda-aviso-cliente-nombre {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.rueda-aviso-cliente-cuit {
+    flex-shrink: 0;
+    font-weight: 400;
+    font-variant-numeric: tabular-nums;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* 3-4. Mensaje: SIEMPRE 2 renglones de alto (aunque venga corto); si no entra, "…". */
+.rueda-aviso-mensaje {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    height: calc(2 * 1.4em);
+    margin-top: 4px;
+    word-break: break-word;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+/* 5. Extra: un renglón, más apagado. */
+.rueda-aviso-extra {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-height: 1.4em;
+    margin-top: 2px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+/* Variante error: roja, con ✕ (no se va sola) y el detalle ENTERO (un error no se corta). */
 .rueda-aviso--error {
     background: var(--c-peligro-2);
     border-color: var(--c-peligro-1);
 }
-.rueda-aviso--error .rueda-aviso-sub { color: rgba(255, 255, 255, 0.92); }
+.rueda-aviso--error .rueda-aviso-mensaje {
+    display: block;
+    height: auto;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+.rueda-aviso--error .rueda-aviso-extra,
+.rueda-aviso--error .rueda-aviso-cliente { display: none; }
 .rueda-aviso-cerrar {
     flex-shrink: 0;
+    align-self: flex-start;
     background: transparent;
     border: 0;
     color: #ffffff;

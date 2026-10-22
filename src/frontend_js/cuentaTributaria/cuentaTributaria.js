@@ -420,7 +420,7 @@ async function ejecutarConsultaPrimeraPasada() {
     limpiarTodosLosGrupos();
     ocultarSeccionArchivos();
 
-    mostrarModalProgreso('Consultando deuda en SCT...', `0 / ${items.length}`);
+    mostrarModalProgreso('Consultando deuda en SCT…', items.length);
 
     try {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
@@ -477,7 +477,7 @@ async function ejecutarConsultaSegundaPasada() {
         return;
     }
 
-    mostrarModalProgreso('Generando VEPs...', `0 / ${items.length}`);
+    mostrarModalProgreso('Generando VEPs…', items.length);
 
     try {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
@@ -531,7 +531,7 @@ async function ejecutarGenerarDirecto() {
         return;
     }
 
-    mostrarModalProgreso('Generando VEPs directos...', `0 / ${items.length}`);
+    mostrarModalProgreso('Generando VEPs directos…', items.length);
 
     try {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
@@ -589,7 +589,8 @@ async function reintentarGrupo({ clienteId, cuitAsociado }) {
         return;
     }
 
-    mostrarModalProgreso('Reintentando consulta...', `${original.cliente.nombre} — ${cuitAsociado}`);
+    mostrarModalProgreso('Reintentando consulta…');
+    actualizarProgreso(original.cliente.nombre, cuitAsociado, 'Reintentando consulta…');
 
     try {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
@@ -664,27 +665,19 @@ function actualizarBotonConfirmar() {
     btn.title = v.valido ? '' : v.mensaje;
 }
 
-function mostrarModalProgreso(titulo, texto) {
-    const modal = document.getElementById('modal-progreso-ct');
-    const tit = document.getElementById('modal-progreso-titulo-ct');
-    const txt = document.getElementById('progreso-texto-ct');
-    const fill = document.getElementById('progreso-fill-ct');
-    if (tit) tit.textContent = titulo;
-    if (txt) txt.textContent = texto || '';
-    if (fill) fill.style.width = '0%';
-    if (modal) modal.style.display = 'flex';
+// Rueda común (componentes/rueda): no bloquea y gira siempre, así no parece colgado.
+function mostrarModalProgreso(mensaje, total) {
+    window.ruedaTrabajando?.mostrar({
+        servicio: 'ARCA', subservicio: 'Cuenta Tributaria', mensaje, actual: 1, total
+    });
 }
 
-function actualizarProgreso(porcentaje, texto) {
-    const fill = document.getElementById('progreso-fill-ct');
-    const txt = document.getElementById('progreso-texto-ct');
-    if (fill) fill.style.width = `${Math.max(0, Math.min(100, porcentaje))}%`;
-    if (txt && texto != null) txt.textContent = texto;
+function actualizarProgreso(cliente, cuit, mensaje, actual, total) {
+    window.ruedaTrabajando?.mostrar({ cliente, cuit, mensaje, actual, total });
 }
 
 function ocultarModalProgreso() {
-    const modal = document.getElementById('modal-progreso-ct');
-    if (modal) modal.style.display = 'none';
+    window.ruedaTrabajando?.ocultar();
 }
 
 // ============================================================
@@ -699,9 +692,14 @@ function suscribirIPCProgreso() {
         if (datos.tipo === 'progreso') {
             const total = datos.total || 1;
             const proc = datos.procesados || 0;
-            const pct = Math.round((proc / total) * 100);
-            const nombre = datos.cliente?.nombre ? capitalizarTexto(datos.cliente.nombre) : '';
-            actualizarProgreso(pct, `${proc} / ${total} — ${nombre} ${datos.cuitAsociado || ''}`);
+            // El backend avisa ANTES de cada cliente (procesados = los ya hechos) y manda
+            // `cliente` como texto (el nombre), no como objeto.
+            const nombreCrudo = typeof datos.cliente === 'string' ? datos.cliente : datos.cliente?.nombre;
+            const nombre = nombreCrudo ? capitalizarTexto(nombreCrudo) : '';
+            const terminando = proc >= total;
+            actualizarProgreso(terminando ? '' : nombre, terminando ? '' : (datos.cuitAsociado || ''),
+                // Sin "Terminando…" queda el mensaje del arranque (consultar / generar VEPs).
+                terminando ? 'Terminando…' : undefined, proc + 1, total);
         }
     });
 }
