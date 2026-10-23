@@ -43,11 +43,3 @@ test('archivos faltantes (registros sin sus 2 archivos) sigue marcando incomplet
     assert.strictEqual(r.archivosFaltantes, 1);
     assert.match(r.mensaje, /Faltan 1 de 2 archivo\(s\): SIRTAC 2026-08 \(1 de 2\)/);
 });
-
-test('estado de la tarjeta: Éxito / PARCIAL (con los archivos que bajaron) / FALLO', () => {
-    const { estadoDelCliente } = require('./manager.js');
-    assert.strictEqual(estadoDelCliente({ descargaIncompleta: false, files: [] }), 'exito_final');   // sin registros
-    assert.strictEqual(estadoDelCliente({ descargaIncompleta: false, files: ['a.xls'] }), 'exito_final');
-    assert.strictEqual(estadoDelCliente({ descargaIncompleta: true, files: ['a.xls'] }), 'parcial');
-    assert.strictEqual(estadoDelCliente({ descargaIncompleta: true, files: [] }), 'error');
-});

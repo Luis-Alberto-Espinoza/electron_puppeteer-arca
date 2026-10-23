@@ -67,6 +67,16 @@
         <!-- Tabla de clientes (SelectorUsuarios) -->
         <div id="selector-usuarios-atm"></div>
 
+        <!-- Qué descargar (solo Constancias): lo mismo para todos los clientes, en una sola sesión de ATM -->
+        <div id="panel-documentos" class="lote-seccion" style="display:none">
+            <div class="lote-seccion-titulo">Qué descargar <span class="lote-hint">(un PDF por documento y cliente)</span></div>
+            <div class="documentos-fila">
+                <label class="documento-opcion"><input type="checkbox" class="chk-documento" value="cumplimiento" checked> Constancia de cumplimiento</label>
+                <label class="documento-opcion"><input type="checkbox" class="chk-documento" value="deuda" checked> Deuda</label>
+                <label class="documento-opcion"><input type="checkbox" class="chk-documento" value="inscripcion"> Inscripción IIBB</label>
+            </div>
+        </div>
+
         <!-- Impuestos por cliente (solo Apremios): cada cliente elige qué consultar -->
         <div id="panel-apremios" class="lote-seccion" style="display:none">
             <div class="lote-seccion-titulo">Impuestos a consultar por cliente <span class="lote-hint">(un Excel por cliente, una hoja por impuesto)</span></div>

@@ -231,6 +231,12 @@ async function procesarPdfConFallback(filePath, options = {}) {
         const cuitFinal = (resultado.encabezado && resultado.encabezado.cuit) || cuitGeneral;
         const cuitSuffix = cuitFinal ? `_${cuitFinal.replace(/-/g, '')}` : '';
 
+        // options.guardarCsv === false: solo devolver las tablas (el caller arma su propio archivo,
+        // ej. el Excel de deuda de Constancias ATM). Por defecto se sigue escribiendo el CSV.
+        if (options.guardarCsv === false) {
+            return { exito: true, metodo: metodoUsado, datos: resultado.tabla || resultado.datos, tablas: resultado.tablas, cuit: cuitFinal, allFilas: allFilas };
+        }
+
         let csvFileName;
         if (NOMBRE_ESPECIALISTAS[metodoUsado]) {
             // Usar el nombre de archivo específico del especialista

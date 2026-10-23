@@ -1,150 +1,152 @@
-const path = require('path');
-const {
-    getDownloadPath,
-    getFilename,
-    waitForFile
-} = require('../../../utils/fileManager.js');
+const { waitForFile } = require('../../../utils/fileManager.js');
 const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
+const { clicReal } = require('./oficina_constanciaFiscal.js');
 
-/**
- * Gestiona la descarga de la constancia fiscal desde la página de ATM.
- * @param {import('puppeteer').Page} page - La página de Puppeteer.
- * @param {string} nombreUsuario - El nombre de usuario para la ruta de descarga.
- * @param {string} cuit - El CUIT para nombrar el archivo.
- * @param {string} downloadsPath - La ruta base de descargas del sistema.
- * @returns {Promise<{success: boolean, files: string[], downloadDir: string}>}
- */
-async function gestionarConstanciaFiscal(page, nombreUsuario, cuit, downloadsPath) {
-  try {
-    // 1. Obtener la ruta de descarga y configurar el comportamiento de descarga
-    const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuit, nombreUsuario, 'archivos_atm');
-    const client = await page.target().createCDPSession();
-    await client.send('Page.setDownloadBehavior', {
-      behavior: 'allow',
-      downloadPath: downloadDir
-    });
+const INTERVALO_MS = 250;
+const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // 2. Navegar dentro del iframe y hacer clic en los botones
-    const frameHandle = await page.waitForSelector('iframe[src="nucleo/inicio.zul"]');
-    const frame = await frameHandle.contentFrame();
-    if (!frame) {
-      throw new Error('No se pudo encontrar el contentFrame del iframe.');
-    }
-
-    const clickButtonInFrame = async (text) => {
-      // Espera a que el botón con ese texto exista Y esté habilitado.
-      // En ATM los botones arrancan disabled hasta que se selecciona la fila de la tabla.
-      await frame.waitForFunction((buttonText) =>
-        Array.from(document.querySelectorAll('.z-button')).some(
-          b => b.innerText.trim() === buttonText && !b.disabled
-        ), { timeout: 10000 }, text);
-      const clicked = await frame.evaluate((buttonText) => {
-        const buttons = document.querySelectorAll(".z-button");
-        for (const button of buttons) {
-          if (button.innerText.trim() === buttonText && !button.disabled) {
-            button.click();
-            return true;
-          }
-        }
-        return false;
-      }, text);
-      if (!clicked) {
-        const textosEncontrados = await frame.evaluate(() =>
-          Array.from(document.querySelectorAll('.z-button')).map(b => JSON.stringify(b.innerText))
-        );
-        console.log(`[constancia][DEBUG] No se encontró '${text}'. Botones .z-button presentes:`, textosEncontrados);
-        throw new Error(`No se encontró el botón '${text}' en el iframe.`);
-      }
-    };
-
-    const browser = page.browser();
-    const newPagePromise = new Promise(resolve => {
-      browser.once('targetcreated', async target => {
-        if (target.type() === 'page') {
-          const newPage = await target.page();
-          resolve(newPage);
-        }
-      });
-    });
-
-    // 2b. Seleccionar la fila de la tabla. ATM deja los botones disabled
-    // hasta que hay una fila seleccionada (aria-selected="true").
-    await frame.waitForSelector('.z-listitem', { timeout: 10000 });
-    await frame.evaluate(() => {
-      const fila = document.querySelector('.z-listitem');
-      // ZK escucha el click del DOM; un clic en la celda selecciona la fila.
-      const celda = fila && (fila.querySelector('.z-listcell') || fila);
-      if (celda) celda.click();
-    });
-
-    await clickButtonInFrame("Imprimir Constancia de Inscripción");
-
-    try {
-        // INTENTA encontrar y procesar el diálogo de deuda (escenario CON deuda)
-        // Se usa un timeout más corto para no demorar el flujo si no hay deuda.
-        await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Aceptar"), { timeout: 5000 });
-        await clickButtonInFrame("Aceptar");
-        
-        // Una vez aceptado, se espera el botón para imprimir la deuda
-        await frame.waitForFunction(() => Array.from(document.querySelectorAll(".z-button")).some(btn => btn.innerText.trim() === "Imprimir Deuda"), { timeout: 8000 });
-        await clickButtonInFrame("Imprimir Deuda");
-
-    } catch (error) {
-        // CATCH: Se asume que no hay diálogo de deuda (escenario SIN deuda)
-        // El error de timeout es esperado en este caso. No hacemos nada y dejamos que el flujo continúe,
-        // ya que la promesa 'newPagePromise' se resolverá con la apertura directa del PDF.
-        console.log('No se encontró diálogo de deuda, se asume descarga directa de la constancia.');
-    }
-
-    // 3. Esperar a que la nueva pestaña con el visor de PDF se abra
-    const pdfPage = await newPagePromise;
-    // console.log('Nueva pestaña con visor de PDF detectada.');
-
-    // 4. Preparar nombres de archivo y forzar la descarga
-    // console.log('Forzando la descarga del PDF desde el visor...');
-    const finalFilename = getFilename('constancia_fiscal', cuit, 'pdf');
-    const tempFilename = `temp_${Date.now()}.pdf`; // Nombre temporal
-
-    await pdfPage.evaluate((fileName) => {
-        return new Promise(async (resolve, reject) => {
-            try {
-                const response = await window.fetch(window.location.href);
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-                resolve();
-            } catch (e) {
-                reject(e);
-            }
-        });
-    }, tempFilename);
-
-    // 5. Esperar a que el archivo temporal aparezca y renombrarlo al nombre final
-    const finalPath = await waitForFile(downloadDir, tempFilename, finalFilename, 30000);
-    if (!finalPath) {
-        throw new Error('La descarga del archivo PDF falló o excedió el tiempo de espera.');
-    }
-    // console.log(`¡Archivo descargado y verificado en: ${finalPath}!`);
-
-    // 6. Limpieza
-    await pdfPage.close();
-
-    return {
-      success: true,
-      files: [finalPath], // El fileManager ahora devuelve la ruta completa
-      downloadDir
-    };
-
-  } catch (error) {
-    console.error('❌ Error gestionando la constancia fiscal:', error);
-    throw new Error('Fallo el proceso de gestion de constancia fiscal: ' + error.message);
-  }
+/** Carpeta del cliente donde van las constancias (la misma de siempre). */
+async function carpetaConstancias(downloadsPath, cuit, nombreUsuario) {
+    return getDownloadPathContribuyente(downloadsPath, cuit, nombreUsuario, 'archivos_atm');
 }
 
-module.exports = { gestionarConstanciaFiscal };
+/** Corre en la página: ¿ya se ve el "Resultado Control"? (aparece recién después del 1er clic). */
+function hayResultadoControl() {
+    return Array.from(document.querySelectorAll('.z-label'))
+        .some(l => /^Deuda (Automotores|Inmuebles|Ingresos Brutos)/.test(l.textContent.trim()));
+}
+
+/**
+ * Lee la pantalla de Constancia de Cumplimiento Fiscal (sin bajar nada):
+ *  - hayDeuda: el botón "Imprimir Deuda" está A LA VISTA (ATM lo oculta si no hay deuda).
+ *  - deudas: los textos de "Resultado Control", ej. "Posee deuda en Ingresos Brutos".
+ */
+async function leerResultadoControl(frame) {
+    // "Resultado Control" (y el botón de deuda) llega DESPUÉS que los botones: esperar sus renglones.
+    await frame.waitForFunction(hayResultadoControl, { timeout: 20000, polling: INTERVALO_MS })
+        .catch(() => console.warn('[constancia] No se vio el "Resultado Control": se lee lo que haya.'));
+    await esperar(1000);   // que ZK termine de mostrar/ocultar "Imprimir Deuda"
+    return frame.evaluate(() => {
+        const botonDeuda = Array.from(document.querySelectorAll('.z-button'))
+            .find(b => b.textContent.trim() === 'Imprimir Deuda');
+        const deudas = Array.from(document.querySelectorAll('.z-label'))
+            .map(l => l.textContent.trim())
+            .filter(t => /^Posee deuda/i.test(t));
+        return {
+            hayDeuda: !!(botonDeuda && botonDeuda.offsetParent !== null && !botonDeuda.disabled),
+            deudas: [...new Set(deudas)]
+        };
+    });
+}
+
+/** Inscripciones de IIBB: ATM deja los botones disabled hasta que hay una fila seleccionada. */
+async function seleccionarPrimeraFila(frame) {
+    await frame.waitForSelector('.z-listitem', { timeout: 10000 });
+    // Clic por código en la celda (como el código viejo, que andaba): ZK selecciona la fila.
+    const ok = await frame.evaluate(() => {
+        const fila = document.querySelector('.z-listitem');
+        const celda = fila && (fila.querySelector('.z-listcell') || fila);
+        if (!celda) return false;
+        celda.click();
+        return true;
+    });
+    if (!ok) throw new Error('No se encontró la fila de la inscripción para seleccionarla.');
+}
+
+/**
+ * Hace clic en un botón de ATM que abre el PDF en una pestaña nueva y lo guarda en la carpeta.
+ * Si aparece un cartel con "Aceptar" antes de la pestaña, lo acepta.
+ *
+ * Opciones:
+ *   - esperaPestanaMs: cuánto esperar la pestaña del PDF.
+ *   - cortarSi: función que corre en la página; si da true se deja de esperar (3 s de gracia
+ *     por si la pestaña viene atrás). Ej. hayResultadoControl: el 1er clic de "Imprimir Constancia"
+ *     NO imprime, hace el control y refresca la pantalla.
+ *   - nombreFinal null: si se abre un PDF no pedido, se cierra sin guardarlo.
+ *
+ * @returns {Promise<string|null>} ruta del PDF, o null si ATM NO abrió (o no se guardó) ninguna pestaña.
+ */
+async function descargarPdfDeBoton(page, frame, textoBoton, downloadDir, nombreFinal, { esperaPestanaMs = 20000, cortarSi = null } = {}) {
+    // Mismo comportamiento de descarga que antes: el PDF se fuerza a esta carpeta.
+    const client = await page.target().createCDPSession();
+    await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir });
+
+    // Espera a que el botón exista, esté a la vista y habilitado.
+    await frame.waitForFunction((texto) => Array.from(document.querySelectorAll('.z-button'))
+        .some(b => b.textContent.trim() === texto && b.offsetParent !== null && !b.disabled),
+        { timeout: 10000, polling: INTERVALO_MS }, textoBoton)
+        .catch(() => { throw new Error(`No apareció el botón "${textoBoton}" (o está deshabilitado).`); });
+
+    const browser = page.browser();
+    let pestanaPdf = null;
+    const alAbrirPestana = async (target) => {
+        if (target.type() === 'page' && !pestanaPdf) pestanaPdf = await target.page();
+    };
+    browser.on('targetcreated', alAbrirPestana);
+
+    try {
+        const clic = await clicReal(frame, (texto) => Array.from(document.querySelectorAll('.z-button'))
+            .find(b => b.textContent.trim() === texto && b.offsetParent !== null && !b.disabled) || null, textoBoton);
+        if (!clic) throw new Error(`No se pudo hacer clic en "${textoBoton}".`);
+
+        // Esperar la pestaña del PDF; si en el medio sale un cartel con "Aceptar", aceptarlo.
+        const inicio = Date.now();
+        let cortarDesde = null;
+        while (!pestanaPdf && Date.now() - inicio < esperaPestanaMs) {
+            if (cortarSi) {
+                if (cortarDesde === null && await frame.evaluate(cortarSi).catch(() => false)) cortarDesde = Date.now();
+                if (cortarDesde !== null && Date.now() - cortarDesde > 3000) break;
+            }
+            await clicReal(frame, () => {
+                const modal = Array.from(document.querySelectorAll('.z-window-modal'))
+                    .find(w => getComputedStyle(w).display !== 'none' && getComputedStyle(w).visibility !== 'hidden');
+                return (modal && Array.from(modal.querySelectorAll('.z-button'))
+                    .find(b => b.textContent.trim() === 'Aceptar')) || null;
+            }).catch(() => false);
+            await esperar(INTERVALO_MS);
+        }
+    } finally {
+        browser.off('targetcreated', alAbrirPestana);
+    }
+
+    if (pestanaPdf && !nombreFinal) {
+        await pestanaPdf.close().catch(() => {});
+        return null;
+    }
+
+    if (!pestanaPdf && !cortarSi) {
+        // Para diagnosticar: qué quedó en pantalla después del clic (cartel, visor embebido, etc.).
+        const pantalla = await frame.evaluate(() => ({
+            ventanas: Array.from(document.querySelectorAll('.z-window, .z-window-modal, .z-messagebox-window'))
+                .filter(w => getComputedStyle(w).display !== 'none')
+                .map(w => w.innerText.replace(/\s+/g, ' ').slice(0, 200)),
+            iframes: Array.from(document.querySelectorAll('iframe')).map(i => i.src).slice(0, 5)
+        })).catch(e => ({ error: e.message }));
+        const pestanas = (await browser.pages()).map(p => p.url());
+        console.warn(`[constancia] "${textoBoton}" no abrió pestaña. Pantalla:`, JSON.stringify(pantalla), 'Pestañas:', JSON.stringify(pestanas));
+    }
+    if (!pestanaPdf) return null;
+
+    // Forzar la descarga del PDF desde el visor (igual que antes).
+    await pestanaPdf.waitForFunction(() => document.readyState === 'complete', { timeout: 30000 }).catch(() => {});
+    const nombreTemporal = `temp_${Date.now()}.pdf`;
+    await pestanaPdf.evaluate(async (nombre) => {
+        const respuesta = await window.fetch(window.location.href);
+        const blob = await respuesta.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombre;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+    }, nombreTemporal);
+
+    const rutaFinal = await waitForFile(downloadDir, nombreTemporal, nombreFinal, 30000);
+    await pestanaPdf.close().catch(() => {});
+    if (!rutaFinal) throw new Error(`El PDF de "${textoBoton}" no terminó de bajar.`);
+    return rutaFinal;
+}
+
+module.exports = { carpetaConstancias, hayResultadoControl, leerResultadoControl, seleccionarPrimeraFila, descargarPdfDeBoton };

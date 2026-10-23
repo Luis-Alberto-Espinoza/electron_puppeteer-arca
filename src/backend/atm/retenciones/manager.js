@@ -6,6 +6,7 @@ const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
 const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
+const { estadoDelCliente } = require('../../comun/estadoResultado.js');
 
 /**
  * Procesa un lote de usuarios para descargar retenciones
@@ -114,14 +115,4 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
     }
 }
 
-/**
- * Estado de la tarjeta del cliente en ATM Lote:
- *   todo bien → 'exito_final' (verde) · falló algo pero bajaron archivos → 'parcial' (amarillo,
- *   se ven los que bajaron) · falló algo y no bajó nada → 'error' (rojo).
- */
-function estadoDelCliente(resultadoFlujo) {
-    if (resultadoFlujo.descargaIncompleta !== true) return 'exito_final';
-    return (resultadoFlujo.files || []).length > 0 ? 'parcial' : 'error';
-}
-
-module.exports = { procesarLote, estadoDelCliente };
+module.exports = { procesarLote };

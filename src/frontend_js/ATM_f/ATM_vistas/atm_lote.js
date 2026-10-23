@@ -8,7 +8,8 @@ window.inicializarModuloLoteATM = () => {
         constancias: {
             label:         'Constancias',
             tienePeriodo:  false,
-            ejecutar:      (clientes, { visible }) => window.electronAPI.atm.constanciaFiscal.generarLote({ usuarios: clientes, visible })
+            eligeDocumentos: true,       // cumplimiento / deuda / inscripción (panel-documentos)
+            ejecutar:      (clientes, { visible, documentos }) => window.electronAPI.atm.constanciaFiscal.generarLote({ usuarios: clientes, visible, documentos })
         },
         planesPago: {
             label:         'Planes de Pago',
@@ -82,6 +83,7 @@ window.inicializarModuloLoteATM = () => {
     const finalizadosContainer= document.getElementById('lote-finalizados-container');
     const finalizadosDiv      = document.getElementById('lote-finalizados');
     const panelApremios       = document.getElementById('panel-apremios');
+    const panelDocumentos     = document.getElementById('panel-documentos');
     const tablaApremios       = document.getElementById('tabla-apremios');
     const apremiosSinClientes = document.getElementById('apremios-sin-clientes');
 
@@ -262,6 +264,7 @@ window.inicializarModuloLoteATM = () => {
         const config = CONFIG_SUB[sub];
         panelPeriodo.style.display = config.tienePeriodo ? 'block' : 'none';
         panelApremios.style.display = config.impuestosPorCliente ? 'block' : 'none';
+        panelDocumentos.style.display = config.eligeDocumentos ? 'block' : 'none';
         impuestosPorCliente.clear();
         renderizarPanelApremios([]);
 
@@ -696,6 +699,15 @@ window.inicializarModuloLoteATM = () => {
             }
         }
 
+        // Constancias: qué documentos bajar (al menos uno).
+        let documentos;
+        if (config.eligeDocumentos) {
+            const marcados = Array.from(panelDocumentos.querySelectorAll('.chk-documento:checked'));
+            if (marcados.length === 0) { alert('Marque al menos un documento para descargar.'); return; }
+            documentos = marcados.map(chk => chk.value);
+            textoPeriodos += `\n\nDescargar: ${marcados.map(chk => chk.parentElement.textContent.trim()).join(', ')}`;
+        }
+
         const etiquetaImpuestos = (c) => c.impuestos
             ? ` (${c.impuestos.map(id => IMPUESTOS_APREMIOS.find(i => i.id === id).label).join(', ')})`
             : '';
@@ -715,7 +727,7 @@ window.inicializarModuloLoteATM = () => {
         });
 
         try {
-            await config.ejecutar(clientes, { visible: chkVisible.checked });
+            await config.ejecutar(clientes, { visible: chkVisible.checked, documentos });
         } catch (error) {
             procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         } finally {

@@ -6,6 +6,7 @@ const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
 const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
+const { estadoDelCliente } = require('../../comun/estadoResultado.js');
 
 /**
  * Procesa un lote de usuarios para generar constancias fiscales
@@ -13,16 +14,17 @@ const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
  * @param {Array} params.usuarios - Lista de usuarios a procesar
  * @param {string} params.downloadsPath - Ruta de descargas
  * @param {boolean} [params.visible] - false = navegador oculto; si no llega, visible
+ * @param {string[]} [params.documentos] - 'cumplimiento' | 'deuda' | 'inscripcion' (por defecto cumplimiento + deuda)
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
-async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso) {
+async function procesarLote({ usuarios, downloadsPath, visible, documentos }, enviarProgreso) {
     // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
     const aviso = crearAvisoProgreso(enviarProgreso, usuarios.length);
     aviso.general(`Iniciando proceso de Constancia Fiscal para ${usuarios.length} usuario(s).`);
 
     for (let i = 0; i < usuarios.length; i++) {
         const usuario = usuarios[i];
-        await procesarUsuario(usuario, downloadsPath, aviso, visible);
+        await procesarUsuario(usuario, downloadsPath, aviso, visible, documentos);
         aviso.clienteTerminado();
 
         // Pausa entre usuarios para no sobrecargar el sistema
@@ -37,7 +39,7 @@ async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso
 /**
  * Procesa un único usuario
  */
-async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
+async function procesarUsuario(usuario, downloadsPath, aviso, visible, documentos) {
     const { cuit, nombre = '', apellido = '', id } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -61,16 +63,18 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
             nombreParaArchivos,
             downloadsPath,
             enviarProgresoUsuario,
-            { visible }
+            { visible, documentos }
         );
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
-            enviarProgresoUsuario('exito_final', 'Constancia Fiscal generada con éxito.', resultadoFlujo);
+            // El mensaje que se ve es el del flujo (viene en resultadoFlujo y pisa este).
+            const incompleta = resultadoFlujo.descargaIncompleta === true;
+            enviarProgresoUsuario(estadoDelCliente(resultadoFlujo), resultadoFlujo.mensaje, resultadoFlujo);
             historialRepo.registrar({
-                dominio: 'constanciaFiscal', accion: 'generar', estado: 'exito',
+                dominio: 'constanciaFiscal', accion: 'generar', estado: incompleta ? 'error' : 'exito',
                 cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
-                resumen: 'Constancia Fiscal generada',
-                detalle: { archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo }
+                resumen: incompleta ? `Constancias INCOMPLETAS: ${resultadoFlujo.mensaje}` : resultadoFlujo.mensaje,
+                detalle: { documentos, archivos: resultadoFlujo.files, deudas: resultadoFlujo.deudas, fallos: resultadoFlujo.fallos }
             });
         }
 
