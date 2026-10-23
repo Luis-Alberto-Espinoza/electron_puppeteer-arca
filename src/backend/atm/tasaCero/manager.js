@@ -78,16 +78,20 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
         const clienteHist = historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit });
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
-            enviarProgresoCliente.final('exito', resultadoFlujo.mensaje || 'Comprobante Tasa Cero descargado exitosamente.', {
+            // Rechazada: el PDF bajó, pero la solicitud NO salió. En verde se confundía con aprobada.
+            const rechazada = resultadoFlujo.estado === 'RECHAZADA';
+            enviarProgresoCliente.final(rechazada ? 'rechazada' : 'exito',
+                rechazada ? 'ATM rechazó la solicitud de Tasa Cero (se bajó el comprobante del rechazo).'
+                    : (resultadoFlujo.mensaje || 'Comprobante Tasa Cero descargado exitosamente.'), {
                 archivoPdf: resultadoFlujo.rutaArchivo,
                 downloadDir: resultadoFlujo.carpetaDestino,
                 periodo: resultadoFlujo.periodo,
                 caso: resultadoFlujo.caso
             });
             historialRepo.registrar({
-                dominio: 'tasaCero', accion: 'generar', estado: 'exito',
+                dominio: 'tasaCero', accion: 'generar', estado: rechazada ? 'error' : 'exito',
                 cliente: clienteHist,
-                resumen: `Comprobante Tasa Cero descargado${resultadoFlujo.periodo ? ' ' + resultadoFlujo.periodo : ''}`,
+                resumen: `${rechazada ? 'Tasa Cero RECHAZADA' : 'Comprobante Tasa Cero descargado'}${resultadoFlujo.periodo ? ' ' + resultadoFlujo.periodo : ''}`,
                 detalle: { periodo: resultadoFlujo.periodo, archivo: resultadoFlujo.rutaArchivo, caso: resultadoFlujo.caso }
             });
         } else if (resultadoFlujo?.noCumple) {

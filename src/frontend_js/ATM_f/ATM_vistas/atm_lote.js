@@ -950,6 +950,9 @@ window.inicializarModuloLoteATM = () => {
                     ? '<span class="badge bg-warning text-dark">NO HABILITADO</span>'
                 : estadoFinal === 'no_cumple'
                     ? '<span class="badge bg-warning text-dark">NO CUMPLE</span>'
+                // Tasa Cero rechazada: hay archivo (el comprobante del rechazo) pero no es un éxito.
+                : estadoFinal === 'rechazada'
+                    ? `<span class="badge bg-warning text-dark">RECHAZADA - ${cantidadArchivos} archivo(s)</span>`
                     : estadoFinal === 'parcial'
                     ? `<span class="badge bg-warning text-dark">PARCIAL - ${files.length} archivo(s)</span>`
                     // Terminó bien pero no había nada que bajar (sin registros, sin planes vigentes…):
