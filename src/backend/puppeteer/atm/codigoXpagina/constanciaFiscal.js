@@ -1,6 +1,6 @@
 const { waitForFile } = require('../../../utils/fileManager.js');
 const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
-const { clicReal } = require('./oficina_constanciaFiscal.js');
+const { clicReal } = require('./menuOficinaVirtual.js');
 
 const INTERVALO_MS = 250;
 const esperar = (ms) => new Promise(resolve => setTimeout(resolve, ms));

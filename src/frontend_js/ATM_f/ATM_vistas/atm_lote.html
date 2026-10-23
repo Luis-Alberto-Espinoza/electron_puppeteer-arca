@@ -67,6 +67,18 @@
         <!-- Tabla de clientes (SelectorUsuarios) -->
         <div id="selector-usuarios-atm"></div>
 
+        <!-- Impuestos (solo Planes de Pago): cerrado muestra lo de siempre; al expandir, todos los de ATM -->
+        <div id="panel-impuestos-plan" class="lote-seccion" style="display:none">
+            <details class="impuestos-plan">
+                <summary>
+                    <span class="lote-seccion-titulo">Impuestos</span>
+                    <span id="resumenImpuestosPlan" class="impuestos-plan-resumen"></span>
+                    <span class="lote-hint">(expandir para cambiar, solo para esta corrida)</span>
+                </summary>
+                <div id="listaImpuestosPlan" class="documentos-fila impuestos-plan-lista"></div>
+            </details>
+        </div>
+
         <!-- Qué descargar (solo Constancias): lo mismo para todos los clientes, en una sola sesión de ATM -->
         <div id="panel-documentos" class="lote-seccion" style="display:none">
             <div class="lote-seccion-titulo">Qué descargar <span class="lote-hint">(un PDF por documento y cliente)</span></div>

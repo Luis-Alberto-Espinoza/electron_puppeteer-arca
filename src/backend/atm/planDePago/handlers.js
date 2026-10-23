@@ -14,7 +14,7 @@ function setupPlanDePagoHandlers(ipcMain, mainWindow, app) {
     // Handler para generar planes de pago en lote
     ipcMain.handle('atm:planDePago:generarLote', async (event, datos) => {
         // `visible` se elige una vez para todo el lote (false = navegador oculto).
-        const { usuarios, visible } = datos;
+        const { usuarios, visible, impuestos } = datos;
         const downloadsPath = app.getPath('downloads');
 
         console.log(`[ATM:PlanDePago] Iniciando lote para ${usuarios.length} usuario(s)`);
@@ -27,7 +27,7 @@ function setupPlanDePagoHandlers(ipcMain, mainWindow, app) {
         };
 
         try {
-            await procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso);
+            await procesarLote({ usuarios, downloadsPath, visible, impuestos }, enviarProgreso);
             return { success: true, mensaje: 'Proceso de Plan de Pago iniciado.' };
         } catch (error) {
             console.error('[ATM:PlanDePago] Error:', error);

@@ -14,7 +14,8 @@ window.inicializarModuloLoteATM = () => {
         planesPago: {
             label:         'Planes de Pago',
             tienePeriodo:  false,
-            ejecutar:      (clientes, { visible }) => window.electronAPI.atm.planDePago.generarLote({ usuarios: clientes, visible })
+            eligeImpuestosPlan: true,    // panel desplegable panel-impuestos-plan
+            ejecutar:      (clientes, { visible, impuestos }) => window.electronAPI.atm.planDePago.generarLote({ usuarios: clientes, visible, impuestos })
         },
         tasaCero: {
             label:         'Tasa Cero',
@@ -36,6 +37,16 @@ window.inicializarModuloLoteATM = () => {
             ejecutar:      (clientes, { visible }) => window.electronAPI.atm.apremios.generarLote({ clientes, visible })
         }
     };
+
+    // Botones de "Consulta Planes de Pago" en ATM, con el texto TAL CUAL (el backend hace clic por texto).
+    const IMPUESTOS_PLAN_PAGO = [
+        'Automotor', 'Inmueble', 'Ingresos Brutos', 'Agentes', 'Multas de tránsito', 'Sorteos',
+        'Sellos', 'Tasa de Justicia', 'Escribanos', 'Agente Registro Automotor', 'Multas de Transporte',
+        'Agente Entidades Financieras', 'Agentes de Retención y Percepción IIBB', 'Impuesto Solidario Educativo',
+        'Tasa Fiscalización Casinos Privados', 'Multas, Int. y Recargos no Tributarios', 'Cont. Emp. Serv. Público Pasajeros'
+    ];
+    // Los "de siempre": vienen marcados (y es lo que se ve con el panel cerrado).
+    const IMPUESTOS_PLAN_POR_DEFECTO = ['Ingresos Brutos'];
 
     // Botones de "Consulta de Apremios" en ATM. Mismos ids que el backend (atm/apremios/tablaApremios.js).
     const IMPUESTOS_APREMIOS = [
@@ -84,6 +95,37 @@ window.inicializarModuloLoteATM = () => {
     const finalizadosDiv      = document.getElementById('lote-finalizados');
     const panelApremios       = document.getElementById('panel-apremios');
     const panelDocumentos     = document.getElementById('panel-documentos');
+    const panelImpuestosPlan  = document.getElementById('panel-impuestos-plan');
+    const listaImpuestosPlan  = document.getElementById('listaImpuestosPlan');
+    const resumenImpuestosPlan = document.getElementById('resumenImpuestosPlan');
+
+    /** Impuestos marcados en el panel de Planes de Pago (textos de ATM). */
+    const impuestosPlanMarcados = () =>
+        Array.from(listaImpuestosPlan.querySelectorAll('.chk-impuesto-plan:checked')).map(chk => chk.value);
+
+    function actualizarResumenImpuestosPlan() {
+        const marcados = impuestosPlanMarcados();
+        resumenImpuestosPlan.textContent = marcados.length ? marcados.join(', ') : 'ninguno marcado';
+    }
+
+    /** Arma las casillas con los de siempre marcados (se llama cada vez que se entra a Planes de Pago). */
+    function renderizarImpuestosPlan() {
+        listaImpuestosPlan.innerHTML = '';
+        IMPUESTOS_PLAN_PAGO.forEach(impuesto => {
+            const etiqueta = document.createElement('label');
+            etiqueta.className = 'documento-opcion';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.className = 'chk-impuesto-plan';
+            chk.value = impuesto;
+            chk.checked = IMPUESTOS_PLAN_POR_DEFECTO.includes(impuesto);
+            chk.addEventListener('change', actualizarResumenImpuestosPlan);
+            etiqueta.append(chk, ` ${impuesto}`);
+            listaImpuestosPlan.appendChild(etiqueta);
+        });
+        panelImpuestosPlan.querySelector('details').open = false;
+        actualizarResumenImpuestosPlan();
+    }
     const tablaApremios       = document.getElementById('tabla-apremios');
     const apremiosSinClientes = document.getElementById('apremios-sin-clientes');
 
@@ -265,6 +307,8 @@ window.inicializarModuloLoteATM = () => {
         panelPeriodo.style.display = config.tienePeriodo ? 'block' : 'none';
         panelApremios.style.display = config.impuestosPorCliente ? 'block' : 'none';
         panelDocumentos.style.display = config.eligeDocumentos ? 'block' : 'none';
+        panelImpuestosPlan.style.display = config.eligeImpuestosPlan ? 'block' : 'none';
+        if (config.eligeImpuestosPlan) renderizarImpuestosPlan();
         impuestosPorCliente.clear();
         renderizarPanelApremios([]);
 
@@ -708,6 +752,14 @@ window.inicializarModuloLoteATM = () => {
             textoPeriodos += `\n\nDescargar: ${marcados.map(chk => chk.parentElement.textContent.trim()).join(', ')}`;
         }
 
+        // Planes de Pago: qué impuestos consultar (al menos uno).
+        let impuestosPlan;
+        if (config.eligeImpuestosPlan) {
+            impuestosPlan = impuestosPlanMarcados();
+            if (impuestosPlan.length === 0) { alert('Marque al menos un impuesto para consultar.'); return; }
+            textoPeriodos += `\n\nImpuestos: ${impuestosPlan.join(', ')}`;
+        }
+
         const etiquetaImpuestos = (c) => c.impuestos
             ? ` (${c.impuestos.map(id => IMPUESTOS_APREMIOS.find(i => i.id === id).label).join(', ')})`
             : '';
@@ -727,7 +779,7 @@ window.inicializarModuloLoteATM = () => {
         });
 
         try {
-            await config.ejecutar(clientes, { visible: chkVisible.checked, documentos });
+            await config.ejecutar(clientes, { visible: chkVisible.checked, documentos, impuestos: impuestosPlan });
         } catch (error) {
             procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         } finally {

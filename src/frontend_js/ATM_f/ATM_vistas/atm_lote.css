@@ -300,6 +300,34 @@
     cursor: pointer;
 }
 
+/* Impuestos de Planes de Pago: desplegable */
+.impuestos-plan summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+    cursor: pointer;
+    list-style: none;
+}
+.impuestos-plan summary::-webkit-details-marker { display: none; }
+.impuestos-plan summary::before {
+    content: '▸';
+    color: #f6e05e;
+    transition: transform 0.15s;
+}
+.impuestos-plan[open] summary::before { transform: rotate(90deg); }
+.impuestos-plan summary .lote-seccion-titulo { margin-bottom: 0; }
+.impuestos-plan-resumen {
+    color: #e2e8f0;
+    font-weight: 600;
+    font-size: 14px;
+}
+.impuestos-plan-lista {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
 /* Periodo */
 .periodo-fila {
     display: flex;

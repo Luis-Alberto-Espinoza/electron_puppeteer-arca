@@ -1,55 +1,21 @@
 /**
- * Navega a la sección de Plan de Pagos dentro de la Oficina Virtual,
- * interactuando con el menú dentro de un iframe.
- * @param {import('puppeteer').Page} page - La instancia de la página de Puppeteer.
+ * Entra a "Consulta Planes de Pago" de la Oficina Virtual, POR TEXTO.
+ * Antes: clic en el 6º menú → 1er ítem (andaba solo mientras "Planes de Pago" cayera 6º).
  */
-async function navegarAPlanDePago(page) {
-  try {
-    // Esperar que el iframe principal esté cargado
-    const frameHandle = await page.waitForSelector('iframe[src="nucleo/inicio.zul"]');
-    const frame = await frameHandle.contentFrame();
+const { abrirMenu } = require('./menuOficinaVirtual.js');
 
-    if (!frame) {
-      throw new Error('No se pudo encontrar el contentFrame del iframe.');
-    }
-
-    // console.log('Navegando al menú de Plan de Pagos...');
-
-    // Ejecutamos la lógica de clics en el menú dentro del iframe
-    await frame.evaluate(async () => {
-      // Espera breve para asegurar que el DOM esté cargado
-      await new Promise(res => setTimeout(res, 1500));
-
-      const menuItems = document.querySelectorAll('a[role="menuitem"]');
-
-      // if (menuItems.length < 6) {
-      //   throw new Error("No se encontraron suficientes elementos en el menú para Plan de Pagos.");
-      // }
-
-      // Clic en el 6to elemento del menú (índice 5)
-      menuItems[5].click();
-
-      // Se asume que el submenú aparece inmediatamente
-      const submenus = document.getElementsByClassName("z-menupopup-content");
-      if (submenus.length > 0 && submenus[0].childNodes.length > 0) {
-        // Hacemos clic en el primer item del submenú
-        submenus[0].childNodes[0].click();
-        // console.log("Clic en el submenú de Plan de Pagos realizado.");
-      } else {
-        throw new Error("El submenú de Plan de Pagos no apareció como se esperaba.");
-      }
-    });
-
-    // Pausa para que la acción se complete.
-    await new Promise(res => setTimeout(res, 2000));
-
-    // console.log('Navegación a Plan de Pagos completada.');
-
-
-  } catch (error) {
-    console.error('Error al navegar al Plan de Pagos:', error);
-    throw new Error('Fallo el proceso de navegación al Plan de Pagos.');
-  }
+/**
+ * Planes de Pago → Consulta de Plan de Pago. Espera a que estén los botones de impuestos.
+ * @param {import('puppeteer').Page} page - pestaña de la Oficina Virtual
+ * @returns {Promise<import('puppeteer').Frame>}
+ */
+async function entrarPlanDePago(page) {
+    console.log('Navegando a Planes de Pago → Consulta de Plan de Pago...');
+    const frame = await abrirMenu(page, 'Planes de Pago', 'Consulta de Plan de Pago');
+    await frame.waitForFunction(() => Array.from(document.querySelectorAll('.z-button'))
+        .some(b => b.textContent.trim() === 'Ingresos Brutos'), { timeout: 20000, polling: 250 })
+        .catch(() => { throw new Error('No cargó la pantalla de Consulta de Planes de Pago.'); });
+    return frame;
 }
 
-module.exports = { entrarPlanDePago : navegarAPlanDePago };
+module.exports = { entrarPlanDePago };

@@ -14,16 +14,17 @@ const { estadoDelCliente } = require('../../comun/estadoResultado.js');
  * @param {Array} params.usuarios - Lista de usuarios a procesar
  * @param {string} params.downloadsPath - Ruta de descargas
  * @param {boolean} [params.visible] - false = navegador oculto; si no llega, visible
+ * @param {string[]} [params.impuestos] - textos de los botones de ATM ("Ingresos Brutos", "Automotor"…); por defecto Ingresos Brutos
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
-async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso) {
+async function procesarLote({ usuarios, downloadsPath, visible, impuestos }, enviarProgreso) {
     // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
     const aviso = crearAvisoProgreso(enviarProgreso, usuarios.length);
     aviso.general(`Iniciando proceso de Plan de Pago para ${usuarios.length} usuario(s).`);
 
     for (let i = 0; i < usuarios.length; i++) {
         const usuario = usuarios[i];
-        await procesarUsuario(usuario, downloadsPath, aviso, visible);
+        await procesarUsuario(usuario, downloadsPath, aviso, visible, impuestos);
         aviso.clienteTerminado();
 
         // Pausa entre usuarios para no sobrecargar el sistema
@@ -38,7 +39,7 @@ async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso
 /**
  * Procesa un único usuario
  */
-async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
+async function procesarUsuario(usuario, downloadsPath, aviso, visible, impuestos) {
     const { cuit, nombre = '', apellido = '', id } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -62,7 +63,7 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
             nombreParaArchivos,
             downloadsPath,
             enviarProgresoUsuario,
-            { visible }
+            { visible, impuestos }
         );
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
