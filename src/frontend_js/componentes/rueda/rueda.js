@@ -35,10 +35,17 @@
  *
  * mostrar() con el cartel ya abierto NO lo rearma: cambia los textos en el lugar (sin parpadeo).
  * Lo que no se pasa queda como estaba, salvo el extra, que vuelve al de por defecto.
+ *
+ * Abrir y cerrar es cosa del SERVICIO (mostrar / ocultar). recibirAviso solo actualiza una rueda
+ * abierta: un aviso que llega tarde, después del ocultar(), no la vuelve a abrir.
+ *
+ * Mientras está abierta, la página suma abajo un espacio del alto del cartel: así se puede
+ * bajar hasta el final y leer lo que quedaría tapado.
  */
 (function () {
     const EXTRA_POR_DEFECTO = 'No se colgó: está trabajando.';
     let cartel = null;
+    let espacio = null;   // hueco al final de la página, del alto del cartel
 
     function crearCartel(clase, rol) {
         ocultar();
@@ -63,6 +70,19 @@
                 <div class="rueda-aviso-extra"></div>
             </div>`;
         document.body.appendChild(cartel);
+        reservarEspacio();
+    }
+
+    /** Alto del cartel + su separación del borde (bottom: 24px) + un margen. */
+    function reservarEspacio() {
+        if (!cartel) return;
+        if (!espacio) {
+            espacio = document.createElement('div');
+            espacio.className = 'rueda-espacio';
+            espacio.setAttribute('aria-hidden', 'true');
+        }
+        document.body.appendChild(espacio);   // siempre al final, después de todo
+        espacio.style.height = `${cartel.offsetHeight + 40}px`;
     }
 
     /** Pone el texto y el tooltip (el texto entero, por si quedó cortado con "…"). */
@@ -85,6 +105,7 @@
         if (mensaje !== undefined) cambiarMensaje(mensaje);
         cambiarExtra(extra);
         if (total) cambiarContador(actual, total);
+        reservarEspacio();   // medir con los textos ya puestos
     }
 
     /** Renglón 2. El nombre se corta con "…" si es largo; el CUIT queda siempre a la vista. */
@@ -113,6 +134,8 @@
      */
     function recibirAviso(aviso) {
         if (!aviso || aviso.tipo !== 'progreso') return;
+        // Solo actualiza: si la rueda ya se cerró (o es el cartel de error), no la reabre.
+        if (!cartel || cartel.classList.contains('rueda-aviso--error')) return;
         mostrar({
             cliente: aviso.nombre || '',
             cuit: aviso.cuit || '',
@@ -136,10 +159,12 @@
         cartel.appendChild(cerrar);
         ponerTexto('.rueda-aviso-titulo', titulo);
         ponerTexto('.rueda-aviso-mensaje', detalle);
+        reservarEspacio();   // el de error crece con el detalle
     }
 
     function ocultar() {
         if (cartel) cartel.remove();
+        if (espacio) espacio.remove();
         cartel = null;
     }
 
