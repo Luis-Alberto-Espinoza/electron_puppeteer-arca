@@ -10,7 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const { buscarEnAfip } = require('../../archivosComunes/buscadorAfip.js');
 const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
-const { getFilename } = require('../../../../utils/fileManager.js');
+const { nombreArchivo } = require('../../../../comun/nombreArchivo.js');
 const { elegirPersona } = require('../codigoXpagina/paso_1_elegirPersona.js');
 const { abrirDatosRegistrales } = require('../codigoXpagina/paso_2_abrirDatosRegistrales.js');
 const { exportarPdf } = require('../codigoXpagina/paso_3_exportarPdf.js');
@@ -36,7 +36,8 @@ async function descargarDatosRegistrales(page, contribuyente, downloadsPath) {
         const pdf = await exportarPdf(frameVaadin);
 
         const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuit, contribuyente.nombre || '', 'archivos_afip');
-        const rutaPdf = path.join(downloadDir, getFilename('datos_registrales', cuit, 'pdf'));
+        // Regla común: <CUIT>_DatosRegistrales_<AAAA-MM-DD>.pdf (el mismo día pisa al anterior).
+        const rutaPdf = path.join(downloadDir, nombreArchivo({ servicio: 'DatosRegistrales', cuit, extension: 'pdf' }));
         fs.writeFileSync(rutaPdf, pdf);
         console.log(`        [DatosRegistrales] PDF guardado en ${rutaPdf}`);
 
