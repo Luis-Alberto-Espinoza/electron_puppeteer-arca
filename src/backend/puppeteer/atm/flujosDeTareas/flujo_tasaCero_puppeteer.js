@@ -7,7 +7,6 @@
  * 4. Descarga del PDF
  */
 
-const { nombreArchivo, periodoAAAAMM } = require('../../../comun/nombreArchivo.js');
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
@@ -16,30 +15,11 @@ const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { navegarATasaCero, SERVICIO_NO_HABILITADO } = require('../codigoXpagina/aplicativos-tasaCero.js');
 const {
     ejecutarFlujoTasaCero,
-    ejecutarFlujoReimpresion
+    ejecutarFlujoReimpresion,
+    generarNombreArchivo   // una sola, en el formulario (antes había una copia acá)
 } = require('../codigoXpagina/tasaCero-formulario.js');
-const { getDownloadPath, moverArchivo } = require('../../../utils/fileManager.js');
+const { moverArchivo } = require('../../../utils/fileManager.js');
 const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
-
-/**
- * Genera el nombre del archivo PDF según el formato requerido
- * @param {string} nombreEmpresa - Nombre de la empresa
- * @param {string} cuit - CUIT de la empresa
- * @param {string} estado - ACEPTADA o RECHAZADA
- * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
- * @returns {string} Nombre del archivo sin extensión
- */
-function generarNombreArchivo(nombreEmpresa, cuit, estado, periodo) {
-    // Regla común (comun/nombreArchivo.js): <CUIT>_TasaCero_<Aprobada|Rechazada>_<AAAA-MM>.
-    // Antes: <Empresa>_<CUIT>_<mes>_tasaCero_<Estado>, sin año ("nov" de qué año).
-    return nombreArchivo({
-        servicio: 'TasaCero',
-        cuit,
-        // Mismas palabras que ATM en su listado ("Aprobada"): la reimpresión de una ya aprobada se llama igual.
-        detalle: [estado === 'ACEPTADA' ? 'Aprobada' : 'Rechazada'],
-        fecha: periodoAAAAMM(periodo) || undefined
-    });
-}
 
 /**
  * Ejecuta el flujo completo de descarga de comprobante Tasa Cero para un cliente

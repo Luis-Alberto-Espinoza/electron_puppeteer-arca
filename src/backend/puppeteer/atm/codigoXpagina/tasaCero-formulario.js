@@ -15,8 +15,6 @@
 const { nombreArchivo, periodoAAAAMM } = require('../../../comun/nombreArchivo.js');
 const path = require('path');
 const fs = require('fs/promises');
-const fsSync = require('fs');
-const os = require('os');
 
 // ============================================================================
 // FUNCIONES AUXILIARES
@@ -1210,5 +1208,6 @@ async function ejecutarFlujoReimpresion(paginaTasaCero, navegador, carpetaDescar
 module.exports = {
     ejecutarFlujoTasaCero,
     ejecutarFlujoReimpresion,
+    generarNombreArchivo,
     SELECTORES
 };
