@@ -78,7 +78,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
         const clienteHist = historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit });
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
-            enviarProgresoCliente.final('exito', 'Comprobante Tasa Cero descargado exitosamente.', {
+            enviarProgresoCliente.final('exito', resultadoFlujo.mensaje || 'Comprobante Tasa Cero descargado exitosamente.', {
                 archivoPdf: resultadoFlujo.rutaArchivo,
                 downloadDir: resultadoFlujo.carpetaDestino,
                 periodo: resultadoFlujo.periodo,
@@ -89,6 +89,14 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
                 cliente: clienteHist,
                 resumen: `Comprobante Tasa Cero descargado${resultadoFlujo.periodo ? ' ' + resultadoFlujo.periodo : ''}`,
                 detalle: { periodo: resultadoFlujo.periodo, archivo: resultadoFlujo.rutaArchivo, caso: resultadoFlujo.caso }
+            });
+        } else if (resultadoFlujo?.noCumple) {
+            // ATM respondió: el cliente no cumple los requisitos ese período (no es un fallo del programa).
+            enviarProgresoCliente.final('no_cumple', resultadoFlujo.mensaje, { detalle: resultadoFlujo.detalle });
+            historialRepo.registrar({
+                dominio: 'tasaCero', accion: 'generar', estado: 'error',
+                cliente: clienteHist,
+                resumen: 'Tasa Cero: no cumple los requisitos', error: resultadoFlujo.detalle || resultadoFlujo.mensaje
             });
         } else if (resultadoFlujo?.noHabilitado) {
             enviarProgresoCliente.final('no_habilitado', resultadoFlujo.mensaje);

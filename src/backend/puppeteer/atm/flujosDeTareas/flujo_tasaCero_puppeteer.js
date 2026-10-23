@@ -7,6 +7,7 @@
  * 4. Descarga del PDF
  */
 
+const { nombreArchivo, periodoAAAAMM } = require('../../../comun/nombreArchivo.js');
 const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
@@ -21,47 +22,6 @@ const { getDownloadPath, moverArchivo } = require('../../../utils/fileManager.js
 const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContribuyente.js');
 
 /**
- * Extrae el mes en español abreviado de un periodo en formato MM/YYYY
- * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
- * @returns {string} Nombre del mes (ene, feb, mar, etc.)
- */
-function obtenerMesDePeriodo(periodo) {
-    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-    // Acepta los dos formatos que circulan en el flujo:
-    //   "MM/YYYY" (ej "06/2026") → el mes es la parte antes de "/"
-    //   "YYYY-MM" (ej "2026-06") → el mes es la parte después de "-"
-    let mesNumero = NaN;
-    if (typeof periodo === 'string') {
-        if (periodo.includes('/')) {
-            mesNumero = parseInt(periodo.split('/')[0], 10);
-        } else if (periodo.includes('-')) {
-            mesNumero = parseInt(periodo.split('-')[1], 10);
-        }
-    }
-    if (mesNumero >= 1 && mesNumero <= 12) {
-        return meses[mesNumero - 1];
-    }
-
-    // Fallback: mes actual si el formato es inválido
-    console.warn(`[obtenerMesDePeriodo] Formato de periodo inválido: ${periodo}, usando mes actual`);
-    const fecha = new Date();
-    return meses[fecha.getMonth()];
-}
-
-/**
- * Sanitiza un nombre para usarlo en archivos (elimina caracteres especiales)
- * @param {string} nombre - Nombre a sanitizar
- * @returns {string} Nombre sanitizado
- */
-function sanitizarNombre(nombre) {
-    return nombre
-        .replace(/\s+/g, '') // Eliminar espacios
-        .replace(/[^a-zA-Z0-9]/g, '') // Eliminar caracteres especiales
-        .substring(0, 30); // Limitar longitud
-}
-
-/**
  * Genera el nombre del archivo PDF según el formato requerido
  * @param {string} nombreEmpresa - Nombre de la empresa
  * @param {string} cuit - CUIT de la empresa
@@ -70,11 +30,15 @@ function sanitizarNombre(nombre) {
  * @returns {string} Nombre del archivo sin extensión
  */
 function generarNombreArchivo(nombreEmpresa, cuit, estado, periodo) {
-    const empresaSanitizada = sanitizarNombre(nombreEmpresa);
-    const mes = obtenerMesDePeriodo(periodo);
-    const estadoTexto = estado === 'ACEPTADA' ? 'tasaCero_Aceptado' : 'tasaCero_Rechazado';
-
-    return `${empresaSanitizada}_${cuit}_${mes}_${estadoTexto}`;
+    // Regla común (comun/nombreArchivo.js): <CUIT>_TasaCero_<Aprobada|Rechazada>_<AAAA-MM>.
+    // Antes: <Empresa>_<CUIT>_<mes>_tasaCero_<Estado>, sin año ("nov" de qué año).
+    return nombreArchivo({
+        servicio: 'TasaCero',
+        cuit,
+        // Mismas palabras que ATM en su listado ("Aprobada"): la reimpresión de una ya aprobada se llama igual.
+        detalle: [estado === 'ACEPTADA' ? 'Aprobada' : 'Rechazada'],
+        fecha: periodoAAAAMM(periodo) || undefined
+    });
 }
 
 /**
@@ -276,6 +240,12 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
                 mensaje: 'Solicitud ya estaba aprobada. PDF reimpreso exitosamente.',
                 reimpresion: true
             };
+        }
+
+        // ATM respondió que el cliente NO CUMPLE los requisitos (cartel rojo): no es un error del programa.
+        if (resultado.noCumple) {
+            enviarProgreso('info', resultado.mensaje);
+            return { exito: false, noCumple: true, motivos: resultado.motivos, mensaje: resultado.mensaje, detalle: resultado.detalle };
         }
 
         // CASO NORMAL: Error en el flujo

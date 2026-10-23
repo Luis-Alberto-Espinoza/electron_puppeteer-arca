@@ -12,6 +12,7 @@
  * 8. Descargar PDF correspondiente
  */
 
+const { nombreArchivo, periodoAAAAMM } = require('../../../comun/nombreArchivo.js');
 const path = require('path');
 const fs = require('fs/promises');
 const fsSync = require('fs');
@@ -22,47 +23,6 @@ const os = require('os');
 // ============================================================================
 
 /**
- * Extrae el mes en español abreviado de un periodo en formato MM/YYYY
- * @param {string} periodo - Periodo en formato "MM/YYYY" (ej: "12/2025")
- * @returns {string} Nombre del mes (ene, feb, mar, etc.)
- */
-function obtenerMesDePeriodo(periodo) {
-    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-
-    // Acepta los dos formatos que circulan en el flujo:
-    //   "MM/YYYY" (ej "06/2026") → el mes es la parte antes de "/"
-    //   "YYYY-MM" (ej "2026-06") → el mes es la parte después de "-"
-    let mesNumero = NaN;
-    if (typeof periodo === 'string') {
-        if (periodo.includes('/')) {
-            mesNumero = parseInt(periodo.split('/')[0], 10);
-        } else if (periodo.includes('-')) {
-            mesNumero = parseInt(periodo.split('-')[1], 10);
-        }
-    }
-    if (mesNumero >= 1 && mesNumero <= 12) {
-        return meses[mesNumero - 1];
-    }
-
-    // Fallback: mes actual si el formato es inválido
-    console.warn(`[obtenerMesDePeriodo] Formato de periodo inválido: ${periodo}, usando mes actual`);
-    const fecha = new Date();
-    return meses[fecha.getMonth()];
-}
-
-/**
- * Sanitiza un nombre para usarlo en archivos (elimina caracteres especiales)
- * @param {string} nombre - Nombre a sanitizar
- * @returns {string} Nombre sanitizado
- */
-function sanitizarNombre(nombre) {
-    return nombre
-        .replace(/\s+/g, '') // Eliminar espacios
-        .replace(/[^a-zA-Z0-9]/g, '') // Eliminar caracteres especiales
-        .substring(0, 30); // Limitar longitud
-}
-
-/**
  * Genera el nombre del archivo PDF según el formato requerido
  * @param {string} nombreEmpresa - Nombre de la empresa
  * @param {string} cuit - CUIT de la empresa
@@ -71,11 +31,15 @@ function sanitizarNombre(nombre) {
  * @returns {string} Nombre del archivo sin extensión
  */
 function generarNombreArchivo(nombreEmpresa, cuit, estado, periodo) {
-    const empresaSanitizada = sanitizarNombre(nombreEmpresa);
-    const mes = obtenerMesDePeriodo(periodo);
-    const estadoTexto = estado === 'ACEPTADA' ? 'tasaCero_Aceptado' : 'tasaCero_Rechazado';
-
-    return `${empresaSanitizada}_${cuit}_${mes}_${estadoTexto}`;
+    // Regla común (comun/nombreArchivo.js): <CUIT>_TasaCero_<Aprobada|Rechazada>_<AAAA-MM>.
+    // Antes: <Empresa>_<CUIT>_<mes>_tasaCero_<Estado>, sin año ("nov" de qué año).
+    return nombreArchivo({
+        servicio: 'TasaCero',
+        cuit,
+        // Mismas palabras que ATM en su listado ("Aprobada"): la reimpresión de una ya aprobada se llama igual.
+        detalle: [estado === 'ACEPTADA' ? 'Aprobada' : 'Rechazada'],
+        fecha: periodoAAAAMM(periodo) || undefined
+    });
 }
 
 /**
@@ -544,11 +508,12 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
         }
 
         // Esperar activamente hasta que el resultado esté disponible en el frame.
-        // La condición se cumple cuando aparece el botón de solicitud rechazada
-        // O cuando el script con spo_id está presente (solicitud aceptada).
+        // La condición se cumple cuando aparece el botón de solicitud rechazada,
+        // cuando el script con spo_id está presente (solicitud aceptada)
+        // O cuando ATM muestra su cartel "Mensaje" en rojo (<li class="datos">): NO CUMPLE.
         // Timeout máximo: 45 segundos.
         console.log('⏳ [Paso 5.5] Esperando contenido del resultado en el frame...');
-        await frameResultado.waitForFunction(() => {
+        const llegoResultado = await frameResultado.waitForFunction(() => {
             // Caso RECHAZADA: botón "Imprimir Solicitud Rechazada" presente
             const inputs = document.querySelectorAll('input[type="button"]');
             for (const input of inputs) {
@@ -561,8 +526,39 @@ async function ejecutarFlujoTasaCero(paginaTasaCero, navegador, carpetaDescarga,
             for (const script of scripts) {
                 if (/spo_id\s*=\s*['"]?\d+['"]?/.test(script.textContent)) return true;
             }
+            // Caso NO CUMPLE: el cartel "Mensaje" con los motivos en rojo
+            if (Array.from(document.querySelectorAll('li.datos')).some(li => li.textContent.trim())) return true;
             return false;
-        }, { timeout: 45000 });
+        }, { timeout: 45000 }).then(() => true).catch(() => false);
+
+        // ¿Es el cartel de NO CUMPLE? (solo si no hay ni rechazo ni aceptación en la página)
+        const motivosNoCumple = await frameResultado.evaluate(() => {
+            const hayRechazo = Array.from(document.querySelectorAll('input[type="button"]'))
+                .some(i => i.value === 'Imprimir Solicitud Rechazada' || (i.getAttribute('onclick') || '').includes('imprimirRechazo'));
+            const hayAceptada = Array.from(document.querySelectorAll('script')).some(s => /spo_id\s*=\s*['"]?\d+['"]?/.test(s.textContent));
+            if (hayRechazo || hayAceptada) return [];
+            return Array.from(document.querySelectorAll('li.datos')).map(li => li.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean);
+        }).catch(() => []);
+
+        if (motivosNoCumple.length) {
+            console.log('⚠️ [Paso 5.5] ATM no otorga Tasa Cero:', motivosNoCumple.join(' | '));
+            // En la tarjeta va corto (el 1er motivo, recortado); el texto completo en `detalle` (al pasar el mouse).
+            const primero = motivosNoCumple[0];
+            const corto = primero.length > 130 ? `${primero.slice(0, 130).replace(/\s+\S*$/, '')}…` : primero;
+            return {
+                exito: false, noCumple: true, motivos: motivosNoCumple,
+                mensaje: `ATM no lo permite: ${corto}`,
+                detalle: `ATM no otorga Tasa Cero: ${motivosNoCumple.join(' · ')}`
+            };
+        }
+
+        if (!llegoResultado) {
+            // Respuesta desconocida: mostrar lo que dice ATM en vez de "Waiting failed".
+            const texto = await frameResultado.evaluate(() => (document.body ? document.body.innerText : ''))
+                .then(t => t.replace(/\s+/g, ' ').trim().slice(0, 300)).catch(() => '');
+            console.warn('⚠️ [Paso 5.5] Respuesta de ATM no reconocida:', texto);
+            return { exito: false, mensaje: texto ? `ATM respondió algo no reconocido: «${texto}»` : 'ATM no respondió a la solicitud (45 s).' };
+        }
 
         console.log('✅ [Paso 5.5] Resultado disponible en el frame.');
 

@@ -895,7 +895,7 @@ window.inicializarModuloLoteATM = () => {
     // Los 5 subservicios mandan el aviso con el contrato de la rueda (backend/comun/avisoProgreso.js):
     // { tipo, id, cuit, nombre, estado, mensaje, procesados, total, ...files/downloadDir/resumen }
     const manejarActualizacionProgreso = (datos) => {
-        const { id, nombre, estado, mensaje, files = [], archivoPdf, downloadDir, resumen, detalleApremios } = datos;
+        const { id, nombre, estado, mensaje, detalle, files = [], archivoPdf, downloadDir, resumen, detalleApremios } = datos;
         const idUsuario   = id;
         const estadoFinal = estado;
 
@@ -932,9 +932,11 @@ window.inicializarModuloLoteATM = () => {
         const isFinalStatus = datos.final === true;
         const cantidadArchivos = files.length || (archivoPdf ? 1 : 0);
 
-        const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado';
+        const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado' || estadoFinal === 'no_cumple';
         const messageContainer = userDiv.querySelector('.message-container');
         messageContainer.innerHTML = `<div class="progreso-item">[${new Date().toLocaleTimeString()}] ${mensaje}</div>`;
+        // `detalle` = el texto completo cuando el mensaje va resumido (ej. motivos de ATM): al pasar el mouse.
+        if (detalle) messageContainer.firstElementChild.title = detalle;
 
         if (isFinalStatus) {
             finalizadosContainer.style.display = 'block';
@@ -946,6 +948,8 @@ window.inicializarModuloLoteATM = () => {
                 ? '<span class="badge bg-danger">FALLO</span>'
                 : estadoFinal === 'no_habilitado'
                     ? '<span class="badge bg-warning text-dark">NO HABILITADO</span>'
+                : estadoFinal === 'no_cumple'
+                    ? '<span class="badge bg-warning text-dark">NO CUMPLE</span>'
                     : estadoFinal === 'parcial'
                     ? `<span class="badge bg-warning text-dark">PARCIAL - ${files.length} archivo(s)</span>`
                     // Terminó bien pero no había nada que bajar (sin registros, sin planes vigentes…):
