@@ -6,7 +6,7 @@ const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContri
 const { exigirLoginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
-const { elegirImpuesto, descargarFilaVigentePorIndice, contarFilasVigentes, diagnosticarPantalla } = require('../codigoXpagina/planDePago_impuestos.js');
+const { elegirImpuesto, descargarPlanPorIndice, contarPlanes, diagnosticarPantalla } = require('../codigoXpagina/planDePago_impuestos.js');
 const { convertirPdfAExcel } = require('../../../tablasPdf/convertirPdfAExcel.js');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 
@@ -36,7 +36,9 @@ function encontrarNumeroDeBoleto(datosPdf) {
 // Impuestos de "Consulta Planes de Pago" que se consultan si no se elige nada (el de siempre).
 const IMPUESTOS_POR_DEFECTO = ['Ingresos Brutos'];
 
-const ESPERA_PDF_MS = 30000;
+// Tope para que llegue el PDF de un plan: los planes grandes (ej. un ANULADO de 12 cuotas y $58 M de
+// Shopping) tardaron más de 30 s (2026-10-23).
+const ESPERA_PDF_MS = 60000;
 
 /**
  * Texto de un cartel de ATM, corto para la tarjeta: sin el título ("Mensaje LISTA DE ERRORES [3]")
@@ -73,10 +75,10 @@ function impuestoParaArchivo(impuesto) {
  * Por cada impuesto pedido: lo elige en ATM, cuenta los planes VIGENTES y baja cada uno (PDF + Excel).
  * Un impuesto que falla no corta a los demás: queda en el mensaje y la tarjeta sale PARCIAL/FALLO.
  */
-async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso, { visible, impuestos } = {}) {
+async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, enviarProgreso, { visible, impuestos, incluirNoVigentes = false } = {}) {
     const pedidos = (impuestos && impuestos.length) ? impuestos : IMPUESTOS_POR_DEFECTO;
     let browser;
-    const tempDirs = [];          // { dir, impuesto }: un temporal por plan descargado
+    const tempDirs = [];          // { dir, impuesto, estado }: un temporal por plan descargado
     const partes = [];            // una por impuesto para el mensaje de la tarjeta
     const fallos = [];            // impuestos que no se pudieron consultar
 
@@ -104,18 +106,22 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
             try {
                 enviarProgreso('info', `${impuesto}: buscando planes de pago vigentes...`);
                 await elegirImpuesto(oficinaVirtualPage, impuesto);
-                const numeroDeFilas = await contarFilasVigentes(oficinaVirtualPage);
+                const cuenta = await contarPlanes(oficinaVirtualPage);
+                // Solo los VIGENTES, salvo que se pidan todos ("Incluir planes no vigentes").
+                const numeroDeFilas = incluirNoVigentes ? cuenta.total : cuenta.vigentes;
                 if (numeroDeFilas === 0) {
-                    partes.push(`${impuesto}: sin planes vigentes`);
+                    partes.push(`${impuesto}: ${incluirNoVigentes ? 'sin planes' : 'sin planes vigentes'}`);
                     continue;
                 }
                 const avisosImpuesto = [];   // carteles de ATM al elegir un plan (información, no error)
                 for (let i = 0; i < numeroDeFilas; i++) {
                     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `planpago-${i}-`));
-                    tempDirs.push({ dir: tempDir, impuesto });
+                    const temporal = { dir: tempDir, impuesto, estado: 'VIGENTE' };
+                    tempDirs.push(temporal);
                     enviarProgreso('info', `${impuesto}: descargando plan ${i + 1} de ${numeroDeFilas}...`);
                     await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: tempDir });
-                    const { plan, avisos } = await descargarFilaVigentePorIndice(oficinaVirtualPage, i, enviarProgreso);
+                    const { plan, estado, avisos } = await descargarPlanPorIndice(oficinaVirtualPage, i, enviarProgreso, { incluirNoVigentes });
+                    temporal.estado = estado;
                     avisos.forEach(aviso => avisosImpuesto.push(`plan ${plan}: ${resumirAvisoAtm(aviso)}`));
                     // Esperar el PDF terminado en SU carpeta antes de tocar otra cosa: cambiar de
                     // impuesto con la descarga en curso la perdía (Debora, 2026-10-23).
@@ -125,7 +131,9 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
                         console.warn(`[PlanDePago] ${impuesto}: el PDF del plan ${i + 1} no llegó en ${ESPERA_PDF_MS / 1000} s. Pantalla:`, JSON.stringify(pantalla));
                     }
                 }
-                partes.push(`${impuesto}: ${numeroDeFilas} plan(es) vigente(s)`
+                partes.push((incluirNoVigentes
+                    ? `${impuesto}: ${numeroDeFilas} plan(es) (${cuenta.vigentes} vigente(s))`
+                    : `${impuesto}: ${numeroDeFilas} plan(es) vigente(s)`)
                     + (avisosImpuesto.length ? ` (ATM avisa: ${avisosImpuesto.join('; ')})` : ''));
             } catch (error) {
                 console.error(`[PlanDePago] ${impuesto}:`, error.message);
@@ -137,7 +145,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         if (tempDirs.length === 0) {
             const mensaje = fallos.length
                 ? `${partes.join(' · ')}.`
-                : `Sin planes de pago vigentes en: ${pedidos.join(', ')}.`;
+                : `Sin planes de pago${incluirNoVigentes ? '' : ' vigentes'} en: ${pedidos.join(', ')}.`;
             enviarProgreso(fallos.length ? 'error' : 'info', mensaje);
             return { success: true, descargaIncompleta: fallos.length > 0, fallos, mensaje, files: [], downloadDir: null };
         }
@@ -148,7 +156,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         let planesSinArchivo = 0;   // ATM no entregó el PDF de un plan vigente: no puede salir como Éxito
         const diaConsulta = new Date().toISOString().slice(0, 10);
 
-        for (const { dir: tempDir, impuesto } of tempDirs) {
+        for (const { dir: tempDir, impuesto, estado } of tempDirs) {
             const archivos = (await fs.readdir(tempDir)).filter(a => !a.endsWith('.crdownload'));
             if (archivos.length === 0) {
                 planesSinArchivo++;
@@ -170,7 +178,9 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
             }
 
             const numeroBoleto = encontrarNumeroDeBoleto(extraccion);
-            const baseNombre = `PlanPago_${credencialesATM.cuit}_${impuestoParaArchivo(impuesto)}_boleto_${numeroBoleto}_Consulta_${diaConsulta}`;
+            // Los no vigentes llevan su estado en el nombre (los vigentes, como siempre).
+            const marcaEstado = estado && estado !== 'VIGENTE' ? `_${estado.replace(/\s+/g, '_')}` : '';
+            const baseNombre = `PlanPago_${credencialesATM.cuit}_${impuestoParaArchivo(impuesto)}_boleto_${numeroBoleto}${marcaEstado}_Consulta_${diaConsulta}`;
 
             const destinoDir = await getDownloadPathContribuyente(downloadsPath, credencialesATM.cuit, nombreUsuario, 'archivos_atm');
             const destinoPath = path.join(destinoDir, `${baseNombre}.pdf`);

@@ -15,7 +15,7 @@ window.inicializarModuloLoteATM = () => {
             label:         'Planes de Pago',
             tienePeriodo:  false,
             eligeImpuestosPlan: true,    // panel desplegable panel-impuestos-plan
-            ejecutar:      (clientes, { visible, impuestos }) => window.electronAPI.atm.planDePago.generarLote({ usuarios: clientes, visible, impuestos })
+            ejecutar:      (clientes, { visible, impuestos, incluirNoVigentes }) => window.electronAPI.atm.planDePago.generarLote({ usuarios: clientes, visible, impuestos, incluirNoVigentes })
         },
         tasaCero: {
             label:         'Tasa Cero',
@@ -98,6 +98,7 @@ window.inicializarModuloLoteATM = () => {
     const panelImpuestosPlan  = document.getElementById('panel-impuestos-plan');
     const listaImpuestosPlan  = document.getElementById('listaImpuestosPlan');
     const resumenImpuestosPlan = document.getElementById('resumenImpuestosPlan');
+    const chkNoVigentesPlan   = document.getElementById('chkNoVigentesPlan');
     // Clientes con impuestos cambiados a mano (id → [impuestos]). Los que no están siguen al general.
     const impuestosPlanPorCliente = new Map();
     const planesPagoActivo = () => !!(subservicioActivo && CONFIG_SUB[subservicioActivo].eligeImpuestosPlan);
@@ -193,6 +194,7 @@ window.inicializarModuloLoteATM = () => {
         panelImpuestosPlan.querySelector('details').open = false;
         impuestosPlanPorCliente.clear();
         impuestosPlanAbiertos.clear();
+        chkNoVigentesPlan.checked = false;   // solo para esta corrida: siempre arranca en "solo vigentes"
         actualizarResumenImpuestosPlan();
     }
     const tablaApremios       = document.getElementById('tabla-apremios');
@@ -840,6 +842,7 @@ window.inicializarModuloLoteATM = () => {
                 alert(`Estos clientes no tienen ningún impuesto marcado:\n\n - ${sinImpuestos.join('\n - ')}`);
                 return;
             }
+            if (chkNoVigentesPlan.checked) textoPeriodos += '\n\nIncluye planes NO vigentes (anulados, cancelados…).';
         }
 
         // Apremios guarda ids (se muestran con su etiqueta); Planes de Pago, los textos de ATM.
@@ -863,7 +866,8 @@ window.inicializarModuloLoteATM = () => {
         });
 
         try {
-            await config.ejecutar(clientes, { visible: chkVisible.checked, documentos, impuestos: impuestosPlan });
+            await config.ejecutar(clientes, { visible: chkVisible.checked, documentos, impuestos: impuestosPlan,
+                incluirNoVigentes: chkNoVigentesPlan.checked });
         } catch (error) {
             procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         } finally {

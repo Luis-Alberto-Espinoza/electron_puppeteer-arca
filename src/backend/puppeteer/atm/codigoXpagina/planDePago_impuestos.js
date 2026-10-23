@@ -2,7 +2,7 @@
 //
 // La tabla se busca por su título ("Listado de Planes") y la columna por su nombre ("Estado"):
 // antes era "la 2ª <table> de la página, 3ª columna".
-const { frameOficina, clicReal } = require('./menuOficinaVirtual.js');
+const { frameOficina, clicReal, esperarProcesando } = require('./menuOficinaVirtual.js');
 
 const INTERVALO_MS = 200;
 const MARCA = 'data-tabla-anterior';   // marca que ponemos en las filas antes de cambiar de impuesto
@@ -86,22 +86,23 @@ async function elegirImpuesto(page, impuesto, { esperaSinCambioMs = 4000, timeou
 }
 
 /**
- * Cuenta los planes con Estado "VIGENTE" del "Listado de Planes".
- * @returns {Promise<number>}
+ * Cuenta los planes del "Listado de Planes": todos y los VIGENTES.
+ * @returns {Promise<{total: number, vigentes: number}>}
  */
-async function contarFilasVigentes(page) {
+async function contarPlanes(page) {
   const frame = await frameOficina(page);
   await instalarLector(frame);
-  const vigentes = await frame.evaluate(() => {
+  const cuenta = await frame.evaluate(() => {
     const datos = window.__leerListadoPlanes();
-    if (!datos || datos.columnaEstado < 0) return -1;
-    return datos.filas.filter(f => {
+    if (!datos || datos.columnaEstado < 0) return null;
+    const vigentes = datos.filas.filter(f => {
       const celda = f.querySelectorAll('.z-listcell')[datos.columnaEstado];
       return celda && celda.textContent.trim().toUpperCase() === 'VIGENTE';
     }).length;
+    return { total: datos.filas.length, vigentes };
   });
-  if (vigentes < 0) throw new Error('No se encontró la tabla "Listado de Planes" (o su columna Estado).');
-  return vigentes;
+  if (!cuenta) throw new Error('No se encontró la tabla "Listado de Planes" (o su columna Estado).');
+  return cuenta;
 }
 
 /**
@@ -134,29 +135,29 @@ async function cerrarCarteles(frame) {
 }
 
 /**
- * Selecciona el plan VIGENTE nº `indice` (desde 0), cierra el cartel que ATM muestre (si hay) y hace
+ * Selecciona el plan nº `indice` (desde 0) entre los VIGENTES (o entre todos si incluirNoVigentes), cierra el cartel que ATM muestre (si hay) y hace
  * clic REAL en "Imprimir Constancia" (mouse: el clic por código no siempre le llega a ZK).
- * @returns {Promise<{plan: string, avisos: string[]}>} número de plan y textos de los carteles cerrados
+ * @returns {Promise<{plan: string, estado: string, avisos: string[]}>} número de plan, su estado y los carteles cerrados
  */
-async function descargarFilaVigentePorIndice(page, indice, enviarProgreso = () => {}) {
+async function descargarPlanPorIndice(page, indice, enviarProgreso = () => {}, { incluirNoVigentes = false } = {}) {
   const frame = await frameOficina(page);
   await instalarLector(frame);
   enviarProgreso('info', `Iniciando descarga para el plan de pago #${indice + 1}...`);
 
-  const eleccion = await frame.evaluate((idx) => {
+  const eleccion = await frame.evaluate((idx, todos) => {
     const datos = window.__leerListadoPlanes();
     if (!datos || datos.columnaEstado < 0) return { ok: false, error: 'No se encontró la tabla "Listado de Planes".' };
-    const vigentes = datos.filas.filter(f => {
-      const celda = f.querySelectorAll('.z-listcell')[datos.columnaEstado];
-      return celda && celda.textContent.trim().toUpperCase() === 'VIGENTE';
-    });
-    if (idx >= vigentes.length) return { ok: false, error: `Plan #${idx + 1} fuera de rango: hay ${vigentes.length} vigente(s).` };
-    const celdas = vigentes[idx].querySelectorAll('.z-listcell');
-    vigentes[idx].click();
-    return { ok: true, plan: celdas[1] ? celdas[1].textContent.trim() : '' };
-  }, indice);
+    const estadoDe = (f) => ((f.querySelectorAll('.z-listcell')[datos.columnaEstado] || {}).textContent || '').trim().toUpperCase();
+    const elegibles = todos ? datos.filas : datos.filas.filter(f => estadoDe(f) === 'VIGENTE');
+    if (idx >= elegibles.length) return { ok: false, error: `Plan #${idx + 1} fuera de rango: hay ${elegibles.length}.` };
+    const celdas = elegibles[idx].querySelectorAll('.z-listcell');
+    elegibles[idx].click();
+    return { ok: true, plan: celdas[1] ? celdas[1].textContent.trim() : '', estado: estadoDe(elegibles[idx]) };
+  }, indice, incluirNoVigentes);
   if (!eleccion.ok) throw new Error(eleccion.error);
-  await new Promise(resolve => setTimeout(resolve, 1500));
+  // Al elegir el plan ATM queda "Procesando…" (página en gris) y se traga los clics: esperar a que termine.
+  const msProcesando = await esperarProcesando(frame);
+  if (msProcesando > 2000) console.log(`[PlanDePago] plan ${eleccion.plan}: ATM estuvo ${(msProcesando / 1000).toFixed(1)} s "Procesando…"`);
 
   const avisos = await cerrarCarteles(frame);
   if (avisos.length) console.log(`[PlanDePago] plan ${eleccion.plan}: ATM avisó →`, avisos.join(' | '));
@@ -175,7 +176,7 @@ async function descargarFilaVigentePorIndice(page, indice, enviarProgreso = () =
   avisos.push(...await cerrarCarteles(frame));
 
   enviarProgreso('info', `Clic para descarga del plan #${indice + 1} completado.`);
-  return { plan: eleccion.plan, avisos };
+  return { plan: eleccion.plan, estado: eleccion.estado, avisos };
 }
 
 /**
@@ -199,4 +200,4 @@ async function diagnosticarPantalla(page) {
   return { ...pantalla, pestanas };
 }
 
-module.exports = { elegirImpuesto, contarFilasVigentes, descargarFilaVigentePorIndice, leerListadoPlanes, diagnosticarPantalla };
+module.exports = { elegirImpuesto, contarPlanes, descargarPlanPorIndice, leerListadoPlanes, diagnosticarPantalla };

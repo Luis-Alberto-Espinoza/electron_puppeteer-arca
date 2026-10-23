@@ -343,6 +343,7 @@
 .btn-impuestos-cliente:hover { border-color: #f6e05e; }
 .btn-impuestos-cliente.sin-impuestos { border-color: #e53e3e; color: #feb2b2; }
 .impuestos-propios { color: #f6e05e; font-weight: 400; }
+.opcion-no-vigentes { margin-top: 12px; flex-wrap: wrap; }
 .tabla-seleccionados .fila-detalle td { padding: 4px 16px 14px; }
 .impuestos-plan-cliente .lote-hint { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; color: #e2e8f0; }
 .btn-volver-general {

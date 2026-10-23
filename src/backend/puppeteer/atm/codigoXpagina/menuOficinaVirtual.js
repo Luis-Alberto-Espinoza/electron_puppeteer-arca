@@ -5,7 +5,8 @@
  *   const frame = await abrirMenu(page, 'Planes de Pago', 'Consulta de Plan de Pago');
  *
  * Además: frameOficina (el iframe nucleo/inicio.zul, donde se carga la pantalla elegida),
- * clicReal (mouse de Puppeteer, para los BOTONES de ZK) y esperarZk (fin del request de ZK).
+ * clicReal (mouse de Puppeteer, para los BOTONES de ZK), esperarZk (fin del request de ZK) y
+ * esperarProcesando (que se vaya el cartel "Procesando…" que bloquea la página).
  */
 
 const INTERVALO_MS = 250;
@@ -85,4 +86,28 @@ async function esperarZk(frame, { timeout = 30000, arranqueMs = 400 } = {}) {
     }, { timeout, polling: INTERVALO_MS });
 }
 
-module.exports = { abrirMenu, frameOficina, clicReal, esperarZk };
+/**
+ * Espera a que se vaya el cartelito "Procesando…" de ZK (la página queda en gris y se traga los
+ * clics). Primero le da `aparecerMs` para que aparezca (sale con un pequeño retraso); si no aparece,
+ * sigue. Visto en vivo en Planes de Pago (2026-10-23): el botón figuraba habilitado mientras tanto.
+ * @returns {Promise<number>} ms que estuvo "Procesando…" (0 si no apareció)
+ */
+async function esperarProcesando(frame, { aparecerMs = 1500, timeout = 60000 } = {}) {
+    const hayProcesando = () => frame.evaluate(() => Array.from(document.querySelectorAll('.z-loading, .z-apply-loading, .z-loading-indicator, #zk_proc, #zk_showBusy'))
+        .some(e => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden')).catch(() => false);
+    const inicio = Date.now();
+    let aparecio = false;
+    while (Date.now() - inicio < aparecerMs) {
+        if (await hayProcesando()) { aparecio = true; break; }
+        await new Promise(resolve => setTimeout(resolve, INTERVALO_MS));
+    }
+    if (!aparecio) return 0;
+    const desde = Date.now();
+    while (Date.now() - desde < timeout) {
+        if (!(await hayProcesando())) return Date.now() - desde;
+        await new Promise(resolve => setTimeout(resolve, INTERVALO_MS));
+    }
+    throw new Error('ATM quedó "Procesando…" demasiado tiempo.');
+}
+
+module.exports = { abrirMenu, frameOficina, clicReal, esperarZk, esperarProcesando };
