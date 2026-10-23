@@ -6,6 +6,7 @@ const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
 const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
+const { estadoDelCliente } = require('../../comun/estadoResultado.js');
 
 /**
  * Procesa un lote de usuarios para generar planes de pago
@@ -65,18 +66,20 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
         );
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
-            enviarProgresoUsuario('exito_final', 'Plan de Pago generado con éxito.', resultadoFlujo);
+            // El mensaje que se ve es el del flujo (cuántos planes, o "Sin planes de pago vigentes").
+            const incompleta = resultadoFlujo.descargaIncompleta === true;
+            enviarProgresoUsuario.final(estadoDelCliente(resultadoFlujo), resultadoFlujo.mensaje, resultadoFlujo);
             historialRepo.registrar({
-                dominio: 'planDePago', accion: 'generar', estado: 'exito',
+                dominio: 'planDePago', accion: 'generar', estado: incompleta ? 'error' : 'exito',
                 cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
-                resumen: 'Plan de Pago generado',
-                detalle: { archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo }
+                resumen: resultadoFlujo.mensaje,
+                detalle: { archivos: resultadoFlujo.files }
             });
         }
 
     } catch (error) {
         logErrorCliente('Plan de Pago', nombreCompleto, error);
-        enviarProgresoUsuario('error', `Error: ${error.message}`);
+        enviarProgresoUsuario.final('error', `Error: ${error.message}`);
         historialRepo.registrar({
             dominio: 'planDePago', accion: 'generar', estado: 'error',
             cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),

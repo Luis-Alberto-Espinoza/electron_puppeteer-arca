@@ -69,7 +69,7 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible, documento
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             // El mensaje que se ve es el del flujo (viene en resultadoFlujo y pisa este).
             const incompleta = resultadoFlujo.descargaIncompleta === true;
-            enviarProgresoUsuario(estadoDelCliente(resultadoFlujo), resultadoFlujo.mensaje, resultadoFlujo);
+            enviarProgresoUsuario.final(estadoDelCliente(resultadoFlujo), resultadoFlujo.mensaje, resultadoFlujo);
             historialRepo.registrar({
                 dominio: 'constanciaFiscal', accion: 'generar', estado: incompleta ? 'error' : 'exito',
                 cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
@@ -80,7 +80,7 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible, documento
 
     } catch (error) {
         logErrorCliente('Constancia Fiscal', nombreCompleto, error);
-        enviarProgresoUsuario('error', `Error: ${error.message}`);
+        enviarProgresoUsuario.final('error', `Error: ${error.message}`);
         historialRepo.registrar({
             dominio: 'constanciaFiscal', accion: 'generar', estado: 'error',
             cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),

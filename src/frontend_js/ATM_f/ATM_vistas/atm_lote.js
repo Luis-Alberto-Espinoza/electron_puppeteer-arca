@@ -787,7 +787,10 @@ window.inicializarModuloLoteATM = () => {
             userDiv.appendChild(messageContainer);
         }
 
-        const isFinalStatus = ['exito_final', 'error', 'exito', 'no_habilitado', 'parcial'].includes(estadoFinal);
+        // Solo el aviso con el RESULTADO del cliente (final: true, ver comun/avisoProgreso.js) pasa la
+        // tarjeta a "Finalizados": un 'exito' o 'error' de mitad de camino ya no la hace saltar.
+        const isFinalStatus = datos.final === true;
+        const cantidadArchivos = files.length || (archivoPdf ? 1 : 0);
 
         const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado';
         const messageContainer = userDiv.querySelector('.message-container');
@@ -805,7 +808,11 @@ window.inicializarModuloLoteATM = () => {
                     ? '<span class="badge bg-warning text-dark">NO HABILITADO</span>'
                     : estadoFinal === 'parcial'
                     ? `<span class="badge bg-warning text-dark">PARCIAL - ${files.length} archivo(s)</span>`
-                    : `<span class="badge bg-success">Éxito - ${files.length || (archivoPdf ? 1 : 0)} archivo(s)</span>`;
+                    // Terminó bien pero no había nada que bajar (sin registros, sin planes vigentes…):
+                    // gris, no verde. El mensaje dice qué faltó.
+                    : cantidadArchivos === 0
+                    ? '<span class="badge bg-secondary">SIN DATOS</span>'
+                    : `<span class="badge bg-success">Éxito - ${cantidadArchivos} archivo(s)</span>`;
             userDiv.querySelector('h4').innerHTML = `${nombre} ${badge}`;
 
             // Apremios: una línea por impuesto consultado (también cuando todos fallaron)

@@ -61,8 +61,9 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
 
         const numeroDeFilas = await contarFilasVigentes(oficinaVirtualPage);
         if (numeroDeFilas === 0) {
-            enviarProgreso('info', 'No se encontraron planes de pago vigentes.');
-            return { success: true, files: [], downloadDir: await getDownloadPathContribuyente(downloadsPath, credencialesATM.cuit, nombreUsuario, 'archivos_atm') };
+            const mensajeSinPlanes = 'Sin planes de pago vigentes en Ingresos Brutos.';
+            enviarProgreso('info', mensajeSinPlanes);
+            return { success: true, mensaje: mensajeSinPlanes, files: [], downloadDir: null };
         }
         enviarProgreso('info', `Se encontraron ${numeroDeFilas} planes de pago para descargar.`);
 
@@ -81,12 +82,14 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         await new Promise(resolve => setTimeout(resolve, 5000)); // Aumentar espera si es necesario
 
         const finalFilePaths = [];
+        let planesSinArchivo = 0;   // ATM no entregó el PDF de un plan vigente: no puede salir como Éxito
         const diaConsulta = new Date().toISOString().slice(0, 10);
 
         for (const tempDir of tempDirs) {
             const archivos = await fs.readdir(tempDir);
             if (archivos.length === 0) {
-                enviarProgreso('warn', `No se encontró archivo en el directorio temporal ${tempDir}.`);
+                planesSinArchivo++;
+                enviarProgreso('error', `No llegó el PDF de uno de los planes vigentes.`);
                 continue;
             }
             const tempFilePath = path.join(tempDir, archivos[0]);
@@ -118,9 +121,14 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
             }
         }
         
-        enviarProgreso('exito', `Proceso completado. Se guardaron ${finalFilePaths.length} archivo(s) (PDF + Excel de cada plan).`);
+        const mensaje = planesSinArchivo > 0
+            ? `Descarga INCOMPLETA: ${numeroDeFilas} plan(es) vigente(s) en Ingresos Brutos y faltó el PDF de ${planesSinArchivo}. ${finalFilePaths.length} archivo(s) guardado(s).`
+            : `${numeroDeFilas} plan(es) vigente(s) en Ingresos Brutos: ${finalFilePaths.length} archivo(s) (PDF + Excel de cada plan).`;
+        enviarProgreso(planesSinArchivo > 0 ? 'error' : 'info', mensaje);
         return {
             success: true,
+            descargaIncompleta: planesSinArchivo > 0,
+            mensaje,
             files: finalFilePaths,
             downloadDir: await getDownloadPathContribuyente(downloadsPath, credencialesATM.cuit, nombreUsuario, 'archivos_atm')
         };

@@ -53,7 +53,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
     const enviar = aviso.paraCliente({ id: id || cuit, cuit, nombre: nombreCompleto });
 
     if (impuestos.length === 0) {
-        enviar('error', 'No se eligió ningún impuesto para consultar.');
+        enviar.final('error', 'No se eligió ningún impuesto para consultar.');
         return;
     }
 
@@ -86,7 +86,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
         const porImpuesto = r.resultados.map(x => `${IMPUESTO_POR_ID.get(x.impuesto).hoja} ${x.ok ? x.resumen.cantidad : 'ERROR'}`).join(' · ');
         console.log(`[Apremios] ${cuit} ${nombreCompleto}: ${porImpuesto} → ${r.rutaExcel}`);
 
-        enviar(estado, mensaje, { files: [r.rutaExcel], downloadDir: r.downloadDir, detalleApremios: detalle });
+        enviar.final(estado, mensaje, { files: [r.rutaExcel], downloadDir: r.downloadDir, detalleApremios: detalle });
         historialRepo.registrar({
             dominio: 'apremios', accion: 'consultar', estado: estado === 'error' ? 'error' : 'exito',
             cliente: clienteHist,
@@ -97,7 +97,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
 
     } catch (error) {
         logErrorCliente('Apremios', nombreCompleto, error);
-        enviar('error', error.message, { error: error.code || 'FLUJO_ERROR' });
+        enviar.final('error', error.message, { error: error.code || 'FLUJO_ERROR' });
         historialRepo.registrar({
             dominio: 'apremios', accion: 'consultar', estado: 'error',
             cliente: clienteHist, resumen: 'Fallo la consulta de apremios', error: error.message

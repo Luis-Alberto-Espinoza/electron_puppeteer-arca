@@ -84,7 +84,7 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
             const incompleta = resultadoFlujo.descargaIncompleta === true;
 
             // El mensaje que se ve es el del flujo (viene en resultadoFlujo y pisa este).
-            enviarProgresoUsuario(estadoDelCliente(resultadoFlujo), resultadoFlujo.mensaje, resultadoFlujo);
+            enviarProgresoUsuario.final(estadoDelCliente(resultadoFlujo), resultadoFlujo.mensaje, resultadoFlujo);
 
             historialRepo.registrar({
                 dominio: 'retenciones', accion: 'descargar',
@@ -106,7 +106,7 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
 
     } catch (error) {
         logErrorCliente('Retenciones', nombreCompleto, error);
-        enviarProgresoUsuario('error', `Error: ${error.message}`);
+        enviarProgresoUsuario.final('error', `Error: ${error.message}`);
         historialRepo.registrar({
             dominio: 'retenciones', accion: 'descargar', estado: 'error',
             cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),

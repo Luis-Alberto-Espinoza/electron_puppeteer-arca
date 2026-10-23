@@ -11,8 +11,16 @@ test('aviso de cliente: contrato completo y el nombre NO va en el mensaje', () =
 
     assert.deepStrictEqual(avisos[0], {
         tipo: 'progreso', id: 7, cuit: '30718985699', nombre: 'LANDES S. A. S.',
-        estado: 'info', mensaje: 'Iniciando sesión en ATM...', procesados: 0, total: 3
+        estado: 'info', mensaje: 'Iniciando sesión en ATM...', procesados: 0, total: 3, final: false
     });
+});
+
+test('.final marca el resultado del cliente; los avisos de mitad de camino no (ni aunque digan "exito")', () => {
+    const avisos = [];
+    const avisarCliente = crearAvisoProgreso(a => avisos.push(a), 1).paraCliente({ id: 1, nombre: 'A' });
+    avisarCliente('exito', 'Proceso completado (paso intermedio)');
+    avisarCliente.final('exito_final', 'Listo', { files: ['/x.pdf'], final: false });   // los datos no lo pisan
+    assert.deepStrictEqual(avisos.map(a => a.final), [false, true]);
 });
 
 test('procesados avanza solo con clienteTerminado (no con los "error"/"exito" de mitad de camino)', () => {

@@ -78,7 +78,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
         const clienteHist = historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit });
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
-            enviarProgresoCliente('exito', 'Comprobante Tasa Cero descargado exitosamente.', {
+            enviarProgresoCliente.final('exito', 'Comprobante Tasa Cero descargado exitosamente.', {
                 archivoPdf: resultadoFlujo.rutaArchivo,
                 downloadDir: resultadoFlujo.carpetaDestino,
                 periodo: resultadoFlujo.periodo,
@@ -91,7 +91,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
                 detalle: { periodo: resultadoFlujo.periodo, archivo: resultadoFlujo.rutaArchivo, caso: resultadoFlujo.caso }
             });
         } else if (resultadoFlujo?.noHabilitado) {
-            enviarProgresoCliente('no_habilitado', resultadoFlujo.mensaje);
+            enviarProgresoCliente.final('no_habilitado', resultadoFlujo.mensaje);
             historialRepo.registrar({
                 dominio: 'tasaCero', accion: 'generar', estado: 'error',
                 cliente: clienteHist,
@@ -99,7 +99,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
             });
         } else {
             const msg = resultadoFlujo?.mensaje || 'Error desconocido al procesar Tasa Cero.';
-            enviarProgresoCliente('error', msg);
+            enviarProgresoCliente.final('error', msg);
             historialRepo.registrar({
                 dominio: 'tasaCero', accion: 'generar', estado: 'error',
                 cliente: clienteHist,
@@ -121,7 +121,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
             mensajeError = 'Tiempo de espera agotado. El sitio no respondió a tiempo.';
         }
 
-        enviarProgresoCliente('error', mensajeError);
+        enviarProgresoCliente.final('error', mensajeError);
         historialRepo.registrar({
             dominio: 'tasaCero', accion: 'generar', estado: 'error',
             cliente: historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit }),
