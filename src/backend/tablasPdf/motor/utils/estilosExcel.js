@@ -52,13 +52,14 @@ function marcarEstado(celda, estado, { destacar = true } = {}) {
 const lineaFina = { style: 'thin', color: { argb: COLORES.borde } };
 const BORDE_FINO = { top: lineaFina, left: lineaFina, bottom: lineaFina, right: lineaFina };
 
-// Sin separador de miles (pedido del usuario): "1234567,89". Negativos en rojo.
-// El formato es el mismo en Excel y en LibreOffice.
-const FMT_MONTO = '0.00;[Red]-0.00';
-// Variante CON separador de miles (se ve "1.234.567,89" en Excel en español).
-// La usan los Excel de Planes de Pago AFIP. Para pasar TODOS los Excel a miles,
-// alcanza con que FMT_MONTO valga esto.
-const FMT_MONTO_MILES = '#,##0.00;[Red]-#,##0.00';
+// Montos con separador de miles (se ve "1.234.567,89" en Excel en español) y
+// negativos en rojo. Si el monto no tiene centavos se muestra sin ",00"
+// ("1.234.567"): Excel no lo decide solo, se elige por celda con formatoMonto().
+// (Antes era sin miles; el usuario lo cambió el 2026-10-23.)
+const FMT_MONTO = '#,##0.00;[Red]-#,##0.00';
+const FMT_MONTO_SIN_CENTAVOS = '#,##0;[Red]-#,##0';
+// Alias viejo: hoy es igual a FMT_MONTO. Se deja para no romper a quien lo usa.
+const FMT_MONTO_MILES = FMT_MONTO;
 // Enteros que no son montos (períodos, cuotas, comprobantes, códigos): sin
 // separador de miles —"2021" no debe verse "2.021"— y sin notación científica.
 const FMT_ENTERO = '0';
@@ -76,6 +77,11 @@ const PATRON_COLUMNA_MONTO = /importe|saldo|monto|d[eé]bito|cr[eé]dito|total|h
 
 function esNumero(v) {
     return typeof v === 'number' && Number.isFinite(v);
+}
+
+// Formato de monto para un valor: sin ",00" si es entero.
+function formatoMonto(valor) {
+    return Number.isInteger(valor) ? FMT_MONTO_SIN_CENTAVOS : FMT_MONTO;
 }
 
 function esColumnaMonto(nombre, valores) {
@@ -119,18 +125,24 @@ function aplicarCebra(hoja, desde, hasta, nCols) {
 }
 
 // Asigna numFmt a las celdas numéricas de una tabla según el tipo de columna.
-// Respeta las celdas que ya traen formato (fechas, porcentajes, etc.).
+// Respeta las celdas que ya traen formato (fechas, porcentajes, etc.), salvo los
+// montos enteros que el especialista marcó con FMT_MONTO: esos pierden el ",00".
 // `nombres[i]` es el encabezado de la columna i+1.
+// `fmtMonto` distinto de FMT_MONTO fuerza ese formato en todos los montos.
 function formatearColumnas(hoja, nombres, desde, hasta, fmtMonto = FMT_MONTO) {
+    const fmtDe = v => (fmtMonto === FMT_MONTO ? formatoMonto(v) : fmtMonto);
     nombres.forEach((nombre, i) => {
         const col = i + 1;
         const celdas = [];
         for (let r = desde; r <= hasta; r++) celdas.push(hoja.getRow(r).getCell(col));
+        celdas.forEach(c => {
+            if (esNumero(c.value) && c.numFmt === FMT_MONTO) c.numFmt = fmtDe(c.value);
+        });
         const sinFormato = celdas.filter(c => esNumero(c.value) && (!c.numFmt || c.numFmt === 'General'));
         if (!sinFormato.length) return;
-        const fmt = esColumnaMonto(nombre, sinFormato.map(c => c.value)) ? fmtMonto : FMT_ENTERO;
+        const esMonto = esColumnaMonto(nombre, sinFormato.map(c => c.value));
         sinFormato.forEach(c => {
-            c.numFmt = fmt;
+            c.numFmt = esMonto ? fmtDe(c.value) : FMT_ENTERO;
             c.alignment = { horizontal: 'right', vertical: 'middle' };
         });
     });
@@ -143,10 +155,11 @@ function anchoVisible(celda) {
     if (v === null || v === undefined || v === '') return 0;
     if (v instanceof Date || celda.numFmt === FMT_FECHA) return 10;
     if (esNumero(v)) {
-        if (celda.numFmt === FMT_MONTO || celda.numFmt === FMT_MONTO_MILES) {
+        if (celda.numFmt === FMT_MONTO || celda.numFmt === FMT_MONTO_SIN_CENTAVOS) {
             const digitos = Math.trunc(Math.abs(v)).toString().length;
-            const puntos = celda.numFmt === FMT_MONTO_MILES ? Math.floor((digitos - 1) / 3) : 0;
-            return digitos + puntos + 3 + (v < 0 ? 1 : 0);
+            const puntos = Math.floor((digitos - 1) / 3);
+            const centavos = celda.numFmt === FMT_MONTO ? 3 : 0;
+            return digitos + puntos + centavos + (v < 0 ? 1 : 0);
         }
         return String(v).length;
     }
@@ -181,7 +194,7 @@ function ajustarImpresion(hoja) {
 
 // Tabla clásica: encabezado en `filaEncabezado` y datos debajo hasta la última fila.
 // Aplica encabezado, formatos numéricos, cebra, congelado, autofiltro y anchos.
-// `fmtMonto`: FMT_MONTO (default) o FMT_MONTO_MILES.
+// `fmtMonto`: FMT_MONTO (default: miles y sin ",00" en los enteros) u otro fijo.
 function estilizarTabla(hoja, { filaEncabezado = 1, filtro = true, congelar = true, fmtMonto = FMT_MONTO } = {}) {
     const encabezado = hoja.getRow(filaEncabezado);
     const nCols = encabezado.cellCount;
@@ -212,8 +225,8 @@ module.exports = {
     FILL_ENCABEZADO, FONT_ENCABEZADO,
     FILL_ETIQUETA, FONT_ETIQUETA,
     FILL_CEBRA, FILL_RESALTADO, BORDE_FINO,
-    FMT_MONTO, FMT_MONTO_MILES, FMT_ENTERO, FMT_FECHA, ALTO_ENCABEZADO,
-    esColumnaMonto,
+    FMT_MONTO, FMT_MONTO_SIN_CENTAVOS, FMT_MONTO_MILES, FMT_ENTERO, FMT_FECHA, ALTO_ENCABEZADO,
+    esColumnaMonto, formatoMonto,
     estilizarTitulo, estilizarEncabezado, estilizarEtiqueta, marcarEstado,
     aplicarCebra, formatearColumnas, autoajustarAnchos, estilizarTabla, ajustarImpresion
 };
