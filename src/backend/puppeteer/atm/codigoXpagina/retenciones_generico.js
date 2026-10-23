@@ -445,9 +445,16 @@ async function descargarRetencionGenerico(config) {
         if (recargarAlFinal) {
             // CRÍTICO: Recargar página para estabilizar el DOM después de las descargas
             console.log(`[${nombre}]    🔄 Recargando página...`);
-            await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
-            await new Promise(resolve => setTimeout(resolve, 2000)); // 2s para estabilización
-            console.log(`[${nombre}]    ✓ Página estabilizada`);
+            try {
+                await page.reload({ waitUntil: 'networkidle2', timeout: 30000 });
+                await new Promise(resolve => setTimeout(resolve, 2000)); // 2s para estabilización
+                console.log(`[${nombre}]    ✓ Página estabilizada`);
+            } catch (errorRecarga) {
+                // La recarga es limpieza, no descarga: si falla (ej. se cerró el navegador),
+                // los archivos que YA están en disco se devuelven igual. Si la página quedó
+                // rota, lo va a notar la próxima consulta y la cuenta como fallida.
+                console.error(`[${nombre}]    ⚠️ No se pudo recargar la página: ${errorRecarga.message}`);
+            }
         } else {
             // La pantalla queda usable: alcanza con volver a elegir año/mes y consultar.
             await new Promise(resolve => setTimeout(resolve, 1500));

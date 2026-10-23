@@ -78,30 +78,26 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             // Que el proceso haya terminado no quiere decir que esten todos los
-            // archivos: si ATM informo registros y no entrego los 2 archivos de
-            // alguna consulta, esto NO puede salir como exito.
+            // archivos ni que todas las consultas hayan andado: eso NO puede salir
+            // como exito (ver retenciones/resumenConsultas.js).
             const incompleta = resultadoFlujo.descargaIncompleta === true;
 
-            enviarProgresoUsuario(
-                incompleta ? 'error' : 'exito_final',
-                incompleta
-                    ? `⚠️ Descarga INCOMPLETA: ${resultadoFlujo.mensaje}`
-                    : 'Retenciones descargadas con éxito.',
-                resultadoFlujo
-            );
+            // El mensaje que se ve es el del flujo (viene en resultadoFlujo y pisa este).
+            enviarProgresoUsuario(estadoDelCliente(resultadoFlujo), resultadoFlujo.mensaje, resultadoFlujo);
 
             historialRepo.registrar({
                 dominio: 'retenciones', accion: 'descargar',
                 estado: incompleta ? 'error' : 'exito',
                 cliente: historialRepo.clienteDesdeUsuario({ id, nombre: nombreCompleto, cuit }),
                 resumen: incompleta
-                    ? `Retenciones INCOMPLETAS${listaPeriodos.length ? ' (' + descripcionPeriodos + ')' : ''}: faltaron ${resultadoFlujo.archivosFaltantes} archivo(s)`
+                    ? `Retenciones INCOMPLETAS${listaPeriodos.length ? ' (' + descripcionPeriodos + ')' : ''}: ${resultadoFlujo.mensaje}`
                     : `Retenciones descargadas${listaPeriodos.length ? ' (' + descripcionPeriodos + ')' : ''}`,
                 detalle: {
                     periodos: listaPeriodos,
                     archivos: (resultadoFlujo.files || []).length,
                     archivosEsperados: resultadoFlujo.archivosEsperados,
                     incompletas: resultadoFlujo.incompletas,
+                    consultasFallidas: resultadoFlujo.consultasFallidas,
                     archivo: resultadoFlujo.rutaArchivo || resultadoFlujo.archivo
                 }
             });
@@ -118,4 +114,14 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
     }
 }
 
-module.exports = { procesarLote };
+/**
+ * Estado de la tarjeta del cliente en ATM Lote:
+ *   todo bien → 'exito_final' (verde) · falló algo pero bajaron archivos → 'parcial' (amarillo,
+ *   se ven los que bajaron) · falló algo y no bajó nada → 'error' (rojo).
+ */
+function estadoDelCliente(resultadoFlujo) {
+    if (resultadoFlujo.descargaIncompleta !== true) return 'exito_final';
+    return (resultadoFlujo.files || []).length > 0 ? 'parcial' : 'error';
+}
+
+module.exports = { procesarLote, estadoDelCliente };

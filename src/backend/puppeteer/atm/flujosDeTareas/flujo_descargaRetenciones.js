@@ -3,6 +3,7 @@ const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.j
 const { navegarARetenciones } = require('../codigoXpagina/oficina_retenciones.js');
 const { descargarRetencionGenerico } = require('../codigoXpagina/retenciones_generico.js');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const { resumirConsultas } = require('../../../atm/retenciones/resumenConsultas.js');
 
 /**
  * Flujo completo para descargar retenciones desde ATM
@@ -227,67 +228,31 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        // PASO 5: Retornar resultado consolidado con detalles
-        const totalRegistros = detalles.reduce((sum, d) => sum + d.registros, 0);
-        const totalExitosos = detalles.filter(d => d.success && !d.error).length;
-        const totalFallidos = detalles.filter(d => d.error).length;
+        // PASO 5: Cuenta final (archivos faltantes Y consultas fallidas) y resultado consolidado.
+        // Un cartel de éxito con algo faltante es el peor caso: el usuario le cree.
+        const resumen = resumirConsultas(detalles, todosLosArchivos.length, rangoTexto);
 
-        // CUENTA DURA: ATM entrega SIEMPRE 2 archivos (Excel y DIU) por cada
-        // consulta que informo registros. Si la suma no da, falta algo, y tiene
-        // que verse en la ventana: el bug que nos trajo hasta aca fue
-        // exactamente esto, un archivo que no bajo y un cartel de exito igual.
-        const consultasConRegistros = detalles.filter(d => d.registros > 0);
-        const archivosEsperados = consultasConRegistros.length * 2;
-        const archivosFaltantes = archivosEsperados - todosLosArchivos.length;
-        const incompletas = consultasConRegistros
-            .filter(d => (d.archivosDescargados || 0) < 2)
-            .map(d => `${d.tipo} ${d.periodo} (${d.archivosDescargados || 0} de 2)`);
-
-        if (archivosFaltantes > 0) {
-            enviarProgreso('error',
-                `FALTAN ${archivosFaltantes} archivo(s): se descargaron ${todosLosArchivos.length} de ${archivosEsperados} esperados ` +
-                `(${consultasConRegistros.length} consulta(s) con registros x 2). ` +
-                (incompletas.length ? `Incompletas: ${incompletas.join('; ')}.` : 'Revisar la carpeta.'));
-        }
-
-        if (todosLosArchivos.length > 0) {
-            if (archivosFaltantes <= 0) {
-                enviarProgreso('exito', `Proceso completado (${rangoTexto}). Total: ${todosLosArchivos.length} archivo(s) de ${totalRegistros} registro(s).`);
-            }
-            return {
-                exito: true,
-                descargaIncompleta: archivosFaltantes > 0,
-                archivosEsperados,
-                archivosFaltantes: Math.max(archivosFaltantes, 0),
-                incompletas,
-                mensaje: archivosFaltantes > 0
-                    ? `Descarga INCOMPLETA: ${todosLosArchivos.length} de ${archivosEsperados} archivo(s). ${incompletas.join('; ')}`
-                    : `Retenciones procesadas: ${totalExitosos} consulta(s) exitosa(s), ${totalFallidos} fallida(s). ${todosLosArchivos.length} archivo(s) descargado(s).`,
-                files: todosLosArchivos,
-                downloadDir: directorioBase,
-                periodos: listaPeriodos,
-                detalles: detalles // ← Información detallada por sub-servicio y periodo
-            };
+        if (resumen.descargaIncompleta) {
+            enviarProgreso('error', resumen.mensaje);
+        } else if (todosLosArchivos.length > 0) {
+            enviarProgreso('exito', `Proceso completado (${rangoTexto}). Total: ${todosLosArchivos.length} archivo(s) de ${resumen.totalRegistros} registro(s).`);
         } else {
-            const razon = archivosEsperados > 0
-                ? `Había ${consultasConRegistros.length} consulta(s) con registros y NO se descargó ningún archivo.`
-                : (totalFallidos > 0
-                    ? 'Todas las consultas fallaron o no tenían registros.'
-                    : `No se encontraron registros en ningún sub-servicio (${rangoTexto}).`);
-            enviarProgreso(archivosEsperados > 0 ? 'error' : 'info', razon);
-            return {
-                exito: true,
-                descargaIncompleta: archivosEsperados > 0,
-                archivosEsperados,
-                archivosFaltantes: Math.max(archivosFaltantes, 0),
-                incompletas,
-                mensaje: razon,
-                files: [],
-                downloadDir: null,
-                periodos: listaPeriodos,
-                detalles: detalles // ← Información detallada por sub-servicio y periodo
-            };
+            enviarProgreso('info', resumen.mensaje);
         }
+
+        return {
+            exito: true,
+            descargaIncompleta: resumen.descargaIncompleta,
+            archivosEsperados: resumen.archivosEsperados,
+            archivosFaltantes: resumen.archivosFaltantes,
+            incompletas: resumen.incompletas,
+            consultasFallidas: resumen.consultasFallidas,
+            mensaje: resumen.mensaje,
+            files: todosLosArchivos,
+            downloadDir: todosLosArchivos.length > 0 ? directorioBase : null,
+            periodos: listaPeriodos,
+            detalles: detalles // ← Información detallada por sub-servicio y periodo
+        };
 
     } catch (error) {
         console.error('Error en el flujo de descarga de retenciones:', error.message);

@@ -191,7 +191,7 @@ test('avisa cuando ATM informo registros y falto un archivo', async () => {
     assert.strictEqual(resultado.archivosEsperados, TIPOS * 2);
     assert.match(resultado.mensaje, /INCOMPLETA/);
 
-    const alerta = avisos.find(a => a.tipo === 'error' && /FALTAN 1 archivo/.test(a.mensaje));
+    const alerta = avisos.find(a => a.tipo === 'error' && /Faltan 1 de 10 archivo/.test(a.mensaje));
     assert.ok(alerta, `tenia que llegar un aviso de faltante. Avisos: ${JSON.stringify(avisos)}`);
 
     const exitoso = avisos.find(a => a.tipo === 'exito');
@@ -210,7 +210,7 @@ test('no avisa nada raro cuando la cuenta cierra', async () => {
     assert.strictEqual(resultado.descargaIncompleta, false);
     assert.strictEqual(resultado.archivosFaltantes, 0);
     assert.ok(avisos.some(a => a.tipo === 'exito'), 'tiene que cerrar con el aviso de exito');
-    assert.ok(!avisos.some(a => /FALTAN/.test(a.mensaje)), 'no puede inventar faltantes');
+    assert.ok(!avisos.some(a => /faltan/i.test(a.mensaje)), 'no puede inventar faltantes');
 });
 
 test('las consultas sin registros no cuentan para los archivos esperados', async () => {

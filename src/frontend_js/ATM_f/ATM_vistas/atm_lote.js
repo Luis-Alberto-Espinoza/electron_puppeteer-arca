@@ -727,6 +727,9 @@ window.inicializarModuloLoteATM = () => {
     function prepararUIParaProceso() {
         procesandoContainer.innerHTML = '<h3>Procesando Usuario Actual:</h3>';
         finalizadosDiv.innerHTML      = '';
+        // Tarjetas nuevas en cada corrida: si no, se reusa la del cliente de la corrida
+        // anterior con sus archivos viejos (y parecen bajados ahora).
+        userDivMap.clear();
         procesandoContainer.style.display  = 'block';
         finalizadosContainer.style.display = 'none';
         setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
@@ -789,7 +792,7 @@ window.inicializarModuloLoteATM = () => {
                 : estadoFinal === 'no_habilitado'
                     ? '<span class="badge bg-warning text-dark">NO HABILITADO</span>'
                     : estadoFinal === 'parcial'
-                    ? '<span class="badge bg-warning text-dark">PARCIAL</span>'
+                    ? `<span class="badge bg-warning text-dark">PARCIAL - ${files.length} archivo(s)</span>`
                     : `<span class="badge bg-success">Éxito - ${files.length || (archivoPdf ? 1 : 0)} archivo(s)</span>`;
             userDiv.querySelector('h4').innerHTML = `${nombre} ${badge}`;
 
