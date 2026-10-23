@@ -280,6 +280,7 @@ async function descargarRetencionGenerico(config) {
 
         // Preparar descarga
         const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuit, nombreUsuario, 'archivos_atm/RetencionesYPercepciones');
+        const inicioDescargaMs = Date.now();
         const archivosAntesDeDescarga = await fs.readdir(downloadDir);
 
         // Configurar CDP session para descargas
@@ -312,11 +313,9 @@ async function descargarRetencionGenerico(config) {
             { timeout: 15000 }
         );
 
-        // Helper: obtener archivos nuevos en el directorio
-        const obtenerArchivosNuevos = async () => {
-            const archivosActuales = await fs.readdir(downloadDir);
-            return archivosActuales.filter(archivo => !archivosAntesDeDescarga.includes(archivo));
-        };
+        // Helper: obtener archivos nuevos en el directorio (por nombre Y por hora, ver archivosNuevosDesde)
+        const obtenerArchivosNuevos = () =>
+            archivosNuevosDesde(downloadDir, archivosAntesDeDescarga, inicioDescargaMs);
 
         // ═══════════════════════════════════════════════════════════════════
         // DESCARGA: se corta por senal, no por reloj.
@@ -692,6 +691,25 @@ async function esperarRespuestaConsulta(frame, estadoPrevio, timeout) {
     };
 }
 
+/**
+ * Archivos de la carpeta que bajaron en ESTA consulta: los que no estaban antes, y también los
+ * que estaban pero se modificaron después de empezar. ATM le pone el MISMO nombre a todos los
+ * Excel del período (CUIT_AAAA_MM.xls): si quedó uno sin renombrar de una corrida cortada, la
+ * descarga nueva lo pisa con el mismo nombre y, mirando solo nombres, nunca se la veía.
+ */
+async function archivosNuevosDesde(carpeta, nombresAntes, desdeMs) {
+    const nuevos = [];
+    for (const archivo of await fs.readdir(carpeta)) {
+        if (!nombresAntes.includes(archivo)) {
+            nuevos.push(archivo);
+            continue;
+        }
+        const datos = await fs.stat(path.join(carpeta, archivo)).catch(() => null);
+        if (datos && datos.mtimeMs >= desdeMs) nuevos.push(archivo);
+    }
+    return nuevos;
+}
+
 // esperarRespuestaConsulta se exporta para poder testear la logica de espera
 // sin navegador (ver retenciones_espera.test.js).
-module.exports = { descargarRetencionGenerico, esperarRespuestaConsulta };
+module.exports = { descargarRetencionGenerico, esperarRespuestaConsulta, archivosNuevosDesde };
