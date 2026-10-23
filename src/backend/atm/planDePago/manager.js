@@ -63,7 +63,8 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible, impuestos
             nombreParaArchivos,
             downloadsPath,
             enviarProgresoUsuario,
-            { visible, impuestos }
+            // Los del cliente (si se eligieron por cliente) o los del lote.
+            { visible, impuestos: (usuario.impuestos && usuario.impuestos.length) ? usuario.impuestos : impuestos }
         );
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {

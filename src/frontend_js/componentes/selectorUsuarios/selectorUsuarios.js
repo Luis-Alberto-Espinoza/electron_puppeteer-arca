@@ -5,7 +5,8 @@
  * Uso:
  * const selector = new SelectorUsuarios('contenedor-id', {
  *     onCambioSeleccion: (seleccionados) => { ... },
- *     renderizarColumnasExtras: (usuario, index) => { ... }
+ *     renderizarColumnasExtras: (usuario, index) => { ... },
+ *     renderizarFilaDetalle: (usuario, index) => '...'   // opcional: fila a lo ancho DEBAJO del cliente
  * });
  */
 
@@ -30,6 +31,10 @@ class SelectorUsuarios {
 
             // Headers para columnas extras (array de strings)
             headersColumnasExtras: [],
+
+            // Fila a lo ancho DEBAJO de cada cliente seleccionado (ej. sus opciones en ATM Planes de Pago).
+            // Recibe (usuario, index) y devuelve HTML para adentro de la celda, o '' para no poner fila.
+            renderizarFilaDetalle: null,
 
             // Mostrar tabla de seleccionados (útil para casos de selección única)
             mostrarTablaSeleccionados: true,
@@ -570,6 +575,7 @@ class SelectorUsuarios {
                     ${this.opciones.mostrarColumnaCUIT ? `<td>${usuario.cuit || usuario.cuil || 'N/A'}</td>` : ''}
                     ${this.renderizarColumnasExtrasFila(usuario, index)}
                 </tr>
+                ${this.renderizarFilaDetalle(usuario, index, claseColor)}
             `;
         }).join('');
 
@@ -588,6 +594,13 @@ class SelectorUsuarios {
                 </tbody>
             </table>
         `;
+    }
+
+    renderizarFilaDetalle(usuario, index, claseColor) {
+        const contenido = this.opciones.renderizarFilaDetalle ? this.opciones.renderizarFilaDetalle(usuario, index) : '';
+        if (!contenido) return '';
+        const columnas = 2 + (this.opciones.mostrarColumnaCUIT ? 1 : 0) + this.opciones.headersColumnasExtras.length;
+        return `<tr class="fila-detalle ${claseColor}" data-detalle-de="${usuario.id}"><td colspan="${columnas}">${contenido}</td></tr>`;
     }
 
     renderizarColumnasExtrasFila(usuario, index) {

@@ -328,6 +328,33 @@
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
+/* Impuestos por cliente (Planes de Pago): columna + fila debajo del cliente en SELECCIONADOS */
+.btn-impuestos-cliente {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
+    color: #f7fafc;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 4px 10px;
+    cursor: pointer;
+    text-align: left;
+}
+.btn-impuestos-cliente:hover { border-color: #f6e05e; }
+.btn-impuestos-cliente.sin-impuestos { border-color: #e53e3e; color: #feb2b2; }
+.impuestos-propios { color: #f6e05e; font-weight: 400; }
+.tabla-seleccionados .fila-detalle td { padding: 4px 16px 14px; }
+.impuestos-plan-cliente .lote-hint { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; color: #e2e8f0; }
+.btn-volver-general {
+    background: transparent;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    color: #f7fafc;
+    font-size: 12px;
+    padding: 1px 8px;
+    cursor: pointer;
+}
+
 /* Periodo */
 .periodo-fila {
     display: flex;

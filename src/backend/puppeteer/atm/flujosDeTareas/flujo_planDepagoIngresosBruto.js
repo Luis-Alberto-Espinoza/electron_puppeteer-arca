@@ -6,7 +6,7 @@ const { getDownloadPathContribuyente } = require('../../../cliente/carpetaContri
 const { exigirLoginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
-const { elegirImpuesto, descargarFilaVigentePorIndice, contarFilasVigentes } = require('../codigoXpagina/planDePago_impuestos.js');
+const { elegirImpuesto, descargarFilaVigentePorIndice, contarFilasVigentes, diagnosticarPantalla } = require('../codigoXpagina/planDePago_impuestos.js');
 const { convertirPdfAExcel } = require('../../../tablasPdf/convertirPdfAExcel.js');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
 
@@ -35,6 +35,32 @@ function encontrarNumeroDeBoleto(datosPdf) {
 
 // Impuestos de "Consulta Planes de Pago" que se consultan si no se elige nada (el de siempre).
 const IMPUESTOS_POR_DEFECTO = ['Ingresos Brutos'];
+
+const ESPERA_PDF_MS = 30000;
+
+/**
+ * Texto de un cartel de ATM, corto para la tarjeta: sin el título ("Mensaje LISTA DE ERRORES [3]")
+ * y solo la primera oración. Ej. → "El plan seleccionado fue creado para débito directo y tiene una adhesión activa".
+ */
+function resumirAvisoAtm(texto) {
+    const sinTitulo = String(texto).replace(/^.*?\]\s*/, '').replace(/^Mensaje\s*/i, '');
+    return sinTitulo.split('.')[0].trim();
+}
+
+/**
+ * Espera a que aparezca un archivo TERMINADO (sin .crdownload) en la carpeta temporal del plan.
+ * Señal, no reloj: el PDF de un plan tarda lo que tarda ATM en armarlo.
+ * @returns {Promise<boolean>} false si no llegó en ESPERA_PDF_MS
+ */
+async function esperarPdfEnCarpeta(carpeta, { tope = ESPERA_PDF_MS, intervalo = 250 } = {}) {
+    const inicio = Date.now();
+    while (Date.now() - inicio < tope) {
+        const archivos = await fs.readdir(carpeta).catch(() => []);
+        if (archivos.length > 0 && archivos.every(a => !a.endsWith('.crdownload'))) return true;
+        await new Promise(resolve => setTimeout(resolve, intervalo));
+    }
+    return false;
+}
 
 /** "Agentes de Retención y Percepción IIBB" → "AgentesDeRetencionYPercepcionIIBB" (para el nombre del archivo). */
 function impuestoParaArchivo(impuesto) {
@@ -83,15 +109,24 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
                     partes.push(`${impuesto}: sin planes vigentes`);
                     continue;
                 }
+                const avisosImpuesto = [];   // carteles de ATM al elegir un plan (información, no error)
                 for (let i = 0; i < numeroDeFilas; i++) {
                     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), `planpago-${i}-`));
                     tempDirs.push({ dir: tempDir, impuesto });
                     enviarProgreso('info', `${impuesto}: descargando plan ${i + 1} de ${numeroDeFilas}...`);
                     await client.send('Page.setDownloadBehavior', { behavior: 'allow', downloadPath: tempDir });
-                    await descargarFilaVigentePorIndice(oficinaVirtualPage, i, enviarProgreso);
-                    await new Promise(resolve => setTimeout(resolve, 3000)); // Pausa para que la descarga inicie
+                    const { plan, avisos } = await descargarFilaVigentePorIndice(oficinaVirtualPage, i, enviarProgreso);
+                    avisos.forEach(aviso => avisosImpuesto.push(`plan ${plan}: ${resumirAvisoAtm(aviso)}`));
+                    // Esperar el PDF terminado en SU carpeta antes de tocar otra cosa: cambiar de
+                    // impuesto con la descarga en curso la perdía (Debora, 2026-10-23).
+                    const llego = await esperarPdfEnCarpeta(tempDir);
+                    if (!llego) {
+                        const pantalla = await diagnosticarPantalla(oficinaVirtualPage).catch(e => ({ error: e.message }));
+                        console.warn(`[PlanDePago] ${impuesto}: el PDF del plan ${i + 1} no llegó en ${ESPERA_PDF_MS / 1000} s. Pantalla:`, JSON.stringify(pantalla));
+                    }
                 }
-                partes.push(`${impuesto}: ${numeroDeFilas} plan(es) vigente(s)`);
+                partes.push(`${impuesto}: ${numeroDeFilas} plan(es) vigente(s)`
+                    + (avisosImpuesto.length ? ` (ATM avisa: ${avisosImpuesto.join('; ')})` : ''));
             } catch (error) {
                 console.error(`[PlanDePago] ${impuesto}:`, error.message);
                 fallos.push(impuesto);
@@ -108,14 +143,13 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         }
 
         enviarProgreso('info', 'Procesando archivos descargados...');
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Aumentar espera si es necesario
 
         const finalFilePaths = [];
         let planesSinArchivo = 0;   // ATM no entregó el PDF de un plan vigente: no puede salir como Éxito
         const diaConsulta = new Date().toISOString().slice(0, 10);
 
         for (const { dir: tempDir, impuesto } of tempDirs) {
-            const archivos = await fs.readdir(tempDir);
+            const archivos = (await fs.readdir(tempDir)).filter(a => !a.endsWith('.crdownload'));
             if (archivos.length === 0) {
                 planesSinArchivo++;
                 enviarProgreso('error', `${impuesto}: no llegó el PDF de uno de los planes vigentes.`);
@@ -183,5 +217,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
 module.exports = {
     flujoPlanDePago,
     impuestoParaArchivo,
+    esperarPdfEnCarpeta,
+    resumirAvisoAtm,
     IMPUESTOS_POR_DEFECTO
 };

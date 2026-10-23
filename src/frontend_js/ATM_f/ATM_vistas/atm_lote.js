@@ -98,15 +98,82 @@ window.inicializarModuloLoteATM = () => {
     const panelImpuestosPlan  = document.getElementById('panel-impuestos-plan');
     const listaImpuestosPlan  = document.getElementById('listaImpuestosPlan');
     const resumenImpuestosPlan = document.getElementById('resumenImpuestosPlan');
+    // Clientes con impuestos cambiados a mano (id → [impuestos]). Los que no están siguen al general.
+    const impuestosPlanPorCliente = new Map();
+    const planesPagoActivo = () => !!(subservicioActivo && CONFIG_SUB[subservicioActivo].eligeImpuestosPlan);
 
     /** Impuestos marcados en el panel de Planes de Pago (textos de ATM). */
     const impuestosPlanMarcados = () =>
         Array.from(listaImpuestosPlan.querySelectorAll('.chk-impuesto-plan:checked')).map(chk => chk.value);
 
+    const textoImpuestos = (lista) => lista.length ? lista.join(', ') : 'ninguno marcado';
+
+    /** Lo que se consulta para un cliente: lo suyo si se cambió a mano, si no el panel general. */
+    const impuestosPlanDe = (id) => impuestosPlanPorCliente.get(String(id)) || impuestosPlanMarcados();
+
     function actualizarResumenImpuestosPlan() {
-        const marcados = impuestosPlanMarcados();
-        resumenImpuestosPlan.textContent = marcados.length ? marcados.join(', ') : 'ninguno marcado';
+        resumenImpuestosPlan.textContent = textoImpuestos(impuestosPlanMarcados());
+        // Los clientes que siguen al general cambian con él.
+        renderizarImpuestosPlanClientes();
     }
+
+    // Clientes con su desplegable de impuestos abierto (fila debajo del cliente en SELECCIONADOS).
+    const impuestosPlanAbiertos = new Set();
+
+    /** Celda "Impuestos" de la tabla de seleccionados: resumen + ▸/▾ para abrir sus casillas. */
+    function celdaImpuestosPlan(usuario) {
+        const id = String(usuario.id);
+        const lista = impuestosPlanDe(id);
+        const propio = impuestosPlanPorCliente.has(id);
+        return `<td class="celda-impuestos-plan">
+            <button type="button" class="btn-impuestos-cliente ${lista.length ? '' : 'sin-impuestos'}" data-abrir-impuestos="${id}"
+                title="Cambiar los impuestos solo de este cliente">
+                ${impuestosPlanAbiertos.has(id) ? '▾' : '▸'} ${textoImpuestos(lista)}${propio ? ' <span class="impuestos-propios">(propio)</span>' : ''}
+            </button></td>`;
+    }
+
+    /** Fila a lo ancho debajo del cliente: sus 17 casillas (solo si está abierta). */
+    function filaImpuestosPlan(usuario) {
+        const id = String(usuario.id);
+        if (!impuestosPlanAbiertos.has(id)) return '';
+        const lista = impuestosPlanDe(id);
+        const casillas = IMPUESTOS_PLAN_PAGO.map(impuesto => `
+            <label class="documento-opcion"><input type="checkbox" data-cliente-plan="${id}" value="${impuesto}"
+                ${lista.includes(impuesto) ? 'checked' : ''}> ${impuesto}</label>`).join('');
+        const volver = impuestosPlanPorCliente.has(id)
+            ? `<button type="button" class="btn-volver-general" data-volver-general="${id}">↺ usar el general</button>` : '';
+        return `<div class="impuestos-plan-cliente">
+            <div class="lote-hint">Solo para este cliente ${volver}</div>
+            <div class="documentos-fila impuestos-plan-lista">${casillas}</div></div>`;
+    }
+
+    /** Redibuja la tabla de seleccionados (resúmenes y filas abiertas). */
+    function renderizarImpuestosPlanClientes() {
+        if (selectorUsuarios) selectorUsuarios.renderizarSoloListaSeleccionados();
+    }
+
+    const contenedorSelector = document.getElementById('selector-usuarios-atm');
+    contenedorSelector.addEventListener('click', (e) => {
+        const abrir = e.target.closest('[data-abrir-impuestos]');
+        if (abrir) {
+            const id = abrir.dataset.abrirImpuestos;
+            impuestosPlanAbiertos.has(id) ? impuestosPlanAbiertos.delete(id) : impuestosPlanAbiertos.add(id);
+            renderizarImpuestosPlanClientes();
+            return;
+        }
+        const volver = e.target.closest('[data-volver-general]');
+        if (volver) {
+            impuestosPlanPorCliente.delete(volver.dataset.volverGeneral);
+            renderizarImpuestosPlanClientes();
+        }
+    });
+    contenedorSelector.addEventListener('change', (e) => {
+        const id = e.target.dataset.clientePlan;
+        if (!id) return;
+        const marcados = Array.from(contenedorSelector.querySelectorAll(`input[data-cliente-plan="${id}"]:checked`)).map(chk => chk.value);
+        impuestosPlanPorCliente.set(id, marcados);
+        renderizarImpuestosPlanClientes();
+    });
 
     /** Arma las casillas con los de siempre marcados (se llama cada vez que se entra a Planes de Pago). */
     function renderizarImpuestosPlan() {
@@ -124,6 +191,8 @@ window.inicializarModuloLoteATM = () => {
             listaImpuestosPlan.appendChild(etiqueta);
         });
         panelImpuestosPlan.querySelector('details').open = false;
+        impuestosPlanPorCliente.clear();
+        impuestosPlanAbiertos.clear();
         actualizarResumenImpuestosPlan();
     }
     const tablaApremios       = document.getElementById('tabla-apremios');
@@ -266,8 +335,11 @@ window.inicializarModuloLoteATM = () => {
             const operable = usuario.puedeOperar !== false;
             const badge = operable ? '✅ Operable' : (usuario.motivoNoOpera || 'No operable');
             const cssClass = operable ? 'badge-validado' : 'badge-invalido';
-            return `<td class="estado-cell"><span class="badge ${cssClass}">${badge}</span></td>`;
+            return `<td class="estado-cell"><span class="badge ${cssClass}">${badge}</span></td>`
+                + (planesPagoActivo() ? celdaImpuestosPlan(usuario) : '');
         },
+        // Planes de Pago: debajo de cada cliente, sus casillas de impuestos (si las abrió).
+        renderizarFilaDetalle: (usuario) => planesPagoActivo() ? filaImpuestosPlan(usuario) : '',
         headersColumnasExtras: ['Estado'],
         onCambioSeleccion: (seleccionados) => {
             renderizarPanelApremios(seleccionados);
@@ -308,6 +380,9 @@ window.inicializarModuloLoteATM = () => {
         panelApremios.style.display = config.impuestosPorCliente ? 'block' : 'none';
         panelDocumentos.style.display = config.eligeDocumentos ? 'block' : 'none';
         panelImpuestosPlan.style.display = config.eligeImpuestosPlan ? 'block' : 'none';
+        // Columna "Impuestos" en SELECCIONADOS solo en Planes de Pago.
+        selectorUsuarios.opciones.headersColumnasExtras = config.eligeImpuestosPlan ? ['Estado', 'Impuestos'] : ['Estado'];
+        selectorUsuarios.renderizarSoloListaSeleccionados();
         if (config.eligeImpuestosPlan) renderizarImpuestosPlan();
         impuestosPorCliente.clear();
         renderizarPanelApremios([]);
@@ -752,17 +827,26 @@ window.inicializarModuloLoteATM = () => {
             textoPeriodos += `\n\nDescargar: ${marcados.map(chk => chk.parentElement.textContent.trim()).join(', ')}`;
         }
 
-        // Planes de Pago: qué impuestos consultar (al menos uno).
+        // Planes de Pago: cada cliente con SUS impuestos (los propios o los del panel general).
         let impuestosPlan;
         if (config.eligeImpuestosPlan) {
             impuestosPlan = impuestosPlanMarcados();
-            if (impuestosPlan.length === 0) { alert('Marque al menos un impuesto para consultar.'); return; }
-            textoPeriodos += `\n\nImpuestos: ${impuestosPlan.join(', ')}`;
+            const sinImpuestos = [];
+            clientes.forEach(c => {
+                c.impuestos = impuestosPlanDe(c.id);
+                if (c.impuestos.length === 0) sinImpuestos.push(`${c.nombre || ''} ${c.apellido || ''}`.trim() || c.cuit);
+            });
+            if (sinImpuestos.length > 0) {
+                alert(`Estos clientes no tienen ningún impuesto marcado:\n\n - ${sinImpuestos.join('\n - ')}`);
+                return;
+            }
         }
 
-        const etiquetaImpuestos = (c) => c.impuestos
-            ? ` (${c.impuestos.map(id => IMPUESTOS_APREMIOS.find(i => i.id === id).label).join(', ')})`
-            : '';
+        // Apremios guarda ids (se muestran con su etiqueta); Planes de Pago, los textos de ATM.
+        const etiquetaImpuestos = (c) => !c.impuestos ? ''
+            : config.impuestosPorCliente
+                ? ` (${c.impuestos.map(id => IMPUESTOS_APREMIOS.find(i => i.id === id).label).join(', ')})`
+                : ` (${c.impuestos.join(', ')})`;
         const nombresClientes = clientes.map(c => `${c.nombre || ''} ${c.apellido || ''}`.trim() + etiquetaImpuestos(c)).join('\n - ');
         const confirmacion = await showConfirmModal({
             title: config.label,
