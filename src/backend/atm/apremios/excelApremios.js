@@ -7,15 +7,15 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const estilos = require('../../tablasPdf/motor/utils/estilosExcel.js');
 const { getDownloadPathContribuyente } = require('../../cliente/carpetaContribuyente.js');
+const { nombreArchivo: nombreArchivoComun } = require('../../comun/nombreArchivo.js');
 const { IMPUESTO_POR_ID, convertirFilas, esColumnaMonto } = require('./tablaApremios.js');
 
 const CARPETA = 'archivos_atm/Apremios';
 
-// Apremios_ATM_<cuit>_<AAAA-MM-DD>.xlsx: sin hora, la consulta del mismo día pisa a la anterior.
+// <CUIT>_Apremios_<AAAA-MM-DD>.xlsx (regla común, comun/nombreArchivo.js). Antes Apremios_ATM_<cuit>_<fecha>.xlsx.
+// Sin hora: la consulta del mismo día pisa a la anterior.
 function nombreArchivo(cuit) {
-    const h = new Date();
-    const dia = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
-    return `Apremios_ATM_${cuit}_${dia}.xlsx`;
+    return nombreArchivoComun({ servicio: 'Apremios', cuit, extension: 'xlsx' });
 }
 
 function hojaImpuesto(wb, r, fecha) {

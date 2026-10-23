@@ -1,7 +1,6 @@
 // puppeteer/atm/codigoXpagina/oficina_apremios.js
 // Oficina Virtual ATM → Apremios › Consulta de Apremios → un botón por impuesto →
-// tabla "Listado de Inhibiciones". Relevado con páginas guardadas del 2026-10-16
-// (docs: video "Apremios ATM.mp4" + ATMWebPages/flujo_apremios).
+// tabla "Listado de Inhibiciones". Relevado con páginas reales de ATM (2026-10-16).
 //
 // Estructura (ZK):
 //   página Oficina Virtual
@@ -11,6 +10,9 @@
 //           ├─ botones: Automotor | Inmueble | Ingresos Brutos | Multas… | Agentes
 //           └─ listbox con auxheader "Listado de Inhibiciones" (sin paginador: todas
 //              las filas están en el DOM). Hay un 2º listbox "Listado de Etapas" que no se usa.
+
+// Clic REAL (mouse de Puppeteer): ZK ignora el el.click() hecho desde evaluate (guía §10 gotcha 11).
+const { clicReal } = require('./menuOficinaVirtual.js');
 
 const TEXTO_PANTALLA = 'Seleccione el impuesto al cual le va a consultar sus Apremios';
 const TITULO_AVISO = 'Información Importante';
@@ -69,24 +71,6 @@ async function entrarApremios(page, { timeout = 30000 } = {}) {
         await esperar(INTERVALO_MS);
     }
     throw new Error('No cargó la pantalla de Consulta de Apremios.');
-}
-
-/**
- * Clic REAL (mouse de Puppeteer). ZK ignora el el.click() hecho desde evaluate sin
- * tirar error (guía §10 gotcha 11): por eso el clic de los botones no llegaba.
- * `buscar` corre en la página y devuelve el elemento (o null).
- * @returns {Promise<boolean>} false si no encontró el elemento
- */
-async function clicReal(frame, buscar, ...args) {
-    const handle = await frame.evaluateHandle(buscar, ...args);
-    const el = handle.asElement();
-    if (!el) { await handle.dispose(); return false; }
-    try {
-        await el.click();
-        return true;
-    } finally {
-        await el.dispose();
-    }
 }
 
 /** Corre en la página: ¿está a la vista el cartel "Información Importante"? */
