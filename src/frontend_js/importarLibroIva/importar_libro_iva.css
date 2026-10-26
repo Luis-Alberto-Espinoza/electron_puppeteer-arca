@@ -23,6 +23,10 @@
     flex-wrap: wrap;
     gap: 16px;
 }
+/* Limpiar va pegado a la lista de clientes, a la izquierda */
+.il-limpiar-fila {
+    margin: 12px 0 16px;
+}
 
 .il-seccion {
     background: var(--v-panel);

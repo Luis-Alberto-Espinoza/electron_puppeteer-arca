@@ -16,6 +16,7 @@ window.inicializarModuloImportarLibroIva = () => {
 
     const btnProcesar = document.getElementById('btnProcesarIl');
     const btnVistaPrevia = document.getElementById('btnVistaPreviaIl');
+    const btnLimpiar  = document.getElementById('btnLimpiarIl');
     const chkVisible  = document.getElementById('chk-visible-il');
     const chkDescartar = document.getElementById('chk-descartar-borrador-il');
     const contenedor  = btnProcesar.closest('.il-container');
@@ -134,7 +135,8 @@ window.inicializarModuloImportarLibroIva = () => {
         filaProrrateo.appendChild(selProrrateo);
         ops[0].input.closest('label').after(filaProrrateo);
 
-        const ninguna = casilla('No realizo ninguna de estas operaciones', false);
+        // Tildada de entrada, salvo que ARCA ya traiga alguna operación marcada.
+        const ninguna = casilla('No realizo ninguna de estas operaciones', !ops.some(o => o.input.checked));
         caja.appendChild(ninguna.label);
 
         let anterior = null;
@@ -618,7 +620,19 @@ window.inicializarModuloImportarLibroIva = () => {
         correr([{ ...c, ...respuesta }], lote.periodo, true);
     }
 
-    btnProcesar.addEventListener('click', () => {
+    btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
+
+    // Mensaje del modal de confirmación: período, clientes y lo que se BORRA en ARCA.
+    function textoPeriodo(periodo) {
+        return `${periodo.slice(4, 6)}/${periodo.slice(0, 4)}`;
+    }
+    function avisoDescartar() {
+        return chkDescartar.checked
+            ? '\n\n🗑️ Si hay un borrador de OTRO período sin presentar, se DESCARTA (se pierde lo cargado en él).'
+            : '';
+    }
+
+    btnProcesar.addEventListener('click', async () => {
         const seleccionados = selector.obtenerSeleccionados();
         if (seleccionados.length === 0 || !inpPeriodo.value) return;
 
@@ -631,6 +645,22 @@ window.inicializarModuloImportarLibroIva = () => {
             if (p && p.campos.algunaMarcada()) c.datosIniciales = p.campos.leer();
             return c;
         });
+        const conArchivos = contribuyentes.filter(c => c.origen === 'archivos');
+        const confirmado = await showConfirmModal({
+            title: 'Portal IVA',
+            icon: '🚀',
+            message: `Período: ${textoPeriodo(periodoActual())}\n\nSe va a cargar el Libro IVA de ${contribuyentes.length} cliente(s):\n\n - `
+                + contribuyentes.map(c => `${c.nombre} (${c.cuit}): ${c.origen === 'archivos'
+                    ? `Mis archivos (${c.archivos.length} txt)${c.respaldo ? ', con respaldo en Excel' : ''}`
+                    : 'desde ARCA'}`).join('\n - ')
+                + (conArchivos.length ? '\n\n🗑️ ATENCIÓN: con "Mis archivos" se BORRA todo lo que haya en el libro de ARCA y se cargan los txt.' : '')
+                + avisoDescartar()
+                + '\n\nNo se presenta nada: queda en borrador.\n\n¿Desea continuar?',
+            confirmText: 'Iniciar',
+            confirmBtnClass: (conArchivos.length || chkDescartar.checked) ? 'danger' : 'tono'
+        });
+        if (!confirmado) return;
+
         lote.periodo = periodoActual();
         lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
         lote.soloVistaPrevia = false;
@@ -638,7 +668,7 @@ window.inicializarModuloImportarLibroIva = () => {
     });
 
     // Solo los datos para entrar al período (Datos Iniciales por si ARCA los pide): no se importa.
-    btnVistaPrevia.addEventListener('click', () => {
+    btnVistaPrevia.addEventListener('click', async () => {
         const seleccionados = selector.obtenerSeleccionados();
         if (seleccionados.length === 0 || !inpPeriodo.value) return;
         const contribuyentes = seleccionados.map(u => {
@@ -647,6 +677,19 @@ window.inicializarModuloImportarLibroIva = () => {
             if (p && p.campos.algunaMarcada()) c.datosIniciales = p.campos.leer();
             return c;
         });
+        const confirmado = await showConfirmModal({
+            title: 'Portal IVA · Vista Previa',
+            icon: '🚀',
+            message: `Período: ${textoPeriodo(periodoActual())}\n\nSe va a abrir la Vista Previa de ${contribuyentes.length} cliente(s):\n\n - `
+                + contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')
+                + '\n\nNo importa, no borra ni descarga nada. El navegador queda abierto.'
+                + avisoDescartar()
+                + '\n\n¿Desea continuar?',
+            confirmText: 'Iniciar',
+            confirmBtnClass: chkDescartar.checked ? 'danger' : 'tono'
+        });
+        if (!confirmado) return;
+
         lote.periodo = periodoActual();
         lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
         lote.soloVistaPrevia = true;

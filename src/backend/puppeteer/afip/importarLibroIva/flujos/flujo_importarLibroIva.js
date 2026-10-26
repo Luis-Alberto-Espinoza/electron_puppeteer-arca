@@ -63,7 +63,7 @@ async function desdeArchivos(liva, tipo, contribuyente, { periodo, downloadsPath
     if (habia > 0) {
         if (contribuyente.respaldo) {
             avisar(`Libro ${nombre}: guardando en Excel los ${habia} comprobante(s) que había…`);
-            respaldo = await descargarExcel(liva, tipo, { ...datos, sufijo: '_antes' });
+            respaldo = await descargarExcel(liva, tipo, { ...datos, sufijo: 'Antes' });
             console.log(`${LOG} ${cuit} ${nombre}: respaldo ${respaldo.rutaExcel || `no (${respaldo.aviso})`}`);
         }
         avisar(`Libro ${nombre}: eliminando los ${habia} comprobante(s)…`);

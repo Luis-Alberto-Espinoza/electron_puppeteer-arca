@@ -8,6 +8,9 @@
 const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
+const ExcelJS = require('exceljs');
+const estilos = require('../../../../tablasPdf/motor/utils/estilosExcel.js');
+const { nombreArchivo } = require('../../../../comun/nombreArchivo.js');
 const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 const { errorConCodigo, clickReal, esperarArchivoListo } = require('./_comun.js');
 const { abrirLibro, LIBROS } = require('./paso_4_importarLibro.js');
@@ -15,10 +18,37 @@ const { abrirLibro, LIBROS } = require('./paso_4_importarLibro.js');
 const TIMEOUT_GRILLA = 60000;
 const TIMEOUT_DESCARGA = 60000;
 
-// libro_iva_ventas_<cuit>_<AAAA-MM><sufijo>.xlsx: uno por libro y período (re-importar el mismo
-// mes lo pisa). sufijo '_antes' = respaldo de lo que había antes de "Eliminar todo".
+// <CUIT>_PortalIVA_Ventas_<AAAA-MM>.xlsx (regla común): uno por libro y período (re-importar el
+// mismo mes lo pisa). sufijo 'Antes' = respaldo de lo que había antes de "Eliminar todo".
 function nombreExcel(tipo, cuit, periodo, sufijo = '') {
-    return `libro_iva_${tipo}_${cuit}_${periodo.slice(0, 4)}-${periodo.slice(4, 6)}${sufijo}.xlsx`;
+    return nombreArchivo({
+        servicio: 'PortalIVA',
+        cuit,
+        detalle: [tipo, sufijo],
+        fecha: `${periodo.slice(0, 4)}-${periodo.slice(4, 6)}`,
+        extension: 'xlsx'
+    });
+}
+
+// El Excel lo arma ARCA: fila 1 = título ("Comprobantes de Ventas - CUIT …"), fila 2 = encabezados.
+// Se le pone el estilo común; los montos ARCA los trae con formato '0.00' → pasan a miles.
+async function darEstiloAlExcel(rutaExcel) {
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.readFile(rutaExcel);
+    const hoja = libro.worksheets[0];
+    if (!hoja) return;
+    for (let r = 3; r <= hoja.rowCount; r++) {
+        hoja.getRow(r).eachCell(celda => {
+            if (celda.numFmt === '0.00') {
+                celda.numFmt = estilos.FMT_MONTO_MILES;
+                celda.alignment = { horizontal: 'right', vertical: 'middle' };
+            }
+        });
+    }
+    estilos.estilizarTitulo(hoja.getCell(1, 1));
+    estilos.estilizarTabla(hoja, { filaEncabezado: 2, fmtMonto: estilos.FMT_MONTO_MILES });
+    estilos.ajustarImpresion(hoja);
+    await libro.xlsx.writeFile(rutaExcel);
 }
 
 /**
@@ -67,6 +97,8 @@ async function descargarExcel(liva, tipo, { cuit, nombre, periodo, downloadsPath
         const rutaExcel = path.join(carpeta, nombreExcel(tipo, cuit, periodo, sufijo));
         // copy + rm (no rename): el temporal puede estar en otro disco.
         await fs.copyFile(path.join(tempDir, archivo), rutaExcel);
+        // Si el estilo falla, queda el Excel tal cual lo bajó ARCA (los datos están igual).
+        await darEstiloAlExcel(rutaExcel).catch(e => console.warn(`[PortalIVA] No se pudo dar estilo al Excel ${tipo}: ${e.message}`));
         return { rutaExcel, totalLibro };
     } finally {
         if (tempDir) await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});

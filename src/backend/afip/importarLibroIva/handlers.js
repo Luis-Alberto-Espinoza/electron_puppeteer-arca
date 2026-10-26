@@ -166,7 +166,9 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
                 );
                 corte.registrar(r);
                 if (!r || r.success === false) {
-                    const msg = `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
+                    const msg = r && r.error === 'NAVEGADOR_CERRADO'
+                        ? r.message
+                        : `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
                     const error = (r && r.error) || 'LOGIN_FAILED';
                     pendientesDelGrupo().forEach(c => cerrar(c, { success: false, error, message: msg }));
                 }
