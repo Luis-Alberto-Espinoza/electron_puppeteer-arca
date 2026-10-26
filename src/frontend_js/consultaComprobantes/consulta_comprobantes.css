@@ -153,34 +153,6 @@
     gap: 16px;
 }
 
-.cc-acciones {
-    display: flex;
-    gap: 10px;
-    margin-top: 16px;
-}
-
-.cc-btn-consultar {
-    flex: 1;
-    padding: 11px 20px;
-    background: #3498db;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.15s;
-}
-
-.cc-btn-consultar:hover:not(:disabled) {
-    background: #2980b9;
-}
-
-.cc-btn-consultar:disabled {
-    background: #bdc3c7;
-    cursor: not-allowed;
-}
-
 .cc-mensaje-error {
     margin-top: 12px;
     padding: 10px 14px;
@@ -188,6 +160,11 @@
     color: var(--v-txt-error, #c0392b);
     border-radius: 6px;
     font-size: 14px;
+}
+/* Cancelado por el usuario: aviso amarillo, no es una falla */
+.cc-mensaje-error.cc-mensaje-cancelado {
+    background: var(--v-warn-bg, #fff4d6);
+    color: var(--v-txt-warn, #8a6d00);
 }
 
 /* ===== Procesando ===== */

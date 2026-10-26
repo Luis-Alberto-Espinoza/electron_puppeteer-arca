@@ -12,7 +12,6 @@ window.inicializarConsultaComprobantes = () => {
 
     const inputDesde      = document.getElementById('cc-fecha-desde');
     const inputHasta      = document.getElementById('cc-fecha-hasta');
-    const btnConsultar    = document.getElementById('cc-btn-consultar');
     const mensajeError    = document.getElementById('cc-mensaje-error');
     const procesando      = document.getElementById('cc-procesando');
     const procesandoText  = document.getElementById('cc-procesando-texto');
@@ -24,6 +23,11 @@ window.inicializarConsultaComprobantes = () => {
     // Cliente actualmente elegido en el buscador (objeto usuario completo, viene
     // del componente SelectorUsuarios). null si no hay ninguno seleccionado.
     let clienteSeleccionado = null;
+
+    // Antes que el selector: su onCambioSeleccion ya habilita el lanzador.
+    const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorCc'), {
+        acciones: [{ texto: '🔍 Consultar comprobantes', ejecutar: consultar }]
+    });
 
     // dd/mm/aaaa de hoy, para preestablecer "Fecha hasta" y ahorrar clicks.
     function hoyDDMMYYYY() {
@@ -129,7 +133,7 @@ window.inicializarConsultaComprobantes = () => {
         actualizarEstadoBoton();
 
         try {
-            const res = await window.electronAPI.empresa.analizarContribuyente({ cuit, visible: document.getElementById('chk-visible-cc')?.checked !== false });
+            const res = await window.electronAPI.empresa.analizarContribuyente({ cuit, visible: lanzador.visible() });
             if (!res || !res.success) {
                 resetPdv('Error al descubrir puntos de venta');
                 mostrarPdvInfo(res?.message || 'Error al descubrir puntos de venta', 'error');
@@ -218,16 +222,15 @@ window.inicializarConsultaComprobantes = () => {
             && clienteSeleccionado.cuit
             && inputDesde.value
             && inputHasta.value;
-        btnConsultar.disabled = !ok;
+        lanzador.habilitar(ok);
     }
 
-    // ===== Botón Consultar =====
-    btnConsultar.addEventListener('click', async () => {
+    // ===== Consultar (componentes/lanzadorAutomatizacion: switch, Consultar ↔ ⏹ Cancelar) =====
+    function consultar(_datos, { visible }) {
         mensajeError.style.display = 'none';
         resultados.style.display = 'none';
         procesando.style.display = 'block';
         procesandoText.textContent = 'Abriendo navegador y haciendo login en AFIP...';
-        btnConsultar.disabled = true;
 
         const datos = {
             cuit: clienteSeleccionado.cuit,
@@ -238,31 +241,28 @@ window.inicializarConsultaComprobantes = () => {
             // (AFIP trae todos). La automatización matchea este texto contra las
             // <option> reales del select de AFIP.
             tipoComprobante: selectTipo.value,
-            visible: document.getElementById('chk-visible-cc')?.checked !== false
+            visible
         };
 
-        try {
-            const res = await window.electronAPI.consultaComprobantes.consultar(datos);
-            procesando.style.display = 'none';
+        return window.electronAPI.consultaComprobantes.consultar(datos)
+            .then(res => {
+                procesando.style.display = 'none';
+                if (res && res.error === 'CANCELADO') return mostrarError(res.message, 'cancelado');
+                if (!res || !res.success) return mostrarError(res?.message || res?.error || 'Error desconocido');
+                renderizarResultados(res.data);
+            })
+            .catch(e => {
+                console.error('Error en consulta:', e);
+                procesando.style.display = 'none';
+                mostrarError(e.message || 'Error inesperado');
+            });
+    }
 
-            if (!res || !res.success) {
-                mostrarError(res?.message || res?.error || 'Error desconocido');
-                actualizarEstadoBoton();
-                return;
-            }
-
-            renderizarResultados(res.data);
-            actualizarEstadoBoton();
-        } catch (e) {
-            console.error('Error en consulta:', e);
-            procesando.style.display = 'none';
-            mostrarError(e.message || 'Error inesperado');
-            actualizarEstadoBoton();
-        }
-    });
-
-    function mostrarError(msg) {
-        mensajeError.textContent = `❌ ${msg}`;
+    // tipo 'cancelado' = lo cortó el usuario: amarillo, no es una falla.
+    function mostrarError(msg, tipo) {
+        const cancelado = tipo === 'cancelado';
+        mensajeError.textContent = `${cancelado ? '⏹' : '❌'} ${msg}`;
+        mensajeError.classList.toggle('cc-mensaje-cancelado', cancelado);
         mensajeError.style.display = 'block';
 
         // Igual que con los resultados: llevar el foco al error para que se

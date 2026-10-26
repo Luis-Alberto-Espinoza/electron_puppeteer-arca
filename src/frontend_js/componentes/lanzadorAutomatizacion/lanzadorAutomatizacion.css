@@ -1,0 +1,46 @@
+/* Lanzador de automatización (componentes/lanzadorAutomatizacion/lanzadorAutomatizacion.js).
+   Recuadro con título · switch · fila de acciones a la derecha (.ui-modo-botones de base.css).
+   Lo mismo en todos los servicios: tamaños y colores de las acciones salen de acá. */
+.ui-lanzador {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 16px 0;
+    padding: 16px 20px 20px;
+    background: var(--v-panel);
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+}
+.ui-lanzador__titulo {
+    margin: 0;
+    padding-left: 10px;
+    border-left: 4px solid var(--v-borde);
+    font-size: 18px;
+}
+
+/* Botones del ancho de su texto (como #btnProcesarDp), no estirados a todo el renglón.
+   Pisa .ui-modo-opcion de base.css solo acá: Facturación sigue igual. */
+/* Al revés: la 1ra acción (la de arrancar) queda clavada a la derecha;
+   las que se agreguen aparecen a su izquierda y no la mueven. */
+.ui-lanzador .ui-modo-botones {
+    flex-direction: row-reverse;
+    justify-content: flex-start;
+}
+/* El switch arriba de los botones, también a la derecha */
+.ui-lanzador > .ui-switch {
+    align-self: flex-end;
+}
+.ui-lanzador .ui-modo-opcion {
+    flex: 0 0 auto;
+}
+.ui-lanzador .ui-modo-opcion > button {
+    width: auto;
+}
+
+/* Colores por tipo de acción, no por servicio */
+.ui-lanzador__accion--principal { background: var(--c-accion); }
+.ui-lanzador__accion--principal:hover:not(:disabled) { background: var(--c-accion-hover); }
+.ui-lanzador__accion--prueba { background: var(--grad-ok); }
+/* La acción que corre pasa a "⏹ Cancelar" */
+.ui-lanzador__accion--cancelar,
+.ui-lanzador__accion--cancelar:hover:not(:disabled) { background: var(--grad-peligro); }

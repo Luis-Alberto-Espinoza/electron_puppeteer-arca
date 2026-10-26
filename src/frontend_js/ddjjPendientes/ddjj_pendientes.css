@@ -17,7 +17,7 @@
     gap: 16px;
     margin: 16px 0;
 }
-/* Limpiar a la izquierda; el switch y el botón de procesar quedan a la derecha */
+/* Limpiar a la izquierda (el switch y Consultar están en el lanzador, abajo) */
 .dp-limpiar {
     margin-right: auto;
 }
@@ -58,6 +58,7 @@
 .dp-resultado-exito      { background: var(--v-ok-bg);    color: var(--v-txt-ok); }
 .dp-resultado-pendientes { background: var(--v-panel-2);  color: var(--v-texto); }
 .dp-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
+.dp-resultado-cancelado  { background: var(--v-warn-bg);  color: var(--v-txt-warn); }
 .dp-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
 
 /* Botones de archivo (componentes/archivoResultado): no se achican */

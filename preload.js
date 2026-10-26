@@ -170,6 +170,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
         consultar: (datos) => ipcRenderer.invoke('consultaComprobantes:consultar', datos)
     },
 
+    // ⏹ Cancelar del lanzador (componentes/lanzadorAutomatizacion): cierra el navegador que corre
+    automatizacion: {
+        cancelar: () => ipcRenderer.invoke('automatizacion:cancelar')
+    },
+
     // APIs para Notas de Crédito/Débito (listar/leer Excels + generar el lote de notas)
     notaCreditoDebito: {
         listarExcels: (datos) => ipcRenderer.invoke('notaCreditoDebito:listarExcels', datos),

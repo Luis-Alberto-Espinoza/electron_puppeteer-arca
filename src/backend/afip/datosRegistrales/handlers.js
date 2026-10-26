@@ -35,7 +35,7 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
             resultados.push({ contribuyente, success, error, message, rutaPdf, downloadDir });
             enviar({
                 tipo: 'resultado', id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
-                estado: success ? 'exito' : 'error', error, mensaje: message, rutaPdf, downloadDir,
+                estado: success ? 'exito' : (error === 'CANCELADO' ? 'cancelado' : 'error'), error, mensaje: message, rutaPdf, downloadDir,
                 procesados: resultados.length, total
             });
             historialRepo.registrar({
@@ -72,13 +72,20 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
 
         // 2. Un login por grupo. Si AFIP pide captcha, el resto del lote se saltea.
         const corte = crearCorteCaptchaAfip();
+        let cancelado = null; // "⏹ Cancelar" del lanzador: los grupos que faltan no arrancan
         for (const [loginCuit, grupo] of grupos) {
+            if (cancelado) {
+                grupo.items.forEach(c => cerrar(c, cancelado));
+                continue;
+            }
             if (corte.activo) {
                 grupo.items.forEach(c => cerrar(c, { success: false, error: 'CAPTCHA_BLOQUEO', message: corte.mensaje }));
                 continue;
             }
 
             const onProgreso = ({ tipo, contribuyente, ...resto }) => {
+                // Tras "⏹ Cancelar" el flujo sigue un rato por detrás: sus avisos ya no cuentan.
+                if (cancelado) return;
                 if (tipo === 'resultado') return cerrar(contribuyente, resto);
                 enviar({
                     tipo, id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
@@ -91,7 +98,11 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
                     grupo.credenciales, grupo.items, downloadsPath, onProgreso, { visible }
                 );
                 corte.registrar(r);
-                if (!r || r.success === false) {
+                if (r && r.error === 'CANCELADO') {
+                    cancelado = { success: false, error: r.error, message: r.message };
+                    const yaCerrados = new Set(resultados.map(x => x.contribuyente.cuit));
+                    grupo.items.filter(c => !yaCerrados.has(c.cuit)).forEach(c => cerrar(c, cancelado));
+                } else if (!r || r.success === false) {
                     // Falló el login (o el navegador): nadie del grupo se procesó.
                     const msg = r && r.error === 'NAVEGADOR_CERRADO'
                         ? r.message
@@ -107,7 +118,8 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
         }
 
         const exitosos = resultados.filter(r => r.success).length;
-        enviar({ tipo: 'finalizado', total, exitosos, fallidos: total - exitosos });
+        const cancelados = resultados.filter(r => r.error === 'CANCELADO').length;
+        enviar({ tipo: 'finalizado', total, exitosos, fallidos: total - exitosos - cancelados, cancelados });
         return { success: true, resultados };
     });
 }

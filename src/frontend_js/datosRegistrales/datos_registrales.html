@@ -9,15 +9,10 @@
 
     <div class="dr-procesar">
         <button id="btnLimpiarDr" class="ui-btn ui-btn--danger dr-limpiar">✕ Limpiar seleccionados</button>
-        <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
-        <label class="ui-switch">
-            <input type="checkbox" id="chk-visible-dr" checked>
-            Mostrar navegador
-        </label>
-        <button id="btnProcesarDr" class="ui-btn ui-btn--accion" disabled>
-            ▶ Descargar datos registrales
-        </button>
     </div>
+
+    <!-- Mostrar navegador + Descargar/Cancelar: lo llena componentes/lanzadorAutomatizacion -->
+    <div id="lanzadorDr"></div>
 
     <div id="resultadosDr" class="dr-seccion" style="display:none">
         <div class="dr-seccion-titulo">Resultados <span id="contadorDr" class="dr-contador"></span></div>

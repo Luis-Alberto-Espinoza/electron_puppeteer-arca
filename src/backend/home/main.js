@@ -26,6 +26,7 @@ const setupFacturaHandlers = require('../afip/factura/handlers.js');
 const setupVepHandlers = require('../afip/vep/handlers.js');
 const setupConsultaDeudaHandlers = require('../afip/consultaDeuda/handlers.js');
 const setupConsultaComprobantesHandlers = require('../afip/consultaComprobantes/handlers.js');
+const setupCancelarAutomatizacionHandlers = require('../comun/cancelarAutomatizacionHandlers.js');
 const setupNotaCreditoDebitoHandlers = require('../afip/notaCreditoDebito/handlers.js');
 const setupEmpresaHandlers              = require('../afip/empresa/handlers.js');
 const setupCuentaTributariaHandlers = require('../afip/cuentaTributaria/handlers.js');
@@ -339,6 +340,7 @@ app.whenReady().then(async () => {
         setupVepHandlers(ipcMain, mainWindow, app);
         setupConsultaDeudaHandlers(ipcMain, app);
         setupConsultaComprobantesHandlers(ipcMain, app);
+        setupCancelarAutomatizacionHandlers(ipcMain); // ⏹ Cancelar del lanzador, para todos los servicios
         setupNotaCreditoDebitoHandlers(ipcMain, app);
         setupEmpresaHandlers(ipcMain);
         setupCuentaTributariaHandlers(ipcMain, mainWindow, app);

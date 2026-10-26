@@ -6,14 +6,24 @@ window.inicializarModuloDatosRegistrales = () => {
     // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
-    const btnProcesar = document.getElementById('btnProcesarDr');
     const btnLimpiar  = document.getElementById('btnLimpiarDr');
-    const chkVisible  = document.getElementById('chk-visible-dr');
     const resultados  = document.getElementById('resultadosDr');
     const contenido   = document.getElementById('resultadosContenidoDr');
     const contador    = document.getElementById('contadorDr');
 
-    let enCurso = false;
+    // Antes que el selector: su onCambioSeleccion ya habilita el lanzador.
+    const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDr'), {
+        acciones: [{
+            texto: '▶ Descargar datos registrales',
+            preparar: elegidos,
+            confirmar: (contribuyentes) => ({
+                title: 'Datos registrales',
+                message: `Se van a descargar los datos registrales de ${contribuyentes.length} cliente(s):\n\n - ${contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')}`
+            }),
+            rueda: { servicio: 'ARCA', subservicio: 'Datos registrales', mensaje: 'Iniciando sesión en AFIP…' },
+            ejecutar: procesar
+        }]
+    });
 
     const selector = new SelectorUsuarios('selector-contribuyentes-dr', {
         mostrarTablaSeleccionados: true,
@@ -24,7 +34,7 @@ window.inicializarModuloDatosRegistrales = () => {
         // Lote: no deja elegir los de clave incorrecta (fallarían y acercan el captcha).
         ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selector, { lote: true }) : {}),
         onCambioSeleccion: (seleccionados) => {
-            btnProcesar.disabled = enCurso || seleccionados.length === 0;
+            lanzador.habilitar(seleccionados.length > 0);
         }
     });
 
@@ -51,7 +61,7 @@ window.inicializarModuloDatosRegistrales = () => {
         fila.className = `dr-resultado dr-resultado-${datos.estado}`;
         fila.innerHTML = '';
 
-        const icono = { procesando: '⏳', exito: '✓', error: '✗' }[datos.estado] || '';
+        const icono = { procesando: '⏳', exito: '✓', error: '✗', cancelado: '⏹' }[datos.estado] || '';
         const texto = el('span', 'dr-resultado-texto');
         texto.appendChild(el('strong', null, `${icono} ${datos.nombre || ''} (${datos.cuit})`));
         texto.appendChild(document.createTextNode(` — ${datos.mensaje || ''}`));
@@ -87,7 +97,8 @@ window.inicializarModuloDatosRegistrales = () => {
             }
         } else if (datos.tipo === 'finalizado') {
             const fin = el('div', 'dr-resultado dr-resultado-fin',
-                `Terminado: ${datos.exitosos} descargado(s), ${datos.fallidos} con error.`);
+                `Terminado: ${datos.exitosos} descargado(s), ${datos.fallidos} con error`
+                + (datos.cancelados ? `, ${datos.cancelados} cancelado(s).` : '.'));
             contenido.appendChild(fin);
             irAResultados();
         }
@@ -102,55 +113,32 @@ window.inicializarModuloDatosRegistrales = () => {
 
     btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
 
-    // ===== Procesar =====
-    btnProcesar.addEventListener('click', async () => {
+    // ===== Procesar (componentes/lanzadorAutomatizacion: switch, Descargar ↔ ⏹ Cancelar) =====
+    function elegidos() {
         const seleccionados = selector.obtenerSeleccionados();
-        if (seleccionados.length === 0) return;
-
-        const contribuyentes = seleccionados.map(u => ({
+        if (seleccionados.length === 0) return null;
+        return seleccionados.map(u => ({
             id: u.id,
             cuit: u.cuit,
             nombre: u.razonSocial || [u.nombre, u.apellido].filter(Boolean).join(' ')
         }));
+    }
 
-        // Confirmación antes de lanzar (igual que ATM Lote)
-        const confirmado = await showConfirmModal({
-            title: 'Datos registrales',
-            icon: '🚀',
-            message: `Se van a descargar los datos registrales de ${contribuyentes.length} cliente(s):\n\n - ${contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')}\n\n¿Desea continuar?`,
-            confirmText: 'Iniciar',
-            confirmBtnClass: 'tono'
-        });
-        if (!confirmado) return;
-
-        enCurso = true;
-        btnProcesar.disabled = true;
-        btnProcesar.textContent = '⏳ Descargando...';
+    async function procesar(contribuyentes, { visible }) {
         contenido.innerHTML = '';
         contador.textContent = '';
         resultados.style.display = 'block';
         contenido.appendChild(el('div', 'dr-resultado dr-resultado-procesando dr-inicio',
             `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: la consulta de AFIP es lenta)`));
         irAResultados();
-        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
-            servicio: 'ARCA', subservicio: 'Datos registrales', mensaje: 'Iniciando sesión en AFIP…'
-        });
 
         try {
-            const r = await window.electronAPI.datosRegistrales.procesar({
-                contribuyentes,
-                visible: chkVisible.checked
-            });
+            const r = await window.electronAPI.datosRegistrales.procesar({ contribuyentes, visible });
             if (!r || !r.success) {
                 contenido.appendChild(el('div', 'dr-resultado dr-resultado-error', (r && r.message) || 'Error desconocido'));
             }
         } catch (e) {
             contenido.appendChild(el('div', 'dr-resultado dr-resultado-error', e.message));
-        } finally {
-            if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
-            enCurso = false;
-            btnProcesar.textContent = '▶ Descargar datos registrales';
-            btnProcesar.disabled = selector.obtenerSeleccionados().length === 0;
         }
-    });
+    }
 };

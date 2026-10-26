@@ -7,14 +7,24 @@ window.inicializarModuloDdjjPendientes = () => {
     // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
-    const btnProcesar = document.getElementById('btnProcesarDp');
     const btnLimpiar  = document.getElementById('btnLimpiarDp');
-    const chkVisible  = document.getElementById('chk-visible-dp');
     const resultados  = document.getElementById('resultadosDp');
     const contenido   = document.getElementById('resultadosContenidoDp');
     const contador    = document.getElementById('contadorDp');
 
-    let enCurso = false;
+    // Antes que el selector: su onCambioSeleccion ya habilita el lanzador.
+    const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDp'), {
+        acciones: [{
+            texto: '▶ Consultar DDJJ pendientes',
+            preparar: elegidos,
+            confirmar: (contribuyentes) => ({
+                title: 'DDJJ pendientes',
+                message: `Se van a consultar las DDJJ pendientes de ${contribuyentes.length} cliente(s):\n\n - ${contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')}`
+            }),
+            rueda: { servicio: 'ARCA', subservicio: 'DDJJ pendientes', mensaje: 'Iniciando sesión en AFIP…' },
+            ejecutar: procesar
+        }]
+    });
 
     const selector = new SelectorUsuarios('selector-contribuyentes-dp', {
         mostrarTablaSeleccionados: true,
@@ -23,7 +33,7 @@ window.inicializarModuloDdjjPendientes = () => {
         // Lote: no deja elegir los de clave incorrecta (fallarían y acercan el captcha).
         ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selector, { lote: true }) : {}),
         onCambioSeleccion: (seleccionados) => {
-            btnProcesar.disabled = enCurso || seleccionados.length === 0;
+            lanzador.habilitar(seleccionados.length > 0);
         }
     });
 
@@ -67,7 +77,7 @@ window.inicializarModuloDdjjPendientes = () => {
         const bloque = bloqueDe(datos.cuit);
         bloque.innerHTML = '';
 
-        const icono = { procesando: '⏳', exito: '✓', pendientes: '⚠', error: '✗' }[datos.estado] || '';
+        const icono = { procesando: '⏳', exito: '✓', pendientes: '⚠', error: '✗', cancelado: '⏹' }[datos.estado] || '';
         const texto = datos.estado === 'exito' ? 'sin DDJJ pendientes de presentación' : (datos.mensaje || '');
         const fila = el('div', `dp-resultado dp-resultado-${datos.estado}`);
         const span = el('span', 'dp-resultado-texto');
@@ -116,7 +126,8 @@ window.inicializarModuloDdjjPendientes = () => {
             }
         } else if (datos.tipo === 'finalizado') {
             contenido.appendChild(el('div', 'dp-resultado dp-resultado-fin',
-                `Terminado: ${datos.exitosos} consultado(s), ${datos.fallidos} con error.`));
+                `Terminado: ${datos.exitosos} consultado(s), ${datos.fallidos} con error`
+                + (datos.cancelados ? `, ${datos.cancelados} cancelado(s).` : '.')));
             irAResultados();
         }
     }
@@ -130,55 +141,32 @@ window.inicializarModuloDdjjPendientes = () => {
 
     btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
 
-    // ===== Procesar =====
-    btnProcesar.addEventListener('click', async () => {
+    // ===== Procesar (componentes/lanzadorAutomatizacion: switch, Consultar ↔ ⏹ Cancelar) =====
+    function elegidos() {
         const seleccionados = selector.obtenerSeleccionados();
-        if (seleccionados.length === 0) return;
-
-        const contribuyentes = seleccionados.map(u => ({
+        if (seleccionados.length === 0) return null;
+        return seleccionados.map(u => ({
             id: u.id,
             cuit: u.cuit,
             nombre: u.razonSocial || [u.nombre, u.apellido].filter(Boolean).join(' ')
         }));
+    }
 
-        // Confirmación antes de lanzar (igual que ATM Lote)
-        const confirmado = await showConfirmModal({
-            title: 'DDJJ pendientes',
-            icon: '🚀',
-            message: `Se van a consultar las DDJJ pendientes de ${contribuyentes.length} cliente(s):\n\n - ${contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')}\n\n¿Desea continuar?`,
-            confirmText: 'Iniciar',
-            confirmBtnClass: 'tono'
-        });
-        if (!confirmado) return;
-
-        enCurso = true;
-        btnProcesar.disabled = true;
-        btnProcesar.textContent = '⏳ Consultando...';
+    async function procesar(contribuyentes, { visible }) {
         contenido.innerHTML = '';
         contador.textContent = '';
         resultados.style.display = 'block';
         contenido.appendChild(el('div', 'dp-resultado dp-resultado-procesando dp-inicio',
             `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: la consulta de AFIP es lenta)`));
         irAResultados();
-        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
-            servicio: 'ARCA', subservicio: 'DDJJ pendientes', mensaje: 'Iniciando sesión en AFIP…'
-        });
 
         try {
-            const r = await window.electronAPI.ddjjPendientes.procesar({
-                contribuyentes,
-                visible: chkVisible.checked
-            });
+            const r = await window.electronAPI.ddjjPendientes.procesar({ contribuyentes, visible });
             if (!r || !r.success) {
                 contenido.appendChild(el('div', 'dp-resultado dp-resultado-error', (r && r.message) || 'Error desconocido'));
             }
         } catch (e) {
             contenido.appendChild(el('div', 'dp-resultado dp-resultado-error', e.message));
-        } finally {
-            if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
-            enCurso = false;
-            btnProcesar.textContent = '▶ Consultar DDJJ pendientes';
-            btnProcesar.disabled = selector.obtenerSeleccionados().length === 0;
         }
-    });
+    }
 };
