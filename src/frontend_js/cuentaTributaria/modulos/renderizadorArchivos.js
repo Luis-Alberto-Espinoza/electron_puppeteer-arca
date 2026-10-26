@@ -165,11 +165,12 @@ function renderItemPdf(resultado) {
 
 function renderItemError(resultado) {
     const { cliente, cuitAsociado, status, error } = resultado;
-    const etiqueta = status === 'sin-match' ? 'Sin coincidencias' : 'Error';
+    const cancelado = status === 'cancelado';
+    const etiqueta = status === 'sin-match' ? 'Sin coincidencias' : (cancelado ? 'Cancelado' : 'Error');
     return `
-        <div class="archivo-item archivo-item-error">
+        <div class="archivo-item ${cancelado ? 'archivo-item-cancelado' : 'archivo-item-error'}">
             <div class="archivo-info">
-                <div class="archivo-icono">⚠️</div>
+                <div class="archivo-icono">${cancelado ? '⏹' : '⚠️'}</div>
                 <div class="archivo-detalles">
                     <div class="archivo-usuario">${capitalizarTexto((cliente && cliente.nombre) || '')} — ${formatearCUIT(cuitAsociado)}</div>
                     <div class="archivo-nombre">${etiqueta}</div>

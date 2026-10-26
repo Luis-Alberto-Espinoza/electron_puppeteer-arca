@@ -110,8 +110,8 @@ export function renderizarGrupoRequierenSeleccion(items) {
 
     if (!items || items.length === 0) {
         if (grupo) grupo.style.display = 'none';
-        const btn = document.getElementById('btn-confirmar-seleccion-ct');
-        if (btn) btn.style.display = 'none';
+        const lanzadorPago = document.getElementById('lanzador-ct-pago');
+        if (lanzadorPago) lanzadorPago.style.display = 'none';
         return;
     }
 
@@ -176,8 +176,8 @@ export function renderizarGrupoRequierenSeleccion(items) {
 
     contenido.innerHTML = html;
 
-    const btn = document.getElementById('btn-confirmar-seleccion-ct');
-    if (btn) btn.style.display = 'inline-block';
+    const lanzadorPago = document.getElementById('lanzador-ct-pago');
+    if (lanzadorPago) lanzadorPago.style.display = '';
 }
 
 /**
@@ -289,9 +289,10 @@ export function renderizarGrupoErrores(items) {
     grupo.style.display = 'block';
 
     const html = items.map(item => {
-        const { cliente, cuitAsociado, error } = item;
+        const { cliente, cuitAsociado, error, codigo } = item;
+        const cancelado = codigo === 'CANCELADO';
         return `
-            <div class="tarjeta-grupo tarjeta-error">
+            <div class="tarjeta-grupo tarjeta-error${cancelado ? ' tarjeta-cancelada' : ''}">
                 <div class="tarjeta-header">
                     <div class="grupo-info">
                         <div class="grupo-detalles">
@@ -302,7 +303,7 @@ export function renderizarGrupoErrores(items) {
                 </div>
                 <div class="tarjeta-body">
                     <div class="error-mensaje">
-                        <span class="icono-error">✕</span>
+                        <span class="icono-error">${cancelado ? '⏹' : '✕'}</span>
                         <span class="error-texto">${error || 'Error desconocido'}</span>
                     </div>
                     <div class="error-acciones">

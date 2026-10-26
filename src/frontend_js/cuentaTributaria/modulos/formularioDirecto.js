@@ -30,8 +30,6 @@ export const IMPUESTOS_DIRECTO = [
 ];
 
 const ID_CONTENEDOR = 'formularios-directo-ct';
-const ID_BTN_GENERAR = 'btn-generar-directo-ct';
-const ID_CONTADOR = 'contador-grupos-directo-ct';
 
 // ============================================================
 // ESTADO (singleton de módulo)
@@ -253,21 +251,10 @@ function entradasValidas(entradas) {
     return out;
 }
 
+// El botón Generar y su contador son del lanzador: los actualiza el controlador en onCambio.
 function notificarCambio() {
     if (typeof estado.onCambio === 'function') {
         try { estado.onCambio(validar()); } catch (e) { console.error(e); }
-    }
-    actualizarBotonYContador();
-}
-
-function actualizarBotonYContador() {
-    const v = validar();
-    const btn = document.getElementById(ID_BTN_GENERAR);
-    const cont = document.getElementById(ID_CONTADOR);
-    if (cont) cont.textContent = String(v.cantidad);
-    if (btn) {
-        btn.disabled = !v.valido;
-        btn.title = v.mensaje;
     }
 }
 
@@ -384,12 +371,12 @@ function renderizar() {
                 Seleccione un cliente y al menos un CUIT para empezar a cargar deudas.
             </div>
         `;
-        actualizarBotonYContador();
+        notificarCambio();
         return;
     }
 
     cont.innerHTML = claves.map(k => renderGrupo(k, estado.grupos[k])).join('');
-    actualizarBotonYContador();
+    notificarCambio();
 }
 
 function renderGrupo(groupKey, g) {

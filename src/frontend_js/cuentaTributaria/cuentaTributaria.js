@@ -34,6 +34,11 @@ import { capitalizarTexto } from './modulos/utilidadesCT.js';
 let selectorUsuariosCT = null;     // Flujo A
 let selectorUsuariosCT_B = null;   // Flujo B
 
+// Lanzadores (componentes/lanzadorAutomatizacion): switch + arrancar ↔ ⏹ Cancelar.
+let lanzadorA = null;      // Flujo A, 1ra pasada (y reintentos)
+let lanzadorPago = null;   // Flujo A, 2da pasada: sin switch, usa EstadoCT.visible
+let lanzadorB = null;      // Flujo B
+
 // Por usuario (clienteId) → Set de cuitAsociados marcados para procesar.
 // Estado independiente por flujo.
 const cuitsProcesarPorUsuarioA = {};
@@ -57,6 +62,9 @@ function inicializarCuentaTributaria() {
         return;
     }
 
+    // Antes que los selectores y el formulario: sus avisos de cambio ya habilitan los lanzadores.
+    crearLanzadores();
+
     // Reset de estado al entrar
     EstadoCT.reset();
     resetearManejadorFilas();
@@ -67,7 +75,10 @@ function inicializarCuentaTributaria() {
     montarSelectorUsuariosA();
     montarSelectorUsuariosB();
     inicializarFormularioDirecto({
-        onCambio: () => { /* el módulo ya actualiza su botón y contador */ }
+        onCambio: (v) => {
+            lanzadorB.cambiar(0, { texto: `Generar VEPs directos para ${v.cantidad} CUIT(s)`, ayuda: v.mensaje });
+            lanzadorB.habilitar(v.valido);
+        }
     });
     configurarEventListeners();
     inicializarManejadorFilas();
@@ -78,6 +89,45 @@ function inicializarCuentaTributaria() {
     ocultarSeccionArchivos();
 
     console.log('✅ Vista Cuenta Tributaria lista');
+}
+
+// ============================================================
+// LANZADORES
+// ============================================================
+
+function crearLanzadores() {
+    const crear = window.lanzadorAutomatizacion.crear;
+    lanzadorA = crear(document.getElementById('lanzador-ct-a'), {
+        acciones: [{
+            texto: 'Consultar deuda para 0 CUIT(s)',
+            preparar: () => {
+                const items = expandirItemsA(selectorUsuariosCT.obtenerSeleccionados());
+                return items.length ? { items } : null;
+            },
+            // datos.reintento = un grupo desde Errores (lanzadorA.lanzar), con la elección de la consulta
+            ejecutar: (datos, { visible }) => datos.reintento
+                ? reintentarGrupo(datos.reintento)
+                : ejecutarConsultaPrimeraPasada(datos.items, visible)
+        }]
+    });
+    lanzadorPago = crear(document.getElementById('lanzador-ct-pago'), {
+        navegador: false,
+        acciones: [{
+            texto: 'Confirmar y generar VEP',
+            preparar: prepararSegundaPasada,
+            ejecutar: ejecutarConsultaSegundaPasada
+        }]
+    });
+    lanzadorB = crear(document.getElementById('lanzador-ct-b'), {
+        acciones: [{
+            texto: 'Generar VEPs directos para 0 CUIT(s)',
+            preparar: () => {
+                const items = recopilarItemsDirecto();
+                return items.length ? items : null;
+            },
+            ejecutar: (items, { visible }) => ejecutarGenerarDirecto(items, visible)
+        }]
+    });
 }
 
 // ============================================================
@@ -241,18 +291,6 @@ function configurarEventListeners() {
         });
     }
 
-    // Botón Consultar (primera pasada — Flujo A)
-    const btnConsultar = document.getElementById('btn-consultar-deuda-ct');
-    if (btnConsultar) btnConsultar.addEventListener('click', ejecutarConsultaPrimeraPasada);
-
-    // Botón Confirmar y generar VEP (segunda pasada — Flujo A)
-    const btnConfirmar = document.getElementById('btn-confirmar-seleccion-ct');
-    if (btnConfirmar) btnConfirmar.addEventListener('click', ejecutarConsultaSegundaPasada);
-
-    // Botón Generar VEPs directos (Flujo B)
-    const btnDirecto = document.getElementById('btn-generar-directo-ct');
-    if (btnDirecto) btnDirecto.addEventListener('click', ejecutarGenerarDirecto);
-
     // Botón Cancelar todo
     const btnCancelar = document.getElementById('btn-cancelar-todo-ct');
     if (btnCancelar) btnCancelar.addEventListener('click', cancelarTodo);
@@ -266,8 +304,10 @@ function configurarEventListeners() {
         actualizarBotonConfirmar();
     });
 
+    // El reintento pasa por el lanzador de la consulta: se ve ⏹ Cancelar y se puede cortar.
     document.addEventListener('ct:reintentar-grupo', (ev) => {
-        reintentarGrupo(ev.detail);
+        if (lanzadorA.enCurso() || lanzadorPago.enCurso()) return;
+        lanzadorA.lanzar(0, { reintento: ev.detail });
     });
 }
 
@@ -395,28 +435,18 @@ function expandirItemsA(usuariosSeleccionados) {
 
 function actualizarContadorGruposA(usuariosSeleccionados) {
     const items = expandirItemsA(usuariosSeleccionados);
-    const cont = document.getElementById('contador-grupos-ct');
-    if (cont) cont.textContent = String(items.length);
-    const btn = document.getElementById('btn-consultar-deuda-ct');
-    if (btn) btn.disabled = items.length === 0;
+    lanzadorA.cambiar(0, { texto: `Consultar deuda para ${items.length} CUIT(s)` });
+    lanzadorA.habilitar(items.length > 0);
 }
 
 // ============================================================
 // PRIMERA PASADA — CONSULTAR
 // ============================================================
 
-async function ejecutarConsultaPrimeraPasada() {
-    const seleccionados = selectorUsuariosCT.obtenerSeleccionados();
-    const items = expandirItemsA(seleccionados);
-
-    if (items.length === 0) {
-        alert('Seleccione al menos un cliente y un CUIT a procesar.');
-        return;
-    }
-
+async function ejecutarConsultaPrimeraPasada(items, visible) {
     EstadoCT.reset();
     EstadoCT.setItemsOriginales(items);
-    EstadoCT.visible = document.getElementById('chk-visible-ct')?.checked !== false;
+    EstadoCT.visible = visible;
     limpiarTodosLosGrupos();
     ocultarSeccionArchivos();
 
@@ -464,19 +494,22 @@ function manejarRespuestaPrimeraPasada(respuesta) {
 // SEGUNDA PASADA — CONFIRMAR Y GENERAR VEP
 // ============================================================
 
-async function ejecutarConsultaSegundaPasada() {
+function prepararSegundaPasada() {
     const validacion = EstadoCT.validarSelecciones();
     if (!validacion.valido) {
         alert(validacion.mensaje);
-        return;
+        return null;
     }
 
     const items = EstadoCT.recopilarSelecciones();
     if (items.length === 0) {
         alert('No hay selecciones que procesar');
-        return;
+        return null;
     }
+    return items;
+}
 
+async function ejecutarConsultaSegundaPasada(items) {
     mostrarModalProgreso('Generando VEPs…', items.length);
 
     try {
@@ -524,20 +557,14 @@ function manejarRespuestaSegundaPasada(respuesta) {
 // FLUJO B — GENERAR VEP DIRECTO
 // ============================================================
 
-async function ejecutarGenerarDirecto() {
-    const items = recopilarItemsDirecto();
-    if (items.length === 0) {
-        alert('Cargue al menos una deuda válida y elija medio de pago en cada grupo.');
-        return;
-    }
-
+async function ejecutarGenerarDirecto(items, visible) {
     mostrarModalProgreso('Generando VEPs directos…', items.length);
 
     try {
         const respuesta = await window.electronAPI.cuentaTributaria.procesar({
             modo: 'generar-directo',
             items,
-            visible: document.getElementById('chk-visible-ct-directo')?.checked !== false
+            visible
         });
 
         ocultarModalProgreso();
@@ -658,11 +685,9 @@ function iniciarNuevoProceso() {
 // ============================================================
 
 function actualizarBotonConfirmar() {
-    const btn = document.getElementById('btn-confirmar-seleccion-ct');
-    if (!btn) return;
     const v = EstadoCT.validarSelecciones();
-    btn.disabled = !v.valido;
-    btn.title = v.valido ? '' : v.mensaje;
+    lanzadorPago.habilitar(v.valido);
+    lanzadorPago.cambiar(0, { ayuda: v.valido ? '' : v.mensaje });
 }
 
 // Rueda común (componentes/rueda): no bloquea y gira siempre, así no parece colgado.

@@ -90,35 +90,6 @@
 }
 
 /* ========================================
-   BOTÓN PRINCIPAL DE CONSULTA
-   ======================================== */
-.btn-consultar-ct {
-    width: 100%;
-    padding: 16px 32px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    margin-bottom: 20px;
-}
-
-.btn-consultar-ct:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-}
-
-.btn-consultar-ct:disabled {
-    background: #9ca3af;
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-/* ========================================
    SECCIÓN DE RESULTADOS
    ======================================== */
 .contenedor-principal-ct .seccion-resultados {
@@ -242,6 +213,13 @@
 .contenedor-principal-ct .tarjeta-grupo.tarjeta-error {
     border-left: 4px solid #ef4444;
 }
+/* Cancelado por el usuario (⏹ del lanzador): amarillo, no es una falla */
+.contenedor-principal-ct .tarjeta-grupo.tarjeta-cancelada {
+    border-left-color: #f59e0b;
+}
+.contenedor-principal-ct .tarjeta-cancelada .error-mensaje { background: var(--v-warn-bg, #fff4d6); }
+.contenedor-principal-ct .tarjeta-cancelada .icono-error,
+.contenedor-principal-ct .tarjeta-cancelada .error-texto { color: var(--v-txt-warn, #8a6d00); }
 
 .contenedor-principal-ct .tarjeta-grupo.excluido {
     opacity: 0.5;
@@ -584,7 +562,6 @@
     justify-content: flex-end;
 }
 
-.contenedor-principal-ct .btn-confirmar,
 .contenedor-principal-ct .btn-cancelar {
     padding: 14px 28px;
     font-size: 15px;
@@ -593,24 +570,6 @@
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.2s;
-}
-
-.contenedor-principal-ct .btn-confirmar {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.contenedor-principal-ct .btn-confirmar:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
-}
-
-.contenedor-principal-ct .btn-confirmar:disabled {
-    background: #9ca3af;
-    cursor: not-allowed;
-    box-shadow: none;
-    transform: none;
 }
 
 .contenedor-principal-ct .btn-cancelar {
@@ -746,6 +705,11 @@
     background: var(--v-error-bg, #fff5f5);
 }
 
+.contenedor-principal-ct .archivo-item-cancelado {
+    border-color: #f59e0b;
+    background: var(--v-warn-bg, #fff4d6);
+}
+
 .contenedor-principal-ct .archivo-item-error:hover {
     border-color: #ef4444;
     box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
@@ -814,7 +778,6 @@
         padding: 16px;
     }
 
-    .contenedor-principal-ct .btn-confirmar,
     .contenedor-principal-ct .btn-cancelar {
         width: 100%;
     }

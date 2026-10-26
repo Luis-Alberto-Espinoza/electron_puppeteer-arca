@@ -14,6 +14,7 @@
 const cuentaTributariaManager = require('./cuentaTributariaManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { crearCorteCaptchaAfip } = require('../corteCaptchaAfip.js');
+const { RESULTADO_CANCELADO } = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -78,6 +79,12 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
         const url = URL_LOGIN_AFIP;
         // Si AFIP pide captcha en un cliente, el resto del lote se saltea (ver corteCaptchaAfip).
         const corte = crearCorteCaptchaAfip();
+        // "⏹ Cancelar" del lanzador: el CUIT en curso vuelve CANCELADO y los que faltan no arrancan.
+        let cancelado = false;
+        const esCancelado = (r) => {
+            if (r && r.error === 'CANCELADO') cancelado = true;
+            return cancelado;
+        };
 
         try {
             // ============================================================
@@ -92,6 +99,10 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                     const item = items[i];
                     let { cliente, cuitAsociado } = item;
                     cliente = await enriquecerCliente(repo, cliente);
+                    if (cancelado) {
+                        errores.push({ cliente, cuitAsociado, error: RESULTADO_CANCELADO.message, codigo: RESULTADO_CANCELADO.error });
+                        continue;
+                    }
 
                     emitirUpdate(mainWindow, {
                         tipo: 'progreso',
@@ -115,6 +126,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             { visible }
                         );
                         corte.registrar(r);
+                        esCancelado(r);
 
                         if (!r || r.success === false) {
                             errores.push({
@@ -182,6 +194,10 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                     const item = items[i];
                     let { cliente, cuitAsociado, medioPago, seleccionFilas: selItem } = item;
                     cliente = await enriquecerCliente(repo, cliente);
+                    if (cancelado) {
+                        resultados.push({ cliente, cuitAsociado, medioPago, status: 'cancelado', error: RESULTADO_CANCELADO.message });
+                        continue;
+                    }
 
                     emitirUpdate(mainWindow, {
                         tipo: 'progreso',
@@ -229,7 +245,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             resultados.push({
                                 cliente, cuitAsociado,
                                 medioPago,
-                                status: r && r.status ? r.status : 'error',
+                                status: esCancelado(r) ? 'cancelado' : (r && r.status ? r.status : 'error'),
                                 error: (r && (r.message || r.error)) || 'Error desconocido'
                             });
                             continue;
@@ -282,6 +298,10 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                     const item = items[i];
                     let { cliente, cuitAsociado, deudasABuscar, medioPago } = item;
                     cliente = await enriquecerCliente(repo, cliente);
+                    if (cancelado) {
+                        resultados.push({ cliente, cuitAsociado, medioPago, status: 'cancelado', error: RESULTADO_CANCELADO.message });
+                        continue;
+                    }
 
                     emitirUpdate(mainWindow, {
                         tipo: 'progreso',
@@ -326,7 +346,7 @@ function setupCuentaTributariaHandlers(ipcMain, mainWindow, app) {
                             resultados.push({
                                 cliente, cuitAsociado,
                                 medioPago,
-                                status: r && r.status ? r.status : 'error',
+                                status: esCancelado(r) ? 'cancelado' : (r && r.status ? r.status : 'error'),
                                 error: (r && (r.message || r.error)) || 'Error desconocido',
                                 noMatcheadas: r && r.noMatcheadas ? r.noMatcheadas : undefined
                             });

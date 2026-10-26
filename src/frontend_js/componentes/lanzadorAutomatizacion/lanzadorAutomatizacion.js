@@ -31,6 +31,7 @@
  *   });
  *   lanzador.habilitar(true | false);   // todas las acciones (mientras corre quedan bloqueadas igual)
  *   lanzador.habilitar(false, 1);       // solo la acción 1
+ *   lanzador.cambiar(0, { texto, ayuda });   // ej. "Consultar deuda para 3 CUIT(s)"; tooltip con el motivo
  *   lanzador.lanzar(1, datos);          // corre la acción 1 con esos datos, sin preparar ni modal
  *                                       // (ej. reintentar un cliente desde Resultados): también se cancela
  *   lanzador.visible();                 // cómo está el switch del navegador
@@ -185,6 +186,12 @@
                 items.forEach((item, i) => {
                     if (indice === undefined || indice === i) item.habilitado = !!valor;
                 });
+                pintar();
+            },
+            cambiar(indice, { texto, ayuda } = {}) {
+                const item = items[indice];
+                if (texto !== undefined) item.accion.texto = texto;
+                if (ayuda !== undefined) item.btn.title = ayuda || '';
                 pintar();
             },
             lanzar(indice, datos) {
