@@ -1,7 +1,7 @@
 // paso_18_cargarRetenciones.js
 // LOOP de Plan B (página Liquidación): por cada retención con .txt asignado en
-// datosManuales.retenciones → abrir su "+" → IMPORTAR → uploadFile(ruta) → Aceptar →
-// esperar la tabla → volver.png. Itera sobre todas (Retenciones Sufridas, Percepciones, ...).
+// datosManuales.retenciones → abrir su "+" → IMPORTAR → uploadFile(ruta) → esperar que AFIP
+// termine de leer el archivo (señal, no reloj) → Aceptar → esperar la tabla → volver.png. Itera sobre todas (Retenciones Sufridas, Percepciones, ...).
 //
 // Match EXACTO por la descripción de la fila (ojo: "Percepciones" es substring de
 // "Percepciones Aduaneras"). NO se clickea "Seleccionar archivo" (diálogo nativo que cuelga):
@@ -57,9 +57,20 @@ async function clickCaption(page, regexSrc, soloVentana = false) {
     return true;
 }
 
-/** Cuenta las filas de la tabla de detalle más poblada (señal de archivos cargados). */
+/**
+ * Cantidad de registros de la tabla de detalle. Usa el "Total registros:" de AFIP: la tabla
+ * muestra 15 por página, así que contar filas visibles nunca vería más de 15.
+ * Si no está el rótulo, cae al conteo de filas visibles.
+ */
 async function contarFilas(page) {
     return await page.evaluate(() => {
+        for (const fila of document.querySelectorAll('.v-formlayout-row')) {
+            const rotulo = fila.querySelector('.v-formlayout-captioncell');
+            if (rotulo && /total registros/i.test(rotulo.textContent || '')) {
+                const n = parseInt((fila.querySelector('.v-formlayout-contentcell') || {}).textContent, 10);
+                if (!isNaN(n)) return n;
+            }
+        }
         let max = 0;
         for (const t of document.querySelectorAll('.v-table')) {
             const n = t.querySelectorAll('.v-table-row, .v-table-row-odd').length;
@@ -69,54 +80,121 @@ async function contarFilas(page) {
     });
 }
 
-/** Sondea ~ms buscando un cartel de AFIP (notificación Vaadin / errorDesc), que es transitorio. */
-async function capturarAviso(page, ms = 4000) {
-    const fin = Date.now() + ms;
-    while (Date.now() < fin) {
-        const t = await page.evaluate(() => {
-            const n = document.querySelector('.v-Notification, .v-label-errorDesc, .errorDesc');
-            return n && n.offsetParent !== null ? (n.textContent || '').replace(/\s+/g, ' ').trim() : '';
-        });
-        if (t) return t;
-        await new Promise(r => setTimeout(r, 400));
-    }
-    return '';
+/**
+ * Lee el panel "Estado de la carga" del popup de importación (relevado de la página guardada):
+ *  - cargando: AFIP sigue leyendo ("Procesando 4096 bytes de 62920" o la barra de progreso,
+ *    que se OCULTAN al terminar). "Lineas 78 (contando...)" NO sirve: quedó así aun terminada.
+ *  - errores: textos .v-label-error ("Importación cancelada, registros con error: 1…",
+ *    "Linea 1 - El largo de linea (91)…").
+ *  - aviso: notificación Vaadin transitoria, si aparece.
+ */
+async function leerEstadoCarga(page) {
+    return await page.evaluate(() => {
+        const txt = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const visible = (el) => el.offsetParent !== null && getComputedStyle(el).display !== 'none';
+        const ventana = document.querySelector('.v-window');
+        const noti = document.querySelector('.v-Notification');
+        const aviso = noti && visible(noti) ? txt(noti) : '';
+        if (!ventana) return { abierta: false, cargando: false, errores: [], aviso };
+        const etiquetas = Array.from(ventana.querySelectorAll('.v-label')).filter(visible);
+        const cargando = etiquetas.some(l => /procesando \d+ bytes/i.test(txt(l)))
+            || Array.from(ventana.querySelectorAll('.v-progressindicator')).some(visible);
+        const errores = Array.from(ventana.querySelectorAll('.v-label-error')).filter(visible).map(txt).filter(Boolean);
+        return { abierta: true, cargando, errores, aviso };
+    });
 }
 
 /** ¿El cartel es de ÉXITO (no un error)? */
 const esAvisoOk = (t) => /correctamente|realizada|exitos|se import/i.test(t || '');
 
+const ESPERA_CARGA_MS = 180000;   // 1210 renglones tardan; tope de seguridad, no reloj fijo
+const MINIMO_SIN_SENAL_MS = 5000; // si AFIP no mostró actividad, no dar por terminado antes
+
 /**
- * Sube UN .txt dentro del detalle ya abierto: IMPORTAR → uploadFile → Aceptar → espera cierre.
- * Se llama UNA VEZ POR ARCHIVO sin salir del detalle (varios archivos a la misma fila).
- * Devuelve cuántas filas AGREGÓ (delta) y cualquier aviso de AFIP capturado.
+ * Espera la SEÑAL de fin de la carga (no segundos fijos): que AFIP deje de "contar/procesar",
+ * o que muestre errores, o que el popup se cierre solo.
  */
-async function importarArchivo(page, ruta) {
+async function esperarFinDeCarga(page) {
+    const inicio = Date.now();
+    let vioActividad = false;
+    let estado = null;
+    while (Date.now() - inicio < ESPERA_CARGA_MS) {
+        estado = await leerEstadoCarga(page);
+        if (estado.errores.length || !estado.abierta) return { ...estado, agotado: false };
+        if (estado.cargando) vioActividad = true;
+        else if (vioActividad || Date.now() - inicio > MINIMO_SIN_SENAL_MS) return { ...estado, agotado: false };
+        await new Promise(r => setTimeout(r, 1000));
+    }
+    return { ...(estado || {}), agotado: true };
+}
+
+/** Cierra el popup de importación con su Aceptar y espera que desaparezca. */
+async function cerrarPopup(page) {
+    await clickCaption(page, 'aceptar', true);
+    try {
+        await page.waitForFunction(() => !document.querySelector('.v-window'), { timeout: 25000 });
+        return true;
+    } catch (_) { return false; }
+}
+
+/**
+ * Sube UN .txt dentro del detalle ya abierto: IMPORTAR → uploadFile → esperar el fin de la
+ * carga → Aceptar. Se llama UNA VEZ POR ARCHIVO sin salir del detalle.
+ * Devuelve cuántos registros AGREGÓ (delta) y el texto de AFIP si hubo error.
+ */
+async function intentarImportar(page, ruta) {
     await nav.esperarVaadinIdle(page);                         // que el archivo anterior/​cartel se asiente
     const filasAntes = await contarFilas(page);
     if (!await clickCaption(page, 'importar')) return { ok: false, motivo: 'no apareció IMPORTAR', delta: 0 };
-    await new Promise(r => setTimeout(r, 1500));               // que aparezca el popup
+    try {
+        await page.waitForSelector('.v-window input[type="file"], input.gwt-FileUpload', { timeout: 15000 });
+    } catch (_) { /* lo informa el chequeo de abajo */ }
 
     const input = await page.$('.v-window input[type="file"], input.gwt-FileUpload');
     if (!input) return { ok: false, motivo: 'no apareció el input file', delta: 0 };
     await input.uploadFile(ruta);                              // NO clickear "Seleccionar archivo"
 
-    // AFIP valida al subir → cartel transitorio (éxito o "no corresponde"). Lo sondeamos.
-    let aviso = await capturarAviso(page, 4000);
+    const fin = await esperarFinDeCarga(page);
+    const errores = fin.errores || [];
+    const aviso = fin.aviso || '';
+    const sinConfirmar = fin.abierta !== false && !await cerrarPopup(page);
 
-    await clickCaption(page, 'aceptar', true);                 // Aceptar dentro del popup
-    if (!aviso) aviso = await capturarAviso(page, 2000);       // por si el cartel sale al Aceptar
-    let sinConfirmar = false;
-    try {
-        await page.waitForFunction(() => !document.querySelector('.v-window'), { timeout: 25000 });
-    } catch (_) { sinConfirmar = true; }
-
-    const filasDespues = await contarFilas(page);
+    // La tabla se refresca después del Aceptar: esperar que el total suba (si no hubo error).
+    let filasDespues = await contarFilas(page);
+    if (!errores.length && filasDespues <= filasAntes) {
+        try {
+            await page.waitForFunction((antes) => {
+                for (const fila of document.querySelectorAll('.v-formlayout-row')) {
+                    const r = fila.querySelector('.v-formlayout-captioncell');
+                    if (r && /total registros/i.test(r.textContent || '')) {
+                        return parseInt((fila.querySelector('.v-formlayout-contentcell') || {}).textContent, 10) > antes;
+                    }
+                }
+                return false;
+            }, { timeout: 30000 }, filasAntes);
+        } catch (_) { /* queda delta 0 → se informa */ }
+        filasDespues = await contarFilas(page);
+    }
     const delta = filasDespues - filasAntes;
-    // El cartel de AFIP MANDA: si dice "correctamente" es éxito (aunque mi conteo de filas,
-    // que es async/poco confiable, dé 0). Solo si NO hay cartel uso el delta como respaldo.
-    const esError = aviso ? !esAvisoOk(aviso) : (delta <= 0);
-    return { ok: true, sinConfirmar, filasAntes, filasDespues, delta, aviso, esError };
+
+    let textoError = '';
+    if (errores.length) textoError = errores.join(' — ');
+    else if (fin.agotado) textoError = `AFIP siguió cargando más de ${ESPERA_CARGA_MS / 60000} min`;
+    else if (aviso && !esAvisoOk(aviso)) textoError = aviso;
+    else if (delta <= 0 && !esAvisoOk(aviso)) textoError = `no agregó registros (+${delta})`;
+    return { ok: true, sinConfirmar, filasAntes, filasDespues, delta, aviso: textoError || aviso, esError: !!textoError };
+}
+
+/**
+ * Importa con UN reintento si AFIP cancela: probado a mano (2026-10-25), el mismo .txt de
+ * 1210 renglones primero dio "Linea 1 - El largo de linea (91)…" y al repetir cargó entero.
+ */
+async function importarArchivo(page, ruta) {
+    const r = await intentarImportar(page, ruta);
+    if (!r.ok || !r.esError || r.delta > 0) return r;
+    console.warn(`[DDJJ paso_18]     AFIP: ${r.aviso} → reintento una vez`);
+    const r2 = await intentarImportar(page, ruta);
+    return r2.ok ? { ...r2, reintentado: true } : r;
 }
 
 /**
@@ -155,7 +233,7 @@ async function ejecutar(page, datos) {
                 const r = await importarArchivo(page, ruta);
                 if (!r.ok) { fallo = r.motivo; console.warn(`[DDJJ paso_18]   ⚠️ ${r.motivo}`); break; }
                 subidos++;
-                console.log(`[DDJJ paso_18]     filas +${r.delta} (${r.filasAntes}→${r.filasDespues})${r.aviso ? ' | AFIP: ' + r.aviso : ''}`);
+                console.log(`[DDJJ paso_18]     registros +${r.delta} (${r.filasAntes}→${r.filasDespues})${r.reintentado ? ' (al 2º intento)' : ''}${r.aviso ? ' | AFIP: ' + r.aviso : ''}`);
                 if (r.esError) problemas.push(`${nombre}: ${r.aviso || `no agregó filas (+${r.delta})`}`);
             }
 

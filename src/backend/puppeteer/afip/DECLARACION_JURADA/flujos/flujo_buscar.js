@@ -167,7 +167,11 @@ async function ejecutar(page, payload, credenciales) {
         // Regla: si hay UN resultado, aplicamos la acción elegida (default "Editar" = recuperar).
         // Si hay varios, devolvemos la lista para que el usuario elija (no auto-actuamos).
         let accion = null, landing = null;
-        if (resultados.length === 1) {
+        if (resultados.length === 1 && /borrar/i.test(accionElegida) && /presentad/i.test(resultados[0].estado || '')) {
+            // Red de seguridad: un PRESENTADO no se borra nunca (se rectifica).
+            accion = { ok: false, motivo: 'el formulario está PRESENTADO: no se borra (para cambiarlo, rectificativa)' };
+            console.warn(`[DDJJ flujo_buscar] ⛔ ${accion.motivo}`);
+        } else if (resultados.length === 1) {
             console.log(`[DDJJ flujo_buscar] 1 resultado → acción "${accionElegida}"...`);
             accion = await abrirAccion(fenixPage, 0, accionElegida);
             if (accion.ok) {

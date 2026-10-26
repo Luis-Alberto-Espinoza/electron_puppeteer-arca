@@ -31,11 +31,13 @@ const datosManuales = require('../codigoXpagina/_datosManuales.js');
 
 /**
  * @param {import('puppeteer').Page} page
- * @param {Object} payload      { cliente, empresaObjetivo, organismo, formulario, periodo, modoPrueba }
+ * @param {Object} payload      { cliente, empresaObjetivo, organismo, formulario, periodo, modoPrueba,
+ *                                avisar? } — avisar(mensaje): progreso para la rueda del frontend
  * @param {Object} credenciales { usuario, contrasena } — por re-login intermedio.
  */
 async function ejecutar(page, payload, credenciales) {
     const { empresaObjetivo, organismo, formulario, periodo, retenciones, modelo, fechaPago, grabar = false } = payload || {};
+    const avisar = (payload && payload.avisar) || (() => {});
 
     // Retenciones: las del frontend (payload) si vienen con al menos una ruta; si no, el hardcode.
     // Cada valor puede ser una ruta (string) o varias (array).
@@ -71,8 +73,10 @@ async function ejecutar(page, payload, credenciales) {
     }
 
     try {
+        avisar('Abriendo Mis Aplicaciones Web…');
         const fenixPage = await paso1.ejecutar(page, credenciales);
 
+        avisar('Creando el formulario…');
         await paso4.ejecutar(fenixPage);
 
         const resCuit = await paso5.ejecutar(fenixPage, empresaObjetivo);
@@ -99,7 +103,8 @@ async function ejecutar(page, payload, credenciales) {
                 await paso8.ejecutar(fenixPage);
 
                 const cargas = [];
-                for (const act of listaActividades) {
+                for (const [i, act] of listaActividades.entries()) {
+                    avisar(`Cargando actividad ${i + 1} de ${listaActividades.length}…`);
                     const abrir = await paso9.ejecutar(fenixPage, act.codigo);
                     if (!abrir.abierto) {
                         console.warn(`[DDJJ flujo_nuevo] No abrí la actividad ${act.codigo || '(?)'} (${act.actividad}).`);
@@ -121,7 +126,9 @@ async function ejecutar(page, payload, credenciales) {
                 if (resCarga.success) {
                     resTotales = await paso13.ejecutar(fenixPage, datosManuales);
                     resSiguiente = await paso14.ejecutar(fenixPage);          // → Liquidación
+                    avisar('Subiendo retenciones y percepciones (con archivos grandes AFIP tarda)…');
                     resRetenciones = await paso18.ejecutar(fenixPage, datosRetenciones); // loop "+" + IMPORTAR
+                    avisar('Completando Liquidación…');
                     // Campos editables de Liquidación: fecha de pago (frontend) + saldo a favor
                     // anterior (Excel). Se hace acá, ya cargadas las retenciones, antes de avanzar.
                     resLiquidacion = await pasoLiq.ejecutar(fenixPage, {
@@ -132,7 +139,10 @@ async function ejecutar(page, payload, credenciales) {
                     resDeducciones = await pasoLeerDed.ejecutar(fenixPage);
                     resSiguiente2 = await paso17.ejecutar(fenixPage);         // → Consistencia IVA
                     // Grabar el BORRADOR solo si el usuario lo pidió (persiste en AFIP).
-                    if (grabar) resGrabar = await paso19.ejecutar(fenixPage);
+                    if (grabar) {
+                        avisar('Grabando el borrador…');
+                        resGrabar = await paso19.ejecutar(fenixPage);
+                    }
                     else console.log('[DDJJ flujo_nuevo] No se graba (checkbox Grabar desactivado).');
                 }
             }
@@ -140,9 +150,11 @@ async function ejecutar(page, payload, credenciales) {
 
         const lineaAceptar = resAceptar.status === 'aceptado'
             ? `Aceptar: ✅ formulario creado/abierto`
-            : (resAceptar.status === 'borrador-existente'
+            : resAceptar.status === 'borrador-existente'
                 ? `Aceptar: ⚠️ ya existe un BORRADOR/EN PROCESO → recuperalo con "Buscar". Msg: ${resAceptar.mensaje}`
-                : `Aceptar: ❌ ${resAceptar.mensaje || 'error de validación'}`);
+                : resAceptar.status === 'ya-presentado'
+                    ? `Aceptar: ⚠️ el período ya está PRESENTADO → para cambiarlo hay que hacer una rectificativa. Msg: ${resAceptar.mensaje}`
+                    : `Aceptar: ❌ ${resAceptar.mensaje || 'error de validación'}`;
 
         const resumen = [
             `--- Alta "Nuevo" (${grabar ? 'CON Grabar — PERSISTE' : 'SIMULACIÓN — no graba'}) ---`,

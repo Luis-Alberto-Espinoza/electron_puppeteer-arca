@@ -11,92 +11,58 @@
         <div id="ddjj-selector-usuarios"></div>
     </div>
 
-    <!-- Configuración de la DDJJ: aparece al elegir cliente -->
-    <div id="ddjj-config" class="ddjj-panel" style="display:none;">
-        <div class="ddjj-grid">
-            <div class="ddjj-campo">
-                <label class="ddjj-label" for="ddjj-empresa">Empresa</label>
-                <select id="ddjj-empresa" class="ddjj-select"></select>
-                <p class="ddjj-hint">Razón social a presentar (el CUIT lo resuelve el portal).</p>
-            </div>
+    <!-- Aparece al elegir cliente. Tres pasos: qué declaración → ¿ya hay una? → cargar una nueva -->
+    <div id="ddjj-config" style="display:none;">
 
-            <div class="ddjj-campo">
-                <label class="ddjj-label" for="ddjj-organismo">Organismo</label>
-                <select id="ddjj-organismo" class="ddjj-select">
-                    <option value="A.T.M. PROVINCIA DE MENDOZA" selected>A.T.M. PROVINCIA DE MENDOZA</option>
-                    <option value="ARCA">ARCA</option>
-                    <option value="OFICINA ANTICORRUPCION">OFICINA ANTICORRUPCION</option>
-                    <option value="A.T.E.R. PROVINCIA DE ENTRE RIOS">A.T.E.R. PROVINCIA DE ENTRE RIOS</option>
-                    <option value="D.G.R. PROVINCIA DE SALTA">D.G.R. PROVINCIA DE SALTA</option>
-                    <option value="D.P.R. PROVINCIA DE JUJUY">D.P.R. PROVINCIA DE JUJUY</option>
-                    <option value="ASIP - PROVINCIA DE SANTA CRUZ">ASIP - PROVINCIA DE SANTA CRUZ</option>
-                </select>
-            </div>
+        <!-- Paso 1: identifica la DDJJ (lo usan Buscar y Cargar) -->
+        <div class="ddjj-panel">
+            <h3 class="ddjj-paso-titulo">1 · ¿Qué declaración?</h3>
+            <div class="ddjj-grid">
+                <div class="ddjj-campo">
+                    <label class="ddjj-label" for="ddjj-empresa">Empresa</label>
+                    <select id="ddjj-empresa" class="ddjj-select"></select>
+                    <p class="ddjj-hint">Razón social a presentar (el CUIT lo resuelve el portal).</p>
+                </div>
 
-            <div class="ddjj-campo">
-                <label class="ddjj-label" for="ddjj-formulario">Formulario</label>
-                <input id="ddjj-formulario" class="ddjj-select" type="text" value="F.5111 - DIU Mendoza" />
-                <p class="ddjj-hint">Texto a buscar en el combo (ej. "F.5111").</p>
-            </div>
+                <div class="ddjj-campo">
+                    <label class="ddjj-label" for="ddjj-organismo">Organismo</label>
+                    <select id="ddjj-organismo" class="ddjj-select">
+                        <option value="A.T.M. PROVINCIA DE MENDOZA" selected>A.T.M. PROVINCIA DE MENDOZA</option>
+                        <option value="ARCA">ARCA</option>
+                        <option value="OFICINA ANTICORRUPCION">OFICINA ANTICORRUPCION</option>
+                        <option value="A.T.E.R. PROVINCIA DE ENTRE RIOS">A.T.E.R. PROVINCIA DE ENTRE RIOS</option>
+                        <option value="D.G.R. PROVINCIA DE SALTA">D.G.R. PROVINCIA DE SALTA</option>
+                        <option value="D.P.R. PROVINCIA DE JUJUY">D.P.R. PROVINCIA DE JUJUY</option>
+                        <option value="ASIP - PROVINCIA DE SANTA CRUZ">ASIP - PROVINCIA DE SANTA CRUZ</option>
+                    </select>
+                </div>
 
-            <div class="ddjj-campo">
-                <label class="ddjj-label" for="ddjj-periodo">Período Fiscal</label>
-                <input id="ddjj-periodo" class="ddjj-select" type="text" maxlength="6" placeholder="AAAAMM" />
-                <p class="ddjj-hint">Formato AAAAMM (ej. 202605).</p>
-            </div>
+                <div class="ddjj-campo">
+                    <label class="ddjj-label" for="ddjj-formulario">Formulario</label>
+                    <input id="ddjj-formulario" class="ddjj-select" type="text" value="F.5111 - DIU Mendoza" />
+                    <p class="ddjj-hint">Texto a buscar en el combo (ej. "F.5111").</p>
+                </div>
 
-            <div class="ddjj-campo">
-                <label class="ddjj-label" for="ddjj-fecha-pago">Fecha de Pago</label>
-                <input id="ddjj-fecha-pago" class="ddjj-select" type="date" />
-                <p class="ddjj-hint">Requerida. Se carga en la solapa Liquidación (DD/MM/AAAA).</p>
+                <div class="ddjj-campo">
+                    <label class="ddjj-label" for="ddjj-periodo-mes">Período Fiscal</label>
+                    <div class="ddjj-periodo-fila">
+                        <input id="ddjj-periodo-mes" class="ddjj-select ddjj-periodo-mes" type="number" min="1" max="12" placeholder="Mes" aria-label="Mes" />
+                        <span class="ddjj-periodo-barra">/</span>
+                        <input id="ddjj-periodo-anio" class="ddjj-select ddjj-periodo-anio" type="number" min="2000" max="2100" placeholder="Año" aria-label="Año" />
+                    </div>
+                    <!-- AAAAMM armado con mes + año (es lo que lee el resto del código) -->
+                    <input id="ddjj-periodo" type="hidden" />
+                    <p class="ddjj-hint">Con ↑ ↓ o escribiendo. Bajar de 1 pasa a 12 del año anterior.</p>
+                </div>
             </div>
         </div>
 
-        <div class="ddjj-excel">
-            <label class="ddjj-label">📊 Excel de liquidación</label>
-            <div class="ddjj-excel-fila">
-                <button id="ddjj-btn-excel" class="ddjj-btn-sec" type="button">📂 Elegir Excel…</button>
-                <span id="ddjj-excel-nombre" class="ddjj-hint">Ningún archivo elegido</span>
-            </div>
-            <div id="ddjj-hoja-wrap" style="display:none; margin-top:10px;">
-                <label class="ddjj-label" for="ddjj-hoja">Hoja (cliente)</label>
-                <select id="ddjj-hoja" class="ddjj-select"></select>
-            </div>
-            <div id="ddjj-preview" class="ddjj-preview" style="display:none;"></div>
-        </div>
-
-        <div class="ddjj-retenciones">
-            <div class="ddjj-ret-head">
-                <label class="ddjj-label">🧾 Retenciones / Percepciones (opcional)</label>
-                <button id="ddjj-btn-carpeta-ret" class="ddjj-btn-sec" type="button">📁 Carpeta…</button>
-                <button id="ddjj-btn-autodetectar" class="ddjj-btn-sec" type="button">✨ Auto-detectar</button>
-            </div>
-            <p class="ddjj-hint" id="ddjj-carpeta-ret-info" style="display:none;"></p>
-            <p class="ddjj-hint">"Auto-detectar" busca los <strong>.txt</strong> del período en la carpeta del cliente (o en la que elijas con "📁 Carpeta…") y los asigna solo. Podés agregar/quitar a mano. Una fila admite varios archivos (ej. SIRCREB + SIRCUPA).</p>
-            <div id="ddjj-retenciones-lista"></div>
-        </div>
-
-        <label class="ddjj-check">
-            <input type="checkbox" id="ddjj-grabar" />
-            💾 Grabar borrador al finalizar — <strong>persiste</strong> en AFIP. Sin tildar = simulación (carga todo pero no graba).
-        </label>
-
-        <button id="ddjj-btn-cargar" class="ddjj-btn-probar" disabled>
-            🧪 Simular carga (sin grabar)
-        </button>
-
-        <p class="ddjj-nota">
-            Login → "Mis Aplicaciones Web" → "Nuevo" → Empresa / Organismo / Formulario / Período →
-            carga base (Excel) + retenciones. <strong>Sin "Grabar"</strong> = simulación (no persiste, "Aceptar" solo
-            no deja borrador); <strong>con "Grabar"</strong> = guarda el borrador en AFIP. El navegador queda abierto.
-        </p>
-
-        <!-- Recuperar un borrador ya cargado: sección aparte, no es el alta -->
-        <div class="ddjj-buscar">
-            <label class="ddjj-label">🔎 ¿Ya existe un borrador?</label>
+        <!-- Paso 2: recuperar / ver / borrar una ya cargada (antes de cargar una nueva) -->
+        <div class="ddjj-panel ddjj-buscar">
+            <h3 class="ddjj-paso-titulo">2 · ¿Ya hay una cargada?</h3>
             <p class="ddjj-hint">Recuperá, mirá o borrá una DDJJ que ya esté cargada en AFIP para este período.</p>
             <div class="ddjj-buscar-fila">
-                <button id="ddjj-btn-buscar" class="ddjj-btn-buscar" type="button" disabled>
+                <button id="ddjj-btn-buscar" class="ui-btn ui-btn--ghost" type="button" disabled>
                     🔎 Buscar borrador existente
                 </button>
                 <span class="ddjj-buscar-accion">
@@ -109,18 +75,65 @@
                 </span>
             </div>
         </div>
+
+        <!-- Paso 3: cargar una nueva -->
+        <div class="ddjj-panel">
+            <h3 class="ddjj-paso-titulo">3 · Cargar una nueva</h3>
+            <div class="ddjj-grid">
+                <div class="ddjj-campo">
+                    <label class="ddjj-label" for="ddjj-fecha-pago">Fecha de Pago</label>
+                    <input id="ddjj-fecha-pago" class="ddjj-select" type="date" />
+                    <p class="ddjj-hint">Requerida. Se carga en la solapa Liquidación (DD/MM/AAAA).</p>
+                </div>
+            </div>
+
+        <div class="ddjj-excel">
+            <label class="ddjj-label">📊 Excel de liquidación</label>
+            <div class="ddjj-excel-fila">
+                <button id="ddjj-btn-excel" class="ui-btn ui-btn--ghost" type="button">📂 Elegir Excel…</button>
+                <span id="ddjj-excel-nombre" class="ddjj-hint">Ningún archivo elegido</span>
+            </div>
+            <div id="ddjj-hoja-wrap" style="display:none; margin-top:10px;">
+                <label class="ddjj-label" for="ddjj-hoja">Hoja (cliente)</label>
+                <select id="ddjj-hoja" class="ddjj-select"></select>
+            </div>
+            <div id="ddjj-preview" class="ddjj-preview" style="display:none;"></div>
+        </div>
+
+        <div class="ddjj-retenciones">
+            <div class="ddjj-ret-head">
+                <label class="ddjj-label">🧾 Retenciones / Percepciones (opcional)</label>
+                <button id="ddjj-btn-carpeta-ret" class="ui-btn ui-btn--ghost" type="button">📁 Elegir un .txt de la carpeta…</button>
+                <button id="ddjj-btn-autodetectar" class="ui-btn ui-btn--ghost" type="button">✨ Auto-detectar</button>
+            </div>
+            <p class="ddjj-hint" id="ddjj-carpeta-ret-info" style="display:none;"></p>
+            <p class="ddjj-hint">"Auto-detectar" busca los <strong>.txt</strong> del período en la carpeta del cliente (o en la de un .txt que elijas con "📁 Elegir un .txt de la carpeta…") y los asigna solo. Podés agregar/quitar a mano. Una fila admite varios archivos (ej. SIRCREB + SIRCUPA).</p>
+            <div id="ddjj-retenciones-lista"></div>
+        </div>
+
+            <!-- Opciones del servicio + fila de lanzar (la reemplaza el futuro componente común) -->
+        <div class="ddjj-opciones">
+            <label class="ddjj-check">
+                <input type="checkbox" id="ddjj-grabar" />
+                💾 Grabar borrador al finalizar — <strong>persiste</strong> en AFIP. Sin tildar = simulación (carga todo pero no graba).
+            </label>
+            <label class="ddjj-check">
+                <input type="checkbox" id="ddjj-reemplazar-borrador" disabled />
+                🗑️ Si ya hay un borrador de este período, <strong>borrarlo</strong> y cargar de nuevo. Nunca toca uno PRESENTADO. (Solo con "Grabar" tildado.)
+            </label>
+        </div>
+
+            <div class="ddjj-procesar">
+                <button id="btnProcesarDj" class="ui-btn ui-btn--accion" disabled>
+                    ▶ Simular carga
+                </button>
+            </div>
+            <p class="ddjj-nota">El navegador queda abierto al terminar, para revisar o seguir en AFIP.</p>
+        </div>
     </div>
 
     <div id="ddjj-estado" class="ddjj-estado" style="display:none;"></div>
 
     <!-- Totales que AFIP calculó por deducción (se llena al terminar la carga) -->
     <div id="ddjj-deducciones" class="ddjj-deducciones" style="display:none;"></div>
-
-    <div id="ddjj-resultado" class="ddjj-resultado" style="display:none;">
-        <div class="ddjj-resultado-head">
-            <h3>Resultado</h3>
-            <button id="ddjj-resultado-toggle" type="button" class="ddjj-btn-sec">➕ Expandir</button>
-        </div>
-        <pre id="ddjj-resultado-pre" class="colapsado"></pre>
-    </div>
 </div>

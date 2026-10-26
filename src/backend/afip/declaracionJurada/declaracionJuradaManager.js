@@ -12,6 +12,13 @@ const { avisarEnNavegador } = require('../../puppeteer/archivos_comunes/navegado
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
+// El flujo trabaja en una pestaña nueva (Mis Aplicaciones Web): el aviso de "navegador a
+// tu disposición" va en la última abierta, que es donde quedó el formulario.
+async function pestanaFinal(browser, page) {
+    const pestanas = (await browser.pages()).filter(p => !p.isClosed());
+    return pestanas[pestanas.length - 1] || page;
+}
+
 /**
  * @param {string} url            URL de login (default AFIP).
  * @param {Object} credenciales   { usuario, contrasena }
@@ -24,7 +31,10 @@ const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo, downloadsPath = null, modoPrueba = true) {
     console.log(`[DeclaracionJurada Manager] Iniciando proceso modo=${modo} (modoPrueba=${modoPrueba})`);
 
+    const avisar = (payload && payload.avisar) || (() => {});
+
     return await puppeteerManager.ejecutar(async (browser, page) => {
+        avisar('Iniciando sesión en AFIP…');
         const resultadoLogin = await loginManager.hacerLogin(page, url || URL_LOGIN_AFIP, credenciales);
         if (!resultadoLogin.success) {
             return { success: false, error: resultadoLogin.error || 'LOGIN_FAILED', message: resultadoLogin.message };
@@ -37,9 +47,29 @@ async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo,
 
         if (modo === 'nuevo') {
             const flujo = require('../../puppeteer/afip/DECLARACION_JURADA/flujos/flujo_nuevo.js');
-            const resultado = await flujo.ejecutar(page, payload, credenciales);
+            let resultado = await flujo.ejecutar(page, payload, credenciales);
+
+            // "Reemplazar borrador" (casilla opt-in del frontend): si AFIP dice que ya hay un
+            // borrador, se borra con Buscar → Borrar y se vuelve a cargar, en la MISMA sesión.
+            // Nunca un PRESENTADO: ese sale como 'ya-presentado' y no entra acá.
+            if (payload.reemplazarBorrador && resultado && resultado.aceptar && resultado.aceptar.status === 'borrador-existente') {
+                avisar('Borrando el borrador anterior…');
+                const flujoBuscar = require('../../puppeteer/afip/DECLARACION_JURADA/flujos/flujo_buscar.js');
+                const borrado = await flujoBuscar.ejecutar(page, { ...payload, accion: 'borrar' }, credenciales);
+                const ok = !!(borrado && borrado.success && borrado.accion && borrado.accion.borrado);
+                const motivo = ok ? '' : ((borrado && borrado.accion && borrado.accion.motivo)
+                    || (borrado && borrado.resultados && borrado.resultados.length !== 1 ? `Buscar encontró ${borrado.resultados.length} formularios (se borra solo si hay 1)` : '')
+                    || (borrado && borrado.message) || 'no se confirmó el borrado');
+                if (ok) {
+                    avisar('Borrador anterior borrado. Cargando de nuevo…');
+                    resultado = await flujo.ejecutar(page, payload, credenciales);
+                }
+                resultado = { ...resultado, reemplazo: { borrado: ok, motivo, resumen: borrado && borrado.resumen } };
+                if (resultado.resumen && borrado && borrado.resumen) resultado.resumen = borrado.resumen + '\n\n' + resultado.resumen;
+            }
+
             console.log('[DeclaracionJurada Manager] >>> Inyectando aviso en el navegador (modo nuevo)...');
-            await avisarEnNavegador(page, 'La carga automática terminó. El navegador quedó a tu disposición para revisar o completar a mano. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
+            await avisarEnNavegador(await pestanaFinal(browser, page), 'La carga automática terminó. El navegador quedó a tu disposición para revisar o completar a mano. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
             return resultado;
         }
 
@@ -47,7 +77,7 @@ async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo,
             const flujo = require('../../puppeteer/afip/DECLARACION_JURADA/flujos/flujo_buscar.js');
             const resultado = await flujo.ejecutar(page, payload, credenciales);
             console.log('[DeclaracionJurada Manager] >>> Inyectando aviso en el navegador (modo buscar)...');
-            await avisarEnNavegador(page, 'La búsqueda terminó. El navegador quedó a tu disposición. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
+            await avisarEnNavegador(await pestanaFinal(browser, page), 'La búsqueda terminó. El navegador quedó a tu disposición. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
             return resultado;
         }
 

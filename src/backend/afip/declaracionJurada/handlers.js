@@ -33,6 +33,17 @@ async function obtenerCredenciales(repo, cliente) {
     };
 }
 
+// Progreso para la rueda (contrato de componentes/rueda): un solo cliente por corrida.
+function avisarProgreso(event, cliente) {
+    return (mensaje) => {
+        if (event.sender.isDestroyed()) return;
+        event.sender.send('declaracionJurada:update', {
+            tipo: 'progreso', id: cliente.id, cuit: cliente.cuit || cliente.cuitLogin || cliente.cuil,
+            nombre: cliente.nombre, mensaje, procesados: 0, total: 1
+        });
+    };
+}
+
 function setupDeclaracionJuradaHandlers(ipcMain, app) {
     const repo = getContribuyenteRepo();
 
@@ -73,7 +84,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
     ipcMain.handle('declaracionJurada:cargar', async (event, datos) => {
         console.log('[DeclaracionJurada] cargar recibido:', datos && datos.cliente && datos.cliente.id);
         try {
-            const { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, archivo, hoja, fechaPago, grabar = false } = datos || {};
+            const { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, archivo, hoja, fechaPago, grabar = false, reemplazarBorrador = false } = datos || {};
 
             if (!cliente || !cliente.id) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario seleccionado.' };
@@ -117,7 +128,8 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
             const resultado = await declaracionJuradaManager.iniciarProceso(
                 URL_LOGIN_AFIP,
                 credenciales,
-                { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, modelo, fechaPago, grabar },
+                { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, modelo, fechaPago, grabar, reemplazarBorrador,
+                  avisar: avisarProgreso(event, cliente) },
                 'nuevo',
                 downloadsPath,
                 !grabar   // "modoPrueba" del manager = simulación (sin grabar) — solo afecta el log
@@ -164,7 +176,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
             return await declaracionJuradaManager.iniciarProceso(
                 URL_LOGIN_AFIP,
                 credenciales,
-                { cliente, empresaObjetivo, organismo, formulario, periodo, accion },
+                { cliente, empresaObjetivo, organismo, formulario, periodo, accion, avisar: avisarProgreso(event, cliente) },
                 'buscar',
                 app.getPath('downloads'),
                 true
@@ -242,15 +254,18 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
                     defaultPath = fs.existsSync(retDir) ? retDir : baseAtm;
                 } catch (_) { /* si falla el armado de ruta, abre donde Electron quiera */ }
             }
+            // Se elige un .txt (no la carpeta): en Linux el diálogo de carpetas no muestra los
+            // archivos y parece vacía. Se usa la carpeta donde está el .txt elegido.
             const r = await dialog.showOpenDialog({
-                title: 'Elegí la carpeta con los .txt de retenciones/percepciones',
+                title: 'Elegí uno de los .txt de retenciones/percepciones (se usa su carpeta)',
                 defaultPath,
-                properties: ['openDirectory']
+                properties: ['openFile'],
+                filters: [{ name: 'Texto', extensions: ['txt'] }, { name: 'Todos', extensions: ['*'] }]
             });
             if (r.canceled || !r.filePaths || !r.filePaths.length) {
                 return { success: false, canceled: true };
             }
-            return { success: true, carpeta: r.filePaths[0] };
+            return { success: true, carpeta: path.dirname(r.filePaths[0]) };
         } catch (error) {
             console.error('[DeclaracionJurada] Error en elegirCarpetaRetenciones:', error);
             return { success: false, error: 'DIALOG_ERROR', message: error.message };

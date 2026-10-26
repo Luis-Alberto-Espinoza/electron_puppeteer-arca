@@ -15,11 +15,13 @@
 //  - Detección de fila/columna REUSA los locators de los parsers (misma lógica que al leer).
 //  - Escribe con exceljs → preserva formato, estilos y FÓRMULAS (xlsx los borraría).
 //  - Hace BACKUP del Excel antes de tocarlo.
-//  - Si el Excel está abierto (lock de LibreOffice) → corta y pide cerrarlo.
+//  - Si el Excel está abierto (LibreOffice o Excel de Windows) → corta y pide cerrarlo.
+//    Un lock viejo de LibreOffice (se cerró de golpe) no cuenta.
 //  - Por defecto NO pisa celdas que ya tengan un valor ≠ 0 distinto: las salta y las reporta.
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 const XLSX = require('xlsx');
 const ExcelJS = require('exceljs');
 
@@ -146,6 +148,38 @@ function planPlanilla(filas, periodo, deducciones) {
     return { targets, avisos };
 }
 
+// ¿Hay algún LibreOffice corriendo? (soffice.bin en Linux, soffice.exe/.bin en Windows)
+function libreOfficeCorriendo() {
+    try {
+        const salida = process.platform === 'win32'
+            ? execSync('tasklist /FO CSV /NH', { encoding: 'utf8', windowsHide: true })
+            : execSync('ps -A -o comm=', { encoding: 'utf8' });
+        return /soffice/i.test(salida);
+    } catch (_) {
+        return true;   // sin poder averiguarlo, mejor creer que sí (no arriesgar el Excel)
+    }
+}
+
+/**
+ * Devuelve qué programa tiene abierto el Excel ('LibreOffice' / 'Excel'), o null.
+ *  - LibreOffice deja ".~lock.<nombre>#" al lado. Si se cerró de golpe el lock QUEDA:
+ *    solo cuenta si hay un LibreOffice corriendo.
+ *  - Excel (Windows) bloquea el archivo: abrirlo para escribir da EBUSY/EPERM.
+ *    Su "~$<nombre>" no sirve: también queda tirado si Excel se cierra mal.
+ */
+function excelAbiertoEn(archivo) {
+    const lock = path.join(path.dirname(archivo), `.~lock.${path.basename(archivo)}#`);
+    if (fs.existsSync(lock) && libreOfficeCorriendo()) return 'LibreOffice';
+    if (process.platform === 'win32') {
+        try {
+            fs.closeSync(fs.openSync(archivo, 'r+'));
+        } catch (e) {
+            if (e.code === 'EBUSY' || e.code === 'EPERM') return 'Excel';
+        }
+    }
+    return null;
+}
+
 /**
  * Escribe los totales de AFIP en el Excel.
  * @param {Object} datos { archivo, hoja, periodo, deducciones:{etiqueta:num}, retenciones:{etiqueta:[rutas]}, sobrescribir? }
@@ -157,10 +191,10 @@ async function escribir(datos) {
     if (!/^\d{6}$/.test(String(periodo || ''))) return { success: false, error: 'PERIODO', message: 'Período inválido.' };
     if (!deducciones || !Object.keys(deducciones).length) return { success: false, error: 'SIN_DEDUCCIONES', message: 'No hay totales de AFIP para escribir.' };
 
-    // Excel abierto en LibreOffice → cualquier escritura se perdería cuando él guarde.
-    const lock = path.join(path.dirname(archivo), `.~lock.${path.basename(archivo)}#`);
-    if (fs.existsSync(lock)) {
-        return { success: false, error: 'EXCEL_ABIERTO', message: 'El Excel está abierto (LibreOffice). Cerralo y reintentá.' };
+    // Excel abierto → cualquier escritura se perdería cuando el programa guarde.
+    const abiertoEn = excelAbiertoEn(archivo);
+    if (abiertoEn) {
+        return { success: false, error: 'EXCEL_ABIERTO', message: `El Excel está abierto (${abiertoEn}). Cerralo y reintentá.` };
     }
 
     // 1. Detectar formato + armar el plan (qué celda recibe qué número).

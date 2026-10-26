@@ -59,6 +59,19 @@
     cursor: not-allowed;
 }
 
+/* Período: mes / año, cada uno con ↑ ↓ */
+.ddjj-periodo-fila {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ddjj-periodo-fila .ddjj-periodo-mes { width: 80px; }
+.ddjj-periodo-fila .ddjj-periodo-anio { width: 100px; }
+.ddjj-periodo-barra { font-size: 18px; opacity: 0.7; }
+
+/* Fecha de pago: todo el campo abre el calendario */
+#ddjj-fecha-pago { cursor: pointer; }
+
 .ddjj-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -88,18 +101,6 @@
     align-items: center;
     gap: 10px;
 }
-.ddjj-btn-sec {
-    padding: 7px 12px;
-    background: var(--v-panel, #fff);
-    border: 1px solid var(--v-borde, #c9dbef);
-    color: var(--v-texto, #1f3a5f);
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    white-space: nowrap;
-}
-.ddjj-btn-sec:hover { background: var(--v-panel-2, #eef4fb); border-color: #2980b9; }
 
 .ddjj-preview {
     margin-top: 12px;
@@ -131,21 +132,8 @@
     cursor: pointer;
 }
 .ddjj-check input { accent-color: #667eea; }
+.ddjj-check:has(input:disabled) { opacity: 0.5; cursor: not-allowed; }
 
-.ddjj-btn-probar {
-    margin-top: 14px;
-    width: 100%;
-    padding: 11px;
-    border: none;
-    border-radius: 8px;
-    background: #667eea;
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-}
-.ddjj-btn-probar:disabled { background: #c7cbe6; cursor: not-allowed; }
-.ddjj-btn-probar:not(:disabled):hover { background: #5563d6; }
 
 .ddjj-nota {
     margin: 12px 0 0;
@@ -155,13 +143,6 @@
 }
 
 /* Recuperar borrador: caja propia, separada del alta de DDJJ */
-.ddjj-buscar {
-    margin-top: 20px;
-    padding: 14px 16px;
-    background: var(--v-panel-2, #f7f9fc);
-    border: 1px solid var(--v-borde, #e2e8f0);
-    border-radius: 8px;
-}
 .ddjj-buscar .ddjj-hint { margin-bottom: 2px; }
 .ddjj-buscar-fila {
     display: flex;
@@ -176,24 +157,6 @@
     gap: 6px;
 }
 .ddjj-buscar-accion .ddjj-select { width: auto; }
-.ddjj-btn-buscar {
-    padding: 9px 16px;
-    background: var(--v-panel, #fff);
-    border: 1.5px solid #667eea;
-    color: var(--v-txt-info, #4453c5);
-    border-radius: 7px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-}
-.ddjj-btn-buscar:disabled {
-    opacity: .55;
-    cursor: not-allowed;
-    border-color: var(--v-borde, #c7cbe6);
-    color: var(--v-texto-2, #9095b5);
-}
-.ddjj-btn-buscar:not(:disabled):hover { background: var(--v-panel-2, #eef0ff); border-color: #5563d6; }
 
 .ddjj-estado {
     margin-top: 16px;
@@ -238,34 +201,6 @@
     font-size: 14px;
 }
 .ddjj-deducciones .ddjj-hint { margin-top: 8px; }
-
-.ddjj-resultado {
-    margin-top: 16px;
-}
-.ddjj-resultado-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    margin-bottom: 8px;
-}
-.ddjj-resultado-head h3 { font-size: 15px; margin: 0; }
-.ddjj-resultado pre {
-    background: #0f172a;
-    color: #e2e8f0;
-    padding: 14px;
-    border-radius: 8px;
-    font-size: 12.5px;
-    line-height: 1.55;
-    white-space: pre-wrap;
-    word-break: break-word;
-    overflow-x: auto;
-}
-/* Log minimizado: se recorta a unas pocas líneas (se expande con el botón). */
-.ddjj-resultado pre.colapsado {
-    max-height: 60px;
-    overflow: hidden;
-}
 
 /* Popup modal "navegador a tu disposición".
    Se cuelga del body (fuera de #declaracionJuradaDiv): colores de .modal-global (base.css §6)
@@ -393,3 +328,34 @@
     padding: 0;
 }
 .ddjj-ret-quitar:hover { color: var(--v-txt-error, #7a1d25); }
+
+/* Opciones de la corrida (Grabar / Reemplazar borrador), arriba del botón principal */
+/* Título de cada paso (1 · 2 · 3) */
+.ddjj-paso-titulo {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+}
+/* Fila de lanzar: igual que .dp-procesar / .dr-procesar (la reemplaza el componente común) */
+.ddjj-procesar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin: 16px 0 0;
+}
+.ddjj-opciones {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Cartel de estado recién aparecido: un destello para que se note */
+.ddjj-estado-resaltado {
+    animation: ddjj-destello 1.2s ease-out;
+}
+@keyframes ddjj-destello {
+    0%   { box-shadow: 0 0 0 4px var(--c-accion, #667eea); }
+    100% { box-shadow: 0 0 0 0 transparent; }
+}

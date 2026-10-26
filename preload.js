@@ -235,7 +235,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         elegirCarpetaRetenciones: (datos) => ipcRenderer.invoke('declaracionJurada:elegirCarpetaRetenciones', datos),
         sugerirRetenciones: (datos) => ipcRenderer.invoke('declaracionJurada:sugerirRetenciones', datos),
         escribirDeducciones: (datos) => ipcRenderer.invoke('declaracionJurada:escribirDeducciones', datos),
-        buscar: (datos) => ipcRenderer.invoke('declaracionJurada:buscar', datos)
+        buscar: (datos) => ipcRenderer.invoke('declaracionJurada:buscar', datos),
+        onUpdate: (callback) => ipcRenderer.on('declaracionJurada:update', (_event, datos) => callback(datos))
     },
 
     // APIs para Facturas Tipificadas

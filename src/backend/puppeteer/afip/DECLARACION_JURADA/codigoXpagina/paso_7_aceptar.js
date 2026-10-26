@@ -1,14 +1,15 @@
 // paso_7_aceptar.js
 // Click en "Aceptar" (.eFormAceptarButton) para CREAR la DDJJ.
-// Maneja el caso conocido: si ya existe un formulario en estado BORRADOR / EN
-// PROCESO / CON ERROR, el portal muestra un error de validación con botón "Volver".
+// Maneja los casos conocidos: si ya existe un formulario en estado BORRADOR / EN
+// PROCESO / CON ERROR, o ya PRESENTADO, el portal muestra un error de validación con
+// botón "Volver" ("Existe un formulario en estado PRESENTADO. Puede recuperarlo con Buscar…").
 //
 // OJO: "Aceptar" acá CREA el formulario (abre el F.5111 vacío para cargar). NO es
 // la presentación final de la DDJJ con los números — eso es una etapa posterior.
 
 /**
  * @param {import('puppeteer').Page} page
- * @returns {Promise<{status:'aceptado'|'borrador-existente'|'error', mensaje:string, url:string}>}
+ * @returns {Promise<{status:'aceptado'|'borrador-existente'|'ya-presentado'|'error', mensaje:string, url:string}>}
  */
 async function ejecutar(page) {
     console.log('[DDJJ paso_7] Click "Aceptar"...');
@@ -36,7 +37,8 @@ async function ejecutar(page) {
             const err = document.querySelector('.v-label-errorDesc, .errorDesc');
             return err ? (err.textContent || '').trim() : '';
         });
-        status = /borrador|proceso|error/i.test(mensaje) ? 'borrador-existente' : 'error';
+        status = /presentado/i.test(mensaje) ? 'ya-presentado'
+            : /borrador|proceso|error/i.test(mensaje) ? 'borrador-existente' : 'error';
         console.warn(`[DDJJ paso_7] Validación del portal: "${mensaje}"`);
 
         // Click "Volver" para dejar la vista limpia.

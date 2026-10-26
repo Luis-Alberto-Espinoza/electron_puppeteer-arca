@@ -24,6 +24,7 @@ const TIPOS_RETENCION = [
 let retencionesArchivos = {};      // { [etiqueta]: rutaTxt }
 let carpetaRetenciones = null;     // carpeta elegida a mano (pisa la del cliente en el auto-detect)
 let ultimaCarga = null;            // datos de la última carga (para escribir los totales de AFIP al Excel)
+let enCurso = false;               // hay una automatización corriendo (cargar o buscar): botones bloqueados
 
 window.inicializarDeclaracionJurada = inicializarDeclaracionJurada;
 
@@ -37,31 +38,31 @@ function inicializarDeclaracionJurada() {
     }
 
     clienteSeleccionado = null;
+    enCurso = false;
     archivoExcel = null;
     retencionesArchivos = {};
     carpetaRetenciones = null;
     montarRetenciones();
     pintarCarpetaRetenciones();
 
-    const btnCargar = document.getElementById('ddjj-btn-cargar');
+    const btnProcesar = document.getElementById('btnProcesarDj');
 
-    if (btnCargar) {
-        btnCargar.addEventListener('click', () => cargarDDJJ(btnCargar));
+    if (btnProcesar) {
+        btnProcesar.addEventListener('click', () => procesar(btnProcesar));
     }
 
     const btnBuscar = document.getElementById('ddjj-btn-buscar');
     if (btnBuscar) btnBuscar.addEventListener('click', () => buscarBorrador(btnBuscar));
 
+    // "Reemplazar borrador" solo tiene sentido si se graba: sin Grabar queda deshabilitado.
     const chkGrabar = document.getElementById('ddjj-grabar');
-    if (chkGrabar) {
-        chkGrabar.addEventListener('change', actualizarLabelBoton);
-    }
-    actualizarLabelBoton();
+    if (chkGrabar) chkGrabar.addEventListener('change', actualizarOpcionesCorrida);
+    const chkReemplazar = document.getElementById('ddjj-reemplazar-borrador');
+    if (chkReemplazar) chkReemplazar.addEventListener('change', actualizarLabelBoton);
+    actualizarOpcionesCorrida();
 
-    // Default del período: mes anterior (lo que se suele declarar).
-    const inputPeriodo = document.getElementById('ddjj-periodo');
-    if (inputPeriodo && !inputPeriodo.value) inputPeriodo.value = periodoMesAnterior();
-    if (inputPeriodo) inputPeriodo.addEventListener('input', previsualizarHoja);
+    // Período: mes + año (default: mes anterior, lo que se suele declarar).
+    montarPeriodo();
 
     // Fecha de pago: por defecto HOY y no se puede elegir una fecha anterior (min = hoy).
     const inputFechaPago = document.getElementById('ddjj-fecha-pago');
@@ -69,6 +70,16 @@ function inicializarDeclaracionJurada() {
         const hoyISO = new Date().toLocaleDateString('en-CA');   // AAAA-MM-DD en hora local
         inputFechaPago.min = hoyISO;
         if (!inputFechaPago.value) inputFechaPago.value = hoyISO;
+        // Clic en cualquier parte del campo abre el calendario (no solo el ícono). Si el campo
+        // ya tenía el foco (ej. recién se cerró el calendario), el clic edita día/mes/año a mano.
+        let yaTeniaFoco = false;
+        inputFechaPago.addEventListener('mousedown', () => {
+            yaTeniaFoco = document.activeElement === inputFechaPago;
+        });
+        inputFechaPago.addEventListener('click', () => {
+            if (yaTeniaFoco) return;
+            try { inputFechaPago.showPicker(); } catch (_) { /* sin soporte: queda el ícono */ }
+        });
     }
 
     // Excel: elegir archivo + cambio de hoja → preview.
@@ -82,8 +93,11 @@ function inicializarDeclaracionJurada() {
     const btnCarpeta = document.getElementById('ddjj-btn-carpeta-ret');
     if (btnCarpeta) btnCarpeta.addEventListener('click', elegirCarpetaRetenciones);
 
-    const btnToggleLog = document.getElementById('ddjj-resultado-toggle');
-    if (btnToggleLog) btnToggleLog.addEventListener('click', toggleLog);
+    // Rueda: ipcRenderer.on acumula listeners → se registra UNA vez para toda la app.
+    if (!window.__ddjjListenerRegistrado && window.electronAPI.declaracionJurada.onUpdate) {
+        window.electronAPI.declaracionJurada.onUpdate((aviso) => window.ruedaTrabajando && window.ruedaTrabajando.recibirAviso(aviso));
+        window.__ddjjListenerRegistrado = true;
+    }
 
     montarSelectorUsuarios();
 }
@@ -147,7 +161,7 @@ async function previsualizarHoja() {
     if (!archivoExcel || !hoja) { cont.style.display = 'none'; return; }
     if (!/^\d{6}$/.test(periodo)) {
         cont.style.display = 'block';
-        cont.innerHTML = '<span class="ddjj-prev-warn">Completá un período válido (AAAAMM) para ver los datos.</span>';
+        cont.innerHTML = '<span class="ddjj-prev-warn">Completá un período válido (mes y año) para ver los datos.</span>';
         return;
     }
 
@@ -210,7 +224,7 @@ function montarRetenciones() {
         fila.className = 'ddjj-ret-fila';
         fila.innerHTML = `
             <span class="ddjj-ret-nombre">${etiqueta}</span>
-            <button type="button" class="ddjj-btn-sec ddjj-ret-elegir" data-ret="${etiqueta}">📂 Agregar .txt…</button>
+            <button type="button" class="ui-btn ui-btn--ghost ddjj-ret-elegir" data-ret="${etiqueta}">📂 Agregar .txt…</button>
             <span class="ddjj-ret-archivos" data-ret-archivos="${etiqueta}"></span>`;
         cont.appendChild(fila);
     });
@@ -308,7 +322,7 @@ async function autodetectarRetenciones(auto = false) {
     if (!clienteSeleccionado) return;
     const periodo = ((document.getElementById('ddjj-periodo') || {}).value || '').trim();
     if (!/^\d{6}$/.test(periodo)) {
-        if (!auto) setEstado('error', '❌ Completá el período (AAAAMM) para auto-detectar.');
+        if (!auto) setEstado('error', '❌ Completá el período (mes y año) para auto-detectar.');
         return;
     }
     try {
@@ -382,6 +396,10 @@ function montarSelectorUsuarios() {
 function mostrarConfig(usuario) {
     const config = document.getElementById('ddjj-config');
     if (config) config.style.display = 'block';
+    // Un cliente por vez: elegido el cliente, el foco pasa a lo siguiente a completar (el período).
+    if (config) config.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const inputMes = document.getElementById('ddjj-periodo-mes');
+    if (inputMes) inputMes.focus({ preventScroll: true });
     poblarEmpresas(usuario);
     actualizarBotonCargar();
     // Cambió el cliente → arrancar de cero: borrar los .txt del cliente anterior (si no, se
@@ -435,10 +453,10 @@ function poblarEmpresas(usuario) {
 }
 
 function actualizarBotonCargar() {
-    const btn = document.getElementById('ddjj-btn-cargar');
-    if (btn) btn.disabled = !clienteSeleccionado;
+    const btn = document.getElementById('btnProcesarDj');
+    if (btn) btn.disabled = enCurso || !clienteSeleccionado;
     const btnB = document.getElementById('ddjj-btn-buscar');
-    if (btnB) btnB.disabled = !clienteSeleccionado;
+    if (btnB) btnB.disabled = enCurso || !clienteSeleccionado;
 }
 
 function esGrabar() {
@@ -446,14 +464,30 @@ function esGrabar() {
     return chk ? chk.checked : false;
 }
 
+function esReemplazar() {
+    const chk = document.getElementById('ddjj-reemplazar-borrador');
+    return esGrabar() && !!(chk && chk.checked);
+}
+
+function actualizarOpcionesCorrida() {
+    const chk = document.getElementById('ddjj-reemplazar-borrador');
+    if (chk) {
+        chk.disabled = !esGrabar();
+        if (chk.disabled) chk.checked = false;
+    }
+    actualizarLabelBoton();
+}
+
 function actualizarLabelBoton() {
-    const btn = document.getElementById('ddjj-btn-cargar');
-    if (btn) btn.textContent = esGrabar() ? '✅ Cargar y GRABAR (persiste)' : '🧪 Simular carga (sin grabar)';
+    const btn = document.getElementById('btnProcesarDj');
+    if (!btn || enCurso) return;   // corriendo: queda "⏳ Cargando…"
+    if (esReemplazar()) btn.textContent = '🗑️ Borrar, cargar y grabar';
+    else btn.textContent = esGrabar() ? '💾 Cargar y grabar borrador' : '▶ Simular carga';
 }
 
 // ---------- Disparo del flujo ----------
 
-async function cargarDDJJ(btnCargar) {
+async function procesar(btnProcesar) {
     if (!clienteSeleccionado) return;
 
     const empresaObjetivo = (document.getElementById('ddjj-empresa') || {}).value || '';
@@ -462,7 +496,7 @@ async function cargarDDJJ(btnCargar) {
     const periodo = ((document.getElementById('ddjj-periodo') || {}).value || '').trim();
 
     if (!/^\d{6}$/.test(periodo)) {
-        setEstado('error', '❌ Período inválido. Usá el formato AAAAMM (ej. 202605).');
+        setEstado('error', '❌ Período inválido. Completá mes (1 a 12) y año.');
         return;
     }
 
@@ -495,9 +529,34 @@ async function cargarDDJJ(btnCargar) {
     };
 
     const grabar = esGrabar();
+    const reemplazarBorrador = esReemplazar();
+    const hoja = (document.getElementById('ddjj-hoja') || {}).value || '';
+    const cantidadTxt = Object.values(retencionesArchivos).reduce((n, v) => n + (Array.isArray(v) ? v.length : (v ? 1 : 0)), 0);
+    const mesAnio = `${periodo.slice(4)}/${periodo.slice(0, 4)}`;
+
+    // Confirmación antes de lanzar (igual que los lotes): qué se va a hacer y si persiste.
+    const confirmado = await showConfirmModal({
+        title: 'Declaración Jurada',
+        icon: '🚀',
+        message: `Cliente: ${cliente.nombre}\nEmpresa: ${empresaObjetivo || '—'}\nPeríodo: ${mesAnio} · Pago: ${fechaPago}`
+            + `\nExcel: ${archivoExcel ? `${archivoExcel.split(/[\\/]/).pop()} (${hoja})` : 'sin Excel'}`
+            + `\nRetenciones: ${cantidadTxt} archivo(s) .txt`
+            + `\n\n${grabar ? '💾 Se GRABA el borrador en AFIP (persiste).' : '🧪 Simulación: carga todo pero no graba.'}`
+            + (reemplazarBorrador ? `\n\n🗑️ ATENCIÓN: si ya hay un borrador de ${mesAnio}, se BORRA en AFIP y se carga de nuevo.` : '')
+            + '\n\n¿Desea continuar?',
+        confirmText: 'Iniciar',
+        confirmBtnClass: reemplazarBorrador ? 'danger' : 'tono'
+    });
+    if (!confirmado) return;
+
     setEstado('cargando', `⏳ ${grabar ? 'Cargar y GRABAR' : 'Simular carga (sin grabar)'}: login → Nuevo → cargar... (el captcha puede requerir tu intervención)`);
     ocultarResultado();
-    if (btnCargar) btnCargar.disabled = true;
+    enCurso = true;
+    if (btnProcesar) btnProcesar.textContent = '⏳ Cargando…';
+    actualizarBotonCargar();
+    if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
+        servicio: 'ARCA', subservicio: 'Declaración Jurada', mensaje: 'Iniciando sesión en AFIP…'
+    });
 
     try {
         const hojaExcel = (document.getElementById('ddjj-hoja') || {}).value || '';
@@ -508,7 +567,8 @@ async function cargarDDJJ(btnCargar) {
             archivo: archivoExcel || null,   // Excel de liquidación (base/alícuota)
             hoja: hojaExcel || null,
             fechaPago,                        // DD/MM/AAAA → solapa Liquidación
-            grabar
+            grabar,
+            reemplazarBorrador               // borrar el borrador existente y cargar de nuevo
         });
 
         if (!r || r.success === false) {
@@ -517,15 +577,20 @@ async function cargarDDJJ(btnCargar) {
         }
 
         const st = r.aceptar && r.aceptar.status;
+        const reemplazo = r.reemplazo;   // solo viene si se intentó borrar el borrador anterior
         let simulacionOk = false;
-        if (st === 'borrador-existente') {
-            setEstado('error', '⚠️ Ya existe un BORRADOR para ese período. Recuperalo con "🔎 Buscar borrador".');
+        if (reemplazo && !reemplazo.borrado) {
+            setEstado('error', `⚠️ Había un BORRADOR y no se pudo borrar: ${reemplazo.motivo}. Revisalo con "🔎 Buscar borrador".`);
+        } else if (st === 'borrador-existente') {
+            setEstado('error', '⚠️ Ya existe un BORRADOR para ese período. Recuperalo con "🔎 Buscar borrador" o tildá "borrarlo y cargar de nuevo".');
+        } else if (st === 'ya-presentado') {
+            setEstado('error', '⚠️ Ese período ya está PRESENTADO en AFIP: para cambiarlo hay que hacer una rectificativa.');
         } else if (st === 'error') {
             setEstado('error', `❌ El portal rechazó el Aceptar: ${r.aceptar.mensaje || ''}`);
         } else if (r.grabar && r.grabar.grabado) {
-            setEstado('ok', `✅ DDJJ cargada y GRABADA (borrador persistido). ${r.url || ''}`);
+            setEstado('ok', `✅ ${reemplazo ? 'Borrador anterior borrado. ' : ''}DDJJ cargada y GRABADA (borrador persistido). ${r.url || ''}`);
         } else {
-            setEstado('ok', `🧪 DDJJ simulada (cargada, sin grabar — no persiste). ${r.url || ''}`);
+            setEstado('ok', `🧪 ${reemplazo ? 'Borrador anterior borrado. ' : ''}DDJJ simulada (cargada, sin grabar — no persiste). ${r.url || ''}`);
             simulacionOk = true;
         }
         // Guardar lo necesario para escribir los totales de AFIP al Excel (botón en la caja).
@@ -544,6 +609,9 @@ async function cargarDDJJ(btnCargar) {
         console.error('❌ Error en cargar DDJJ:', err);
         setEstado('error', `❌ ${err?.message || err}`);
     } finally {
+        if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
+        enCurso = false;
+        actualizarLabelBoton();
         actualizarBotonCargar();
     }
 }
@@ -567,7 +635,13 @@ async function buscarBorrador(btn) {
 
     setEstado('cargando', '⏳ Login → "Mis Aplicaciones Web" → Buscar borradores...');
     ocultarResultado();
-    if (btn) btn.disabled = true;
+    enCurso = true;
+    const textoBuscar = btn ? btn.textContent : '';
+    if (btn) btn.textContent = '⏳ Buscando…';
+    actualizarBotonCargar();
+    if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
+        servicio: 'ARCA', subservicio: 'Declaración Jurada · Buscar', mensaje: 'Iniciando sesión en AFIP…'
+    });
     try {
         const r = await window.electronAPI.declaracionJurada.buscar({ cliente, empresaObjetivo, organismo, formulario, periodo, accion });
         if (!r || r.success === false) {
@@ -585,6 +659,9 @@ async function buscarBorrador(btn) {
         console.error('❌ Error en buscar borrador:', err);
         setEstado('error', `❌ ${err?.message || err}`);
     } finally {
+        if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
+        enCurso = false;
+        if (btn) btn.textContent = textoBuscar;
         actualizarBotonCargar();
     }
 }
@@ -595,6 +672,56 @@ async function buscarBorrador(btn) {
 function isoADDMMAAAA(iso) {
     const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
     return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+}
+
+// ---------- Período (mes + año → AAAAMM oculto) ----------
+
+function montarPeriodo() {
+    const inputMes = document.getElementById('ddjj-periodo-mes');
+    const inputAnio = document.getElementById('ddjj-periodo-anio');
+    if (!inputMes || !inputAnio) return;
+    if (!inputMes.value || !inputAnio.value) {
+        const periodo = periodoMesAnterior();
+        inputAnio.value = periodo.slice(0, 4);
+        inputMes.value = String(Number(periodo.slice(4)));
+    }
+    armarPeriodo();
+
+    // Al entrar al campo queda todo seleccionado: se escribe encima o se usa ↑ ↓.
+    [inputMes, inputAnio].forEach((input) => {
+        input.addEventListener('focus', () => input.select());
+        input.addEventListener('input', armarPeriodo);
+    });
+    // En el mes, ↑ ↓ dan la vuelta: bajar de 1 pasa a 12 del año anterior (y al revés).
+    inputMes.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+        e.preventDefault();
+        moverMes(e.key === 'ArrowUp' ? 1 : -1);
+    });
+}
+
+function moverMes(paso) {
+    const inputMes = document.getElementById('ddjj-periodo-mes');
+    const inputAnio = document.getElementById('ddjj-periodo-anio');
+    let mes = Number(inputMes.value) || 1;
+    let anio = Number(inputAnio.value) || new Date().getFullYear();
+    mes += paso;
+    if (mes < 1) { mes = 12; anio--; }
+    if (mes > 12) { mes = 1; anio++; }
+    inputMes.value = String(mes);
+    inputAnio.value = String(anio);
+    inputMes.select();
+    armarPeriodo();
+}
+
+/** Escribe el AAAAMM en el campo oculto (vacío si mes/año no son válidos) y refresca la vista previa. */
+function armarPeriodo() {
+    const mes = Number((document.getElementById('ddjj-periodo-mes') || {}).value);
+    const anio = Number((document.getElementById('ddjj-periodo-anio') || {}).value);
+    const valido = Number.isInteger(mes) && mes >= 1 && mes <= 12 && Number.isInteger(anio) && anio >= 2000 && anio <= 2100;
+    const oculto = document.getElementById('ddjj-periodo');
+    if (oculto) oculto.value = valido ? `${anio}${String(mes).padStart(2, '0')}` : '';
+    previsualizarHoja();
 }
 
 function periodoMesAnterior() {
@@ -625,7 +752,7 @@ function mostrarPopupNavegador(titulo) {
                 ⏱️ La sesión de AFIP dura un <strong>tiempo limitado</strong>: si la dejás inactiva
                 mucho rato, vas a tener que volver a iniciar sesión.
             </p>
-            <button type="button" class="ddjj-btn-probar ddjj-modal-cerrar">Entendido</button>
+            <button type="button" class="ui-btn ui-btn--accion ddjj-modal-cerrar">Entendido</button>
         </div>`;
     document.body.appendChild(overlay);
     const cerrar = () => overlay.remove();
@@ -639,22 +766,20 @@ function setEstado(clase, texto) {
     el.className = `ddjj-estado ${clase}`;
     el.textContent = texto;
     el.style.display = 'block';
+    // Que se vea: el cartel aparece abajo y sin esto nadie se entera (hay que scrollear).
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.remove('ddjj-estado-resaltado');
+    void el.offsetWidth;   // reinicia la animación si ya estaba
+    el.classList.add('ddjj-estado-resaltado');
 }
 
+// El detalle técnico ya no se muestra en pantalla (caja negra oculta, pedido del usuario):
+// queda en la consola y en el log del día del backend.
 function mostrarResultado(texto) {
-    const cont = document.getElementById('ddjj-resultado');
-    const pre = document.getElementById('ddjj-resultado-pre');
-    if (pre) pre.textContent = texto;
-    if (cont) cont.style.display = 'block';
-    // Resultado nuevo → arranca MINIMIZADO por defecto (se expande con el botón).
-    if (pre) pre.classList.add('colapsado');
-    const btn = document.getElementById('ddjj-resultado-toggle');
-    if (btn) btn.textContent = '➕ Expandir';
+    console.log('[DDJJ] Resultado:\n' + texto);
 }
 
 function ocultarResultado() {
-    const cont = document.getElementById('ddjj-resultado');
-    if (cont) cont.style.display = 'none';
     const ded = document.getElementById('ddjj-deducciones');
     if (ded) ded.style.display = 'none';
 }
@@ -679,15 +804,19 @@ function mostrarDeducciones(deducciones) {
     const filaTotal = totalEntry
         ? `<div class="ddjj-ded-fila ddjj-ded-total"><span>${totalEntry[0]}</span><span>$ ${fmt(totalEntry[1])}</span></div>`
         : '';
-    // Si no hubo ninguna deducción con importe, avisamos que los archivos igual se procesaron.
+    // Sin ninguna retención/percepción con importe: el Total puede igual ser ≠ 0 (saldo a favor
+    // del período anterior), así que el aviso no puede decir "Total = 0" a ciegas.
+    const totalConImporte = totalEntry && Number(totalEntry[1] || 0) !== 0;
     const aviso = filasConImporte.length
         ? 'Estos números los calculó AFIP a partir de los .txt importados (fuente de verdad).'
-        : '⚠️ Los archivos se procesaron, pero AFIP no arrojó deducciones con importe (Total = 0).';
+        : totalConImporte
+            ? '⚠️ Ninguna retención ni percepción con importe: el Total sale del saldo a favor del período anterior (u otro concepto que no viene de los .txt).'
+            : '⚠️ Ninguna retención ni percepción con importe (Total = 0).';
 
     // Botón para volcar estos totales al Excel (solo si la carga usó un Excel).
     const hayExcel = ultimaCarga && ultimaCarga.archivo;
     const btnExcel = hayExcel
-        ? `<button type="button" id="ddjj-btn-escribir-excel" class="ddjj-btn-sec">📝 Escribir Excel con estos datos</button>`
+        ? `<button type="button" id="ddjj-btn-escribir-excel" class="ui-btn ui-btn--ghost">📝 Escribir Excel con estos datos</button>`
         : '';
 
     cont.innerHTML = `
@@ -733,13 +862,4 @@ async function escribirExcelConDeducciones(btn) {
     } finally {
         if (btn) btn.disabled = false;
     }
-}
-
-/** Minimiza/expande la caja del log (a veces no se quiere ver todo). */
-function toggleLog() {
-    const pre = document.getElementById('ddjj-resultado-pre');
-    const btn = document.getElementById('ddjj-resultado-toggle');
-    if (!pre) return;
-    const colapsado = pre.classList.toggle('colapsado');
-    if (btn) btn.textContent = colapsado ? '➕ Expandir' : '➖ Minimizar';
 }
