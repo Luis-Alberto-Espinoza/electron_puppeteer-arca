@@ -232,9 +232,10 @@ body {
   color: rgba(255, 255, 255, 0.92);
 }
 
-/* Mensaje: respeta los \n y no corta renglones; si son muchos, scroll adentro */
+/* Mensaje: respeta los \n; un renglón más ancho que el modal se corta (antes salía
+   scroll horizontal y la frase quedaba cortada). Si son muchos, scroll adentro. */
 .modal-global .modal-mensaje {
-  white-space: pre;
+  white-space: pre-wrap;
   max-height: 55vh;
   overflow: auto;
 }

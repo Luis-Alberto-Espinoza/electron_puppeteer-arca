@@ -231,6 +231,21 @@ html {
 #modulosAfipDiv .btn-principal:hover {
     background: color-mix(in srgb, var(--vista-tono), white 30%);
 }
+/* Botón secundario (.ui-btn--ghost): el de base.css es para fondo claro (letra oscura,
+   hover blanco). En AFIP: relleno con el tono y letra blanca; el hover no cambia el color,
+   solo sube con sombra como el resto de los .ui-btn. */
+:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+    #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv) .ui-btn--ghost {
+    background: color-mix(in srgb, var(--vista-tono), white 18%);
+    border: 1px solid var(--v-borde);
+    color: var(--v-texto);
+}
+:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+    #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv) .ui-btn--ghost:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--vista-tono), white 18%);
+}
 #modulosAfipDiv .seccion h2 {
     border-bottom-color: var(--v-acento);
 }
