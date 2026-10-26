@@ -14,20 +14,16 @@ window.inicializarModuloImportarLibroIva = () => {
     // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
-    const btnProcesar = document.getElementById('btnProcesarIl');
-    const btnVistaPrevia = document.getElementById('btnVistaPreviaIl');
     const btnLimpiar  = document.getElementById('btnLimpiarIl');
-    const chkVisible  = document.getElementById('chk-visible-il');
     const chkDescartar = document.getElementById('chk-descartar-borrador-il');
-    const contenedor  = btnProcesar.closest('.il-container');
     const inpPeriodo  = document.getElementById('il-periodo');
+    const contenedor  = inpPeriodo.closest('.il-container');
     const resultados  = document.getElementById('resultadosIl');
     const contenido   = document.getElementById('resultadosContenidoIl');
     const contador    = document.getElementById('contadorIl');
     const preparacion = document.getElementById('preparacionIl');
     const prepContenido = document.getElementById('preparacionContenidoIl');
 
-    let enCurso = false;
     let reintentando = false;
     // Lo último que se corrió: el reintento usa ESE período (no el del campo, que pudo cambiar).
     const lote = { periodo: null, porCuit: new Map(), soloVistaPrevia: false };
@@ -43,6 +39,28 @@ window.inicializarModuloImportarLibroIva = () => {
     const periodoActual = () => inpPeriodo.value.replace('-', '');   // 'AAAA-MM' → 'AAAAMM'
     const nombreDe = (u) => u.razonSocial || [u.nombre, u.apellido].filter(Boolean).join(' ');
 
+    // Antes que el selector: su onCambioSeleccion ya habilita el lanzador.
+    // Acción 0 (Cargar) queda a la derecha; Vista Previa a su izquierda.
+    const RUEDA = { servicio: 'ARCA', subservicio: 'Portal IVA', mensaje: 'Iniciando sesión en AFIP…' };
+    const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorIl'), {
+        acciones: [{
+            texto: '▶ Cargar Libro IVA',
+            preparar: prepararCarga,
+            confirmar: confirmarCarga,
+            rueda: RUEDA,
+            ejecutar: correr
+        }, {
+            // Sin importar nada: entra al período, abre la Vista Previa y deja el navegador abierto.
+            texto: 'Abrir Vista Previa',
+            tipo: 'secundario',
+            ayuda: 'Entra al Libro IVA del período de cada cliente, abre la Vista Previa y deja el navegador abierto para revisarla. No importa, no borra ni descarga nada.',
+            preparar: prepararVistaPrevia,
+            confirmar: confirmarVistaPrevia,
+            rueda: RUEDA,
+            ejecutar: correr
+        }]
+    });
+
     // `let` + null: el selector puede avisar un cambio mientras se construye.
     let selector = null;
     // Un cliente con "Mis archivos" necesita sus txt validados antes de arrancar (Ventas, Compras o los dos).
@@ -52,9 +70,10 @@ window.inicializarModuloImportarLibroIva = () => {
     });
     const actualizarBoton = () => {
         const elegidos = selector ? selector.obtenerSeleccionados() : [];
-        btnProcesar.disabled = enCurso || !inpPeriodo.value || elegidos.length === 0 || !archivosListos(elegidos);
+        const hay = !!inpPeriodo.value && elegidos.length > 0;
+        lanzador.habilitar(hay && archivosListos(elegidos), 0);
         // La Vista Previa no usa los archivos: no espera a que estén validados.
-        btnVistaPrevia.disabled = enCurso || !inpPeriodo.value || elegidos.length === 0;
+        lanzador.habilitar(hay, 1);
     };
 
     selector = new SelectorUsuarios('selector-contribuyentes-il', {
@@ -488,7 +507,7 @@ window.inicializarModuloImportarLibroIva = () => {
         const rechazados = [datos.ventas, datos.compras].filter(conRechazos).reduce((n, l) => n + l.noImportados, 0);
         const estado = datos.estado === 'exito' && (rechazados || datos.sinDeclaracion) ? 'aviso' : datos.estado;
         if (estado === 'aviso') conAvisos.add(String(datos.cuit)); else conAvisos.delete(String(datos.cuit));
-        const icono = { procesando: '⏳', exito: '✓', aviso: '⚠', error: '✗' }[estado] || '';
+        const icono = { procesando: '⏳', exito: '✓', aviso: '⚠', error: '✗', cancelado: '⏹' }[estado] || '';
         // Con libros, el detalle va en cada renglón: el del cliente queda corto.
         const conLibros = datos.ventas || datos.compras;
         const texto = conLibros
@@ -549,12 +568,16 @@ window.inicializarModuloImportarLibroIva = () => {
             contenido.appendChild(el('div', 'il-resultado il-resultado-fin', lote.soloVistaPrevia
                 ? `Terminado: ${datos.exitosos - conAvisos.size} Vista(s) Previa(s) abierta(s)` +
                   (conAvisos.size ? `, ${conAvisos.size} sin declaración iniciada` : '') +
-                  `, ${datos.fallidos} con error. El navegador queda abierto: cerralo a mano.`
+                  `, ${datos.fallidos} con error` + cancelados(datos) + '. El navegador queda abierto: cerralo a mano.'
                 : `Terminado: ${datos.exitosos - conAvisos.size} cargado(s)` +
                   (conAvisos.size ? `, ${conAvisos.size} con renglones rechazados` : '') +
-                  `, ${datos.fallidos} con error.`));
+                  `, ${datos.fallidos} con error` + cancelados(datos) + '.'));
             irAResultados();
         }
+    }
+
+    function cancelados(datos) {
+        return datos.cancelados ? `, ${datos.cancelados} cancelado(s)` : '';
     }
 
     // ipcRenderer.on acumula listeners: se registra UNA vez y se redirige a la vista actual.
@@ -564,40 +587,37 @@ window.inicializarModuloImportarLibroIva = () => {
         window.__ilListenerRegistrado = true;
     }
 
-    // ===== Procesar =====
+    // ===== Procesar (componentes/lanzadorAutomatizacion: switch, Cargar / Vista Previa ↔ ⏹ Cancelar) =====
+    // datos = { contribuyentes, soloVistaPrevia, reintento }
     // reintento = un solo cliente desde Resultados: no limpia la lista ni toca el contador.
-    async function correr(contribuyentes, periodo, reintento) {
-        enCurso = true;
-        reintentando = reintento;
-        contenedor.classList.add('il-ocupado');
-        btnProcesar.disabled = true;
-        btnVistaPrevia.disabled = true;
-        const boton = lote.soloVistaPrevia ? btnVistaPrevia : btnProcesar;
-        const textoBoton = boton.textContent;
+    async function correr({ contribuyentes, soloVistaPrevia, reintento }, { visible }) {
         if (!reintento) {
-            boton.textContent = lote.soloVistaPrevia ? '⏳ Abriendo...' : '⏳ Cargando...';
+            lote.periodo = periodoActual();
+            lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
+            lote.soloVistaPrevia = soloVistaPrevia;
+        }
+        reintentando = !!reintento;
+        contenedor.classList.add('il-ocupado');
+        if (!reintento) {
             contenido.innerHTML = '';
             contador.textContent = '';
             conAvisos.clear();
             resultados.style.display = 'block';
             contenido.appendChild(el('div', 'il-resultado il-resultado-procesando il-inicio',
-                lote.soloVistaPrevia
+                soloVistaPrevia
                     ? `⏳ Abriendo la Vista Previa de ${contribuyentes.length} cliente(s)... (no se importa nada)`
                     : `⏳ Iniciando ${contribuyentes.length} cliente(s)... (puede tardar: ARCA procesa cada importación)`));
             irAResultados();
         }
-        if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
-            servicio: 'ARCA', subservicio: 'Portal IVA', mensaje: 'Iniciando sesión en AFIP…'
-        });
 
         try {
             const r = await window.electronAPI.importarLibroIva.procesar({
                 contribuyentes,
-                periodo,
-                visible: chkVisible.checked,
+                periodo: lote.periodo,
+                visible,
                 // En el reintento manda lo que el usuario eligió para ESE cliente, no la casilla.
                 descartarBorrador: !reintento && chkDescartar.checked,
-                soloVistaPrevia: lote.soloVistaPrevia
+                soloVistaPrevia
             });
             if (!r || !r.success) {
                 contenido.appendChild(el('div', 'il-resultado il-resultado-error', (r && r.message) || 'Error desconocido'));
@@ -605,19 +625,18 @@ window.inicializarModuloImportarLibroIva = () => {
         } catch (e) {
             contenido.appendChild(el('div', 'il-resultado il-resultado-error', e.message));
         } finally {
-            if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
-            enCurso = false;
             reintentando = false;
             contenedor.classList.remove('il-ocupado');
-            boton.textContent = textoBoton;
             actualizarBoton();
         }
     }
 
     function reintentar(cuit, respuesta) {
         const c = lote.porCuit.get(String(cuit));
-        if (enCurso || !c || !lote.periodo) return;
-        correr([{ ...c, ...respuesta }], lote.periodo, true);
+        if (lanzador.enCurso() || !c || !lote.periodo) return;
+        lanzador.lanzar(lote.soloVistaPrevia ? 1 : 0, {
+            contribuyentes: [{ ...c, ...respuesta }], soloVistaPrevia: lote.soloVistaPrevia, reintento: true
+        });
     }
 
     btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
@@ -632,12 +651,9 @@ window.inicializarModuloImportarLibroIva = () => {
             : '';
     }
 
-    btnProcesar.addEventListener('click', async () => {
+    function prepararCarga() {
         const seleccionados = selector.obtenerSeleccionados();
-        if (seleccionados.length === 0 || !inpPeriodo.value) return;
-
-        if (!archivosListos(seleccionados)) return;
-
+        if (seleccionados.length === 0 || !inpPeriodo.value || !archivosListos(seleccionados)) return null;
         const contribuyentes = seleccionados.map(u => {
             const c = { id: u.id, cuit: u.cuit, nombre: nombreDe(u) };
             const p = prep.get(String(u.cuit));
@@ -645,56 +661,47 @@ window.inicializarModuloImportarLibroIva = () => {
             if (p && p.campos.algunaMarcada()) c.datosIniciales = p.campos.leer();
             return c;
         });
+        return { contribuyentes, soloVistaPrevia: false };
+    }
+
+    function confirmarCarga({ contribuyentes }) {
         const conArchivos = contribuyentes.filter(c => c.origen === 'archivos');
-        const confirmado = await showConfirmModal({
+        return {
             title: 'Portal IVA',
-            icon: '🚀',
             message: `Período: ${textoPeriodo(periodoActual())}\n\nSe va a cargar el Libro IVA de ${contribuyentes.length} cliente(s):\n\n - `
                 + contribuyentes.map(c => `${c.nombre} (${c.cuit}): ${c.origen === 'archivos'
                     ? `Mis archivos (${c.archivos.length} txt)${c.respaldo ? ', con respaldo en Excel' : ''}`
                     : 'desde ARCA'}`).join('\n - ')
                 + (conArchivos.length ? '\n\n🗑️ ATENCIÓN: con "Mis archivos" se BORRA todo lo que haya en el libro de ARCA y se cargan los txt.' : '')
                 + avisoDescartar()
-                + '\n\nNo se presenta nada: queda en borrador.\n\n¿Desea continuar?',
-            confirmText: 'Iniciar',
+                + '\n\nNo se presenta nada: queda en borrador.',
             confirmBtnClass: (conArchivos.length || chkDescartar.checked) ? 'danger' : 'tono'
-        });
-        if (!confirmado) return;
-
-        lote.periodo = periodoActual();
-        lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
-        lote.soloVistaPrevia = false;
-        correr(contribuyentes, lote.periodo, false);
-    });
+        };
+    }
 
     // Solo los datos para entrar al período (Datos Iniciales por si ARCA los pide): no se importa.
-    btnVistaPrevia.addEventListener('click', async () => {
+    function prepararVistaPrevia() {
         const seleccionados = selector.obtenerSeleccionados();
-        if (seleccionados.length === 0 || !inpPeriodo.value) return;
+        if (seleccionados.length === 0 || !inpPeriodo.value) return null;
         const contribuyentes = seleccionados.map(u => {
             const c = { id: u.id, cuit: u.cuit, nombre: nombreDe(u) };
             const p = prep.get(String(u.cuit));
             if (p && p.campos.algunaMarcada()) c.datosIniciales = p.campos.leer();
             return c;
         });
-        const confirmado = await showConfirmModal({
+        return { contribuyentes, soloVistaPrevia: true };
+    }
+
+    function confirmarVistaPrevia({ contribuyentes }) {
+        return {
             title: 'Portal IVA · Vista Previa',
-            icon: '🚀',
             message: `Período: ${textoPeriodo(periodoActual())}\n\nSe va a abrir la Vista Previa de ${contribuyentes.length} cliente(s):\n\n - `
                 + contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')
                 + '\n\nNo importa, no borra ni descarga nada. El navegador queda abierto.'
-                + avisoDescartar()
-                + '\n\n¿Desea continuar?',
-            confirmText: 'Iniciar',
+                + avisoDescartar(),
             confirmBtnClass: chkDescartar.checked ? 'danger' : 'tono'
-        });
-        if (!confirmado) return;
-
-        lote.periodo = periodoActual();
-        lote.porCuit = new Map(contribuyentes.map(c => [String(c.cuit), c]));
-        lote.soloVistaPrevia = true;
-        correr(contribuyentes, lote.periodo, false);
-    });
+        };
+    }
 
     pintarPreparacion();
 };

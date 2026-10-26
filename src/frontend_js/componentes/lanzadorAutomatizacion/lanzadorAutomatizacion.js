@@ -20,8 +20,9 @@
  *       navegador: true,                           // false = sin switch (el servicio no deja ocultarlo)
  *       acciones: [{
  *           texto: '🔍 Consultar comprobantes',
- *           tipo: 'principal',                     // 'principal' (azul) | 'prueba' (verde)
+ *           tipo: 'principal',                     // 'principal' (azul) | 'prueba' (verde) | 'secundario' (tono del servicio)
  *           nota: 'Facturación real',              // opcional, chica abajo del botón
+ *           ayuda: 'Qué hace…',                    // opcional, tooltip del botón
  *           preparar:  () => datos | null,         // opcional: null = no arranca
  *           confirmar: (datos) => ({ title, message, confirmBtnClass }),  // opcional: sin él no hay modal
  *           rueda:     { servicio, subservicio, mensaje },                // opcional
@@ -30,6 +31,8 @@
  *   });
  *   lanzador.habilitar(true | false);   // todas las acciones (mientras corre quedan bloqueadas igual)
  *   lanzador.habilitar(false, 1);       // solo la acción 1
+ *   lanzador.lanzar(1, datos);          // corre la acción 1 con esos datos, sin preparar ni modal
+ *                                       // (ej. reintentar un cliente desde Resultados): también se cancela
  *   lanzador.visible();                 // cómo está el switch del navegador
  *   lanzador.enCurso();                 // true mientras corre
  *
@@ -83,6 +86,7 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = `ui-btn ui-lanzador__accion ui-lanzador__accion--${accion.tipo || 'principal'}`;
+            if (accion.ayuda) btn.title = accion.ayuda;
             opcion.appendChild(btn);
             if (accion.nota) {
                 const nota = document.createElement('small');
@@ -116,15 +120,16 @@
             if (corriendo === null) return arrancar(i);
         }
 
-        async function arrancar(i) {
+        // directo = { datos }: lanzar() desde la vista, sin preparar ni modal.
+        async function arrancar(i, directo) {
             const item = items[i];
-            if (!item.habilitado) return;
+            if (!directo && !item.habilitado) return;
             const { preparar, confirmar, rueda, ejecutar } = item.accion;
 
-            const datos = preparar ? preparar() : undefined;
-            if (preparar && datos == null) return;
+            const datos = directo ? directo.datos : (preparar ? preparar() : undefined);
+            if (!directo && preparar && datos == null) return;
 
-            if (confirmar) {
+            if (confirmar && !directo) {
                 const modal = confirmar(datos) || {};
                 const confirmado = await showConfirmModal({
                     icon: '🚀',
@@ -181,6 +186,9 @@
                     if (indice === undefined || indice === i) item.habilitado = !!valor;
                 });
                 pintar();
+            },
+            lanzar(indice, datos) {
+                if (corriendo === null) return arrancar(indice, { datos });
             },
             visible,
             enCurso: () => corriendo !== null

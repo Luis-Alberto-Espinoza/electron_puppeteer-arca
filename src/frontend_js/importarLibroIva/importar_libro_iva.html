@@ -18,7 +18,7 @@
         <div id="preparacionContenidoIl"></div>
     </div>
 
-    <!-- Renglón 1: qué se procesa (período y borrador). Renglón 2: cómo (navegador) y arrancar. -->
+    <!-- Qué se procesa (período y borrador). Debajo, el lanzador: cómo (navegador) y arrancar. -->
     <div class="il-procesar">
         <div class="il-fila">
             <label class="il-periodo">
@@ -32,22 +32,10 @@
                 Descartar borrador de otro período
             </label>
         </div>
-        <div class="il-fila">
-            <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
-            <label class="ui-switch">
-                <input type="checkbox" id="chk-visible-il" checked>
-                Mostrar navegador
-            </label>
-            <!-- Sin importar nada: entra al período, abre la Vista Previa y deja el navegador abierto. -->
-            <button id="btnVistaPreviaIl" class="ui-btn" disabled
-                    title="Entra al Libro IVA del período de cada cliente, abre la Vista Previa y deja el navegador abierto para revisarla. No importa, no borra ni descarga nada.">
-                Abrir Vista Previa
-            </button>
-            <button id="btnProcesarIl" class="ui-btn ui-btn--accion" disabled>
-                ▶ Cargar Libro IVA
-            </button>
-        </div>
     </div>
+
+    <!-- Mostrar navegador + Cargar / Vista Previa (↔ Cancelar): lo llena componentes/lanzadorAutomatizacion -->
+    <div id="lanzadorIl"></div>
 
     <div id="resultadosIl" class="il-seccion" style="display:none">
         <div class="il-seccion-titulo">Resultados <span id="contadorIl" class="il-contador"></span></div>

@@ -77,10 +77,10 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
         // Cierra un contribuyente: lo suma a resultados, avisa al front y al historial.
         const cerrar = (contribuyente, { success, error, message, ventas, compras, downloadDir, vistaPrevia, sinDeclaracion,
             borradorDescartado, datosInicialesCargados, periodoBorrador, datosIniciales }) => {
-            resultados.push({ contribuyente, success });
+            resultados.push({ contribuyente, success, error });
             enviar({
                 tipo: 'resultado', id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
-                estado: success ? 'exito' : 'error',
+                estado: success ? 'exito' : (error === 'CANCELADO' ? 'cancelado' : 'error'),
                 error, mensaje: message, ventas, compras, downloadDir, vistaPrevia, sinDeclaracion,
                 borradorDescartado, datosInicialesCargados, periodoBorrador, datosIniciales,
                 procesados: resultados.length, total
@@ -141,13 +141,20 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
 
         // 2. Un login por grupo. Si AFIP pide captcha, el resto del lote se saltea.
         const corte = crearCorteCaptchaAfip();
+        let cancelado = null; // "⏹ Cancelar" del lanzador: los grupos que faltan no arrancan
         for (const [loginCuit, grupo] of grupos) {
+            if (cancelado) {
+                grupo.items.forEach(c => cerrar(c, cancelado));
+                continue;
+            }
             if (corte.activo) {
                 grupo.items.forEach(c => cerrar(c, { success: false, error: 'CAPTCHA_BLOQUEO', message: corte.mensaje }));
                 continue;
             }
 
             const onProgreso = ({ tipo, contribuyente, ...resto }) => {
+                // Tras "⏹ Cancelar" el flujo sigue un rato por detrás: sus avisos ya no cuentan.
+                if (cancelado) return;
                 if (tipo === 'resultado') return cerrar(contribuyente, resto);
                 enviar({
                     tipo, id: contribuyente.id, cuit: contribuyente.cuit, nombre: contribuyente.nombre,
@@ -165,7 +172,10 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
                     grupo.credenciales, grupo.items, { periodo, downloadsPath, descartarBorrador: descartarBorrador === true, soloVistaPrevia }, onProgreso, { visible }
                 );
                 corte.registrar(r);
-                if (!r || r.success === false) {
+                if (r && r.error === 'CANCELADO') {
+                    cancelado = { success: false, error: r.error, message: r.message };
+                    pendientesDelGrupo().forEach(c => cerrar(c, cancelado));
+                } else if (!r || r.success === false) {
                     const msg = r && r.error === 'NAVEGADOR_CERRADO'
                         ? r.message
                         : `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
@@ -178,7 +188,8 @@ function setupImportarLibroIvaHandlers(ipcMain, mainWindow, app) {
         }
 
         const exitosos = resultados.filter(r => r.success).length;
-        enviar({ tipo: 'finalizado', total, exitosos, fallidos: total - exitosos });
+        const cancelados = resultados.filter(r => r.error === 'CANCELADO').length;
+        enviar({ tipo: 'finalizado', total, exitosos, fallidos: total - exitosos - cancelados, cancelados });
         return { success: true };
     });
 }

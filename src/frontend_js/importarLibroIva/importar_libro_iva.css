@@ -63,6 +63,7 @@
 .il-resultado-procesando { background: var(--v-info-bg);  color: var(--v-txt-info); }
 .il-resultado-exito      { background: var(--v-ok-bg);    color: var(--v-txt-ok); }
 .il-resultado-error      { background: var(--v-error-bg); color: var(--v-txt-error); }
+.il-resultado-cancelado  { background: var(--v-warn-bg);  color: var(--v-txt-warn); }
 .il-resultado-fin        { background: var(--v-panel-2);  color: var(--v-texto); }
 .il-resultado-aviso      { background: var(--v-warn-bg);  color: var(--v-txt-warn); }
 .il-resultado-nota       { background: var(--v-panel-2);  color: var(--v-texto-2); }
