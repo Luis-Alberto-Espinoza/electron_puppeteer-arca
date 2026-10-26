@@ -7,6 +7,7 @@ const ExcelJS = require('exceljs');
 const path = require('path');
 const estilos = require('../../tablasPdf/motor/utils/estilosExcel.js');
 const { getDownloadPathContribuyente } = require('../../cliente/carpetaContribuyente.js');
+const { nombreArchivo: nombreArchivoComun } = require('../../comun/nombreArchivo.js');
 
 const COLUMNAS = [
     ['CUIT', f => f.cuit],
@@ -24,12 +25,10 @@ const COLUMNAS = [
     ['Nro. liquidación', f => f.nroLiquidacion]
 ];
 
-// ddjj_pendientes_<cuit>_<AAAA-MM-DD>.<ext>: sin hora, así la consulta del mismo día pisa
-// a la anterior (pedido del usuario).
+// <CUIT>_DDJJPendientes_<AAAA-MM-DD>.<ext> (regla común): sin hora, así la consulta del
+// mismo día pisa a la anterior (pedido del usuario).
 function nombreArchivo(cuit, ext) {
-    const h = new Date();
-    const dia = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
-    return `ddjj_pendientes_${cuit}_${dia}.${ext}`;
+    return nombreArchivoComun({ servicio: 'DDJJPendientes', cuit, extension: ext });
 }
 
 // "2025-12-23" → fecha local (sin pasar por UTC, que la correría un día).

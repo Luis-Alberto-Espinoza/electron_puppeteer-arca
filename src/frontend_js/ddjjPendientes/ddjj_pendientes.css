@@ -17,6 +17,10 @@
     gap: 16px;
     margin: 16px 0;
 }
+/* Limpiar a la izquierda; el switch y el botón de procesar quedan a la derecha */
+.dp-limpiar {
+    margin-right: auto;
+}
 
 .dp-seccion {
     background: var(--v-panel);
@@ -75,4 +79,11 @@
 }
 .dp-tabla th {
     background: var(--v-panel-2);
+}
+
+/* Tabla de pendientes plegada debajo del renglón del cliente */
+.dp-plegable > summary {
+    cursor: pointer;
+    padding: 4px 10px;
+    color: var(--v-texto-2);
 }

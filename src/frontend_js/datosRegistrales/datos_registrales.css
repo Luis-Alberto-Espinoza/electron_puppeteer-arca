@@ -17,6 +17,10 @@
     gap: 16px;
     margin: 16px 0;
 }
+/* Limpiar a la izquierda; el switch y el botón de procesar quedan a la derecha */
+.dr-limpiar {
+    margin-right: auto;
+}
 
 .dr-seccion {
     background: var(--v-panel);

@@ -8,6 +8,7 @@ window.inicializarModuloDdjjPendientes = () => {
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
     const btnProcesar = document.getElementById('btnProcesarDp');
+    const btnLimpiar  = document.getElementById('btnLimpiarDp');
     const chkVisible  = document.getElementById('chk-visible-dp');
     const resultados  = document.getElementById('resultadosDp');
     const contenido   = document.getElementById('resultadosContenidoDp');
@@ -85,7 +86,12 @@ window.inicializarModuloDdjjPendientes = () => {
 
         if (datos.estado === 'pendientes') {
             if (datos.aviso) bloque.appendChild(el('div', 'dp-resultado dp-resultado-error', datos.aviso));
-            bloque.appendChild(tablaPendientes(datos.pendientes || []));
+            // Plegada: con muchas pendientes (ej. 54) la tabla empuja todo para abajo.
+            const pendientes = datos.pendientes || [];
+            const plegable = el('details', 'dp-plegable');
+            plegable.appendChild(el('summary', null, `Ver ${pendientes.length} pendiente(s)`));
+            plegable.appendChild(tablaPendientes(pendientes));
+            bloque.appendChild(plegable);
         }
         // Solo los errores de acceso van a la fila: ahí el selector ofrece "Clave". Un error de
         // Seti o de ARCA con el botón de la llave asusta y no se arregla con la clave.
@@ -122,6 +128,8 @@ window.inicializarModuloDdjjPendientes = () => {
         window.__dpListenerRegistrado = true;
     }
 
+    btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
+
     // ===== Procesar =====
     btnProcesar.addEventListener('click', async () => {
         const seleccionados = selector.obtenerSeleccionados();
@@ -132,6 +140,16 @@ window.inicializarModuloDdjjPendientes = () => {
             cuit: u.cuit,
             nombre: u.razonSocial || [u.nombre, u.apellido].filter(Boolean).join(' ')
         }));
+
+        // Confirmación antes de lanzar (igual que ATM Lote)
+        const confirmado = await showConfirmModal({
+            title: 'DDJJ pendientes',
+            icon: '🚀',
+            message: `Se van a consultar las DDJJ pendientes de ${contribuyentes.length} cliente(s):\n\n - ${contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')}\n\n¿Desea continuar?`,
+            confirmText: 'Iniciar',
+            confirmBtnClass: 'tono'
+        });
+        if (!confirmado) return;
 
         enCurso = true;
         btnProcesar.disabled = true;

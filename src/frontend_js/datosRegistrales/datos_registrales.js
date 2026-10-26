@@ -7,6 +7,7 @@ window.inicializarModuloDatosRegistrales = () => {
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
     const btnProcesar = document.getElementById('btnProcesarDr');
+    const btnLimpiar  = document.getElementById('btnLimpiarDr');
     const chkVisible  = document.getElementById('chk-visible-dr');
     const resultados  = document.getElementById('resultadosDr');
     const contenido   = document.getElementById('resultadosContenidoDr');
@@ -99,6 +100,8 @@ window.inicializarModuloDatosRegistrales = () => {
         window.__drListenerRegistrado = true;
     }
 
+    btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
+
     // ===== Procesar =====
     btnProcesar.addEventListener('click', async () => {
         const seleccionados = selector.obtenerSeleccionados();
@@ -109,6 +112,16 @@ window.inicializarModuloDatosRegistrales = () => {
             cuit: u.cuit,
             nombre: u.razonSocial || [u.nombre, u.apellido].filter(Boolean).join(' ')
         }));
+
+        // Confirmación antes de lanzar (igual que ATM Lote)
+        const confirmado = await showConfirmModal({
+            title: 'Datos registrales',
+            icon: '🚀',
+            message: `Se van a descargar los datos registrales de ${contribuyentes.length} cliente(s):\n\n - ${contribuyentes.map(c => `${c.nombre} (${c.cuit})`).join('\n - ')}\n\n¿Desea continuar?`,
+            confirmText: 'Iniciar',
+            confirmBtnClass: 'tono'
+        });
+        if (!confirmado) return;
 
         enCurso = true;
         btnProcesar.disabled = true;

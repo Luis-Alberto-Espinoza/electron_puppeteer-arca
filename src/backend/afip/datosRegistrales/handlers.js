@@ -93,7 +93,9 @@ function setupDatosRegistralesHandlers(ipcMain, mainWindow, app) {
                 corte.registrar(r);
                 if (!r || r.success === false) {
                     // Falló el login (o el navegador): nadie del grupo se procesó.
-                    const msg = `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
+                    const msg = r && r.error === 'NAVEGADOR_CERRADO'
+                        ? r.message
+                        : `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
                     const yaCerrados = new Set(resultados.map(x => x.contribuyente.cuit));
                     const error = (r && r.error) || 'LOGIN_FAILED';
                     grupo.items.filter(c => !yaCerrados.has(c.cuit)).forEach(c => cerrar(c, { success: false, error, message: msg }));

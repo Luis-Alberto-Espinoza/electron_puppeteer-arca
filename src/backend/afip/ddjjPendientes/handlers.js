@@ -102,7 +102,9 @@ function setupDdjjPendientesHandlers(ipcMain, mainWindow, app) {
                 corte.registrar(r);
                 if (!r || r.success === false) {
                     // Falló el login o no abrió Seti: nadie del grupo se procesó.
-                    const msg = `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
+                    const msg = r && r.error === 'NAVEGADOR_CERRADO'
+                        ? r.message
+                        : `No se pudo entrar con el CUIT ${loginCuit}: ${(r && r.message) || 'error desconocido'}`;
                     const error = (r && r.error) || 'LOGIN_FAILED';
                     pendientesDelGrupo().forEach(c => cerrar(c, { success: false, error, message: msg }));
                 }
