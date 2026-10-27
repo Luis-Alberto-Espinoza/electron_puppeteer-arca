@@ -142,6 +142,8 @@ function montarSelectorUsuariosA() {
         // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
         ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosCT, { lote: true }) : {}),
         mostrarColumnaCUIT: false,
+        // Vaciar = onCambioSeleccion([]): ya limpia los CUITs marcados; no hace falta onLimpiar.
+        botonLimpiar: true,
 
         onCambioSeleccion: (seleccionados) => {
             const idsSeleccionados = new Set(seleccionados.map(u => String(u.id)));
@@ -177,6 +179,8 @@ function montarSelectorUsuariosB() {
         // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
         ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosCT_B, { lote: true }) : {}),
         mostrarColumnaCUIT: false,
+        // Vaciar = onCambioSeleccion([]): ya limpia los CUITs marcados; no hace falta onLimpiar.
+        botonLimpiar: true,
 
         onCambioSeleccion: (seleccionados) => {
             const idsSeleccionados = new Set(seleccionados.map(u => String(u.id)));

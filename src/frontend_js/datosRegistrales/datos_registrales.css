@@ -9,18 +9,6 @@
     margin-top: 4px;
 }
 
-.dr-procesar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 16px;
-    margin: 16px 0;
-}
-/* Limpiar a la izquierda (el switch y Descargar están en el lanzador, abajo) */
-.dr-limpiar {
-    margin-right: auto;
-}
 
 .dr-seccion {
     background: var(--v-panel);

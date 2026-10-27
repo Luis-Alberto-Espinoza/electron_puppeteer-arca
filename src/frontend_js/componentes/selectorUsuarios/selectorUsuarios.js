@@ -39,6 +39,13 @@ class SelectorUsuarios {
             // Mostrar tabla de seleccionados (útil para casos de selección única)
             mostrarTablaSeleccionados: true,
 
+            // Botón "✕ Limpiar" en el encabezado de SELECCIONADOS (vacía la selección).
+            botonLimpiar: false,
+
+            // Callback después de que el usuario apretó Limpiar (para que la vista
+            // limpie lo suyo). No se llama al quitar de a uno ni en limpiarSeleccion().
+            onLimpiar: null,
+
             // Selección única: al elegir otro usuario, reemplaza la selección
             // previa en vez de acumular (modo radio en vez de checkbox).
             seleccionUnica: false,
@@ -364,15 +371,9 @@ class SelectorUsuarios {
                             type="text"
                             id="${this.contenedorId}-buscador"
                             class="buscador-input"
-                            placeholder="Buscar por nombre, apellido, CUIT, razón social..."
+                            placeholder="Buscar por nombre, apellido, CUIT, razón social... (Esc borra)"
                             value="${this.textoBusqueda}"
                         />
-                        <button
-                            id="${this.contenedorId}-btn-limpiar"
-                            class="btn-limpiar"
-                        >
-                            ✕ Limpiar
-                        </button>
                     </div>
                 </div>
 
@@ -494,6 +495,7 @@ class SelectorUsuarios {
                     class="usuario-fila ${claseColor} ${claseSeleccionado} ${claseEstado} ${claseDeshabilitado} ${claseMarca} ${atenuado ? 'atenuada' : ''}"
                     data-usuario-id="${usuario.id}"
                     data-seleccionable="${estadoValidacion.esSeleccionable}"
+                    tabindex="0"
                 >
                     <span class="usuario-check">
                         ${icono}
@@ -520,9 +522,14 @@ class SelectorUsuarios {
         return `
             <div class="seleccionados-header">
                 <span>✓ SELECCIONADOS (${cantidadSeleccionados})</span>
-                <span class="contador-validacion" id="${this.contenedorId}-contador-validacion">
-                    <!-- Se actualiza dinámicamente desde el controlador VEP -->
-                </span>
+                <div class="seleccionados-header-acciones">
+                    <!-- Lo llena el controlador VEP; vacío no se ve -->
+                    <span class="contador-validacion" id="${this.contenedorId}-contador-validacion"></span>
+                    ${this.opciones.botonLimpiar ? `
+                        <button type="button" class="ui-btn ui-btn--danger btn-limpiar-seleccionados"
+                                ${cantidadSeleccionados === 0 ? 'disabled' : ''}>✕ Limpiar seleccionados</button>
+                    ` : ''}
+                </div>
             </div>
             <div class="tabla-seleccionados-wrapper">
                 ${cantidadSeleccionados === 0
@@ -621,6 +628,12 @@ class SelectorUsuarios {
         if (this._inputHandler) {
             this.contenedor.removeEventListener('input', this._inputHandler);
         }
+        if (this._tecladoHandler) {
+            this.contenedor.removeEventListener('keydown', this._tecladoHandler);
+            this.contenedor.removeEventListener('focusin', this._focoHandler);
+            this.contenedor.removeEventListener('mousedown', this._mouseDownHandler);
+            this.contenedor.removeEventListener('mouseup', this._mouseUpHandler);
+        }
 
         // Delegación de eventos para clicks
         this._clickHandler = (e) => {
@@ -638,6 +651,7 @@ class SelectorUsuarios {
                 const usuarioId = fila.dataset.usuarioId;
                 console.log('🔵 Click en usuario:', usuarioId);
                 this.toggleSeleccion(usuarioId);
+                this.enfocarFila(usuarioId);
                 return;
             }
 
@@ -650,12 +664,15 @@ class SelectorUsuarios {
                 return;
             }
 
-            // Click en botón limpiar búsqueda
-            if (e.target.id === `${this.contenedorId}-btn-limpiar`) {
-                console.log('🔵 Limpiar búsqueda');
+            // Click en botón limpiar seleccionados
+            if (e.target.closest('.btn-limpiar-seleccionados')) {
+                this.limpiarSeleccion();
+                if (this.opciones.onLimpiar) this.opciones.onLimpiar();
                 this.limpiarBusqueda();
+                this.enfocarBuscador();
                 return;
             }
+
         };
 
         // Delegación de eventos para inputs
@@ -672,8 +689,42 @@ class SelectorUsuarios {
             }
         };
 
+        // Teclado: Esc borra el buscador; Enter/Espacio sobre una fila = click.
+        this._tecladoHandler = (e) => {
+            if (e.target.id === `${this.contenedorId}-buscador`) {
+                if (e.key === 'Escape') this.limpiarBusqueda();
+                return;
+            }
+            // Solo la fila misma: Enter sobre su botón "Clave" es del botón.
+            if (e.target.classList.contains('usuario-fila') && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();   // Espacio scrollearía la página
+                const usuarioId = e.target.dataset.usuarioId;
+                this.toggleSeleccion(usuarioId);
+                this.enfocarFila(usuarioId);
+            }
+        };
+
+        // Al entrar al buscador con texto, queda todo seleccionado: se escribe encima.
+        // Con el mouse, el mouseup posterior pondría el cursor y deshace la selección:
+        // por eso se frena ese primer mouseup (solo si el click fue el que dio el foco).
+        this._mouseDownHandler = (e) => {
+            const buscador = e.target.id === `${this.contenedorId}-buscador` ? e.target : null;
+            this._seleccionarAlSoltar = !!buscador && document.activeElement !== buscador;
+        };
+        this._focoHandler = (e) => {
+            if (e.target.id === `${this.contenedorId}-buscador` && e.target.value) e.target.select();
+        };
+        this._mouseUpHandler = (e) => {
+            if (this._seleccionarAlSoltar && e.target.id === `${this.contenedorId}-buscador`) e.preventDefault();
+            this._seleccionarAlSoltar = false;
+        };
+
         this.contenedor.addEventListener('click', this._clickHandler);
         this.contenedor.addEventListener('input', this._inputHandler);
+        this.contenedor.addEventListener('keydown', this._tecladoHandler);
+        this.contenedor.addEventListener('focusin', this._focoHandler);
+        this.contenedor.addEventListener('mousedown', this._mouseDownHandler);
+        this.contenedor.addEventListener('mouseup', this._mouseUpHandler);
 
         // Dar foco automático al input de búsqueda
         const inputBuscador = document.getElementById(`${this.contenedorId}-buscador`);
@@ -700,6 +751,17 @@ class SelectorUsuarios {
         if (lista) lista.scrollTop = 0;
         // scroll-margin-top del input (css) deja lugar para la navbar fija.
         document.getElementById(`${this.contenedorId}-buscador`)?.scrollIntoView({ block: 'start' });
+    }
+
+    /** Al seleccionar la lista se redibuja y el foco se perdería: vuelve a la misma fila (Tab sigue de ahí). */
+    enfocarFila(usuarioId) {
+        this.contenedor.querySelector(`.usuario-fila[data-usuario-id="${usuarioId}"]`)?.focus({ preventScroll: true });
+    }
+
+    /** Después de limpiar: el buscador a la vista y con el foco, listo para agregar otro cliente. */
+    enfocarBuscador() {
+        this.mostrarPrimerResultado();
+        document.getElementById(`${this.contenedorId}-buscador`)?.focus({ preventScroll: true });
     }
 
     /** Habilitado = puede operar en el servicio (lo que se ve por default con filtroHabilitados). */

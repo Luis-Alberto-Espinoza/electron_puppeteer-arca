@@ -89,22 +89,6 @@
     color: var(--v-texto-2, #9ca3af);
 }
 
-.btn-limpiar {
-    padding: 10px 20px;
-    background: #ef4444;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: background 0.2s;
-}
-
-.btn-limpiar:hover {
-    background: #dc2626;
-}
-
 /* Casilla "Mostrar no habilitados" (opción filtroHabilitados), en la barra de la lista */
 .filtro-habilitados {
     display: inline-flex;
@@ -212,6 +196,12 @@
 }
 
 /* Colores alternados por posición en la lista visible */
+/* Fila alcanzada con Tab (con el mouse no se dibuja) */
+.usuario-fila:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+}
+
 .usuario-fila.par {
     background-color: var(--sel-fila-par);
 }
@@ -429,6 +419,22 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+.seleccionados-header-acciones {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-limpiar-seleccionados {
+    padding: 6px 14px;
+    font-size: 13px;
+}
+
+/* Fuera de VEP queda vacío: sin esto se veía una pastilla sin texto */
+.contador-validacion:empty {
+    display: none;
 }
 
 .contador-validacion {
