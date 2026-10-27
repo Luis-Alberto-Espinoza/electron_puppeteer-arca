@@ -111,12 +111,13 @@ export function renderizarGrupoRequierenSeleccion(clientes) {
                                 data-cliente-id="${clienteId}"
                                 ${estaExcluido ? '' : 'checked'}
                             />
-                            <span class="checkbox-label">Procesar este cliente</span>
+                            <span class="checkbox-label">Incluir en esta generación</span>
                         </label>
                         <div class="cliente-detalles">
                             <span class="cliente-nombre">${usuario.nombre}</span>
                             <span class="cliente-cuit">${formatearCUIT(usuario.cuit)}</span>
                         </div>
+                        <span class="aviso-excluido">Queda afuera: no se genera su VEP</span>
                     </div>
                     <div class="cliente-medio-pago">
                         <span class="badge badge-medio-pago">${formatearMedioPago(medioPago)}</span>
@@ -133,10 +134,10 @@ export function renderizarGrupoRequierenSeleccion(clientes) {
 
     contenido.innerHTML = html;
 
-    // Mostrar botón de confirmar si hay clientes
-    const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
-    if (btnConfirmar) {
-        btnConfirmar.style.display = 'inline-block';
+    // Mostrar el lanzador de la 2da pasada si hay clientes
+    const lanzadorPago = document.getElementById('lanzador-vep-pago');
+    if (lanzadorPago) {
+        lanzadorPago.style.display = '';
     }
 }
 
@@ -282,11 +283,20 @@ export function renderizarGrupoErrores(clientes) {
     contador.textContent = clientes.length;
     grupo.style.display = 'block';
 
+    // Los de la 2da pasada no se reintentan acá: su tabla de períodos sigue arriba
+    const reintentables = clientes.filter(c => !c.segundaPasada).length;
+    const btnTodos = document.getElementById('btn-reintentar-todos');
+    if (btnTodos) {
+        btnTodos.textContent = `🔄 Reintentar todos (${reintentables})`;
+        btnTodos.style.display = reintentables >= 2 ? '' : 'none';
+    }
+
     const html = clientes.map(cliente => {
-        const { usuario, medioPago, error } = cliente;
+        const { usuario, medioPago, error, codigo, segundaPasada } = cliente;
+        const cancelado = codigo === 'CANCELADO';
 
         return `
-            <div class="tarjeta-cliente tarjeta-error">
+            <div class="tarjeta-cliente tarjeta-error${cancelado ? ' tarjeta-cancelada' : ''}">
                 <div class="tarjeta-header">
                     <div class="cliente-info">
                         <span class="cliente-nombre">${usuario.nombre}</span>
@@ -298,16 +308,18 @@ export function renderizarGrupoErrores(clientes) {
                 </div>
                 <div class="tarjeta-body">
                     <div class="error-mensaje">
-                        <span class="icono-error">✕</span>
+                        <span class="icono-error">${cancelado ? '⏹' : '✕'}</span>
                         <span class="error-texto">${error || 'Error desconocido'}</span>
                     </div>
                     <div class="error-acciones">
-                        <button
+                        ${segundaPasada
+                            ? `<span class="error-ayuda">Elegí de nuevo los períodos arriba y tocá "Confirmar y Continuar"</span>`
+                            : `<button
                             class="btn-reintentar"
                             data-usuario-id="${usuario.id}"
                         >
                             🔄 Reintentar
-                        </button>
+                        </button>`}
                     </div>
                 </div>
             </div>

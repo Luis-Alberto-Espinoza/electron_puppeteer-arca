@@ -4,6 +4,7 @@
 const consultaDeudaManager = require('./consultaDeudaManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
+const { RESULTADO_CANCELADO } = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const clienteHist = historialRepo.clienteDesdeUsuario;
 
 /**
@@ -33,10 +34,16 @@ function setupConsultaDeudaHandlers(ipcMain, app) {
         try {
             const url = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
             const resultados = [];
+            // "⏹ Cancelar" del lanzador: el cliente en curso vuelve CANCELADO y los que faltan no arrancan.
+            let cancelado = false;
 
             for (let i = 0; i < consultasData.length; i++) {
                 const consulta = consultasData[i];
                 const { usuario, periodoDesde, periodoHasta, fechaCalculo } = consulta;
+                if (cancelado) {
+                    resultados.push({ status: 'cancelado', usuario, error: RESULTADO_CANCELADO.message });
+                    continue;
+                }
 
                 console.log(`\n[${i + 1}/${consultasData.length}] Consultando ${usuario.nombre} (${usuario.cuit})`);
 
@@ -71,7 +78,10 @@ function setupConsultaDeudaHandlers(ipcMain, app) {
 
                     const resultado = await consultaDeudaManager.iniciarConsulta(url, credenciales, consultaData, downloadsPath, { visible: opciones.visible });
 
-                    if (resultado.success) {
+                    if (resultado.error === RESULTADO_CANCELADO.error) {
+                        cancelado = true;
+                        resultados.push({ status: 'cancelado', usuario, error: resultado.message });
+                    } else if (resultado.success) {
                         console.log(`  ${usuario.nombre} completado - Archivo: ${resultado.archivoExcel}`);
                         resultados.push({
                             status: 'success',

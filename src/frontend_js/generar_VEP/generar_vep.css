@@ -640,8 +640,29 @@ th br {
 .tarjeta-error {
     border-left: 4px solid var(--c-peligro-1);
 }
+/* Cancelado por el usuario (⏹ del lanzador): amarillo, no es una falla */
+.tarjeta-cliente.tarjeta-cancelada {
+    border-left-color: #f59e0b;
+}
+.tarjeta-cancelada .error-mensaje { background: var(--v-warn-bg, #fff4d6); }
+.tarjeta-cancelada .icono-error,
+.tarjeta-cancelada .error-texto { color: var(--v-txt-warn, #8a6d00); }
+.archivo-item.archivo-item-cancelado {
+    border-left-color: #f59e0b;
+    background: var(--v-warn-bg, #fff4d6);
+}
+.archivo-item-cancelado .archivo-nombre { color: var(--v-txt-warn, #8a6d00); }
 
 /* Estado excluido */
+.aviso-excluido {
+    display: none;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--v-txt-warn, #b45309);
+}
+.tarjeta-cliente.excluido .aviso-excluido {
+    display: inline;
+}
 .tarjeta-cliente.excluido {
     opacity: 0.5;
     background: var(--v-panel-2, var(--fondo-claro-2));
@@ -797,6 +818,28 @@ th br {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+}
+
+/* Error de la 2da pasada: en vez de Reintentar, cómo seguir */
+.error-ayuda {
+    font-size: 13px;
+    color: var(--v-texto-2, var(--texto-2));
+}
+
+/* "Reintentar todos" en la cabecera de ERRORES */
+.btn-reintentar-todos {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-reintentar-todos:hover {
+    background: rgba(255, 255, 255, 0.32);
 }
 
 .btn-reintentar:hover {
@@ -1287,63 +1330,6 @@ th br {
 
 .campo-formulario-deuda input.error + .mensaje-error-campo {
     display: block;
-}
-
-/* Botón generar VEP */
-.btn-generar-vep,
-#btn-generar-vep {
-    width: 100%;
-    padding: 16px 32px;
-    background: linear-gradient(135deg, var(--c-primario-1) 0%, var(--c-primario-2) 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-    margin-bottom: 20px;
-}
-
-.btn-generar-vep:hover:not(:disabled),
-#btn-generar-vep:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-.btn-generar-vep:disabled,
-#btn-generar-vep:disabled {
-    background: var(--v-panel-2, var(--texto-3));
-    cursor: not-allowed;
-    box-shadow: none;
-}
-
-/* Botón ejecutar consulta de deuda */
-#btn-ejecutar-consulta-deuda {
-    width: 100%;
-    padding: 16px 32px;
-    background: linear-gradient(135deg, var(--c-ok-1) 0%, var(--c-ok-2) 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-    margin-bottom: 20px;
-}
-
-#btn-ejecutar-consulta-deuda:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-}
-
-#btn-ejecutar-consulta-deuda:disabled {
-    background: var(--v-panel-2, var(--texto-3));
-    cursor: not-allowed;
-    box-shadow: none;
 }
 
 /* Sección de resultados de consulta de deuda */

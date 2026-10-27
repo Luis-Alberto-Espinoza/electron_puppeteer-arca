@@ -41,6 +41,11 @@ const cuitsSeleccionados = {};
 
 let selectorUsuarios = null;
 
+// Lanzadores (componentes/lanzadorAutomatizacion): switch + arrancar ↔ ⏹ Cancelar.
+let lanzadorVep = null;     // Generar VEP, 1ra pasada
+let lanzadorPago = null;    // Generar VEP, 2da pasada: sin switch, usa EstadoVEP.visible
+let lanzadorDeuda = null;   // Consultar Deuda
+
 // ==============================================
 // INICIALIZACIÓN
 // ==============================================
@@ -65,6 +70,9 @@ function inicializarVEP() {
         console.error('❌ No se encontró el contenedor selector-usuarios-vep');
         return;
     }
+
+    // Antes que el selector: su onCambioSeleccion ya habilita los lanzadores.
+    crearLanzadores();
 
     // Crear selector de usuarios
     selectorUsuarios = new SelectorUsuarios('selector-usuarios-vep', {
@@ -225,22 +233,10 @@ function configurarEventListeners() {
         });
     }
 
-    // Botón generar VEP
-    const btnGenerar = document.getElementById('btn-generar-vep');
-    if (btnGenerar) {
-        btnGenerar.addEventListener('click', generarVEP);
-    }
-
-    // Botón confirmar selección (de períodos)
-    const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
-    if (btnConfirmar) {
-        btnConfirmar.addEventListener('click', confirmarYContinuar);
-    }
-
     // Botón cancelar todo
-    const btnCancelar = document.getElementById('btn-cancelar-todo');
-    if (btnCancelar) {
-        btnCancelar.addEventListener('click', cancelarTodo);
+    const btnLimpiar = document.getElementById('btn-limpiar-resultados');
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', limpiarResultados);
     }
 
     // Botón nuevo proceso VEP
@@ -249,10 +245,21 @@ function configurarEventListeners() {
         btnNuevoProceso.addEventListener('click', iniciarNuevoProceso);
     }
 
-    // Botón ejecutar consulta de deuda
-    const btnEjecutarDeuda = document.getElementById('btn-ejecutar-consulta-deuda');
-    if (btnEjecutarDeuda) {
-        btnEjecutarDeuda.addEventListener('click', ejecutarConsultaDeuda);
+    // Reintentar uno o todos desde Errores: pasa por el lanzador, se ve ⏹ Cancelar y se puede cortar.
+    // Solo los de la 1ra pasada: los de la 2da se reintentan eligiendo de nuevo en su tabla.
+    const seccionResultados = document.getElementById('seccion-resultados');
+    if (seccionResultados) {
+        seccionResultados.addEventListener('click', (e) => {
+            const uno = e.target.closest('.btn-reintentar');
+            const todos = e.target.closest('#btn-reintentar-todos');
+            if ((!uno && !todos) || lanzadorVep.enCurso() || lanzadorPago.enCurso()) return;
+            const errores = EstadoVEP.errores.filter(err => !err.segundaPasada
+                && (todos || String(err.usuario.id) === String(uno.dataset.usuarioId)));
+            const reintento = errores.map(err =>
+                EstadoVEP.usuariosOriginales.find(u => String(u.usuario.id) === String(err.usuario.id))
+                || { usuario: err.usuario, medioPago: err.medioPago });
+            if (reintento.length) lanzadorVep.lanzar(0, { reintento });
+        });
     }
 
     // Botón nueva consulta de deuda
@@ -263,15 +270,65 @@ function configurarEventListeners() {
 }
 
 // ==============================================
+// LANZADORES
+// ==============================================
+
+function crearLanzadores() {
+    const crear = window.lanzadorAutomatizacion.crear;
+    lanzadorVep = crear(document.getElementById('lanzador-vep'), {
+        acciones: [{
+            texto: 'Generar VEP para 0 cliente(s)',
+            preparar: prepararGenerarVEP,
+            confirmar: (usuarios) => ({
+                title: 'Generar VEP',
+                message: `Se va a generar el VEP de ${usuarios.length} cliente(s).`,
+                confirmText: 'Generar'
+            }),
+            // datos.reintento = clientes desde Errores (lanzadorVep.lanzar), con lo de la corrida original
+            ejecutar: (datos, { visible }) => datos.reintento
+                ? reintentarClientes(datos.reintento)
+                : generarVEP(datos, visible)
+        }]
+    });
+    lanzadorPago = crear(document.getElementById('lanzador-vep-pago'), {
+        navegador: false,
+        acciones: [{
+            texto: 'Confirmar y Continuar',
+            preparar: prepararSegundaPasada,
+            ejecutar: confirmarYContinuar
+        }]
+    });
+    // Se ve solo con clientes que requieren selección; la validación de períodos es al tocarlo.
+    lanzadorPago.habilitar(true);
+    lanzadorDeuda = crear(document.getElementById('lanzador-deuda'), {
+        acciones: [{
+            texto: 'Consultar Deuda para 0 cliente(s)',
+            preparar: prepararConsultaDeuda,
+            confirmar: (payload) => ({
+                title: 'Consultar deuda',
+                message: `Se va a consultar la deuda de ${payload.length} cliente(s).`,
+                confirmText: 'Consultar'
+            }),
+            ejecutar: (payload, { visible }) => ejecutarConsultaDeuda(payload, visible)
+        }]
+    });
+}
+
+function mostrarLanzadorPago(mostrar) {
+    const caja = document.getElementById('lanzador-vep-pago');
+    if (caja) caja.style.display = mostrar ? '' : 'none';
+}
+
+// ==============================================
 // LÓGICA DE GENERACIÓN
 // ==============================================
 
-async function generarVEP() {
+function prepararGenerarVEP() {
     const usuariosSeleccionados = selectorUsuarios.obtenerSeleccionados();
 
     if (usuariosSeleccionados.length === 0) {
         mostrarMensaje('error', 'No hay usuarios seleccionados');
-        return;
+        return null;
     }
 
     // VALIDACIÓN: Verificar que todos tengan medio de pago
@@ -283,19 +340,12 @@ async function generarVEP() {
             `Cliente(s) sin medio de pago: ${nombresUsuarios}\n\n` +
             `Por favor, seleccione un medio de pago (QR, Link, etc.) en la tabla.`
         );
-        return;
+        return null;
     }
+    return usuariosSeleccionados;
+}
 
-    const confirmacion = await showConfirmModal({
-        title: 'Generar VEP',
-        icon: '🚀',
-        message: `¿Generar VEP para ${usuariosSeleccionados.length} cliente(s)?`,
-        confirmText: 'Generar',
-        confirmBtnClass: 'tono'
-    });
-
-    if (!confirmacion) return;
-
+async function generarVEP(usuariosSeleccionados, visible) {
     // Preparar datos
     const payload = {
         usuarios: usuariosSeleccionados.map(u => ({
@@ -309,7 +359,7 @@ async function generarVEP() {
         periodosSeleccionados: EstadoVEP.periodosSeleccionados.length > 0
             ? EstadoVEP.periodosSeleccionados
             : null,
-        visible: document.getElementById('chk-visible-vep')?.checked !== false
+        visible
     };
 
     // Guardar para segunda pasada si es necesario
@@ -367,11 +417,8 @@ async function generarVEP() {
                 // Scroll automático a la sección de resultados
                 scrollAResultados();
 
-                // Ocultar el botón de "Confirmar y Continuar" ya que no hay nada que confirmar
-                const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
-                if (btnConfirmar) {
-                    btnConfirmar.style.display = 'none';
-                }
+                // Ocultar "Confirmar y Continuar" ya que no hay nada que confirmar
+                mostrarLanzadorPago(false);
 
                 // Mostrar botón para iniciar nuevo proceso
                 const seccionResultados = document.getElementById('seccion-resultados');
@@ -412,6 +459,49 @@ async function generarVEP() {
     }
 }
 
+// ==============================================
+// REINTENTAR CLIENTES (uno o todos)
+// ==============================================
+
+async function reintentarClientes(originales) {
+    const ids = new Set(originales.map(o => String(o.usuario.id)));
+    try {
+        mostrarProgreso(true, 'Reintentando…');
+        const api = window.electronAPI || window.api;
+        const resultado = await api.vep.generar({
+            usuarios: originales,
+            periodosSeleccionados: null,
+            visible: EstadoVEP.visible   // el reintento es parte del mismo lote
+        });
+        mostrarProgreso(false);
+
+        if (!resultado?.success && !resultado?.requiereSeleccion) {
+            mostrarMensaje('error', `Error al reintentar: ${resultado?.message || 'Error desconocido'}`);
+            return;
+        }
+
+        // Sacar a los reintentados de Errores y sumar lo nuevo sin tocar los demás resultados
+        EstadoVEP.errores = EstadoVEP.errores.filter(e => !ids.has(String(e.usuario.id)));
+        EstadoVEP.procesadosAuto.push(...(resultado.procesadosAuto || []));
+        EstadoVEP.requierenSeleccion.push(...(resultado.requierenSeleccion || []));
+        EstadoVEP.errores.push(...(resultado.errores || []));
+
+        renderizarTodosLosGrupos();
+        if (resultado.requierenSeleccion?.length) inicializarEventosPeriodos();
+        if (resultado.procesadosAuto?.length) renderizarArchivosDescargados(EstadoVEP.procesadosAuto);
+
+        const quien = originales.length === 1 ? originales[0].usuario.nombre : `${originales.length} clientes`;
+        const fallaron = resultado.errores?.length || 0;
+        if (fallaron) mostrarMensaje('error', `❌ ${quien}: ${fallaron} volvió/volvieron a fallar`);
+        else if (resultado.requierenSeleccion?.length) mostrarMensaje('success', `✅ ${quien}: elegí los períodos y tocá "Confirmar y Continuar"`);
+        else mostrarMensaje('success', `✅ ${quien}: listo`);
+    } catch (error) {
+        console.error('❌ Error reintentando VEP:', error);
+        mostrarProgreso(false);
+        mostrarMensaje('error', `Error al reintentar: ${error.message}`);
+    }
+}
+
 function manejarResultadosPrimeraPasada(resultado) {
     console.log('🔵 Manejando resultados de primera pasada...');
 
@@ -424,13 +514,18 @@ function manejarResultadosPrimeraPasada(resultado) {
     // Inicializar eventos de períodos
     inicializarEventosPeriodos();
 
+    // Los que ya se generaron solos (1 período) muestran su PDF ahora, no recién al final
+    if (EstadoVEP.procesadosAuto.some(p => p.pdfDescargado?.path)) {
+        renderizarArchivosDescargados(EstadoVEP.procesadosAuto);
+    }
+
     // Scroll automático a la sección de resultados
     scrollAResultados();
 
     console.log('✅ Resultados renderizados');
 }
 
-async function confirmarYContinuar() {
+function prepararSegundaPasada() {
     console.log('✅ Confirmando selección de períodos...');
 
     // Validar selecciones
@@ -438,7 +533,7 @@ async function confirmarYContinuar() {
 
     if (!validacion.valido) {
         mostrarMensaje('error', validacion.mensaje);
-        return;
+        return null;
     }
 
     // Recopilar selecciones
@@ -446,7 +541,10 @@ async function confirmarYContinuar() {
 
     console.log('📋 Períodos seleccionados:', periodosSeleccionados);
     console.log('🚫 Clientes excluidos:', clientesExcluidos);
+    return periodosSeleccionados;
+}
 
+async function confirmarYContinuar(periodosSeleccionados) {
     // Preparar payload para segunda pasada
     const payload = {
         usuarios: EstadoVEP.usuariosOriginales,
@@ -470,9 +568,15 @@ async function confirmarYContinuar() {
             // Segunda pasada completada - Mostrar resultados persistentes
             if (resultado.resultados && resultado.resultados.length > 0) {
                 const exitosos = resultado.resultados.filter(r => r.status === 'success');
-                const conErrores = resultado.resultados.filter(r => r.status === 'error');
+                // Los cancelados (⏹) van con los errores, marcados: se pintan en amarillo.
+                const conErrores = resultado.resultados.filter(r => r.status === 'error' || r.status === 'cancelado');
 
                 console.log('📊 Segunda pasada: Mostrando resultados persistentes');
+
+                // Lo de antes no entra en la 2da: se conserva. Los procesados (y sus PDF) y los
+                // errores de la 1ra pasada, con su Reintentar.
+                const procesadosAnteriores = EstadoVEP.procesadosAuto;
+                const erroresPrimeraPasada = EstadoVEP.errores.filter(e => !e.segundaPasada);
 
                 // Limpiar grupos anteriores
                 limpiarTodosLosGrupos();
@@ -489,17 +593,19 @@ async function confirmarYContinuar() {
 
                 // Actualizar estado con resultados finales
                 EstadoVEP.setResultados({
-                    procesadosAuto: exitosos.map(e => ({
+                    procesadosAuto: [...procesadosAnteriores, ...exitosos.map(e => ({
                         usuario: e.usuario,
                         medioPago: e.medioPago,
                         pdfDescargado: e.pdfDescargado
-                    })),
+                    }))],
                     requierenSeleccion: tablaPreservada,
-                    errores: conErrores.map(e => ({
+                    errores: [...erroresPrimeraPasada, ...conErrores.map(e => ({
                         usuario: e.usuario,
                         medioPago: e.medioPago,
-                        error: e.error
-                    }))
+                        error: e.error,
+                        segundaPasada: true,   // su tabla queda arriba: se reintenta eligiendo de nuevo
+                        ...(e.status === 'cancelado' ? { codigo: 'CANCELADO' } : {})
+                    }))]
                 });
 
                 // La tabla queda, pero las tildes de selección se reinician
@@ -508,13 +614,9 @@ async function confirmarYContinuar() {
                 // Renderizar todos los grupos
                 renderizarTodosLosGrupos();
 
-                // Renderizar archivos descargados
-                if (exitosos.length > 0) {
-                    const archivosDescargados = exitosos.map(e => ({
-                        usuario: e.usuario,
-                        pdfDescargado: e.pdfDescargado
-                    }));
-                    renderizarArchivosDescargados(archivosDescargados);
+                // Renderizar archivos descargados (los de antes + los nuevos)
+                if (EstadoVEP.procesadosAuto.length > 0) {
+                    renderizarArchivosDescargados(EstadoVEP.procesadosAuto);
                 }
 
                 // Mostrar notificación según el resultado
@@ -529,11 +631,8 @@ async function confirmarYContinuar() {
                 // Foco/scroll a los archivos descargados (botón "Abrir")
                 enfocarArchivosDescargados();
 
-                // El botón de confirmar sigue visible si quedó tabla por procesar
-                const btnConfirmar = document.getElementById('btn-confirmar-seleccion');
-                if (btnConfirmar) {
-                    btnConfirmar.style.display = tablaPreservada.length > 0 ? 'inline-block' : 'none';
-                }
+                // "Confirmar y Continuar" sigue visible si quedó tabla por procesar
+                mostrarLanzadorPago(tablaPreservada.length > 0);
 
                 // Mostrar botón de nuevo proceso
                 const seccionResultados = document.getElementById('seccion-resultados');
@@ -574,8 +673,8 @@ async function confirmarYContinuar() {
     }
 }
 
-function cancelarTodo() {
-    const confirmacion = confirm('¿Cancelar el proceso? Se perderán las selecciones.');
+function limpiarResultados() {
+    const confirmacion = confirm('¿Limpiar los resultados? Se perderán las selecciones.');
 
     if (!confirmacion) return;
 
@@ -583,7 +682,7 @@ function cancelarTodo() {
     EstadoVEP.reset();
     limpiarSelecciones();
 
-    console.log('❌ Proceso cancelado');
+    console.log('🧹 Resultados limpiados');
 }
 
 // ==============================================
@@ -629,10 +728,7 @@ function actualizarEstadoGeneracion(usuariosSeleccionados) {
     const faltantes = faltantesCuit + faltantesMedio;
 
     // Actualizar contador
-    const contadorBtn = document.getElementById('contador-usuarios');
-    if (contadorBtn) {
-        contadorBtn.textContent = totalUsuarios;
-    }
+    lanzadorVep.cambiar(0, { texto: `Generar VEP para ${totalUsuarios} cliente(s)` });
 
     // Actualizar validación
     if (totalUsuarios > 0) {
@@ -673,10 +769,7 @@ function actualizarEstadoGeneracion(usuariosSeleccionados) {
     }
 
     // Habilitar/deshabilitar botón
-    const btnGenerar = document.getElementById('btn-generar-vep');
-    if (btnGenerar) {
-        btnGenerar.disabled = totalUsuarios === 0 || faltantes > 0;
-    }
+    lanzadorVep.habilitar(totalUsuarios > 0 && faltantes === 0);
 }
 
 function limpiarSelecciones() {
@@ -1124,27 +1217,19 @@ function guardarDatosFormularioDeuda(e) {
  * Actualiza el estado del botón de consulta de deuda
  */
 function actualizarEstadoConsultaDeuda(totalUsuarios) {
-    const contadorBtn = document.getElementById('contador-usuarios-deuda');
-    const btnEjecutar = document.getElementById('btn-ejecutar-consulta-deuda');
-
-    if (contadorBtn) {
-        contadorBtn.textContent = totalUsuarios;
-    }
-
-    if (btnEjecutar) {
-        btnEjecutar.disabled = totalUsuarios === 0;
-    }
+    lanzadorDeuda.cambiar(0, { texto: `Consultar Deuda para ${totalUsuarios} cliente(s)` });
+    lanzadorDeuda.habilitar(totalUsuarios > 0);
 }
 
 /**
- * Ejecuta la consulta de deuda para los clientes seleccionados
+ * Valida los formularios y arma el payload de la consulta de deuda (null = no arranca)
  */
-async function ejecutarConsultaDeuda() {
+function prepararConsultaDeuda() {
     const usuariosSeleccionados = selectorUsuarios.obtenerSeleccionados();
 
     if (usuariosSeleccionados.length === 0) {
         mostrarMensaje('error', 'No hay usuarios seleccionados');
-        return;
+        return null;
     }
 
     // Validar todos los formularios
@@ -1160,7 +1245,7 @@ async function ejecutarConsultaDeuda() {
 
     if (!todosValidos) {
         mostrarMensaje('error', 'Por favor corrija los errores en los formularios antes de continuar');
-        return;
+        return null;
     }
 
     // Preparar payload (leyendo valores directamente del DOM)
@@ -1199,23 +1284,19 @@ async function ejecutarConsultaDeuda() {
         };
     });
 
+    return payload;
+}
+
+/**
+ * Ejecuta la consulta de deuda (componentes/lanzadorAutomatizacion: Consultar ↔ ⏹ Cancelar)
+ */
+async function ejecutarConsultaDeuda(payload, visible) {
     console.log('📤 Enviando solicitud de consulta de deuda:', payload);
 
-    const confirmacion = await showConfirmModal({
-        title: 'Consultar deuda',
-        icon: '🚀',
-        message: `¿Consultar deuda para ${usuariosSeleccionados.length} cliente(s)?`,
-        confirmText: 'Consultar',
-        confirmBtnClass: 'tono'
-    });
-
-    if (!confirmacion) return;
-
     try {
-        mostrarProgreso(true, `Consultando deuda de ${usuariosSeleccionados.length} cliente(s)…`);
+        mostrarProgreso(true, `Consultando deuda de ${payload.length} cliente(s)…`);
 
         const api = window.electronAPI || window.api;
-        const visible = document.getElementById('chk-visible-consulta-deuda')?.checked !== false;
         const resultado = await api.consultaDeuda.consultar(payload, { visible });
 
         mostrarProgreso(false);
@@ -1258,6 +1339,18 @@ function mostrarResultadosConsultaDeuda(resultados) {
                         </div>
                     </div>
                     <div class="archivo-acciones" data-indice="${indice}"></div>
+                </div>
+            `;
+        } else if (r.status === 'cancelado') {
+            return `
+                <div class="archivo-item archivo-item-cancelado">
+                    <div class="archivo-info">
+                        <span class="archivo-icono">⏹</span>
+                        <div class="archivo-detalles">
+                            <div class="archivo-usuario">${nombreCompleto}</div>
+                            <div class="archivo-nombre">${r.error}</div>
+                        </div>
+                    </div>
                 </div>
             `;
         } else {

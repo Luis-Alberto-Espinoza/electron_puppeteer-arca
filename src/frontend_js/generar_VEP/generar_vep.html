@@ -48,20 +48,9 @@
             ⚠️ <span id="texto-advertencia"></span>
         </div>
 
-        <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
-        <label class="ui-switch">
-            <input type="checkbox" id="chk-visible-vep" checked>
-            Mostrar navegador
-        </label>
-
-        <!-- Botón generar VEP -->
-        <button
-            id="btn-generar-vep"
-            class="btn-generar-vep"
-            disabled
-        >
-            Generar VEP para <span id="contador-usuarios">0</span> cliente(s)
-        </button>
+        <!-- Mostrar navegador + Generar VEP (1ra pasada) ↔ Cancelar: componentes/lanzadorAutomatizacion.
+             El switch vale para todo el lote (también la 2da pasada). -->
+        <div id="lanzador-vep"></div>
 
         <!-- Sección de resultados (se muestra después de primera pasada) -->
         <div id="seccion-resultados" class="seccion-resultados" style="display: none;">
@@ -96,17 +85,19 @@
                     <span class="grupo-icono">❌</span>
                     <span class="grupo-titulo">ERRORES</span>
                     <span class="grupo-contador" id="contador-errores">0</span>
+                    <button type="button" id="btn-reintentar-todos" class="btn-reintentar-todos" style="display: none;"></button>
                 </div>
                 <div class="grupo-contenido" id="contenido-errores"></div>
             </div>
 
+            <!-- Confirmar y Continuar (2da pasada) ↔ Cancelar: lanzador sin switch (usa el de la 1ra).
+                 Solo se ve si hay clientes que requieren selección. -->
+            <div id="lanzador-vep-pago" style="display: none;"></div>
+
             <!-- Botones de acción -->
             <div class="resultados-acciones">
-                <button id="btn-confirmar-seleccion" class="btn-confirmar" style="display: none;">
-                    Confirmar y Continuar
-                </button>
-                <button id="btn-cancelar-todo" class="btn-cancelar">
-                    Cancelar Todo
+                <button id="btn-limpiar-resultados" class="btn-cancelar">
+                    Limpiar resultados
                 </button>
             </div>
         </div>
@@ -138,16 +129,8 @@
                 <!-- Los formularios se renderizan dinámicamente aquí -->
             </div>
 
-            <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
-            <label class="ui-switch">
-                <input type="checkbox" id="chk-visible-consulta-deuda" checked>
-                Mostrar navegador
-            </label>
-
-            <!-- Botón ejecutar consulta -->
-            <button id="btn-ejecutar-consulta-deuda" class="btn-ejecutar-consulta-deuda" disabled>
-                Consultar Deuda para <span id="contador-usuarios-deuda">0</span> cliente(s)
-            </button>
+            <!-- Mostrar navegador + Consultar Deuda ↔ Cancelar: componentes/lanzadorAutomatizacion -->
+            <div id="lanzador-deuda"></div>
 
             <!-- Sección de resultados de consulta de deuda -->
             <div id="seccion-resultados-deuda" class="seccion-resultados-deuda" style="display: none;">

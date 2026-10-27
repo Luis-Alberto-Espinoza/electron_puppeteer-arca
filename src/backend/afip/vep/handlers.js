@@ -4,6 +4,7 @@
 const vepManager = require('./vepManager.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { crearCorteCaptchaAfip } = require('../corteCaptchaAfip.js');
+const { RESULTADO_CANCELADO } = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const clienteHist = historialRepo.clienteDesdeUsuario;
 
@@ -38,6 +39,8 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
             const url = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
             // Si AFIP pide captcha en un cliente, el resto del lote se saltea (ver corteCaptchaAfip).
             const corte = crearCorteCaptchaAfip();
+            // "⏹ Cancelar" del lanzador: el cliente en curso vuelve CANCELADO y los que faltan no arrancan.
+            let cancelado = false;
 
             // ==============================================
             // PRIMERA PASADA: Procesar TODOS los clientes
@@ -53,6 +56,10 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
                     const item = usuarios[i];
                     const { usuario, medioPago } = item;
 
+                    if (cancelado) {
+                        errores.push({ usuario, medioPago, error: RESULTADO_CANCELADO.message, codigo: RESULTADO_CANCELADO.error });
+                        continue;
+                    }
                     console.log(`\n[${i + 1}/${usuarios.length}] Procesando ${usuario.nombre} (${usuario.cuit})`);
 
                     try {
@@ -81,7 +88,10 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
                         const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, null, downloadsPath, { visible });
                         corte.registrar(resultado);
 
-                        if (resultado.requiereSeleccion) {
+                        if (resultado.error === RESULTADO_CANCELADO.error) {
+                            cancelado = true;
+                            errores.push({ usuario, medioPago, error: resultado.message, codigo: resultado.error });
+                        } else if (resultado.requiereSeleccion) {
                             // Cliente con multiples periodos
                             console.log(`  ${usuario.nombre} requiere seleccion (${resultado.periodos.length} periodos)`);
                             requierenSeleccion.push({
@@ -213,6 +223,10 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
 
                 const { usuario, medioPago } = item;
                 const periodosCliente = periodosSeleccionados[clienteId];
+                if (cancelado) {
+                    resultadosFinales.push({ usuario, medioPago, status: 'cancelado', error: RESULTADO_CANCELADO.message });
+                    continue;
+                }
 
                 console.log(`\nProcesando ${usuario.nombre} con ${periodosCliente.length} periodo(s)`);
 
@@ -238,7 +252,10 @@ function setupVepHandlers(ipcMain, mainWindow, app) {
                     const resultado = await vepManager.iniciarProceso(url, credenciales, itemEnriquecido, periodosCliente, downloadsPath, { visible });
                     corte.registrar(resultado);
 
-                    if (resultado.success) {
+                    if (resultado.error === RESULTADO_CANCELADO.error) {
+                        cancelado = true;
+                        resultadosFinales.push({ usuario, medioPago, status: 'cancelado', error: resultado.message });
+                    } else if (resultado.success) {
                         console.log(`  ${usuario.nombre} completado`);
                         resultadosFinales.push({
                             usuario: usuario,
