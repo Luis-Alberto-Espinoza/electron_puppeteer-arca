@@ -156,12 +156,21 @@ const ejecutar_FacturacionUnificado = async (
         // INICIALIZACIÓN (COPIADA EXACTA de ambos flujos)
         // De flujo_Factura.js líneas 88-100 y flujo_Factura_tipificada.js líneas 96-107
         // ==========================================
+        // Avisos para la rueda del modo simple (el detallado tiene los suyos).
+        // También 'confirmando' / 'emitida' por factura: con eso el handler sabe
+        // cuántas salieron aunque se corte, y desde cuál reintentar.
+        const avisar = (aviso) => { if (enviarProgreso && !esModoDetallado) enviarProgreso(aviso); };
+        const totalSimple = esModoDetallado ? 0 : (datos.montoResultados?.facturasGeneradas?.length || 0);
+        const progreso = (mensaje, procesados = 0) => avisar({ tipo: 'progreso', mensaje, procesados, total: totalSimple });
+
+        progreso('Entrando a Comprobantes en línea…');
         const newPage = await ejecutarPasoConVerificacion(
             'Buscar Comprobante en Línea',
             async (p) => await buscarEnAfip(p, 'compr', { esperarNuevaPestana: true }),
             page
         );
 
+        progreso('Eligiendo la empresa…');
         const pagePuntoDeVenta = await ejecutarPasoConVerificacion(
             'Elegir Punto de Venta',
             seleccionarEmpresa,
@@ -525,13 +534,17 @@ const ejecutar_FacturacionUnificado = async (
                 consultaDesde: datos.montoResultados.facturasGeneradas[0][0],
                 consultaHasta: datos.montoResultados.facturasGeneradas[cantidad - 1][0],
                 idTipoComprobante: tipoContribuyente,
-                idPuntoDeVenta: empresaElegida
+                // El PDV con el que se factura (selector del frontend); empresaElegida
+                // queda solo por si un flujo viejo no lo manda.
+                idPuntoDeVenta: datos.puntoVenta || empresaElegida
             };
 
             // Procesar cada factura de manera secuencial (COPIADO líneas 104-182)
             for (let i = 0; i < cantidad; i++) {
                 console.log(`\n=== Procesando factura ${i + 1} de ${cantidad} ===\n`);
                 const factura = datos.montoResultados.facturasGeneradas[i];
+                const queFactura = `Factura ${i + 1} de ${cantidad} (${factura[0]})`;
+                progreso(`${queFactura}: cargando los datos…`, i);
 
                 // Reducir el tiempo de espera entre facturas
                 await esperar(500);
@@ -588,12 +601,17 @@ const ejecutar_FacturacionUnificado = async (
                     i
                 );
 
-                await ejecutarPasoConVerificacion(
+                progreso(modoTest ? `${queFactura}: llegando a la confirmación (sin confirmar)…`
+                                  : `${queFactura}: confirmando en AFIP…`, i);
+                // Desde acá hasta 'emitida' no se sabe si AFIP la grabó: si se corta, es dudosa.
+                avisar({ tipo: 'confirmando', indice: i });
+                const confirmacion = await ejecutarPasoConVerificacion(
                     'Confirmar Factura',
                     paso_4_ConfirmarFactura_Unificado,
                     pagePuntoDeVenta,
                     modoTest
                 );
+                if (!modoTest) avisar({ tipo: 'emitida', indice: i });
 
                 // En modo test paso_4 NO confirma ni vuelve al menú: el navegador
                 // queda en la página de resumen. Si seguimos a la siguiente factura,
@@ -602,7 +620,13 @@ const ejecutar_FacturacionUnificado = async (
                 // procesamos solo la primera.
                 if (modoTest) {
                     console.log("🧪 MODO TEST: solo se procesa la primera factura (sin confirmar).");
-                    break;
+                    return {
+                        success: true,
+                        modoTest: true,
+                        message: 'Modo prueba: la 1ra factura llegó hasta la confirmación y NO se confirmó. No se emitió nada en AFIP.',
+                        prueba: { fecha: factura[0], monto: factura[1], total: cantidad },
+                        captura: confirmacion && confirmacion.captura || null
+                    };
                 }
 
                 // Reducir la espera adicional entre facturas
@@ -610,30 +634,40 @@ const ejecutar_FacturacionUnificado = async (
             }
 
             // Solo ejecutar la consulta y extracción si test es false (COPIADO líneas 184-250)
+            // La consulta es solo un control: las facturas ya salieron. Si falla,
+            // queda como aviso y la corrida sigue siendo un éxito.
+            let avisoConsulta = null;
             if (!modoTest) {
-                // menu principal -> generar CONSULTA
-                await ejecutarPasoConVerificacion(
-                    'Menú Principal',
-                    menuPrincipal,
-                    pagePuntoDeVenta,
-                    { botonId: "btn_consultas" }
-                );
+                progreso('Consultando los comprobantes emitidos…', cantidad - 1);
+                try {
+                    // menu principal -> generar CONSULTA
+                    await ejecutarPasoConVerificacion(
+                        'Menú Principal',
+                        menuPrincipal,
+                        pagePuntoDeVenta,
+                        { botonId: "btn_consultas" }
+                    );
 
-                // Consulta de comprobantes
-                await ejecutarPasoConVerificacion(
-                    'Formulario de Consultas de Comprobante',
-                    paso_X_ConsultaComprobantes,
-                    pagePuntoDeVenta,
-                    datosConsulta
-                );
+                    // Consulta de comprobantes
+                    await ejecutarPasoConVerificacion(
+                        'Formulario de Consultas de Comprobante',
+                        paso_X_ConsultaComprobantes,
+                        pagePuntoDeVenta,
+                        datosConsulta
+                    );
 
-                // Extraer los datos de la consulta
-                respuesta = await ejecutarPasoConVerificacion(
-                    'Extraer Datos de la Consulta',
-                    extraerDatosDeConsultaComprobantes,
-                    pagePuntoDeVenta
-                );
-                console.log("Datos extraídos de la consulta:", respuesta);
+                    // Extraer los datos de la consulta
+                    respuesta = await ejecutarPasoConVerificacion(
+                        'Extraer Datos de la Consulta',
+                        extraerDatosDeConsultaComprobantes,
+                        pagePuntoDeVenta
+                    );
+                    console.log("Datos extraídos de la consulta:", respuesta);
+                } catch (error) {
+                    respuesta = null;
+                    avisoConsulta = `No se pudo verificar en la consulta de AFIP (${error.message}). Revisalas en Mis Comprobantes.`;
+                    console.warn(`⚠️ ${avisoConsulta}`);
+                }
 
                 console.log("Proceso de facturación completado correctamente.");
 
@@ -641,12 +675,12 @@ const ejecutar_FacturacionUnificado = async (
                 const urlActual = pagePuntoDeVenta.url();
                 console.log("URL actual:", urlActual);
 
-                // cerrar el navegador
-                await pagePuntoDeVenta.close();
-                await page.close();
+                // cerrar el navegador (si ya se cerró, da igual: las facturas salieron)
+                await pagePuntoDeVenta.close().catch(() => {});
+                await page.close().catch(() => {});
             }
 
-            return { success: true, message: "Proceso completado", data: respuesta?.data };
+            return { success: true, message: "Proceso completado", data: respuesta?.data, avisoConsulta };
         }
 
     } catch (error) {

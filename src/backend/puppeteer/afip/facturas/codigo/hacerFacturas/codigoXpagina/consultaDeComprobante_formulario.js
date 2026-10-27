@@ -54,15 +54,21 @@ async function paso_X_ConsultaComprobantes(newPage, datos) {
           console.log("Esperando #puntodeventa...");
           const puntoDeVentaSelect = await esperarElementoEnDOM("#puntodeventa");
           console.log("#puntodeventa encontrado");
-          puntoDeVentaSelect.value = datos.idPuntoDeVenta;
+
+          // El PDV con el que se facturó (ej. "00008"), comparado por número contra
+          // el value y el texto de cada opción (igual que paso_0). Antes quedaba
+          // siempre la 1ra opción → se consultaba otro PDV.
+          const objetivoPv = String(datos.idPuntoDeVenta || '').replace(/\D/g, '').replace(/^0+/, '');
+          const indicePv = Array.from(puntoDeVentaSelect.options).findIndex(op => {
+            const valNum = String(op.value || '').replace(/\D/g, '').replace(/^0+/, '');
+            const txtNum = (String(op.text || '').match(/\d+/) || [''])[0].replace(/^0+/, '');
+            return objetivoPv && (valNum === objetivoPv || txtNum === objetivoPv);
+          });
+          if (indicePv < 0) {
+            throw new Error(`El punto de venta ${datos.idPuntoDeVenta} no aparece en la consulta de comprobantes`);
+          }
+          puntoDeVentaSelect.selectedIndex = indicePv;
           puntoDeVentaSelect.dispatchEvent(new Event('change'));
-
-          // Buscar y seleccionar la empresa por nombre en el select de punto de venta
-          const nombreEmpresa = datos.nombreEmpresa;
-          console.log(`que es empresaAElegir: ${nombreEmpresa}`);
-
-              puntoDeVentaSelect.selectedIndex = 1;
-              puntoDeVentaSelect.dispatchEvent(new Event('change'));
 
           // let encontrado = false;
           // for (let i = 0; i < puntoDeVentaSelect.options.length; i++) {

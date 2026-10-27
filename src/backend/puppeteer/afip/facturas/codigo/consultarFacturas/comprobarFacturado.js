@@ -34,7 +34,9 @@ async function extraerDatosDeConsultaComprobantes(newPage, datos) {
           console.log("Extrayendo datos de la tabla...");
           
           // Buscar todos los elementos de la séptima columna (montos)
-          let elementos = await esperarElementoEnDOM("#contenido > div.jig_borde > div > table > tbody > tr > td:nth-child(7)");
+          // Sin filas de comprobantes = la consulta no trajo nada (0), no un error.
+          let elementos = await esperarElementoEnDOM("#contenido > div.jig_borde > div > table > tbody > tr > td:nth-child(7)")
+            .catch(() => []);
           let suma = 0;
           let montos = [];
           let stringi = "";

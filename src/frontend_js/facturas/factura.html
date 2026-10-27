@@ -155,30 +155,12 @@
     <div id="hacerFacturaFacturas" class="hacerFacturaFacturas hidden">
         <button id="habilitarBtnAFIP" class="btn-principal">Hacer Facturas</button>
     </div>
-    <div id="botones-puppeteer" class="botones-puppeteer">
-        <div class="auth-options">
-            <h3>Selecciona el modo de Ingreso:</h3>
-            <!-- Visible u oculto: se elige en cada ejecución. No se guarda. -->
-            <label class="ui-switch">
-                <input type="checkbox" id="chk-visible-factura" checked>
-                Mostrar navegador
-            </label>
-            <div class="ui-modo-botones">
-                <div class="ui-modo-opcion">
-                    <button id="testButton" class="btn-test">🧪 Abrir AFIP - Modo Test</button>
-                    <small class="ui-modo-nota">Prueba: no confirma la factura</small>
-                </div>
-                <div class="ui-modo-opcion">
-                    <button id="loginButton" class="btn-login">🔐 Abrir AFIP - Modo Producción</button>
-                    <small class="ui-modo-nota">Facturación real</small>
-                </div>
-            </div>
-        </div>
+    <div id="botones-puppeteer">
+        <!-- Lanzador (componentes/lanzadorAutomatizacion) lo arma autenticacion/auth.js -->
+        <div id="lanzadorFactura"></div>
     </div>
 </div>
 </div>
-<!-- Resultado final de facturación -->
-<div id="facturaResultadoFinal" style="display: none;"></div>
 </body>
 
 </html>

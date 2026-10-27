@@ -20,6 +20,35 @@ let usuarioSeleccionado = null;
 let empresaElegida = null;
 let ultimaEmpresaElegida = null;
 
+// Copia del código procesado sin las primeras `desde` facturas (las que ya salieron).
+function recortarDesde(codigo, desde) {
+    const todas = (codigo && codigo.montoResultados && codigo.montoResultados.facturasGeneradas) || [];
+    const n = Math.max(0, Math.min(parseInt(desde, 10) || 0, todas.length));
+    if (n === 0) return { codigo, desde: 0, total: todas.length };
+    return {
+        codigo: { ...codigo, montoResultados: { ...codigo.montoResultados, facturasGeneradas: todas.slice(n) } },
+        desde: n,
+        total: todas.length - n
+    };
+}
+
+// Una entrada por corrida real (el modo prueba no emite nada → no se registra).
+function registrarCorrida(servicio, cliente, final) {
+    const { desde, total, aEmitir, emitidas, dudosa } = final.avance;
+    const deServicio = servicio === 'mercadopago' ? 'Mercado Pago' : 'Facturas';
+    const estado = final.success ? 'exito' : (emitidas > 0 ? 'parcial' : 'error');
+    const motivo = final.success ? '' : ` — ${final.message || final.error || 'error sin detalle'}`;
+    historialRepo.registrar({
+        dominio: 'factura', accion: 'generar', estado,
+        cliente: cliente && cliente.cuit ? cliente : null,
+        resumen: `${emitidas} de ${aEmitir} factura(s) emitida(s) (${deServicio})`
+            + (desde ? ` — reintento: N° ${desde + 1} a ${total}` : '')
+            + (dudosa ? `; la N° ${dudosa} quedó dudosa: revisala en Mis Comprobantes` : '')
+            + (final.avisoConsulta ? ' — no se pudo verificar en la consulta de AFIP' : '') + motivo,
+        error: final.success ? null : (final.message || final.error || null)
+    });
+}
+
 /**
  * Configura los handlers IPC para el dominio de facturacion
  * @param {Electron.IpcMain} ipcMain - Instancia de ipcMain
@@ -127,26 +156,57 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
             // no arrastrar el de una corrida anterior.
             if (resultadoCodigo) delete resultadoCodigo.pdvHabilitadosAfip;
 
+            // Reintento: `desde` = cuántas ya salieron en la corrida anterior; se
+            // factura solo el resto (los índices del flujo quedan alineados).
+            const datos = recortarDesde(resultadoCodigo, data.desde);
+            const avance = {
+                desde: datos.desde,
+                total: datos.total,
+                emitidas: 0,
+                confirmando: null
+            };
+            const cliente = clienteFactura(usuarioSeleccionado) || {};
+            const enviarProgreso = (aviso) => {
+                if (aviso.tipo === 'confirmando') avance.confirmando = aviso.indice;
+                else if (aviso.tipo === 'emitida') { avance.emitidas++; avance.confirmando = null; }
+                else if (aviso.tipo === 'progreso' && mainWindow) {
+                    mainWindow.webContents.send('factura:update', {
+                        ...aviso, nombre: cliente.nombre || '', cuit: cuitObjetivo
+                    });
+                }
+            };
+
             // Usamos el manager unificado con resultadoCodigo ya procesado
             // Nota: resultadoCodigo ya viene procesado, el unificado lo detectará como 'simple'
             const resultado = await facturaManagerUnificado.iniciarProceso(
                 data.url,
                 credenciales,
-                resultadoCodigo,  // datos ya procesados
+                datos.codigo,  // datos ya procesados
                 data.test,
                 usuarioSeleccionado,
                 empresaElegida,
-                null,
+                enviarProgreso,
                 { visible: data.visible } // false = navegador oculto
             );
-            await aprenderPdvHabilitados(cuitObjetivo, resultado, resultadoCodigo);
+            await aprenderPdvHabilitados(cuitObjetivo, resultado, datos.codigo);
             await aprenderTipoDelPdv(cuitObjetivo, resultado);
-            event.reply('login-automatizado', resultado);
 
-            // Enviar resultado de facturacion al frontend por canal dedicado
-            if (mainWindow && resultado && resultado.success) {
-                mainWindow.webContents.send('factura:resultado', resultado);
-            }
+            // Si se cortó confirmando una, no se sabe si AFIP la grabó: queda dudosa
+            // (el reintento arranca después de ella para no duplicarla).
+            const exito = resultado && resultado.success;
+            const dudosa = !exito && avance.confirmando !== null;
+            const final = {
+                ...resultado,
+                avance: {
+                    desde: avance.desde,                   // resueltas en corridas anteriores
+                    total: avance.desde + avance.total,    // todas las del lote
+                    aEmitir: avance.total,                 // las de esta corrida
+                    emitidas: avance.emitidas,             // las que salieron en esta corrida
+                    dudosa: dudosa ? avance.desde + avance.confirmando + 1 : null   // n° de factura (1..N)
+                }
+            };
+            if (!data.test) registrarCorrida(data.servicio, cliente, final);
+            event.reply('login-automatizado', final);
         } catch (error) {
             event.reply('login-automatizado', { success: false, error: error.message });
         }

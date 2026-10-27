@@ -20,6 +20,7 @@ const { procesarDatosFactura } = require('./service/procesarFactura.js');
 const { procesarDatosFacturaCliente } = require('./service/procesarFacturaCliente.js');
 const { ejecutar_FacturacionUnificado } = require('../../puppeteer/afip/facturas/codigo/hacerFacturas/flujos/flujo_FacturacionUnificado.js');
 const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
+const { RESULTADO_NAVEGADOR_CERRADO, seCerroElNavegador } = require('../../comun/navegadorCerrado.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -146,6 +147,7 @@ async function iniciarProceso(
         const loginResult = await loginManager.hacerLogin(page, url || URL_LOGIN_AFIP, credencialesLogin);
 
         if (!loginResult.success) {
+            if (seCerroElNavegador(browser, page)) return RESULTADO_NAVEGADOR_CERRADO;
             console.error("✗ El login fallo:", loginResult.message);
             return {
                 success: false,
@@ -163,16 +165,23 @@ async function iniciarProceso(
 
         const downloadsPath = tipo === 'detallado' ? app.getPath('downloads') : null;
 
-        const resultado = await ejecutar_FacturacionUnificado(
-            page,
-            datosProcesados,
-            test,
-            credenciales,
-            usuarioSeleccionado,
-            empresa,
-            enviarProgreso,
-            downloadsPath
-        );
+        let resultado;
+        try {
+            resultado = await ejecutar_FacturacionUnificado(
+                page,
+                datosProcesados,
+                test,
+                credenciales,
+                usuarioSeleccionado,
+                empresa,
+                enviarProgreso,
+                downloadsPath
+            );
+        } catch (error) {
+            // Cerrado a mano: no es una falla de AFIP (el error del paso cortado confunde).
+            if (seCerroElNavegador(browser, page, error)) return RESULTADO_NAVEGADOR_CERRADO;
+            throw error;
+        }
 
         // El flujo puede volver con success:false sin tirar excepción (ej. falta el
         // tipo de contribuyente): no anunciar "exitosamente" en ese caso.

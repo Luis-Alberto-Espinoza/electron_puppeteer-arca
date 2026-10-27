@@ -253,26 +253,6 @@ button:hover {
     margin-bottom: 30px;
 }
 
-.btn-login {
-    background-color: var(--c-accion);
-    /* desplazar a la derecha */
-    margin-left: 10px;
-    color: #fff;
-}
-
-.btn-login:hover {
-    background-color: var(--c-accion-hover);
-}
-
-.btn-test {
-    background-color: var(--c-ok-1);
-    color: #fff;
-}
-
-.btn-test:hover {
-    background-color: var(--c-ok-2);
-}
-
 #textareaContainer {
     margin-top: 10px;
 }
@@ -327,14 +307,6 @@ form>div {
     font-weight: bold;
 }
 
-
-.botones-puppeteer {
-    padding: 20px;
-    border: 1px solid var(--v-borde, var(--borde));
-    border-radius: var(--radio-sm);
-    margin: 20px 0;
-    background-color: var(--v-panel-2, var(--fondo-claro));
-}
 
 .tabla-header {
     display: flex;

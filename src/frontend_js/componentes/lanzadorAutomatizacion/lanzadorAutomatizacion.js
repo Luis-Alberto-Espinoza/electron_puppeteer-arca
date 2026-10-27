@@ -26,6 +26,7 @@
  *           preparar:  () => datos | null,         // opcional: null = no arranca
  *           confirmar: (datos) => ({ title, message, confirmBtnClass }),  // opcional: sin él no hay modal
  *           rueda:     { servicio, subservicio, mensaje },                // opcional
+ *           confirmarCancelar: () => ({ title, message }),               // opcional: modal antes de cancelar
  *           ejecutar:  async (datos, { visible }) => { ... }              // la corrida en sí
  *       }]
  *   });
@@ -40,7 +41,8 @@
  * Mientras corre:
  *   - el botón que se tocó pasa a "⏹ Cancelar" (rojo); las otras acciones y el switch se bloquean.
  *   - Cancelar queda bloqueado CANCELAR_ARMA_MS al arrancar: un doble clic no corta la corrida.
- *   - Cancelar no pide confirmación: llama a 'automatizacion:cancelar', que cierra el navegador,
+ *   - Cancelar no pide confirmación (salvo que la acción traiga confirmarCancelar, ej. Facturación:
+ *     lo emitido no se deshace): llama a 'automatizacion:cancelar', que cierra el navegador,
  *     y el botón dice "⏳ Cancelando…" hasta que ejecutar() termina. El servicio recibe
  *     { success:false, error:'CANCELADO', message:'Cancelado por el usuario' }.
  *
@@ -164,6 +166,18 @@
 
         async function cancelar() {
             if (!cancelarArmado || cancelando) return;
+            const { confirmarCancelar } = items[corriendo].accion;
+            if (confirmarCancelar) {
+                const confirmado = await showConfirmModal({
+                    icon: '⏹',
+                    confirmText: 'Cancelar igual',
+                    cancelText: 'Seguir',
+                    confirmBtnClass: 'danger',
+                    ...confirmarCancelar()
+                });
+                // Pudo terminar sola mientras el modal estaba abierto
+                if (!confirmado || corriendo === null || cancelando) return;
+            }
             cancelando = true;
             pintar();
             try {

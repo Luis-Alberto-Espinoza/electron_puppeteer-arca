@@ -12,7 +12,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // manejo de seciones claves .env
-    iniciarSesion: (url, credenciales, test, visible) => ipcRenderer.send('iniciar-proceso-afip', { url, credenciales, test, visible }),
+    // extra = { servicio: 'factura' | 'mercadopago', desde: N } (desde = reintento: saltea las N que ya salieron)
+    iniciarSesion: (url, credenciales, test, visible, extra = {}) => ipcRenderer.send('iniciar-proceso-afip', { url, credenciales, test, visible, ...extra }),
+    // Avisos de progreso de la corrida (contrato de la rueda: { tipo:'progreso', mensaje, procesados, total, nombre, cuit })
+    onFacturaUpdate: (callback) => ipcRenderer.on('factura:update', (_event, aviso) => callback(aviso)),
     // Fin del proceso de iniciarSesion (éxito o error): el backend SIEMPRE contesta por acá.
     onFinProcesoAfip: (callback) => ipcRenderer.on('login-automatizado', (_event, resultado) => callback(resultado)),
     
@@ -59,11 +62,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     cargarUsuariosMasivo: (filePath) => ipcRenderer.invoke('cargar-usuarios-masivo', filePath),
     descargarPlantillaClientes: () => ipcRenderer.invoke('descargar-plantilla-clientes'),
     exportarClientesExcel: (opciones) => ipcRenderer.invoke('exportar-clientes-excel', opciones || {}),
-
-    // Canal para recibir la respuesta final de facturación
-    onFacturaResultado: (callback) => {
-        ipcRenderer.on('factura:resultado', (_event, resultado) => callback(resultado));
-    },
 
     abrirArchivo: (ruta) => ipcRenderer.invoke('abrir-archivo', ruta),
     abrirDirectorio: (ruta) => ipcRenderer.invoke('shell:open-directory', ruta),

@@ -1,6 +1,6 @@
 {
   "name": "escritorio-contable",
-  "version": "4.0.0",
+  "version": "4.0.5",
   "main": "src/backend/home/main.js",
   "scripts": {
     "start": "electron .",

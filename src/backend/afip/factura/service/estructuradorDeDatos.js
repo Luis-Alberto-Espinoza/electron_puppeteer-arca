@@ -1,6 +1,34 @@
 
+// "27/10/2026" o "2026-10-27" → 20261027 (para comparar); otra cosa → null.
+function claveFecha(fecha) {
+    const t = String(fecha || '').trim();
+    let m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return Number(m[3]) * 10000 + Number(m[2]) * 100 + Number(m[1]);
+    m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) return Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]);
+    return null;
+}
+
+// AFIP no deja emitir un comprobante con fecha anterior al último del mismo PDV:
+// las facturas salen de la más vieja a la más nueva, se hayan elegido en el orden
+// que sea (el calendario las manda en el orden de los clics). Si alguna fecha no se
+// entiende, se deja el orden como vino (mejor eso que mover facturas a ciegas).
+function ordenarPorFecha(pares) {
+    if (!Array.isArray(pares) || !pares.every(Array.isArray)) return pares;
+    const claves = pares.map(par => claveFecha(par[0]));
+    if (claves.some(c => c === null)) {
+        console.warn('[Facturas] Hay fechas que no se entienden: se factura en el orden en que vinieron.');
+        return pares;
+    }
+    return pares
+        .map((par, i) => ({ par, clave: claves[i] }))
+        .sort((a, b) => a.clave - b.clave)   // estable: mismo día, mismo orden
+        .map(x => x.par);
+}
+
 function procesarDatos(montoFactura) {
     let ProcesarDatos = {};
+    montoFactura = ordenarPorFecha(montoFactura);
     const configuracion = {
         montoMaximo: 10000000,
     };
