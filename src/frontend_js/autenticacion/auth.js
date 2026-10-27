@@ -74,13 +74,15 @@ export class AuthManager {
      * @param {string} [config.pdvAnclaId]     ver registrarManejadorPdv
      * @param {string} [config.nombreServicio] título de la rueda: "ARCA · Facturación"
      * @param {string} [config.servicio]       'factura' | 'mercadopago' (para el historial)
+     * @param {string} [config.avisoAlEmitir]  advertencia que se suma al modal de Facturar (no frena)
      */
     inicializar(config = {}) {
         const {
             contenedorId = 'lanzadorFactura',
             pdvAnclaId = 'selectPuntoDeVentaFactura',
             nombreServicio = 'Facturación',
-            servicio = 'factura'
+            servicio = 'factura',
+            avisoAlEmitir = null
         } = config;
 
         this.pdvAnclaId = pdvAnclaId;
@@ -97,7 +99,6 @@ export class AuthManager {
         });
 
         this.lanzador = window.lanzadorAutomatizacion.crear(this.contenedor, {
-            titulo: 'Selecciona el modo de Ingreso',
             acciones: [{
                 texto: '🔐 Facturar en AFIP',
                 tipo: 'principal',
@@ -109,6 +110,7 @@ export class AuthManager {
                     confirmText: 'Emitir',
                     message: `Vas a emitir ${cantidadFacturas()} factura(s) REALES en AFIP.\n`
                         + 'Una factura emitida no se deshace: se anula con nota de crédito.'
+                        + (avisoAlEmitir ? `\n\n⚠ ${avisoAlEmitir}` : '')
                 }),
                 confirmarCancelar: () => ({
                     title: '¿Cancelar la facturación?',

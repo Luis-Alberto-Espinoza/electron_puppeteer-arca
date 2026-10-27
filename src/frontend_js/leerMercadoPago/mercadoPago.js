@@ -1,5 +1,5 @@
 import { mercadoPagoFacturas } from '../facturas/facturas.js';
-import { AuthManager, realizarLoginNormal, realizarLoginTest, obtenerCredencialesAfip, registrarManejadorPdv } from '../autenticacion/auth.js';
+import { AuthManager, registrarManejadorPdv } from '../autenticacion/auth.js';
 import { pdvOfrecibles } from '../facturas/pdvOfrecibles.js';
 
 function mostrarTablas(datos) {
@@ -360,12 +360,32 @@ function mostrarBotonHacerFactura(resultado) {
                 usuario: usuarioSeleccionado
             };
             mercadoPagoFacturas(datosParaEnviar);
-            mostrarPaso4_BotonesAutenticacion(datosDiarios);
+            mostrarPaso4_BotonesAutenticacion(datosDiarios, avisoFechas(datosDiarios, fechaComprobante));
         });
     }
 }
 
-function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
+// "27/10/2026" → "10/2026"; otra cosa → null
+function mesDe(fecha) {
+    const m = String(fecha || '').trim().match(/^\d{1,2}[\/-](\d{1,2})[\/-](\d{4})$/);
+    return m ? `${m[1].padStart(2, '0')}/${m[2]}` : null;
+}
+
+// No frena nada: avisa si las ventas del resumen no son del mes de la fecha del
+// comprobante (ej. resumen de agosto facturado con fecha de octubre).
+function avisoFechas(datosDiarios, fechaComprobante) {
+    if (!fechaComprobante) {
+        return 'No elegiste la fecha del comprobante.';
+    }
+    const mesComprobante = mesDe(fechaComprobante);
+    const mesesVentas = [...new Set(datosDiarios.map(d => mesDe(d.fecha)).filter(Boolean))];
+    const distintos = mesesVentas.filter(m => m !== mesComprobante);
+    if (!mesComprobante || distintos.length === 0) return null;
+    return `Las ventas del resumen son de ${mesesVentas.join(', ')} y la fecha del comprobante es ${fechaComprobante}. `
+        + 'Revisá que sea el período que querés facturar.';
+}
+
+function mostrarPaso4_BotonesAutenticacion(datosDiarios, aviso) {
 
     const botonesContainer = document.getElementById('botones-container');
     if (!botonesContainer) {
@@ -375,36 +395,20 @@ function mostrarPaso4_BotonesAutenticacion(datosDiarios) {
 
     botonesContainer.classList.remove('hidden');
     botonesContainer.innerHTML = `
-        <div class="auth-options">
-            <h3>Selecciona el modo de Ingreso:</h3>
-            <label class="ui-switch">
-                <input type="checkbox" id="chk-visible-mp" checked>
-                Mostrar navegador
-            </label>
-            <button id="testButtonMP" class="btn-test">
-                🧪 Abrir AFIP - Modo Test
-            </button>
-            <button id="loginButtonMP" class="btn-login">
-                🔐 Abrir AFIP - Modo Producción
-            </button>
-            <div class="info-container">
-                <p><strong>Modo Test:</strong> Para pruebas y desarrollo</p>
-                <p><strong>Modo Producción:</strong> Para facturación real</p>
-                <div class="success-message">
-                    <p><strong>✅ Datos listos para facturación:</strong></p>
-                    <p>${datosDiarios.length} registros procesados</p>
-                </div>
-            </div>
+        <div class="success-message">
+            <p><strong>✅ Datos listos para facturación:</strong> ${datosDiarios.length} registros procesados</p>
         </div>
+        ${aviso ? `<div class="aviso-fechas-mp">⚠ ${aviso}</div>` : ''}
+        <div id="lanzadorFacturaMP"></div>
     `;
 
     const authManager = new AuthManager();
     authManager.inicializar({
-        loginButtonId: 'loginButtonMP',
-        testButtonId: 'testButtonMP',
-        visibleSwitchId: 'chk-visible-mp',
+        contenedorId: 'lanzadorFacturaMP',
         pdvAnclaId: 'selectPuntoDeVentaMP',
-        nombreServicio: 'Mercado Pago'
+        nombreServicio: 'Mercado Pago',
+        servicio: 'mercadopago',
+        avisoAlEmitir: aviso
     });
 }
 

@@ -531,8 +531,10 @@ const ejecutar_FacturacionUnificado = async (
             }
 
             const datosConsulta = {
-                consultaDesde: datos.montoResultados.facturasGeneradas[0][0],
-                consultaHasta: datos.montoResultados.facturasGeneradas[cantidad - 1][0],
+                // Los comprobantes quedan con la fecha del comprobante (#fc, igual para
+                // todos), no con la de cada venta: se consulta ese día.
+                consultaDesde: datos.fechaComprobante || datos.montoResultados.facturasGeneradas[0][0],
+                consultaHasta: datos.fechaComprobante || datos.montoResultados.facturasGeneradas[cantidad - 1][0],
                 idTipoComprobante: tipoContribuyente,
                 // El PDV con el que se factura (selector del frontend); empresaElegida
                 // queda solo por si un flujo viejo no lo manda.
