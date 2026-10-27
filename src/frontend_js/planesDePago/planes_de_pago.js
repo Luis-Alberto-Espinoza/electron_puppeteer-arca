@@ -16,7 +16,6 @@ window.inicializarModuloPlanesDePago = () => {
     const btnBuscar            = document.getElementById('btnBuscarSeleccionarPlanes');
     const btnGuardarLista      = document.getElementById('btnGuardarListaPlanes');
     const matchResultado       = document.getElementById('matchResultadoPlanes');
-    const btnLimpiar           = document.getElementById('btnLimpiarSeleccionPlanes');
     const panelCuitsRepresentantes = document.getElementById('panelCuitsRepresentantes');
     const contenedorBloques    = document.getElementById('contenedorBloquesRepresentantes');
     const btnObtenerDatos      = document.getElementById('btnObtenerDatos');
@@ -53,6 +52,13 @@ window.inicializarModuloPlanesDePago = () => {
 
     selectorUsuarios = new SelectorUsuarios('selector-representantes-planes', {
         mostrarTablaSeleccionados: true,
+        botonLimpiar: true,
+        // El selector ya vació la selección; acá lo que es de esta vista.
+        onLimpiar: () => {
+            estadoRepresentantes.clear();
+            matchResultado.style.display = 'none';
+            actualizarPanelesCuits([]);
+        },
         // Modelo plano: el backend ya computó puedeOperar para 'afip' (acceso
         // propio o por representante), así el representado aparece igual que en
         // el resto de AFIP. Solo se listan operables → no hace falta columna Estado.
@@ -188,16 +194,6 @@ window.inicializarModuloPlanesDePago = () => {
 
         matchResultado.innerHTML = html;
     }
-
-    // =========================================================================
-    // LIMPIAR SELECCIÓN
-    // =========================================================================
-    btnLimpiar.addEventListener('click', () => {
-        selectorUsuarios.limpiarSeleccion();
-        estadoRepresentantes.clear();
-        matchResultado.style.display = 'none';
-        actualizarPanelesCuits([]);
-    });
 
     // =========================================================================
     // GESTIÓN DE LISTAS (Nuevo/Renombrar/Eliminar/Guardar)

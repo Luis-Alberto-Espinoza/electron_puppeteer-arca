@@ -6,7 +6,6 @@ window.inicializarModuloDatosRegistrales = () => {
     // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
-    const btnLimpiar  = document.getElementById('btnLimpiarDr');
     const resultados  = document.getElementById('resultadosDr');
     const contenido   = document.getElementById('resultadosContenidoDr');
     const contador    = document.getElementById('contadorDr');
@@ -27,6 +26,7 @@ window.inicializarModuloDatosRegistrales = () => {
 
     const selector = new SelectorUsuarios('selector-contribuyentes-dr', {
         mostrarTablaSeleccionados: true,
+        botonLimpiar: true,
         // Modelo plano: el backend ya sabe si cada uno puede operar AFIP (clave propia
         // o por representante).
         fuente: 'contribuyentes',
@@ -110,8 +110,6 @@ window.inicializarModuloDatosRegistrales = () => {
         window.electronAPI.datosRegistrales.onUpdate((datos) => window.__drOnUpdate && window.__drOnUpdate(datos));
         window.__drListenerRegistrado = true;
     }
-
-    btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
 
     // ===== Procesar (componentes/lanzadorAutomatizacion: switch, Descargar ↔ ⏹ Cancelar) =====
     function elegidos() {

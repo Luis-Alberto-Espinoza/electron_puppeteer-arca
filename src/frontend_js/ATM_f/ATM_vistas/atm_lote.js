@@ -86,7 +86,6 @@ window.inicializarModuloLoteATM = () => {
     const textareaNombres     = document.getElementById('textareaNombres');
     const btnBuscar           = document.getElementById('btnBuscarSeleccionar');
     const btnGuardar          = document.getElementById('btnGuardarLista');
-    const btnLimpiar          = document.getElementById('btnLimpiarSeleccion');
     const btnProcesar         = document.getElementById('btnProcesar');
     const chkVisible          = document.getElementById('chk-visible-lote');
     const matchResultado      = document.getElementById('match-resultado');
@@ -330,6 +329,8 @@ window.inicializarModuloLoteATM = () => {
         // campoCredencial/campoEstado del objeto gordo.
         fuente: 'contribuyentes',
         servicio: 'atm',
+        botonLimpiar: true,
+        onLimpiar: () => { matchResultado.style.display = 'none'; },
         // Lote: elegibles los de clave sin validar, NO los de clave incorrecta
         // (filtro de habilitados + botón "Clave"; ver actualizarClave.js)
         ...(window.opcionesClaveEnSelector ? window.opcionesClaveEnSelector('atm', () => selectorUsuarios, { lote: true }) : {}),
@@ -762,14 +763,6 @@ window.inicializarModuloLoteATM = () => {
             chk.checked ? set.add(chk.dataset.impuesto) : set.delete(chk.dataset.impuesto);
         }
         renderizarPanelApremios(selectorUsuarios.obtenerSeleccionados());
-    });
-
-    // =========================================================================
-    // LIMPIAR SELECCIÓN
-    // =========================================================================
-    btnLimpiar.addEventListener('click', () => {
-        selectorUsuarios.limpiarSeleccion();
-        matchResultado.style.display = 'none';
     });
 
     // =========================================================================

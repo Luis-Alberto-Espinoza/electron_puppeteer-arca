@@ -7,7 +7,6 @@ window.inicializarModuloDdjjPendientes = () => {
     // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
-    const btnLimpiar  = document.getElementById('btnLimpiarDp');
     const resultados  = document.getElementById('resultadosDp');
     const contenido   = document.getElementById('resultadosContenidoDp');
     const contador    = document.getElementById('contadorDp');
@@ -28,6 +27,7 @@ window.inicializarModuloDdjjPendientes = () => {
 
     const selector = new SelectorUsuarios('selector-contribuyentes-dp', {
         mostrarTablaSeleccionados: true,
+        botonLimpiar: true,
         fuente: 'contribuyentes',
         servicio: 'afip',
         // Lote: no deja elegir los de clave incorrecta (fallarían y acercan el captcha).
@@ -138,8 +138,6 @@ window.inicializarModuloDdjjPendientes = () => {
         window.electronAPI.ddjjPendientes.onUpdate((datos) => window.__dpOnUpdate && window.__dpOnUpdate(datos));
         window.__dpListenerRegistrado = true;
     }
-
-    btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
 
     // ===== Procesar (componentes/lanzadorAutomatizacion: switch, Consultar ↔ ⏹ Cancelar) =====
     function elegidos() {

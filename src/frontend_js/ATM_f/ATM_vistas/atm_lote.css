@@ -59,7 +59,7 @@
 }
 
 /* Botones de acción */
-.lote-acciones .btn, .lote-controles .btn {
+.lote-acciones .btn {
     margin-right: 10px;
     background-color: #4299e1; /* Azul de acento */
     color: #fff;
@@ -67,7 +67,7 @@
     transition: background-color 0.3s, transform 0.2s;
 }
 
-.lote-acciones .btn:hover, .lote-controles .btn:hover {
+.lote-acciones .btn:hover {
     background-color: #63b3ed;
     transform: translateY(-2px);
 }
@@ -142,30 +142,6 @@
    ESTILOS PARA COMPONENTE SELECTOR DE USUARIOS
    (Integración con tema oscuro ATM)
    ======================================== */
-
-/* Botón Limpiar Seleccionados */
-.lote-controles {
-    margin-top: 20px;
-    margin-bottom: 20px;
-    display: flex;
-    justify-content: center;
-}
-
-.btn-limpiar-seleccion {
-    background-color: #ef4444 !important;
-    color: white !important;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: background 0.2s;
-}
-
-.btn-limpiar-seleccion:hover {
-    background-color: #dc2626 !important;
-}
 
 /* Badges de estado en tabla de seleccionados */
 .estado-cell {

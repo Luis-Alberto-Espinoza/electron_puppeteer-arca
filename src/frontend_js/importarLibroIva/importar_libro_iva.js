@@ -14,7 +14,6 @@ window.inicializarModuloImportarLibroIva = () => {
     // Adentro de la función: el script se recarga en cada entrada y una const global chocaría.
     const ERRORES_DE_ACCESO = new Set(['INVALID_CREDENTIALS', 'UPDATE_PASSWORD_REQUIRED', 'LOGIN_FAILED', 'SIN_ACCESO']);
 
-    const btnLimpiar  = document.getElementById('btnLimpiarIl');
     const chkDescartar = document.getElementById('chk-descartar-borrador-il');
     const inpPeriodo  = document.getElementById('il-periodo');
     const contenedor  = inpPeriodo.closest('.il-container');
@@ -78,6 +77,7 @@ window.inicializarModuloImportarLibroIva = () => {
 
     selector = new SelectorUsuarios('selector-contribuyentes-il', {
         mostrarTablaSeleccionados: true,
+        botonLimpiar: true,
         fuente: 'contribuyentes',
         servicio: 'afip',
         // Lote: no deja elegir los de clave incorrecta (fallarían y acercan el captcha).
@@ -638,8 +638,6 @@ window.inicializarModuloImportarLibroIva = () => {
             contribuyentes: [{ ...c, ...respuesta }], soloVistaPrevia: lote.soloVistaPrevia, reintento: true
         });
     }
-
-    btnLimpiar.addEventListener('click', () => selector.limpiarSeleccion());
 
     // Mensaje del modal de confirmación: período, clientes y lo que se BORRA en ARCA.
     function textoPeriodo(periodo) {

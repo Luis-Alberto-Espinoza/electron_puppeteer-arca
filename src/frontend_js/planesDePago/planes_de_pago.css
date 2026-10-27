@@ -500,34 +500,6 @@
 }
 
 /* ========================================
-   LIMPIAR SELECCIÓN
-   ======================================== */
-.planes-controles {
-    margin-top: 16px;
-    margin-bottom: 16px;
-    display: flex;
-    justify-content: center;
-}
-
-.planes-btn-limpiar-seleccion {
-    background: var(--v-error-bg, #3a1a1a);
-    color: var(--v-txt-error, #ff6b6b);
-    border: 1px solid #742a2a;
-    padding: 9px 20px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-
-.planes-btn-limpiar-seleccion:hover {
-    background: #5a2a2a;
-    color: #ffffff;
-    border-color: #ff6b6b;
-}
-
-/* ========================================
    BOTÓN PROCESAR
    ======================================== */
 .planes-procesar {
