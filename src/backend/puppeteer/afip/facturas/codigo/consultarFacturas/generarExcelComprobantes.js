@@ -17,13 +17,38 @@
  *
  * Las columnas de desglose (neto, IVAs, otros tributos) pueden venir vacías:
  * el parser solo las completa si el comprobante las trae.
+ *
+ * ExcelJS + hoja de estilos única (tablasPdf/motor/utils/estilosExcel.js).
+ * Ojo: notaCreditoDebito/service/leerExcelComprobantes.js LEE este archivo por
+ * nombre de hoja y de encabezado (fila 1): no agregar títulos arriba del encabezado.
  */
 
 const path = require('path');
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
+const estilos = require('../../../../../tablasPdf/motor/utils/estilosExcel.js');
 const { getDownloadPath } = require('../../../../../utils/fileManager.js');
 
-function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde, periodoHasta) {
+// Columnas de montos que el estilo común no reconoce por nombre ("IVA 21%" con
+// 210 parecería un código): se marcan como monto antes de estilizar.
+const PATRON_IVA = /^IVA /;
+
+// Arma una hoja con encabezado en la fila 1 (claves del primer objeto) y le da el estilo común.
+function hojaDesdeFilas(wb, nombre, filas) {
+    const hoja = wb.addWorksheet(nombre);
+    const encabezados = Object.keys(filas[0]);
+    hoja.addRow(encabezados);
+    filas.forEach(f => {
+        const fila = hoja.addRow(encabezados.map(h => f[h]));
+        encabezados.forEach((h, i) => {
+            if (PATRON_IVA.test(h) && typeof f[h] === 'number') fila.getCell(i + 1).numFmt = estilos.FMT_MONTO;
+        });
+    });
+    estilos.estilizarTabla(hoja);
+    estilos.ajustarImpresion(hoja);
+    return hoja;
+}
+
+async function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde, periodoHasta) {
     const filas = comprobantes.map(c => ({
         'Tipo de Comprobante':       c.tipoComprobante || '',
         'Punto de Venta':            c.puntoDeVenta || '',
@@ -76,50 +101,19 @@ function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde,
         });
     }
 
-    const hoja = XLSX.utils.json_to_sheet(filas);
-
-    // Formato de número con 2 decimales (SIN $) para todas las columnas
-    // monetarias: van del índice 12 (Importe Neto Gravado) al 20 (Total).
-    // (Se corrieron +4 al insertar Vto. Pago + Condición Venta + Cond. IVA x2.)
-    const COL_MONTO_DESDE = 12;
-    const COL_MONTO_HASTA = 20;
-    const rango = XLSX.utils.decode_range(hoja['!ref']);
-    for (let r = rango.s.r + 1; r <= rango.e.r; r++) {
-        for (let c = COL_MONTO_DESDE; c <= COL_MONTO_HASTA; c++) {
-            const celda = hoja[XLSX.utils.encode_cell({ r, c })];
-            if (celda && typeof celda.v === 'number') {
-                celda.z = '#,##0.00';
-            }
-        }
+    const wb = new ExcelJS.Workbook();
+    if (filas.length > 0) {
+        const hoja = hojaDesdeFilas(wb, 'Comprobantes', filas);
+        // Fila TOTAL (la última): destacada.
+        const filaTotal = hoja.getRow(hoja.rowCount);
+        filaTotal.eachCell({ includeEmpty: true }, celda => {
+            celda.fill = estilos.FILL_RESALTADO;
+            celda.font = { bold: true };
+        });
+    } else {
+        // Sin comprobantes: hoja vacía, como antes.
+        wb.addWorksheet('Comprobantes');
     }
-
-    // Anchos de columna razonables
-    hoja['!cols'] = [
-        { wch: 28 }, // Tipo de Comprobante
-        { wch: 14 }, // Punto de Venta
-        { wch: 16 }, // Comprobante Nro
-        { wch: 22 }, // Período Desde
-        { wch: 22 }, // Período Hasta
-        { wch: 16 }, // Fecha de Emisión
-        { wch: 14 }, // CUIT
-        { wch: 32 }, // Razón Social
-        { wch: 22 }, // Fecha de Vto. para el Pago
-        { wch: 28 }, // Condición de Venta
-        { wch: 24 }, // Cond. IVA Emisor
-        { wch: 24 }, // Cond. IVA Receptor
-        { wch: 20 }, // Importe Neto Gravado
-        { wch: 12 }, // IVA 0%
-        { wch: 12 }, // IVA 2.5%
-        { wch: 12 }, // IVA 5%
-        { wch: 12 }, // IVA 10.5%
-        { wch: 12 }, // IVA 21%
-        { wch: 12 }, // IVA 27%
-        { wch: 20 }, // Importe Otros Tributos
-        { wch: 14 }  // Total
-    ];
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, hoja, 'Comprobantes');
 
     // === Hoja 2: Descripciones ===
     // Una factura puede tener varios ítems. Para no romper "1 fila = 1
@@ -147,17 +141,7 @@ function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde,
             });
         });
     });
-    if (filasDesc.length > 0) {
-        const hojaDesc = XLSX.utils.json_to_sheet(filasDesc);
-        hojaDesc['!cols'] = [{ wch: 14 }, { wch: 16 }, { wch: 70 }, { wch: 16 }];
-        // Formato 2 decimales a la columna Importe (índice 3).
-        const rangoD = XLSX.utils.decode_range(hojaDesc['!ref']);
-        for (let r = rangoD.s.r + 1; r <= rangoD.e.r; r++) {
-            const celda = hojaDesc[XLSX.utils.encode_cell({ r, c: 3 })];
-            if (celda && typeof celda.v === 'number') celda.z = '#,##0.00';
-        }
-        XLSX.utils.book_append_sheet(wb, hojaDesc, 'Descripciones');
-    }
+    if (filasDesc.length > 0) hojaDesdeFilas(wb, 'Descripciones', filasDesc);
 
     // Ruta de destino (misma estructura que consulta de deuda)
     const destinoDir = getDownloadPath(basePath, {
@@ -175,7 +159,7 @@ function generarExcelComprobantes(comprobantes, usuario, basePath, periodoDesde,
     const nombre = `consulta_comprobantes_${usuario.cuit}_${fmtFecha(periodoDesde)}_a_${fmtFecha(periodoHasta)}_${stamp}.xlsx`;
     const ruta = path.join(destinoDir, nombre);
 
-    XLSX.writeFile(wb, ruta);
+    await wb.xlsx.writeFile(ruta);
 
     return {
         archivoExcel: nombre,

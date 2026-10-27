@@ -138,7 +138,7 @@ async function ejecutarFlujoConsultaComprobantes(page, datos, usuario, basePath)
 
         // 7. Generar Excel
         console.log('🔵 [Flujo] Paso 7: Generando Excel...');
-        const excel = generarExcelComprobantes(
+        const excel = await generarExcelComprobantes(
             comprobantes,
             usuario,
             basePath,

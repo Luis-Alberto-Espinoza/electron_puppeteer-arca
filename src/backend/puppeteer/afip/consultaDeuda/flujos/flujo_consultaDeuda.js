@@ -1,4 +1,5 @@
-const XLSX = require('xlsx');
+const ExcelJS = require('exceljs');
+const estilos = require('../../../../tablasPdf/motor/utils/estilosExcel.js');
 const path = require('path');
 const { getDownloadPath, getFilename } = require('../../../../utils/fileManager.js');
 const fs = require('fs');
@@ -856,19 +857,31 @@ async function generarArchivoExcel(datosTabla, datosPersonales, datosResumen, fi
     infoGeneral.push({ 'Campo': 'Fecha de Consulta', 'Valor': fechaCalculo });
     infoGeneral.push({ 'Campo': 'Total de Registros', 'Valor': datosTabla.totalFilas });
 
-    // Crear hoja de información general
-    const hojaInfoGeneral = XLSX.utils.json_to_sheet(infoGeneral);
-
-    // Aplicar formato de 2 decimales a los valores numéricos
-    const rangoInfo = XLSX.utils.decode_range(hojaInfoGeneral['!ref']);
-    for (let fila = rangoInfo.s.r + 1; fila <= rangoInfo.e.r; fila++) {
-        const direccionCelda = XLSX.utils.encode_cell({ r: fila, c: 1 }); // Columna "Valor"
-        const celda = hojaInfoGeneral[direccionCelda];
-
-        if (celda && typeof celda.v === 'number') {
-            celda.z = '0.00'; // Formato: 2 decimales exactos
+    // Crear hoja de información general (ExcelJS + hoja de estilos única)
+    const workbook = new ExcelJS.Workbook();
+    const hojaInfoGeneral = workbook.addWorksheet('Información General');
+    estilos.estilizarEncabezado(hojaInfoGeneral.addRow(['Campo', 'Valor']));
+    infoGeneral.forEach(({ Campo, Valor }) => {
+        const fila = hojaInfoGeneral.addRow([Campo, Valor]);
+        if (!Campo) return; // línea en blanco
+        const esTitulo = Valor === '' && (Campo.startsWith('===') || Campo === 'CONSULTA DE DEUDA - AFIP');
+        if (esTitulo) {
+            estilos.estilizarTitulo(fila.getCell(1));
+            estilos.estilizarTitulo(fila.getCell(2));
+            return;
         }
-    }
+        estilos.estilizarEtiqueta(fila.getCell(1));
+        fila.getCell(1).border = estilos.BORDE_FINO;
+        const celdaValor = fila.getCell(2);
+        celdaValor.border = estilos.BORDE_FINO;
+        if (typeof Valor === 'number') {
+            // "Total de Registros" es una cantidad; el resto de los números son montos.
+            celdaValor.numFmt = Campo === 'Total de Registros' ? estilos.FMT_ENTERO : estilos.formatoMonto(Valor);
+            celdaValor.alignment = { horizontal: 'right', vertical: 'middle' };
+        }
+    });
+    estilos.autoajustarAnchos(hojaInfoGeneral, 2);
+    estilos.ajustarImpresion(hojaInfoGeneral);
 
     console.log(`   ✅ Hoja 1 creada con ${infoGeneral.length} filas`);
 
@@ -903,31 +916,15 @@ async function generarArchivoExcel(datosTabla, datosPersonales, datosResumen, fi
     });
     console.log(`   Longitud máxima de celda después de truncar: ${maxLength} caracteres`);
 
-    // Crear hoja de detalle de deuda
-    const hojaDetalleDeuda = XLSX.utils.json_to_sheet(datosParaExcel);
+    // Crear hoja de detalle de deuda: Debe/Haber/Saldo los detecta estilizarTabla como montos.
+    const hojaDetalleDeuda = workbook.addWorksheet('Detalle de Deuda');
+    const encabezadosDetalle = ['Detalle', 'Período', 'Impuesto', 'Concepto', 'Subconcepto', 'Descripción', 'Fecha Movimiento', 'Debe', 'Haber', 'Saldo'];
+    hojaDetalleDeuda.addRow(encabezadosDetalle);
+    datosParaExcel.forEach(f => hojaDetalleDeuda.addRow(encabezadosDetalle.map(h => f[h])));
+    estilos.estilizarTabla(hojaDetalleDeuda);
+    estilos.ajustarImpresion(hojaDetalleDeuda);
 
-    // Aplicar formato de 2 decimales a las columnas numéricas
-    const rango = XLSX.utils.decode_range(hojaDetalleDeuda['!ref']);
-    const columnasNumericas = [7, 8, 9]; // Debe, Haber, Saldo
-
-    for (let fila = rango.s.r + 1; fila <= rango.e.r; fila++) {
-        columnasNumericas.forEach(col => {
-            const direccionCelda = XLSX.utils.encode_cell({ r: fila, c: col });
-            const celda = hojaDetalleDeuda[direccionCelda];
-
-            if (celda && typeof celda.v === 'number') {
-                celda.z = '0.00'; // Formato: 2 decimales exactos
-            }
-        });
-    }
-
-    console.log(`   ✅ Columnas numéricas con formato de 2 decimales (Debe, Haber, Saldo)`);
     console.log(`   ✅ Hoja 2 creada con ${datosTabla.filas.length} registros`);
-
-    // ========== CREAR LIBRO DE TRABAJO ==========
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, hojaInfoGeneral, 'Información General');
-    XLSX.utils.book_append_sheet(workbook, hojaDetalleDeuda, 'Detalle de Deuda');
 
     // Determinar ruta del archivo
     const downloadPath = getDownloadPath(basePath, {
@@ -959,7 +956,7 @@ async function generarArchivoExcel(datosTabla, datosPersonales, datosResumen, fi
     const rutaCompleta = path.join(downloadPath, nombreArchivo);
 
     // Guardar archivo
-    XLSX.writeFile(workbook, rutaCompleta);
+    await workbook.xlsx.writeFile(rutaCompleta);
 
     console.log(`   ✅ Archivo Excel generado: ${nombreArchivo}`);
     console.log(`   Ruta: ${rutaCompleta}`);

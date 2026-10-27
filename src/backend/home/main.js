@@ -377,7 +377,7 @@ app.whenReady().then(async () => {
                 });
                 if (canceled || !filePath) return { success: false, canceled: true };
 
-                fs.writeFileSync(filePath, generarPlantillaClientes());
+                fs.writeFileSync(filePath, await generarPlantillaClientes());
                 return { success: true, filePath };
             } catch (error) {
                 console.error('Error generando el modelo de carga:', error);
@@ -419,7 +419,7 @@ app.whenReady().then(async () => {
                 });
                 if (canceled || !filePath) return { success: false, canceled: true };
 
-                fs.writeFileSync(filePath, generarExcelContribuyentes(contribuyentes, grupos));
+                fs.writeFileSync(filePath, await generarExcelContribuyentes(contribuyentes, grupos));
                 return { success: true, filePath, total: contribuyentes.length };
             } catch (error) {
                 console.error('Error exportando clientes a Excel:', error);
