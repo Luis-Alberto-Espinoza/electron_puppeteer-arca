@@ -6,6 +6,8 @@ const planesDePagoManager = require('./planesDePagoManager.js');
 const consolidadoExcel = require('./consolidadoExcel.js');
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { crearCorteCaptchaAfip } = require('../corteCaptchaAfip.js');
+const { RESULTADO_CANCELADO } = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
+const { RESULTADO_NAVEGADOR_CERRADO } = require('../../comun/navegadorCerrado.js');
 
 /**
  * Credenciales AFIP del representante, resueltas por el modelo plano (resolverAcceso).
@@ -215,9 +217,20 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
         };
         const corte = crearCorteCaptchaAfip();
         const clientes = []; // [{ representante, cuitConsulta, success, planes, message }]
+        // "⏹ Cancelar" del lanzador: el representante en curso y los que faltan quedan cancelados
+        let cancelado = null;
+        // Las listas del representante cortado se pierden enteras; en el registro solo
+        // se avisa de los que no habían terminado (`terminados`)
+        const cancelar = (representante, cuits, terminados = new Set()) => cuits.forEach(cuitConsulta => {
+            clientes.push({ representante, cuitConsulta, success: false, planes: [], ...cancelado });
+            if (!terminados.has(cuitConsulta.cuit)) {
+                enviar({ tipo: 'resultado', cuit: cuitConsulta.cuit, alias: cuitConsulta.alias, estado: 'cancelado', mensaje: cancelado.message });
+            }
+        });
 
         for (let r = 0; r < loteRepresentantes.length; r++) {
             const { representante, cuitsAProcesar } = loteRepresentantes[r];
+            if (cancelado) { cancelar(representante, cuitsAProcesar); continue; }
             enviar({
                 tipo: 'representante-inicio',
                 representanteNombre: representante.nombre,
@@ -237,12 +250,31 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                 const credenciales = await credencialesRepresentante(repo, representante);
                 if (!credenciales) { fallarTodos(`No se encontraron las credenciales de ${representante.nombre}`); continue; }
 
+                const terminados = new Set();
                 const resultado = await planesDePagoManager.listarPlanesLote(
                     credenciales, representante, cuitsAProcesar,
-                    (progreso) => enviar({ ...progreso, representanteNombre: representante.nombre }),
+                    // Tras cancelar, el flujo sigue por detrás hasta morir: sus avisos no van
+                    (progreso) => {
+                        if (cancelado) return;
+                        if (progreso.tipo === 'resultado') terminados.add(progreso.cuit);
+                        enviar({ ...progreso, representanteNombre: representante.nombre });
+                    },
                     { visible, estados }
                 );
+                if (resultado.error === RESULTADO_CANCELADO.error) {
+                    cancelado = { error: resultado.error, message: resultado.message };
+                    cancelar(representante, cuitsAProcesar, terminados);
+                    continue;
+                }
                 corte.registrar(resultado);
+                // Cerró el navegador durante el login: amarillo, no fallo
+                if (resultado.error === RESULTADO_NAVEGADOR_CERRADO.error) {
+                    cuitsAProcesar.forEach(cuitConsulta => {
+                        clientes.push({ representante, cuitConsulta, planes: [], ...RESULTADO_NAVEGADOR_CERRADO });
+                        enviar({ tipo: 'resultado', cuit: cuitConsulta.cuit, alias: cuitConsulta.alias, estado: 'cerrado', mensaje: RESULTADO_NAVEGADOR_CERRADO.message });
+                    });
+                    continue;
+                }
                 if (!resultado.success) { fallarTodos(resultado.message); continue; }
                 resultado.resultados.forEach(res => clientes.push({ representante, ...res }));
             } catch (error) {
@@ -270,9 +302,29 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
         const resultadosGlobales = [];
         // Un login por representante: si AFIP pide captcha en uno, se saltean los que siguen.
         const corte = crearCorteCaptchaAfip();
+        // "⏹ Cancelar" del lanzador: los CUITs sin terminar del representante en curso y
+        // todos los de los que faltan quedan cancelados (amarillo, no fallo)
+        let cancelado = null;
+        // El resumen final cuenta clientes (CUITs), no representantes
+        const cuenta = { exito: 0, error: 0, cancelado: 0, cerrado: 0 };
+        const contar = (estado, n = 1) => { if (estado in cuenta) cuenta[estado] += n; };
+        // Un aviso 'resultado' por CUIT con estado cancelado / cerrado (amarillo, no fallo)
+        const avisarCuits = (cuits, estado, mensaje) => {
+            contar(estado, cuits.length);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                cuits.forEach(c => mainWindow.webContents.send('planesDePago:update', {
+                    tipo: 'resultado', cuit: c.cuit, alias: c.alias, estado, mensaje
+                }));
+            }
+        };
+        const cancelar = (representante, cuits) => {
+            resultadosGlobales.push({ representante, success: false, ...cancelado, resultados: [] });
+            avisarCuits(cuits, 'cancelado', cancelado.message);
+        };
 
         for (let r = 0; r < loteRepresentantes.length; r++) {
             const { representante, cuitsAProcesar } = loteRepresentantes[r];
+            if (cancelado) { cancelar(representante, cuitsAProcesar); continue; }
 
             console.log(`[PlanesDePago Handler Lote] Representante ${r + 1}/${loteRepresentantes.length}: ${representante.nombre}`);
 
@@ -297,6 +349,7 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
 
                 if (!credenciales) {
                     const errorMsg = `No se encontraron las credenciales de ${representante.nombre}`;
+                    contar('error', cuitsAProcesar.length);
                     resultadosGlobales.push({
                         representante,
                         success: false,
@@ -318,8 +371,15 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
 
                 const downloadsPath = app.getPath('downloads');
 
-                // Callback de progreso por CUIT (reenvía al frontend)
+                // Callback de progreso por CUIT (reenvía al frontend).
+                // Tras cancelar, el flujo sigue por detrás hasta morir: sus avisos no van.
+                const terminados = new Set();
                 const onProgreso = (progresoDatos) => {
+                    if (cancelado) return;
+                    if (progresoDatos.tipo === 'resultado') {
+                        terminados.add(progresoDatos.cuit);
+                        contar(progresoDatos.estado);
+                    }
                     if (mainWindow && !mainWindow.isDestroyed()) {
                         mainWindow.webContents.send('planesDePago:update', {
                             ...progresoDatos,
@@ -338,12 +398,36 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                     onProgreso,
                     { visible, estados }
                 );
+                if (resultado.error === RESULTADO_CANCELADO.error) {
+                    cancelado = { error: resultado.error, message: resultado.message };
+                    cancelar(representante, cuitsAProcesar.filter(c => !terminados.has(c.cuit)));
+                    continue;
+                }
                 corte.registrar(resultado);
 
                 resultadosGlobales.push({
                     representante,
                     ...resultado
                 });
+
+                // Sin lote (login fallido o navegador cerrado en el login): ningún CUIT avisó
+                if (!resultado.success) {
+                    if (resultado.error === RESULTADO_NAVEGADOR_CERRADO.error) {
+                        avisarCuits(cuitsAProcesar, 'cerrado', resultado.message);
+                    } else {
+                        contar('error', cuitsAProcesar.length);
+                        if (mainWindow && !mainWindow.isDestroyed()) {
+                            mainWindow.webContents.send('planesDePago:update', {
+                                tipo: 'representante-error',
+                                representanteId: representante.id,
+                                representanteNombre: representante.nombre,
+                                representanteCuit: representante.cuit,
+                                estado: 'error',
+                                mensaje: resultado.message
+                            });
+                        }
+                    }
+                }
 
                 // Notificar fin de representante
                 if (mainWindow && !mainWindow.isDestroyed()) {
@@ -358,6 +442,7 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
 
             } catch (error) {
                 console.error(`[PlanesDePago Handler Lote] Error representante ${representante.nombre}:`, error.message);
+                contar('error', cuitsAProcesar.length);
                 resultadosGlobales.push({
                     representante,
                     success: false,
@@ -398,8 +483,10 @@ function setupPlanesDePagoHandlers(ipcMain, mainWindow, app) {
                 tipo: 'finalizado',
                 estado: 'finalizado',
                 totalRepresentantes: loteRepresentantes.length,
-                exitosos: resultadosGlobales.filter(r => r.success).length,
-                fallidos: resultadosGlobales.filter(r => !r.success).length,
+                exitosos: cuenta.exito,
+                fallidos: cuenta.error,
+                cancelados: cuenta.cancelado,
+                cerrados: cuenta.cerrado,
                 consolidado: consolidado && consolidado.success ? {
                     path: consolidado.path,
                     nombre: consolidado.nombre,

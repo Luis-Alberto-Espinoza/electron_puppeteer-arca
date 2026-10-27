@@ -72,20 +72,10 @@
                 </div>
             </div>
         </div>
-        <label class="ui-switch">
-            <input type="checkbox" id="chk-visible-planes" checked>
-            Mostrar navegador
-        </label>
-        <!-- Dos caminos: "Ver planes" lista primero y deja elegir (2 vueltas);
-             "Descargar directo" baja todo lo que pasa el filtro (1 vuelta). -->
-        <div class="planes-botones">
-            <button id="btnVerPlanes" class="btn planes-btn-obtener" disabled>
-                🔍 Ver planes y elegir
-            </button>
-            <button id="btnObtenerDatos" class="btn planes-btn-obtener planes-btn-secundario" disabled>
-                ▶ Descargar directo
-            </button>
-        </div>
+        <!-- Mostrar navegador + dos caminos (↔ Cancelar): lo llena componentes/lanzadorAutomatizacion.
+             "Ver planes" lista primero y deja elegir (2 vueltas); "Descargar directo" baja todo
+             lo que pasa el filtro (1 vuelta). -->
+        <div id="lanzadorPlanes"></div>
     </div>
 
     <!-- Selección de planes (resultado de "Ver planes") -->
@@ -99,11 +89,8 @@
             </span>
         </div>
         <div id="contenedorSeleccionPlanes"></div>
-        <div class="planes-sel-pie">
-            <button id="btnDescargarSeleccionPlanes" class="btn planes-btn-obtener" disabled>
-                ▶ Descargar seleccionados
-            </button>
-        </div>
+        <!-- 2ª vuelta (↔ Cancelar): sin switch, usa el navegador de "Ver planes" -->
+        <div id="lanzadorPlanesSeleccion"></div>
     </div>
 
     <!-- Panel de resultados -->

@@ -28,7 +28,7 @@
  */
 
 const path = require('path');
-const { carpetaPlan, tagArchivo, fechaArchivo } = require('../../../../afip/planesDePago/estadoPlan.js');
+const { carpetaPlan, nombreArchivoPlan } = require('../../../../afip/planesDePago/estadoPlan.js');
 
 const TIMEOUT_PRINT = 15000;      // printThis espera a que cargue el CSS + 333 ms
 const TIMEOUT_RED_QUIETA = 15000;
@@ -166,7 +166,7 @@ async function ejecutar(page, seccion, plan, cuitConsulta, downloadsPath, filasE
         const downloadDir = await carpetaPlan(downloadsPath, cuitConsulta, plan);
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         // Nombre con la fecha de PRESENTACIÓN del plan (no la de descarga)
-        const nombre = `${seccion.prefijo}_${cuitLimpio}_Plan${plan.numero || 'SinNumero'}_${tagArchivo(plan)}_${fechaArchivo(plan)}.pdf`;
+        const nombre = nombreArchivoPlan(cuitLimpio, plan, { seccion: seccion.prefijo, extension: 'pdf' });
         const pdfPath = path.join(downloadDir, nombre);
 
         await pestana.pdf({

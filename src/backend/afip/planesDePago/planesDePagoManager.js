@@ -6,6 +6,7 @@ const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_a
 const flujo = require('../../puppeteer/afip/planesDePago/flujos/flujo_planesDePago.js');
 const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 const { app } = require('electron');
+const { RESULTADO_NAVEGADOR_CERRADO, seCerroElNavegador } = require('../../comun/navegadorCerrado.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -69,9 +70,12 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
     if (!downloadsPath) downloadsPath = app.getPath('downloads');
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
+        const seCerro = () => seCerroElNavegador(browser, page);
+
         // 1. Login (una sola vez para este representante)
         console.log('[PlanesDePago Manager Lote] Login...');
         const resultadoLogin = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
+        if (seCerro()) return RESULTADO_NAVEGADOR_CERRADO;
 
         if (!resultadoLogin.success) {
             console.error('[PlanesDePago Manager Lote] Login falló:', resultadoLogin.message);
@@ -89,6 +93,11 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
 
         for (let i = 0; i < cuitsAProcesar.length; i++) {
             const cuitConsulta = cuitsAProcesar[i];
+            // El usuario cerró el navegador: este y los que faltan no se intentan (no es un fallo)
+            if (seCerro()) {
+                cerrarRestantes(cuitsAProcesar.slice(i), resultados, onProgreso);
+                break;
+            }
             console.log(`[PlanesDePago Manager Lote] CUIT ${i + 1}/${cuitsAProcesar.length}: ${cuitConsulta.alias} (${cuitConsulta.cuit})`);
 
             if (onProgreso) {
@@ -104,7 +113,8 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
             }
 
             try {
-                const resultado = await flujo.ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estados });
+                let resultado = await flujo.ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estados });
+                if (!resultado.success && seCerro()) resultado = RESULTADO_NAVEGADOR_CERRADO;
                 resultados.push({ cuitConsulta, ...resultado });
 
                 let downloadDir = resultado.downloadDir || null;
@@ -120,7 +130,7 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
                         alias: cuitConsulta.alias,
                         procesados: i + 1,
                         total: cuitsAProcesar.length,
-                        estado: resultado.success ? 'exito' : 'error',
+                        estado: estadoDe(resultado),
                         mensaje: resultado.message,
                         downloadDir,
                         resumenCliente: resultado.resumenCliente || null,
@@ -129,7 +139,7 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
                 }
 
                 // Volver al home de AFIP para buscar "mis facilidades" de nuevo (para el próximo CUIT)
-                if (i < cuitsAProcesar.length - 1) {
+                if (i < cuitsAProcesar.length - 1 && !seCerro()) {
                     console.log('[PlanesDePago Manager Lote] Navegando al home AFIP para próximo CUIT...');
                     try {
                         await page.goto('https://portalcf.cloud.afip.gob.ar/portal/app/', {
@@ -143,6 +153,10 @@ async function iniciarProcesoLote(credenciales, usuario, cuitsAProcesar, downloa
 
             } catch (error) {
                 console.error(`[PlanesDePago Manager Lote] Error CUIT ${cuitConsulta.cuit}:`, error.message);
+                if (seCerro()) {
+                    cerrarRestantes(cuitsAProcesar.slice(i), resultados, onProgreso);
+                    break;
+                }
                 resultados.push({
                     cuitConsulta,
                     success: false,
@@ -196,7 +210,9 @@ async function listarPlanesLote(credenciales, usuario, cuitsAProcesar, onProgres
     console.log(`[PlanesDePago Manager Listar] ${usuario.nombre}: ${cuitsAProcesar.length} CUIT(s)`);
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
+        const seCerro = () => seCerroElNavegador(browser, page);
         const resultadoLogin = await loginManager.hacerLogin(page, URL_LOGIN_AFIP, credenciales);
+        if (seCerro()) return RESULTADO_NAVEGADOR_CERRADO;
         if (!resultadoLogin.success) {
             return { success: false, error: resultadoLogin.error || 'LOGIN_FAILED', message: resultadoLogin.message };
         }
@@ -204,6 +220,10 @@ async function listarPlanesLote(credenciales, usuario, cuitsAProcesar, onProgres
         const resultados = [];
         for (let i = 0; i < cuitsAProcesar.length; i++) {
             const cuitConsulta = cuitsAProcesar[i];
+            if (seCerro()) {
+                cerrarRestantes(cuitsAProcesar.slice(i), resultados, onProgreso);
+                break;
+            }
             if (onProgreso) {
                 onProgreso({
                     tipo: 'progreso', cuit: cuitConsulta.cuit, alias: cuitConsulta.alias,
@@ -211,17 +231,18 @@ async function listarPlanesLote(credenciales, usuario, cuitsAProcesar, onProgres
                 });
             }
 
-            const r = await flujo.listarPlanes(page, cuitConsulta, { estados });
+            let r = await flujo.listarPlanes(page, cuitConsulta, { estados });
+            if (!r.success && seCerro()) r = RESULTADO_NAVEGADOR_CERRADO;
             resultados.push({ cuitConsulta, ...r });
             if (onProgreso) {
                 onProgreso({
                     tipo: 'resultado', cuit: cuitConsulta.cuit, alias: cuitConsulta.alias,
-                    estado: r.success ? 'exito' : 'error', mensaje: r.message
+                    estado: estadoDe(r), mensaje: r.message
                 });
             }
 
             // Volver al home para el próximo CUIT (igual que el lote de descarga)
-            if (i < cuitsAProcesar.length - 1) {
+            if (i < cuitsAProcesar.length - 1 && !seCerro()) {
                 try {
                     await page.goto('https://portalcf.cloud.afip.gob.ar/portal/app/', { waitUntil: 'networkidle2', timeout: 15000 });
                 } catch (e) {
@@ -236,6 +257,25 @@ async function listarPlanesLote(credenciales, usuario, cuitsAProcesar, onProgres
             resultados
         };
     }, { headless: resolverHeadless(visible) });
+}
+
+// 'cerrado' = el usuario cerró el navegador: se ve en amarillo, no como fallo
+function estadoDe(resultado) {
+    if (resultado.success) return 'exito';
+    return resultado.error === RESULTADO_NAVEGADOR_CERRADO.error ? 'cerrado' : 'error';
+}
+
+// Navegador cerrado a mano: los CUITs que faltaban quedan "Se cerró el navegador antes de terminar"
+function cerrarRestantes(cuits, resultados, onProgreso) {
+    cuits.forEach(cuitConsulta => {
+        resultados.push({ cuitConsulta, ...RESULTADO_NAVEGADOR_CERRADO });
+        if (onProgreso) {
+            onProgreso({
+                tipo: 'resultado', cuit: cuitConsulta.cuit, alias: cuitConsulta.alias,
+                estado: 'cerrado', mensaje: RESULTADO_NAVEGADOR_CERRADO.message
+            });
+        }
+    });
 }
 
 module.exports = { iniciarProceso, iniciarProcesoLote, listarPlanesLote };

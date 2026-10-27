@@ -7,9 +7,10 @@
 
 const ExcelJS = require('exceljs');
 const path = require('path');
-const { getDownloadPathContribuyente } = require('../../cliente/carpetaContribuyente.js');
+const { carpetaPlanesDePago } = require('./estadoPlan.js');
 const estilos = require('../../tablasPdf/motor/utils/estilosExcel.js');
 const { valorCelda } = require('./excelPlan.js');
+const { nombreArchivo: nombreArchivoComun } = require('../../comun/nombreArchivo.js');
 
 const N_COLS = 8;
 
@@ -28,11 +29,12 @@ async function generar(datosResumenPlanes, usuario, cuitConsulta, downloadsPath,
         }
 
         // Carpeta por el OBJETIVO (cuit consultado), no por el representante que
-        // loguea: misma carpeta que los PDF/Excel de cada plan.
-        const downloadDir = await getDownloadPathContribuyente(downloadsPath, cuitConsulta, '', 'archivos_afip');
+        // loguea: Planes_de_Pago/, arriba de Vigentes/ y No_Vigentes/.
+        const downloadDir = await carpetaPlanesDePago(downloadsPath, cuitConsulta);
         const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
         const fechaISO = new Date().toISOString().slice(0, 10);
-        const nombreArchivo = `ResumenCliente_${cuitLimpio}_${fechaISO}.xlsx`;
+        // Regla común: <CUIT>_PlanPago_Resumen_<fecha local>
+        const nombreArchivo = nombreArchivoComun({ servicio: 'PlanPago', cuit: cuitLimpio, detalle: ['Resumen'], extension: 'xlsx' });
         const rutaCompleta = path.join(downloadDir, nombreArchivo);
 
         const wb = new ExcelJS.Workbook();
@@ -204,7 +206,7 @@ function construirHoja(hoja, todos, usuario, cuit, fecha, rangoNoVigentes) {
     }
 
     // --- Pie: nota informativa ---
-    filaUnida(hoja, r, 'Abrir el PDF/Excel de cada plan para ver el detalle de cuotas e intentos de cobro (carpetas Planes_<situación>).');
+    filaUnida(hoja, r, 'Abrir el PDF/Excel de cada plan para ver el detalle de cuotas e intentos de cobro (carpetas Vigentes y No_Vigentes).');
     hoja.getCell(r, 1).font = { italic: true, size: 9, color: { argb: 'FF777777' } };
 
     estilos.autoajustarAnchos(hoja, N_COLS, { minimo: 12 });

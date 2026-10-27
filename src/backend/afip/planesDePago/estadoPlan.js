@@ -2,8 +2,8 @@
 // Situación de un plan según la lista de AFIP ("Vigente", "Plan Caduco",
 // "Plan Cancelado", ...). SIN lista cerrada de estados: lo que no es "Vigente"
 // es "no vigente", diga lo que diga AFIP. Así una bandera nueva no se pierde.
-// De la situación salen la subcarpeta (Planes_Caduco) y el tag del nombre de
-// archivo (CADUCO), para que vigentes y no vigentes no se mezclen.
+// De la situación salen la subcarpeta (Vigentes / No_Vigentes) y el tag del
+// nombre de archivo (CADUCO), para que vigentes y no vigentes no se mezclen.
 // También el rango por fecha de presentación, que filtra solo a los no vigentes.
 
 const path = require('path');
@@ -40,10 +40,30 @@ function fechaArchivo(plan) {
     return m ? `${m[3]}-${m[2]}-${m[1]}` : 'SinFecha';
 }
 
-// <cliente>/archivos_afip/Planes_<Estado>/ (la crea si no existe)
-async function carpetaPlan(downloadsPath, cuit, plan) {
+// Nombre de los archivos de un plan, con la regla común (comun/nombreArchivo.js):
+//   <CUIT>_PlanPago_<N° plan>[_<sección>]_<SITUACIÓN>_<fecha de presentación>.<ext>
+// El PDF propio y el oficial de AFIP de una sección dan el mismo nombre: uno reemplaza al otro.
+function nombreArchivoPlan(cuit, plan, { numero, seccion, extension }) {
+    const partes = [
+        String(cuit).replace(/\D/g, ''), 'PlanPago', numero || (plan && plan.numero) || 'SinNumero',
+        seccion, tagArchivo(plan), fechaArchivo(plan)
+    ].filter(Boolean);
+    return `${partes.join('_')}.${extension}`;
+}
+
+// <cliente>/archivos_afip/Planes_de_Pago/ : todo lo del servicio (resumen incluido)
+async function carpetaPlanesDePago(downloadsPath, cuit) {
     const base = await getDownloadPathContribuyente(downloadsPath, cuit, '', 'archivos_afip');
-    const dir = path.join(base, `Planes_${etiquetaEstado(plan)}`);
+    const dir = path.join(base, 'Planes_de_Pago');
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
+}
+
+// Planes_de_Pago/Vigentes/ o Planes_de_Pago/No_Vigentes/ (la crea si no existe).
+// La situación exacta (CADUCO, CANCELADO...) queda en el nombre del archivo.
+async function carpetaPlan(downloadsPath, cuit, plan) {
+    const base = await carpetaPlanesDePago(downloadsPath, cuit);
+    const dir = path.join(base, esVigente(plan) ? 'Vigentes' : 'No_Vigentes');
     fs.mkdirSync(dir, { recursive: true });
     return dir;
 }
@@ -83,4 +103,4 @@ function describirRango(rango) {
     return null;
 }
 
-module.exports = { esVigente, etiquetaEstado, tagArchivo, fechaArchivo, carpetaPlan, dentroDelRango, describirRango };
+module.exports = { esVigente, etiquetaEstado, tagArchivo, fechaArchivo, nombreArchivoPlan, carpetaPlanesDePago, carpetaPlan, dentroDelRango, describirRango };

@@ -9,7 +9,7 @@
  */
 
 const path = require('path');
-const { carpetaPlan, tagArchivo, fechaArchivo } = require('../../../../afip/planesDePago/estadoPlan.js');
+const { carpetaPlan, nombreArchivoPlan } = require('../../../../afip/planesDePago/estadoPlan.js');
 const { launchBrowser } = require('../../../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 const { parseNumero } = require('../../../../afip/planesDePago/datosResumenBuilder.js');
 const { armarSubtitulo } = require('../../../../afip/planesDePago/excelPlan.js');
@@ -22,7 +22,6 @@ async function ejecutar(modelo, seccion, plan, cuitConsulta, downloadsPath) {
     const cuitLimpio = String(cuitConsulta).replace(/-/g, '');
     const fechaDescarga = new Date().toISOString().slice(0, 10);
     // Nombre con la fecha de PRESENTACIÓN del plan; el subtítulo sigue con la de consulta
-    const base = `${seccion.prefijo}_${cuitLimpio}_Plan${numeroPlan}_${tagArchivo(plan)}_${fechaArchivo(plan)}`;
     const titulo = `${seccion.etiqueta} - Plan N° ${numeroPlan}`;
     const subtitulo = armarSubtitulo(modelo.cabecera, cuitLimpio, fechaDescarga, plan.estado);
 
@@ -30,7 +29,7 @@ async function ejecutar(modelo, seccion, plan, cuitConsulta, downloadsPath) {
 
     let tempBrowser = null;
     try {
-        const pdfNombre = `${base}.pdf`;
+        const pdfNombre = nombreArchivoPlan(cuitLimpio, plan, { numero: numeroPlan, seccion: seccion.prefijo, extension: 'pdf' });
         const pdfPath = path.join(downloadDir, pdfNombre);
         tempBrowser = await launchBrowser({ headless: 'new' });
         const tempPage = await tempBrowser.newPage();

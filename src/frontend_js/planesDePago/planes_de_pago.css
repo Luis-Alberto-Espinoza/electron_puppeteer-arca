@@ -583,47 +583,6 @@
     opacity: 0.45;
 }
 
-.planes-btn-obtener {
-    padding: 14px 40px;
-    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-    color: var(--v-texto, #1a1a2e);
-    border: none;
-    border-radius: 8px;
-    font-size: 1.05rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s;
-    box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);
-    width: 100%;
-    max-width: 400px;
-}
-
-.planes-btn-obtener:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(67, 233, 123, 0.4);
-}
-
-.planes-btn-obtener:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-}
-
-/* "Ver planes y elegir" + "Descargar directo" */
-.planes-botones {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 12px;
-}
-
-.planes-btn-secundario {
-    background: transparent;
-    color: var(--v-texto, #43e97b);
-    border: 2px solid rgba(67, 233, 123, 0.6);
-}
-
 /* ========================================
    SELECCIÓN DE PLANES (1ª vuelta)
    ======================================== */
@@ -726,10 +685,6 @@
     opacity: 0.8;
 }
 
-.planes-sel-pie {
-    text-align: center;
-    margin-top: 6px;
-}
 
 /* ========================================
    RESULTADOS
@@ -758,6 +713,39 @@
     color: var(--v-txt-error, #ff6b6b);
     border-left: 3px solid #ff6b6b;
 }
+
+/* ⏹ Cancelar del lanzador o navegador cerrado a mano: no es un fallo */
+.planes-resultado-cancelado,
+.planes-resultado-cerrado {
+    background: var(--v-warn-bg);
+    color: var(--v-txt-warn);
+    border-left: 3px solid var(--v-txt-warn);
+}
+
+/* Resumen final: bloque aparte del registro, con la letra del registro
+   (el componente archivoResultado trae letra fija chica: se agranda solo acá) */
+.planes-resumen-final {
+    margin-top: 24px;
+    padding: 16px 20px;
+    border-top: 2px solid var(--v-borde);
+    background: var(--v-panel);
+    border-radius: 6px;
+    font-size: 0.9rem;
+}
+.planes-resumen-final-titulo {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+.planes-resumen-final-cuenta {
+    font-weight: 600;
+    margin-bottom: 12px;
+}
+.planes-resumen-final .ar-bloque { font-size: 1em; margin: 0; }
+.planes-resumen-final .ar-titulo { font-size: 0.9em; }
+.planes-resumen-final .ar-nombre { font-size: 1em; }
+.planes-resumen-final .ar-carpeta { font-size: 0.85em; }
+.planes-resumen-final .ar-acciones .ar-btn { font-size: 0.85em; }
 
 .planes-resultado-finalizado {
     background: var(--v-panel, #16213e);
@@ -824,6 +812,12 @@
     color: var(--v-texto, #c0c0c0);
     border-color: rgba(192, 192, 192, 0.4);
     font-style: italic;
+}
+
+.planes-chip-cancelado {
+    color: var(--v-txt-warn);
+    border-color: var(--v-txt-warn);
+    font-weight: 600;
 }
 
 .planes-chip-error {

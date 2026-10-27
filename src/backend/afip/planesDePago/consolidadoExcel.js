@@ -33,7 +33,8 @@ async function generar(resultadosGlobales, downloadsPath) {
         const fechaArg = formatearFechaArg(fechaHoy);
 
         const carpetaDestino = getConsolidadoAfipPath(downloadsPath, 'planes_de_pago');
-        const nombreArchivo = `Resumen_PlanesDePago_${fechaStr}.xlsx`;
+        // Regla común sin CUIT adelante: junta a varios clientes (uno por día; las corridas se suman)
+        const nombreArchivo = `PlanPago_Consolidado_${fechaStr}.xlsx`;
         const rutaCompleta = path.join(carpetaDestino, nombreArchivo);
 
         const filasPorCliente = [];

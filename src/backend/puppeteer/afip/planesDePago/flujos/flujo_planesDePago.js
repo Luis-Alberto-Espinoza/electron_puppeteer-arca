@@ -3,7 +3,7 @@
 // → por cada plan, además: Plan de Pago / Oblig. Impositivas / Oblig. Previsionales → leer tabla (paso_8)
 //   → PDF oficial de AFIP (paso_8b); si falla, PDF propio (paso_9)
 // → un Excel por plan con una hoja por sección (excelPlan)
-// Cada plan va a la subcarpeta de su situación (Planes_Vigente, Planes_Caduco...: estadoPlan)
+// Cada plan va a Planes_de_Pago/Vigentes o Planes_de_Pago/No_Vigentes (estadoPlan)
 
 const paso_1_seleccionarCuit = require('../codigoXpagina/paso_1_seleccionarCuit.js');
 const paso_2_obtenerPlanesVigentes = require('../codigoXpagina/paso_2_obtenerPlanesVigentes.js');
@@ -18,9 +18,8 @@ const datosResumenBuilder = require('../../../../afip/planesDePago/datosResumenB
 const resumenClienteExcel = require('../../../../afip/planesDePago/resumenClienteExcel.js');
 const validarConsolidado = require('../../../../afip/planesDePago/validarConsolidado.js');
 const excelPlan = require('../../../../afip/planesDePago/excelPlan.js');
-const { carpetaPlan, esVigente, describirRango } = require('../../../../afip/planesDePago/estadoPlan.js');
+const { carpetaPlan, carpetaPlanesDePago, esVigente, describirRango } = require('../../../../afip/planesDePago/estadoPlan.js');
 
-const { getDownloadPathContribuyente } = require('../../../../cliente/carpetaContribuyente.js');
 
 const URL_SEGUIMIENTO = 'https://serviciossegsoc.afip.gob.ar/tramites_con_clave_fiscal/MisFacilidadesNet/app/contribuyente/seguimiento_presentacion.aspx';
 
@@ -311,8 +310,8 @@ async function ejecutarFlujo(page, usuario, cuitConsulta, downloadsPath, { estad
             message: `Procesados ${exitosos}/${planes.length} ${queSeBusco}${sufijoRango} para ${cuitConsulta.alias}`,
             cuitConsulta,
             rangoNoVigentes,
-            // Raíz del cliente (los planes están en subcarpetas por situación)
-            downloadDir: await getDownloadPathContribuyente(downloadsPath, cuitConsulta.cuit, '', 'archivos_afip'),
+            // Planes_de_Pago/ del cliente (adentro: Vigentes/ y No_Vigentes/)
+            downloadDir: await carpetaPlanesDePago(downloadsPath, cuitConsulta.cuit),
             planes: resultadosPlanes,
             resumenCliente,
             resumenPlanes: resultadosPlanes.map(resumirPlanParaUI),
