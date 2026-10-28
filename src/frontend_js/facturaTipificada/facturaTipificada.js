@@ -154,17 +154,8 @@ function aplicarModoNota(tipoNota) {
     const picker = document.getElementById('seccionNotasPicker');
     if (picker) picker.style.display = esNota ? 'block' : 'none';
 
-    // Etiqueta del botón Generar según el modo.
-    const btnGenerar = document.getElementById('btnGenerar');
-    if (btnGenerar) {
-        if (esNota) {
-            btnGenerar.innerHTML = '🧾 Generar Nota(s)';
-        } else {
-            btnGenerar.innerHTML = '🧾 Generar <span id="contadorFacturas">1</span> Factura(s)';
-        }
-    }
-    const btnProbar = document.getElementById('btnProbar');
-    if (btnProbar) btnProbar.textContent = esNota ? '🧪 Probar 1ra nota' : '🧪 Probar 1ra factura';
+    // Etiqueta de los botones del lanzador según el modo.
+    actualizarTextosLanzador();
 
     if (esNota) {
         cargarExcelsParaNotas();
@@ -448,22 +439,12 @@ async function inicializarFacturasTipificadas() {
         // Agregar la primera factura
         agregarFactura();
 
-        // Configurar listener para eventos de progreso
-        if (window.electronAPI && window.electronAPI.facturaTipificada && window.electronAPI.facturaTipificada.onProgreso) {
-            window.electronAPI.facturaTipificada.onProgreso((datos) => {
-                console.log('🔄 Progreso recibido:', datos);
-
-                // Actualizar barra de progreso
-                if (datos.actual && datos.total) {
-                    actualizarBarraProgreso(datos.actual, datos.total);
-                }
-
-                // Actualizar estado del item
-                if (datos.numeroFactura && datos.status) {
-                    actualizarItemProgreso(datos.numeroFactura, datos.status, datos.mensaje || datos.descripcion);
-                }
+        // Qué está haciendo, para la rueda (contrato de componentes/rueda).
+        if (window.electronAPI?.facturaTipificada?.onFacturaTipificadaUpdate && !window._ruedaTipificadaEscuchando) {
+            window._ruedaTipificadaEscuchando = true;
+            window.electronAPI.facturaTipificada.onFacturaTipificadaUpdate((aviso) => {
+                if (window.ruedaTrabajando) window.ruedaTrabajando.recibirAviso(aviso);
             });
-            console.log('✅ Listener de progreso configurado');
         }
 
         console.log('✅ Módulo de Facturas Tipificadas iniciado correctamente');
@@ -785,31 +766,22 @@ function inicializarEventListeners() {
         btnAgregarFacturaDistinta.addEventListener('click', guardarFacturaDistinta);
     }
 
-    // Botón cancelar
-    const btnCancelar = document.getElementById('btnCancelar');
-    if (btnCancelar) {
-        btnCancelar.addEventListener('click', cancelarFormulario);
-    }
+    // Generar / Probar / ⏹ Cancelar, 🧹 Limpiar y ✖ Descartar: el lanzador.
+    crearLanzador();
 
-    // Botón generar (no es submit: validamos a mano para no bloquear cuando
-    // ya hay facturas distintas guardadas y el form quedó en blanco).
-    const btnGenerar = document.getElementById('btnGenerar');
-    if (btnGenerar) {
-        btnGenerar.addEventListener('click', () => { modoPruebaPedido = false; manejarGenerar(); });
-    }
-    const btnProbar = document.getElementById('btnProbar');
-    if (btnProbar) {
-        btnProbar.addEventListener('click', () => { modoPruebaPedido = true; manejarGenerar(); });
-    }
-
-    // Enter dentro del form no debe recargar la página: lo enrutamos a generar.
+    // Enter dentro del form no debe recargar la página. Tampoco genera: emitir
+    // comprobantes reales pasa siempre por el botón y su modal.
     const form = document.getElementById('formFacturaTipificada');
     if (form) {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            modoPruebaPedido = false;
-            manejarGenerar();
-        });
+        form.addEventListener('submit', (e) => e.preventDefault());
+        // Cambiar un dato deja sin efecto "Generar las restantes". El switch del
+        // lanzador y la caja de resultado están adentro del form: no cuentan.
+        const alCambiar = (e) => {
+            if (e.target.closest('#lanzadorTipificada, #areaResultados')) return;
+            olvidarRestantes();
+        };
+        form.addEventListener('input', alCambiar);
+        form.addEventListener('change', alCambiar);
     }
 }
 
@@ -1073,6 +1045,7 @@ function agregarLineaAFactura(numeroFactura) {
 function eliminarFactura(numeroFactura) {
     const factura = document.querySelector(`.factura-item[data-factura="${numeroFactura}"]`);
     if (factura) {
+        olvidarRestantes();
         factura.remove();
         delete contadoresLineasPorFactura[numeroFactura];
         actualizarContadorFacturas();
@@ -1086,6 +1059,7 @@ function eliminarFactura(numeroFactura) {
 function eliminarLineaDeFactura(numeroFactura, numeroLinea) {
     const linea = document.querySelector(`.linea-detalle[data-factura="${numeroFactura}"][data-linea="${numeroLinea}"]`);
     if (linea) {
+        olvidarRestantes();
         linea.remove();
         console.log(`✅ Línea #${numeroLinea} eliminada de Factura #${numeroFactura}`);
     }
@@ -1096,12 +1070,7 @@ function eliminarLineaDeFactura(numeroFactura, numeroLinea) {
  * Cuenta los comprobantes ya guardados en facturas distintas + los del form actual.
  */
 function actualizarContadorFacturas() {
-    const enForm = document.querySelectorAll('.factura-item').length;
-    const enGrupos = grupos.reduce((sum, g) => sum + (g.datos.facturas?.length || 0), 0);
-    const contador = document.getElementById('contadorFacturas');
-    if (contador) {
-        contador.textContent = enForm + enGrupos;
-    }
+    actualizarTextosLanzador();
 }
 
 /**
@@ -1124,9 +1093,11 @@ function actualizarVisibilidadAlicuotas() {
  * distintas ya guardadas.
  */
 function limpiarFormulario() {
+    emitidasRecien = 0;
+    olvidarRestantes();
     document.getElementById('formFacturaTipificada').reset();
     document.getElementById('areaResultados').classList.add('contenido-oculto');
-    document.getElementById('areaProgreso').classList.add('contenido-oculto');
+    lanzador?.refrescar(); // ✖ Descartar ya no tiene qué descartar
 
     // Limpiar comprobantes
     contadorFacturas = 0;
@@ -1151,35 +1122,179 @@ function limpiarFormulario() {
 /**
  * Cancela el formulario y limpia TODO (incluida la lista de facturas distintas).
  */
-function cancelarFormulario() {
-    if (confirm('¿Está seguro que desea cancelar? Se perderán los datos ingresados.')) {
+async function cancelarFormulario() {
+    const ok = await showConfirmModal({
+        title: 'Limpiar formulario',
+        icon: '🧹',
+        confirmText: 'Limpiar',
+        message: 'Se borran los datos cargados y las facturas distintas guardadas.\n\n¿Desea continuar?'
+    });
+    if (ok) {
         grupos = [];
         grupoEnEdicion = null;
         renderGruposGuardados();
         limpiarFormulario();
+        irAlPrincipio();
     }
+}
+
+// ========================================
+// LANZADOR (componentes/lanzadorAutomatizacion)
+// ========================================
+// acciones[0] = 🧾 Generar (real), acciones[1] = 🧪 Probar 1ra (sin confirmar).
+// Facturas y notas NC/ND usan los mismos dos botones: preparar() arma el lote
+// según el modo, ejecutar() lo corre. Mientras corre, el botón tocado es ⏹ Cancelar.
+let lanzador = null;
+// Comprobantes emitidos en la última corrida real con lo que hay cargado: si se
+// vuelve a tocar Generar, el modal avisa que se emitirían otra vez.
+let emitidasRecien = 0;
+// Lo que quedó sin salir de la última corrida ({ total, lote }): mientras exista,
+// el lanzador manda SOLO eso ("Generar las N restantes"). Se olvida al tocar el
+// formulario: si cambian los datos, las restantes ya no son las mismas.
+let restantes = null;
+
+function crearLanzador() {
+    const contenedor = document.getElementById('lanzadorTipificada');
+    if (!contenedor || !window.lanzadorAutomatizacion) return;
+    const rueda = {
+        servicio: 'ARCA',
+        subservicio: 'Factura Tipificada',
+        mensaje: 'Iniciando sesión en AFIP…'
+    };
+    lanzador = window.lanzadorAutomatizacion.crear(contenedor, {
+        acciones: [{
+            texto: 'Generar 1 Factura(s)',
+            tipo: 'principal',
+            nota: 'Factura real en AFIP',
+            preparar: () => prepararLote(),
+            confirmar: (lote) => ({
+                title: lote.nota ? 'Generar notas' : 'Generar facturas',
+                icon: '🧾',
+                confirmText: 'Emitir',
+                message: lote.restantes
+                    ? `Vas a emitir solo los ${lote.total} comprobante(s) que no salieron, REALES en AFIP.\n`
+                        + 'Los emitidos y los dudosos no se vuelven a mandar.'
+                    : `Vas a emitir ${lote.total} comprobante(s) REALES en AFIP.\n`
+                        + 'Un comprobante emitido no se deshace.'
+                        + (emitidasRecien
+                            ? `\n\n⚠ Con estos datos ya se emitieron ${emitidasRecien} hace un momento: si seguís, se emiten otra vez.`
+                            : '')
+            }),
+            confirmarCancelar: () => ({
+                title: '¿Cancelar la generación?',
+                message: 'Los comprobantes que ya se emitieron quedan emitidos en AFIP: cancelar no los borra.\n'
+                    + 'Al terminar vas a ver cuáles salieron y vas a poder generar los que faltan.'
+            }),
+            rueda,
+            ejecutar: (lote, { visible }) => correrLote(lote, false, visible)
+        }, {
+            texto: 'Probar 1ra factura',
+            tipo: 'prueba',
+            nota: 'Sin confirmar, con captura para verificar',
+            preparar: () => prepararLote(),
+            rueda: { ...rueda, mensaje: 'Iniciando sesión en AFIP (modo prueba)…' },
+            ejecutar: (lote, { visible }) => correrLote(lote, true, visible)
+        }],
+        auxiliares: [{
+            texto: 'Limpiar formulario',
+            ayuda: 'Borra los datos cargados y las facturas distintas guardadas',
+            alHacer: cancelarFormulario
+        }, {
+            texto: 'Descartar',
+            ayuda: 'Deja de lado el resultado y lo que quedó pendiente. No toca AFIP ni el formulario.',
+            mostrar: () => !!restantes || hayPruebaALaVista(),
+            alHacer: descartarPendiente
+        }]
+    });
+    lanzador.habilitar(true);
+    actualizarTextosLanzador();
+}
+
+// Texto de los botones según el modo (factura / nota) y la cantidad cargada.
+function actualizarTextosLanzador() {
+    if (!lanzador) return;
+    if (restantes) {
+        const n = restantes.total;
+        const queEs = restantes.lote.nota ? 'nota' : 'factura';
+        lanzador.cambiar(0, {
+            texto: `Generar ${n === 1 ? 'la restante' : `las ${n} restantes`}`,
+            nota: 'Las emitidas y dudosas no se mandan'
+        });
+        lanzador.cambiar(1, { texto: `Probar 1ra ${queEs} restante` });
+        return;
+    }
+    lanzador.cambiar(0, { nota: 'Factura real en AFIP' });
+    if (modoNotaActivo) {
+        lanzador.cambiar(0, { texto: 'Generar Nota(s)' });
+        lanzador.cambiar(1, { texto: 'Probar 1ra nota' });
+    } else {
+        lanzador.cambiar(0, { texto: `Generar ${contarComprobantes()} Factura(s)` });
+        lanzador.cambiar(1, { texto: 'Probar 1ra factura' });
+    }
+}
+
+function contarComprobantes() {
+    const enForm = document.querySelectorAll('.factura-item').length;
+    const enGrupos = grupos.reduce((sum, g) => sum + (g.datos.facturas?.length || 0), 0);
+    return enForm + enGrupos;
+}
+
+// Lo que manda el lanzador: las restantes de la corrida anterior o el formulario.
+// Copia: correrLote le pone modoTest a los grupos y no tiene que tocar `restantes`.
+function prepararLote() {
+    return restantes ? { ...clonar(restantes.lote), restantes: true } : armarLote();
+}
+
+function fijarRestantes(valor) {
+    restantes = valor && valor.total > 0 ? valor : null;
+    actualizarTextosLanzador();
+}
+
+function olvidarRestantes() {
+    if (restantes) fijarRestantes(null);
+}
+
+function hayPruebaALaVista() {
+    return !!document.querySelector('#areaResultados:not(.contenido-oculto) .resultado-modo-prueba');
+}
+
+// ✖ Descartar: se deja de lado lo que quedó a medio camino (resultado de la
+// prueba o "Generar las restantes"). No toca AFIP ni el formulario.
+function descartarPendiente() {
+    document.getElementById('areaResultados')?.classList.add('contenido-oculto');
+    olvidarRestantes();
+    lanzador?.refrescar();
+    irAlPrincipio();
+}
+
+// Para empezar de nuevo: la vista arriba del formulario y el foco en su 1er campo.
+function irAlPrincipio() {
+    const form = document.getElementById('formFacturaTipificada');
+    if (!form) return;
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const primero = [...form.querySelectorAll('input, select, textarea')]
+        .find(el => !el.disabled && el.type !== 'hidden' && el.offsetParent !== null);
+    primero?.focus({ preventScroll: true });
 }
 
 /**
- * Genera todas las facturas: las distintas ya guardadas + (si tiene datos) el form actual.
+ * Arma el lote a generar (validando). null = no se arranca (el motivo queda a la vista).
+ *   facturas: { nota:false, grupos, enviados, total }
+ *   notas:    { nota:true, notas, nombreEmpresa, fechaComprobante, total }
  */
-// Switch "Mostrar navegador" (facturas y NC/ND). Si no está en el DOM, visible.
-function visibleTipificada() {
-    return document.getElementById('chk-visible-tipificada')?.checked !== false;
-}
-
-async function manejarGenerar() {
+function armarLote() {
     if (!window.usuarioSeleccionado) {
         mostrarError('No hay un usuario seleccionado');
-        return;
+        return null;
     }
-
     // En modo nota, la generación sale del picker (no del formulario manual).
-    if (modoNotaActivo) {
-        await generarNotasDesdePicker();
-        return;
-    }
+    return modoNotaActivo ? armarLoteNotas() : armarLoteFacturas();
+}
 
+/**
+ * Las facturas distintas ya guardadas + (si tiene datos) el form actual.
+ */
+function armarLoteFacturas() {
     const form = document.getElementById('formFacturaTipificada');
 
     // Lista final de facturas distintas a generar (clon de las guardadas).
@@ -1189,47 +1304,37 @@ async function manejarGenerar() {
 
     // Incluir el formulario actual si el usuario dejó datos cargados.
     if (formularioTieneDatos()) {
-        if (!form.reportValidity()) return;
+        if (!form.reportValidity()) return null;
         gruposParaEnviar.push(recopilarDatosFormulario());
     }
 
     if (gruposParaEnviar.length === 0) {
         mostrarError('No hay facturas para generar. Completá el formulario o agregá una factura distinta.');
-        return;
+        return null;
     }
+    const total = gruposParaEnviar.reduce((s, g) => s + (g.facturas?.length || 0), 0);
+    return { nota: false, grupos: gruposParaEnviar, enviados, total };
+}
 
+async function correrLote(lote, modoTest, visible) {
+    // Para los otros caminos que todavía lo leen (lo que se manda sale del lote).
+    modoPruebaPedido = modoTest;
+    if (lote.nota) await correrLoteNotas(lote, modoTest, visible);
+    else await correrLoteFacturas(lote, modoTest, visible);
+}
+
+async function correrLoteFacturas(lote, modoTest, visible) {
+    const { grupos: gruposParaEnviar, enviados } = lote;
     // Modo prueba: fuente de verdad = el botón que se tocó, aplicado a todos los grupos.
-    const modoTest = modoPruebaPedido;
     gruposParaEnviar.forEach(g => { g.datosComunes.modoTest = modoTest; });
 
-    const btnGenerar = document.getElementById('btnGenerar');
-
     try {
-        btnGenerar.disabled = true;
-        setProbarHabilitado(false);
-        btnGenerar.innerHTML = '<span class="loading-spinner"></span> Generando...';
+        console.log(`📤 Enviando ${gruposParaEnviar.length} factura(s) distinta(s), ${lote.total} comprobante(s) en total`);
 
-        // Total de comprobantes sumando todos los grupos.
-        const totalComprobantes = gruposParaEnviar.reduce((s, g) => s + (g.facturas?.length || 0), 0);
-
-        console.log(`📤 Enviando ${gruposParaEnviar.length} factura(s) distinta(s), ${totalComprobantes} comprobante(s) en total`);
-
-        mostrarAreaProgreso(totalComprobantes);
-
-        // Crear items de progreso con índice global 1..N (coincide con el backend).
-        let indiceGlobal = 0;
-        gruposParaEnviar.forEach(g => {
-            const cliente = (g.datosComunes.receptor?.nombreCliente || '').trim()
-                || g.datosComunes.receptor?.numeroDocumento || 'Cliente';
-            (g.facturas || []).forEach(f => {
-                indiceGlobal++;
-                const desc = f.lineasDetalle[0]?.descripcion || 'Sin descripción';
-                agregarItemProgreso(indiceGlobal, `${cliente} — ${desc}`);
-            });
-        });
+        ocultarResultadoAnterior();
 
         // Enviar al backend a través de IPC (shape nuevo: { grupos }).
-        const resultado = await window.electronAPI.facturaTipificada.generarLote({ grupos: gruposParaEnviar, visible: visibleTipificada() });
+        const resultado = await window.electronAPI.facturaTipificada.generarLote({ grupos: gruposParaEnviar, visible });
 
         console.log('📥 Resultado recibido:', resultado);
 
@@ -1239,17 +1344,24 @@ async function manejarGenerar() {
         const cortado = !!(resultado.tipoCorregido || resultado.pdvNoHabilitado);
         const quitadas = cortado ? quitarGruposEmitidos(enviados, resultado.gruposEmitidos) : [];
 
-        if (resultado.success) {
-            if (resultado.modoTest) {
-                mostrarResultadoModoPrueba(resultado);
-            } else if (resultado.resultados) {
-                mostrarResumenFinal(resultado.resultados, cortado
-                    ? 'El lote se cortó por el punto de venta: no se generó nada más después del error. ' +
-                      (quitadas.length
-                          ? `Las facturas distintas ${quitadas.join(', ')} ya salieron y se sacaron de la lista; las demás quedaron cargadas para volver a generar.`
-                          : 'Lo que no salió quedó cargado para volver a generar.')
-                    : null);
-            }
+        if (resultado.modoTest) {
+            if (resultado.success) mostrarResultadoModoPrueba(resultado);
+            else mostrarFalloPrueba(resultado);
+        } else if (resultado.success && resultado.resultados) {
+            const pendientes = cortado ? null : pendientesDeFacturas(gruposParaEnviar, resultado.resultados);
+            emitidasRecien += cortado ? 0 : resultado.resultados.filter(r => r.success).length;
+            mostrarResumenFinal(resultado.resultados, cortado
+                ? 'El lote se cortó por el punto de venta: no se generó nada más después del error. ' +
+                  (quitadas.length
+                      ? `Las facturas distintas ${quitadas.join(', ')} ya salieron y se sacaron de la lista; las demás quedaron cargadas para volver a generar.`
+                      : 'Lo que no salió quedó cargado para volver a generar.')
+                : null, {
+                total: lote.total,
+                cortadoPor: resultado.cortadoPor,
+                reintento: pendientes && pendientes.total > 0
+                    ? { total: pendientes.total, lote: { nota: false, grupos: pendientes.grupos, enviados: [], total: pendientes.total } }
+                    : null
+            });
         } else {
             mostrarError(resultado.message || 'Error al generar las facturas');
         }
@@ -1267,13 +1379,26 @@ async function manejarGenerar() {
     } catch (error) {
         console.error('❌ Error al generar facturas:', error);
         mostrarError('Error: ' + error.message);
-    } finally {
-        btnGenerar.disabled = false;
-        setProbarHabilitado(true);
-        const total = document.querySelectorAll('.factura-item').length
-            + grupos.reduce((s, g) => s + (g.datos.facturas?.length || 0), 0);
-        btnGenerar.innerHTML = `🧾 Generar <span id="contadorFacturas">${total}</span> Factura(s)`;
     }
+}
+
+/**
+ * Lo que hay que volver a mandar: los que fallaron (no las dudosas: pueden haber
+ * salido) y los que no se llegaron a intentar porque el lote se cortó.
+ * @returns {{grupos: Array, total: number}}
+ */
+function pendientesDeFacturas(gruposEnviados, resultados) {
+    const porClave = new Map(resultados.map(r => [`${r.grupo}.${r.indiceEnGrupo}`, r]));
+    const gruposPendientes = [];
+    gruposEnviados.forEach((g, ig) => {
+        const facturas = (g.facturas || []).filter((_, i) => {
+            const r = porClave.get(`${ig}.${i}`);
+            return !r || (!r.success && !r.dudosa);
+        });
+        if (facturas.length) gruposPendientes.push({ ...clonar(g), facturas: clonar(facturas) });
+    });
+    const total = gruposPendientes.reduce((s, g) => s + g.facturas.length, 0);
+    return { grupos: gruposPendientes, total };
 }
 
 // Mismo comprobante en la otra letra (para no perder lo elegido al corregir el tipo).
@@ -1382,15 +1507,14 @@ async function aplicarPdvNoHabilitado({ habilitados, elegido }) {
 }
 
 /**
- * Genera las notas (NC/ND) seleccionadas en el picker. Arma el lote con las
- * facturas tildadas + su monto (default total, editable), valida monto ≤ total y
- * lo manda al backend, que arma cada nota desde el Excel y la genera. Reusa la
- * misma UI de progreso/resultados que la generación de facturas.
+ * Arma el lote de notas (NC/ND) con las facturas tildadas en el picker + su monto
+ * (default total, editable), validando monto ≤ total. El backend arma cada nota
+ * desde el Excel y la genera.
  */
-async function generarNotasDesdePicker() {
+function armarLoteNotas() {
     if (notasSeleccionadas.size === 0) {
         mostrarError('No seleccionaste ninguna factura para hacerle nota.');
-        return;
+        return null;
     }
 
     // Modelo plano: el contribuyente ES la empresa → su razón social.
@@ -1398,11 +1522,10 @@ async function generarNotasDesdePicker() {
     const nombreEmpresa = usuario.razonSocial || usuario.nombre || '';
     if (!nombreEmpresa) {
         mostrarError('Elegí la empresa / razón social.');
-        return;
+        return null;
     }
 
     const fechaComprobante = document.getElementById('fechaComprobanteTipificada')?.value || '';
-    const modoTest = modoPruebaPedido;
 
     // Construir y validar el lote (monto > 0 y ≤ total original).
     const notas = [];
@@ -1413,59 +1536,53 @@ async function generarNotasDesdePicker() {
             monto = Number(monto);
             if (!(monto > 0)) {
                 mostrarError(`Monto inválido en ${factura.puntoVenta}-${factura.comprobanteNumero}.`);
-                return;
+                return null;
             }
             if (total != null && monto > total + 0.01) {
                 mostrarError(`El monto de ${factura.puntoVenta}-${factura.comprobanteNumero} ($${monto}) no puede superar el total original ($${total}).`);
-                return;
+                return null;
             }
         }
         notas.push({ factura, montoOverride: (monto != null ? monto : null) });
     }
+    return { nota: true, notas, nombreEmpresa, fechaComprobante, total: notas.length };
+}
 
-    const payload = { usuario, nombreEmpresa, tipoNota: modoNotaActivo, fechaComprobante, modoTest, notas, visible: visibleTipificada() };
+async function correrLoteNotas(lote, modoTest, visible) {
+    const { notas, nombreEmpresa, fechaComprobante } = lote;
+    const usuario = window.usuarioSeleccionado;
+    const payload = { usuario, nombreEmpresa, tipoNota: modoNotaActivo, fechaComprobante, modoTest, notas, visible };
 
-    const btnGenerar = document.getElementById('btnGenerar');
     try {
-        btnGenerar.disabled = true;
-        setProbarHabilitado(false);
-        btnGenerar.innerHTML = '<span class="loading-spinner"></span> Generando...';
-
-        mostrarAreaProgreso(notas.length);
-        notas.forEach((n, i) => {
-            const f = n.factura;
-            const cliente = (f.razonSocialReceptor || '').trim() || f.cuitReceptor || 'Cliente';
-            agregarItemProgreso(i + 1, `${cliente} — ${f.tipoComprobante} ${f.puntoVenta}-${f.comprobanteNumero}`);
-        });
-
+        ocultarResultadoAnterior();
         const resultado = await window.electronAPI.notaCreditoDebito.generarNotas(payload);
         console.log('📥 Resultado notas:', resultado);
 
-        if (resultado && resultado.success) {
-            if (resultado.modoTest) {
-                mostrarResultadoModoPrueba(resultado);
-            } else if (resultado.resultados) {
-                mostrarResumenFinal(resultado.resultados);
-            } else {
-                mostrarExito(resultado);
-            }
+        if (resultado && resultado.modoTest) {
+            if (resultado.success) mostrarResultadoModoPrueba(resultado);
+            else mostrarFalloPrueba(resultado);
+        } else if (resultado && resultado.success && resultado.resultados) {
+            // Pendientes: las que fallaron (no las dudosas) y las que no se intentaron.
+            const porIndice = new Map(resultado.resultados.map(r => [r.indice, r]));
+            const pendientes = notas.filter((_, i) => {
+                const r = porIndice.get(i);
+                return !r || (!r.success && !r.dudosa);
+            });
+            emitidasRecien += resultado.resultados.filter(r => r.success).length;
+            mostrarResumenFinal(resultado.resultados, null, {
+                total: notas.length,
+                cortadoPor: resultado.cortadoPor,
+                reintento: pendientes.length
+                    ? { total: pendientes.length, lote: { ...lote, notas: pendientes, total: pendientes.length } }
+                    : null
+            });
         } else {
             mostrarError((resultado && resultado.message) || 'Error al generar las notas');
         }
     } catch (error) {
         console.error('❌ Error al generar notas:', error);
         mostrarError('Error: ' + error.message);
-    } finally {
-        btnGenerar.disabled = false;
-        setProbarHabilitado(true);
-        btnGenerar.innerHTML = '🧾 Generar Nota(s)';
     }
-}
-
-/** El botón 🧪 Probar se apaga junto con Generar mientras corre un lote. */
-function setProbarHabilitado(habilitado) {
-    const btnProbar = document.getElementById('btnProbar');
-    if (btnProbar) btnProbar.disabled = !habilitado;
 }
 
 /**
@@ -1812,6 +1929,7 @@ async function editarGrupo(indice) {
     if (!g) return;
 
     grupoEnEdicion = indice;
+    olvidarRestantes();
     actualizarBotonFacturaDistinta();
     await restaurarSnapshotFormulario(g.snapshot);
 
@@ -1826,6 +1944,7 @@ function eliminarGrupo(indice) {
     if (!confirm('¿Quitar esta factura distinta de la lista?')) return;
 
     grupos.splice(indice, 1);
+    olvidarRestantes();
 
     // Ajustar el índice en edición si corresponde.
     if (grupoEnEdicion === indice) {
@@ -1958,10 +2077,7 @@ function mostrarExito(resultado) {
             window.archivoResultado.crearBloque(resultado.data.pdfPath, { titulo: 'PDF de la factura', etiquetaAbrir: 'Abrir PDF' })
         );
     }
-    areaResultados.classList.remove('contenido-oculto');
-
-    // Scroll hacia resultados
-    areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    revelarResultado();
 }
 
 /**
@@ -1980,109 +2096,64 @@ function mostrarError(mensaje) {
         </div>
     `;
 
-    areaResultados.classList.remove('contenido-oculto');
-    areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    revelarResultado();
 }
 
 /**
- * Muestra el área de progreso e inicializa la lista
+ * Muestra el resultado y lleva la vista y el foco a su encabezado: se lee
+ * bajando y abajo quedan los botones del lanzador.
  */
-function mostrarAreaProgreso(totalFacturas) {
-    const areaProgreso = document.getElementById('areaProgreso');
-    const areaResultados = document.getElementById('areaResultados');
-
-    if (areaResultados) {
-        areaResultados.classList.add('contenido-oculto');
-    }
-
-    if (areaProgreso) {
-        document.getElementById('progresoTotal').textContent = totalFacturas;
-        document.getElementById('progresoActual').textContent = '0';
-        document.getElementById('barraProgresoFill').style.width = '0%';
-        document.getElementById('listaProgresoFacturas').innerHTML = '';
-
-        areaProgreso.classList.remove('contenido-oculto');
-        areaProgreso.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function revelarResultado() {
+    const area = document.getElementById('areaResultados');
+    if (!area) return;
+    area.classList.remove('contenido-oculto');
+    const titulo = area.querySelector('#mensajeResultado h4') || area.querySelector('h3');
+    area.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (titulo) {
+        titulo.setAttribute('tabindex', '-1');
+        titulo.focus({ preventScroll: true });
     }
 }
 
 /**
- * Actualiza la barra de progreso general
+ * Al arrancar un lote: el resultado de la corrida anterior ya no aplica.
+ * (El avance se ve en la rueda.)
  */
-function actualizarBarraProgreso(actual, total) {
-    document.getElementById('progresoActual').textContent = actual;
-    const porcentaje = (actual / total) * 100;
-    document.getElementById('barraProgresoFill').style.width = porcentaje + '%';
-}
-
-/**
- * Agrega un item de factura a la lista de progreso
- */
-function agregarItemProgreso(numeroFactura, descripcion) {
-    const lista = document.getElementById('listaProgresoFacturas');
-    const itemHTML = `
-        <div class="item-progreso" id="progreso_f${numeroFactura}">
-            <span class="icono-estado">⏸️</span>
-            <span class="texto-factura">Factura #${numeroFactura}: ${descripcion}</span>
-            <span class="estado-texto">Pendiente</span>
-        </div>
-    `;
-    lista.insertAdjacentHTML('beforeend', itemHTML);
-}
-
-/**
- * Actualiza el estado de un item de progreso
- */
-function actualizarItemProgreso(numeroFactura, estado, mensaje = '') {
-    const item = document.getElementById(`progreso_f${numeroFactura}`);
-    if (!item) return;
-
-    const icono = item.querySelector('.icono-estado');
-    const estadoTexto = item.querySelector('.estado-texto');
-
-    switch (estado) {
-        case 'en_progreso':
-            icono.textContent = '⏳';
-            estadoTexto.textContent = 'Generando...';
-            estadoTexto.style.color = '#0066cc';
-            break;
-        case 'completada':
-            icono.textContent = '✅';
-            estadoTexto.textContent = 'Completada';
-            estadoTexto.style.color = '#28a745';
-            if (mensaje) {
-                estadoTexto.textContent += ` - ${mensaje}`;
-            }
-            break;
-        case 'error':
-            icono.textContent = '❌';
-            estadoTexto.textContent = `Error: ${mensaje}`;
-            estadoTexto.style.color = '#dc3545';
-            break;
-    }
+function ocultarResultadoAnterior() {
+    document.getElementById('areaResultados')?.classList.add('contenido-oculto');
 }
 
 /**
  * Muestra el resumen final de todas las facturas generadas
  */
-function mostrarResumenFinal(resultados, nota = null) {
-    const areaProgreso = document.getElementById('areaProgreso');
+/**
+ * @param {Array} resultados
+ * @param {string|null} nota
+ * @param {object} [extra]
+ * @param {number} [extra.total]       comprobantes del lote (los sin resultado no se intentaron)
+ * @param {string|null} [extra.cortadoPor]  'cancelado' | 'cerrado'
+ * @param {{total:number, lote:object}|null} [extra.reintento]  lo que falta mandar
+ */
+function mostrarResumenFinal(resultados, nota = null, extra = {}) {
     const areaResultados = document.getElementById('areaResultados');
     const mensajeResultado = document.getElementById('mensajeResultado');
 
-    if (areaProgreso) {
-        areaProgreso.classList.add('contenido-oculto');
-    }
-
     const exitosas = resultados.filter(r => r.success).length;
     const fallidas = resultados.filter(r => !r.success).length;
+    const dudosas = resultados.filter(r => r.dudosa).length;
+    const noIntentadas = Math.max(0, (extra.total || resultados.length) - resultados.length);
+    const motivoCorte = extra.cortadoPor === 'cancelado' ? '⏹ Cancelado por el usuario'
+        : extra.cortadoPor === 'cerrado' ? '⏹ Se cerró el navegador antes de terminar' : '';
 
     let html = `
         <div class="resumen-lote">
             <h4>📊 Resumen de Generación de Facturas</h4>
-            <p><strong>Total procesadas:</strong> ${resultados.length}</p>
+            ${motivoCorte ? `<p class="resumen-corte"><strong>${motivoCorte}</strong></p>` : ''}
+            <p><strong>Total del lote:</strong> ${extra.total || resultados.length}</p>
             <p><strong>✅ Exitosas:</strong> ${exitosas}</p>
             <p><strong>❌ Fallidas:</strong> ${fallidas}</p>
+            ${noIntentadas ? `<p><strong>⏸ No se intentaron:</strong> ${noIntentadas}</p>` : ''}
+            ${dudosas ? `<p class="resumen-dudosa"><strong>⚠ ${dudosas} se cortaron mientras se confirmaban: no sabemos si AFIP las grabó. Revisalas en Mis Comprobantes; "Generar las restantes" NO las incluye, para no emitirlas dos veces.</strong></p>` : ''}
             ${nota ? `<p><strong>⚠️ ${nota}</strong></p>` : ''}
             <hr>
             <h5>Detalles:</h5>
@@ -2105,9 +2176,11 @@ function mostrarResumenFinal(resultados, nota = null) {
                 </li>
             `;
         } else {
+            const icono = resultado.dudosa ? '⚠' : resultado.cortado ? '⏹' : '❌';
+            const texto = resultado.dudosa ? 'dudosa (se cortó confirmando)' : (resultado.message || resultado.error);
             html += `
                 <li class="resultado-error">
-                    ❌ ${etiquetaResultado(resultado, index)}: ${resultado.message || resultado.error}
+                    ${icono} ${etiquetaResultado(resultado, index)}: ${texto}
                 </li>
             `;
         }
@@ -2124,21 +2197,43 @@ function mostrarResumenFinal(resultados, nota = null) {
         const ruta = resultados[Number(lugar.dataset.indice)].pdfPath;
         lugar.appendChild(window.archivoResultado.crearFila(ruta, { etiquetaAbrir: 'Abrir PDF', etiquetaCarpeta: 'Carpeta' }));
     });
-    areaResultados.classList.remove('contenido-oculto');
-    areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    // Lo que falló (no las dudosas) + lo que no se intentó: lo manda el lanzador.
+    fijarRestantes(extra.reintento || null);
+    if (restantes) {
+        const n = restantes.total;
+        const aviso = document.createElement('p');
+        aviso.className = 'resumen-siguiente';
+        aviso.textContent = `Para seguir, usá "Generar ${n === 1 ? 'la restante' : `las ${n} restantes`}" abajo: manda solo lo que no salió.`;
+        mensajeResultado.querySelector('.resumen-lote').appendChild(aviso);
+    }
+    revelarResultado();
+}
+
+/**
+ * La prueba no llegó a la captura: cancelada, navegador cerrado o error.
+ */
+function mostrarFalloPrueba(resultado) {
+    if (resultado.error === 'CANCELADO' || resultado.error === 'NAVEGADOR_CERRADO') {
+        const areaResultados = document.getElementById('areaResultados');
+        const mensajeResultado = document.getElementById('mensajeResultado');
+        if (!areaResultados || !mensajeResultado) return;
+        mensajeResultado.innerHTML = `
+            <div class="resumen-lote">
+                <h4>⏹ Prueba ${resultado.error === 'CANCELADO' ? 'cancelada' : 'cortada: se cerró el navegador'}</h4>
+                <p>No se emitió nada en AFIP.</p>
+            </div>`;
+        revelarResultado();
+        return;
+    }
+    mostrarError(resultado.message || 'La prueba no se pudo completar.');
 }
 
 /**
  * Muestra el resultado del modo prueba
  */
 function mostrarResultadoModoPrueba(resultado) {
-    const areaProgreso = document.getElementById('areaProgreso');
     const areaResultados = document.getElementById('areaResultados');
     const mensajeResultado = document.getElementById('mensajeResultado');
-
-    if (areaProgreso) {
-        areaProgreso.classList.add('contenido-oculto');
-    }
 
     const html = `
         <div class="resultado-modo-prueba">
@@ -2157,21 +2252,22 @@ function mostrarResultadoModoPrueba(resultado) {
             <div class="acciones-modo-prueba">
                 <p><strong>Si todo está correcto:</strong></p>
                 <ol>
-                    <li>Hacé clic en "🧾 Generar" (el botón verde de prueba no confirma)</li>
+                    <li>Hacé clic en "Generar" (el botón azul): ese sí emite en AFIP</li>
                 </ol>
             </div>
         </div>
     `;
 
     mensajeResultado.innerHTML = html;
-    // Captura de la prueba: componente común (componentes/archivoResultado)
+    // Captura de la prueba: componente común (componentes/archivoResultado).
+    // Va antes de "Si todo está correcto": primero se mira, después se decide.
     if (resultado.screenshotPath) {
-        mensajeResultado.querySelector('.resultado-modo-prueba').appendChild(
-            window.archivoResultado.crearBloque(resultado.screenshotPath, { titulo: 'Captura de la prueba', etiquetaAbrir: 'Ver captura' })
+        mensajeResultado.querySelector('.resultado-modo-prueba').insertBefore(
+            window.archivoResultado.crearBloque(resultado.screenshotPath, { titulo: 'Captura de la prueba', etiquetaAbrir: 'Ver captura' }),
+            mensajeResultado.querySelector('.acciones-modo-prueba')
         );
     }
-    areaResultados.classList.remove('contenido-oculto');
-    areaResultados.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    revelarResultado();
 
 }
 

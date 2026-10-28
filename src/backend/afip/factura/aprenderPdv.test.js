@@ -162,12 +162,21 @@ function grupo(puntoVenta, cantidad) {
 
 async function correrLote(grupos, pdvAfip, modoTest = false) {
     const llamadas = [];
-    const iniciarProceso = async (url, cred, datos) => {
-        llamadas.push(datos.puntoVenta);
-        datos.pdvHabilitadosAfip = pdvAfip;   // lo que hace el paso 0
-        return pdvAfip.includes(datos.puntoVenta)
-            ? { success: true, message: 'ok', data: { resultados: [{ pdfPath: `/f${llamadas.length}.pdf` }] } }
-            : { success: false, message: `El punto de venta ${datos.puntoVenta} no está habilitado` };
+    // Como el flujo detallado: TODO el lote en una sesión, un aviso por
+    // comprobante, y el PDV que no sirve corta el resto (cortaLote).
+    const iniciarProceso = async (url, cred, lista, test, us, pv, enviarProgreso) => {
+        for (const [i, datos] of lista.entries()) {
+            llamadas.push(datos.puntoVenta);
+            datos.pdvHabilitadosAfip = pdvAfip;   // lo que hace el paso 0
+            const ok = pdvAfip.includes(datos.puntoVenta);
+            if (test) return ok ? { success: true, modoTest: true } : { success: false, message: 'PDV no habilitado' };
+            const resultado = ok
+                ? { success: true, pdfPath: `/f${llamadas.length}.pdf` }
+                : { success: false, error: `El punto de venta ${datos.puntoVenta} no está habilitado`, cortaLote: true };
+            enviarProgreso({ tipo: 'resultado-factura', facturaActual: i + 1, resultado });
+            if (!ok) break;
+        }
+        return { success: true };
     };
     const cliente = { cuit: '27', puntosDeVenta: [] };
     const handlers = cargarHandlersConFalsos({ iniciarProceso, cliente });

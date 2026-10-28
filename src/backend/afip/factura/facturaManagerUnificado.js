@@ -57,17 +57,20 @@ async function iniciarProceso(
     // ==========================================
     console.log("=== [1/4] Detectando tipo y normalizando datos ===");
 
-    const tipo = detectarTipoDatos(datosRaw);
+    // Un array = varios comprobantes detallados (ya procesados) en UN login:
+    // el flujo los hace uno tras otro volviendo al menú (lote de Tipificada / Notas).
+    const muestra = Array.isArray(datosRaw) ? datosRaw[0] : datosRaw;
+    const tipo = detectarTipoDatos(muestra);
     console.log(`✓ Tipo detectado: ${tipo}`);
-    console.log(`  - Modulo: ${datosRaw.modulo || 'no especificado'}`);
-    console.log(`  - Metodo ingreso: ${datosRaw.metodoIngreso || 'no especificado'}`);
+    console.log(`  - Modulo: ${muestra.modulo || 'no especificado'}`);
+    console.log(`  - Metodo ingreso: ${muestra.metodoIngreso || 'no especificado'}`);
 
     // Normalizar datos usando el procesador apropiado
     let datosProcesados;
 
     try {
         // Detectar si los datos ya vienen procesados (flujo antiguo)
-        const yaEstaProcesado = datosRaw.montoResultados?.facturasGeneradas || datosRaw.lineasDetalle;
+        const yaEstaProcesado = muestra.montoResultados?.facturasGeneradas || muestra.lineasDetalle;
 
         if (yaEstaProcesado) {
             console.log("Datos ya procesados, usando directamente...");
@@ -83,10 +86,13 @@ async function iniciarProceso(
         }
 
         console.log("✓ Datos procesados correctamente");
-        console.log(`  - Tipo actividad: ${datosProcesados.tipoActividad}`);
-        console.log(`  - Tipo contribuyente: ${datosProcesados.tipoContribuyente}`);
+        const muestraProcesada = Array.isArray(datosProcesados) ? datosProcesados[0] : datosProcesados;
+        console.log(`  - Tipo actividad: ${muestraProcesada.tipoActividad}`);
+        console.log(`  - Tipo contribuyente: ${muestraProcesada.tipoContribuyente}`);
 
-        if (tipo === 'detallado') {
+        if (Array.isArray(datosProcesados)) {
+            console.log(`  - Comprobantes en esta sesión: ${datosProcesados.length}`);
+        } else if (tipo === 'detallado') {
             console.log(`  - Receptor: ${datosProcesados.receptor?.numeroDocumento || 'generico'}`);
             console.log(`  - Lineas de detalle: ${datosProcesados.lineasDetalle?.length || 0}`);
         } else {

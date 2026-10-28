@@ -12,6 +12,7 @@ const { listarExcelsConsulta } = require('./service/listarExcelsConsulta.js');
 const { leerExcelComprobantes } = require('./service/leerExcelComprobantes.js');
 const { armarNotaDesdeFactura } = require('./service/armarNotaDesdeFactura.js');
 const facturaManagerUnificado = require('../factura/facturaManagerUnificado.js');
+const { loteEnUnaSesion } = require('../factura/corteLote.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -106,7 +107,7 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
     });
 
     // Genera el lote de notas: arma cada NC/ND desde su factura del Excel (paso 3)
-    // y la emite reusando el mismo motor que Factura Tipificada (manager unificado).
+    // y las emite todas en UN login con el mismo motor que Factura Tipificada.
     // Robusto: si una falla, NO corta el lote (la registra y sigue). Modo prueba:
     // procesa solo la primera sin confirmar (igual que el modoTest de facturas).
     ipcMain.handle('notaCreditoDebito:generarNotas', async (event, datos) => {
@@ -144,21 +145,12 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
             const total = notas.length;
             const resultados = [];
 
-            // Reusamos el canal de progreso de Factura Tipificada (el frontend ya lo escucha).
-            const enviarProgreso = (payload) => {
-                if (event.sender && !event.sender.isDestroyed()) {
-                    event.sender.send('facturaTipificada:progreso', payload);
-                }
-            };
-
-            for (let i = 0; i < notas.length; i++) {
-                const idx = i + 1;
-                const nota = notas[i] || {};
-                const factura = nota.factura || {};
-                let descripcion = `${factura.tipoComprobante || 'Factura'} ${factura.puntoVenta}-${factura.comprobanteNumero}`;
-
+            // Armar cada nota (líneas por alícuota, comprobante asociado, letra). La
+            // que no se puede armar queda fallida sin gastar AFIP; el resto va en UN login.
+            const armadas = [];
+            notas.forEach((nota, i) => {
+                const factura = (nota || {}).factura || {};
                 try {
-                    // Armar la nota (líneas por alícuota, comprobante asociado, letra).
                     const { data, warnings } = armarNotaDesdeFactura(factura, {
                         tipoNota,
                         fechaComprobante,
@@ -167,67 +159,69 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
                         cuitEmisor: contribuyente.cuit
                     });
                     if (warnings && warnings.length) {
-                        console.warn(`[${idx}/${total}] Avisos al armar la nota:`, warnings);
+                        console.warn(`[${i + 1}/${total}] Avisos al armar la nota:`, warnings);
                     }
-                    descripcion = data.lineasDetalle[0]?.descripcion || descripcion;
-
-                    enviarProgreso({
-                        actual: idx, total, numeroFactura: idx, descripcion,
-                        status: 'en_progreso', mensaje: 'Generando nota...'
+                    armadas.push({
+                        indice: i,
+                        cliente: (factura.razonSocialReceptor || '').trim() || factura.cuitReceptor || '',
+                        datosFactura: { ...data, usuarioSeleccionado: usuarioFactura, modulo: 'facturaCliente' },
+                        puntoVenta: factura.puntoVenta
                     });
+                } catch (error) {
+                    console.error(`[${i + 1}/${total}] No se pudo armar la nota:`, error.message);
+                    resultados.push({ success: false, indice: i, numeroFactura: i + 1, message: error.message, error: error.message });
+                }
+            });
 
-                    // Modo prueba: solo la primera nota, sin confirmar.
-                    const usarModoTest = idx === 1 && !!modoTest;
+            // Modo prueba: solo la primera nota, sin confirmar.
+            const aCorrer = modoTest ? armadas.slice(0, 1) : armadas;
+            let cortadoPor = null;
 
-                    const datosFactura = { ...data, usuarioSeleccionado: usuarioFactura, modulo: 'facturaCliente' };
-
-                    const resultado = await facturaManagerUnificado.iniciarProceso(
+            if (aCorrer.length) {
+                const corrida = await loteEnUnaSesion({
+                    sender: event.sender, canal: 'facturaTipificada:update', queEs: 'Nota',
+                    nombres: aCorrer.map(n => n.cliente),
+                    correr: (enviarProgreso) => facturaManagerUnificado.iniciarProceso(
                         URL_LOGIN_AFIP,
                         credenciales,
-                        datosFactura,
-                        usarModoTest,
+                        aCorrer.map(n => n.datosFactura),
+                        !!modoTest,
                         usuarioFactura,
-                        factura.puntoVenta || '0001',
-                        null,
+                        aCorrer[0].puntoVenta || '0001',
+                        enviarProgreso,
                         { visible } // una sola elección para todo el lote
-                    );
+                    )
+                });
+                cortadoPor = corrida.cortadoPor;
+                const resultado = corrida.resultado;
 
-                    if (usarModoTest) {
-                        return {
-                            success: true,
-                            modoTest: true,
-                            message: 'Modo PRUEBA completado - Revisá la captura para verificar los datos',
-                            screenshotPath: resultado.screenshotPath,
-                            resultados: [{ success: true, modoTest: true, numeroFactura: idx, message: 'Modo prueba - nota NO confirmada' }]
-                        };
+                if (modoTest) {
+                    if (cortadoPor || !resultado || resultado.success === false) {
+                        return { success: false, modoTest: true, error: resultado?.error,
+                            message: resultado?.message || 'La nota de prueba no se pudo generar.' };
                     }
-
-                    // El manager NO tira excepción al fallar: devuelve { success:false }.
-                    const detalle = resultado?.data?.resultados?.[0] || {};
-                    const pdfPath = detalle.pdfPath || resultado?.pdfPath || null;
-                    const exito = !!resultado && resultado.success === true;
-
-                    if (!exito) {
-                        const mensajeError = detalle.error
-                            || resultado?.message
-                            || 'La nota no se pudo generar (AFIP no confirmó el comprobante)';
-                        enviarProgreso({ actual: idx, total, numeroFactura: idx, descripcion, status: 'error', mensaje: mensajeError });
-                        resultados.push({ success: false, numeroFactura: idx, message: mensajeError, error: mensajeError });
-                        if (idx < total) await new Promise(r => setTimeout(r, 2000));
-                        continue;
-                    }
-
-                    enviarProgreso({ actual: idx, total, numeroFactura: idx, descripcion, status: 'completada', mensaje: resultado.message || 'Completada', pdfPath });
-                    resultados.push({ success: true, numeroFactura: idx, message: resultado.message, pdfPath });
-
-                    if (idx < total) await new Promise(r => setTimeout(r, 2000));
-
-                } catch (error) {
-                    console.error(`[${idx}/${total}] Error en nota:`, error);
-                    enviarProgreso({ actual: idx, total, numeroFactura: idx, descripcion, status: 'error', mensaje: error.message });
-                    resultados.push({ success: false, numeroFactura: idx, message: error.message, error: error.toString() });
-                    // Seguir con la siguiente aunque esta haya fallado (lote robusto).
+                    return {
+                        success: true,
+                        modoTest: true,
+                        message: 'Modo PRUEBA completado - Revisá la captura para verificar los datos',
+                        screenshotPath: resultado.screenshotPath,
+                        resultados: [{ success: true, modoTest: true, numeroFactura: aCorrer[0].indice + 1, message: 'Modo prueba - nota NO confirmada' }]
+                    };
                 }
+
+                corrida.resultados.forEach((r, j) => {
+                    if (!r) return; // no se intentó
+                    const i = aCorrer[j].indice;
+                    const mensaje = r.success ? 'Nota generada' : (r.error || r.message || 'La nota no se pudo generar');
+                    resultados.push({
+                        success: !!r.success, indice: i, numeroFactura: i + 1, message: mensaje,
+                        ...(r.success ? { pdfPath: r.pdfPath || null } : { dudosa: !!r.dudosa, error: mensaje }),
+                        ...(r.cortado ? { cortado: r.cortado } : {})
+                    });
+                });
+                resultados.sort((a, b) => a.indice - b.indice);
+            } else if (modoTest) {
+                return { success: false, modoTest: true, message: resultados[0]?.message || 'No se pudo armar la nota de prueba.' };
             }
 
             const exitosas = resultados.filter(r => r.success).length;
@@ -238,6 +232,8 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
                 success: true,
                 message: `Lote de notas procesado: ${exitosas} exitosas, ${fallidas} fallidas`,
                 resultados,
+                // 'cancelado' | 'cerrado' | null: las notas sin resultado no se intentaron.
+                cortadoPor,
                 resumen: { total: resultados.length, exitosas, fallidas }
             };
 

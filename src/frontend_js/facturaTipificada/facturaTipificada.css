@@ -114,11 +114,11 @@
     transition: all 0.3s ease;
 }
 
-.form-group input[type="text"]:focus,
-.form-group select:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+/* La global de home/index.css le da margin 10px a input[type=text]/select/textarea
+   pero no a input[type=number]: en una fila (Unidad | Cantidad | Precio) quedaban
+   desfasados. Con el contenedor adelante para ganarle. El foco va en tema_afip.css. */
+#facturasTipificadasSeccion .form-group :is(input, select, textarea) {
+    margin: 0;
 }
 
 .form-group input[type="text"]::placeholder {
@@ -223,12 +223,6 @@
     min-height: 60px;
 }
 
-.linea-detalle textarea:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-}
-
 /* ===== BOTONES ===== */
 .btn-secundario {
     background-color: #6c757d;
@@ -251,73 +245,17 @@
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
-/* Switch arriba; abajo Cancelar + las dos opciones (🧪 Probar / 🧾 Generar) */
+/* 🧹 Limpiar formulario arriba a la izquierda; abajo el lanzador (switch + 🧪 Probar / 🧾 Generar) */
 .acciones-form {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
     margin-top: 30px;
     padding-top: 20px;
     border-top: 2px solid var(--v-borde, #e9ecef);
 }
 
-.acciones-form .botones-container {
-    display: flex;
-    align-items: flex-start;
-    gap: 15px;
-    width: 100%;
-}
-.acciones-form .ui-modo-botones { flex: 1; }
-.acciones-form .btn-cancelar { margin: 0; font-size: 16px; } /* misma línea y alto que las opciones */
-
-.btn-cancelar {
-    background-color: #6c757d;
-    color: white;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-}
-
-.btn-cancelar:hover {
-    background-color: #5a6268;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
-.btn-generar {
-    background-color: var(--c-accion);
-    color: white;
-    border: none;
-    padding: 12px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-    font-weight: 600;
-    text-align: center;
-    transition: all 0.3s ease;
-}
-
-.btn-generar:hover {
-    background-color: var(--c-accion-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
-}
-
-/* 🧪 Probar = prueba (verde, como "Modo Test" de Facturación) */
-.btn-probar { background-color: var(--c-ok-1); }
-.btn-probar:hover { background-color: var(--c-ok-2); }
-
-.btn-generar:disabled {
-    opacity: 0.55;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
-}
+/* Siguiente paso / dudosas / corte en el resumen del lote */
+.resumen-lote .resumen-siguiente { margin-top: 12px; font-weight: 600; }
+.resumen-lote .resumen-dudosa,
+.resumen-lote .resumen-corte { color: var(--v-txt-warn, #d97706); }
 
 /* ===== ÁREA DE RESULTADOS ===== */
 .area-resultados {
@@ -332,6 +270,8 @@
     font-size: 18px;
     margin-bottom: 15px;
 }
+/* El encabezado recibe el foco por código (revelarResultado): sin aro. */
+.area-resultados h4:focus { outline: none; }
 
 .area-resultados .mensaje-exito {
     background-color: var(--v-ok-bg, #d4edda);
@@ -365,21 +305,6 @@
     display: none !important;
 }
 
-/* ===== LOADING SPINNER ===== */
-.loading-spinner {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid rgba(255,255,255,.3);
-    border-radius: 50%;
-    border-top-color: var(--v-borde, white);
-    animation: spin 1s ease-in-out infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
     .factura-tipificada-container {
@@ -396,14 +321,6 @@
 
     .checkboxes-grid {
         grid-template-columns: 1fr;
-    }
-
-    .acciones-form .botones-container {
-        flex-direction: column;
-    }
-
-    .btn-cancelar {
-        width: 100%;
     }
 }
 
@@ -520,101 +437,6 @@
     background-color: #5a6268;
 }
 
-/* ===== ÁREA DE PROGRESO ===== */
-.area-progreso {
-    background: linear-gradient(135deg, var(--v-panel-2, #f5f7fa) 0%, #c3cfe2 100%);
-    padding: 30px;
-    border-radius: 15px;
-    margin: 30px 0;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-
-.area-progreso h3 {
-    color: var(--v-texto, #2c3e50);
-    margin: 0 0 20px 0;
-    text-align: center;
-    font-size: 24px;
-}
-
-.progreso-general {
-    background: var(--v-panel, white);
-    padding: 20px;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-.progreso-texto {
-    text-align: center;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--v-texto-2, #495057);
-    margin-bottom: 15px;
-}
-
-.barra-progreso {
-    width: 100%;
-    height: 30px;
-    background-color: var(--v-panel-2, #e9ecef);
-    border-radius: 15px;
-    overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.barra-progreso-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #007bff 0%, #0056b3 100%);
-    transition: width 0.4s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0,123,255,0.3);
-}
-
-.lista-progreso {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.item-progreso {
-    background: var(--v-panel, white);
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    transition: all 0.2s ease;
-}
-
-.item-progreso:hover {
-    transform: translateX(5px);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-}
-
-.icono-estado {
-    font-size: 24px;
-    min-width: 30px;
-    text-align: center;
-}
-
-.texto-factura {
-    flex: 1;
-    font-weight: 500;
-    color: var(--v-texto, #2c3e50);
-}
-
-.estado-texto {
-    font-size: 14px;
-    font-weight: 600;
-    padding: 5px 12px;
-    border-radius: 12px;
-    background-color: var(--v-panel-2, #f8f9fa);
-}
-
 /* ===== RESUMEN DE LOTE ===== */
 .resumen-lote {
     background: var(--v-panel, white);
@@ -707,16 +529,6 @@
     
     .btn-eliminar-factura {
         width: 100%;
-    }
-    
-    .item-progreso {
-        flex-direction: column;
-        align-items: flex-start;
-        text-align: left;
-    }
-
-    .estado-texto {
-        align-self: flex-start;
     }
 }
 

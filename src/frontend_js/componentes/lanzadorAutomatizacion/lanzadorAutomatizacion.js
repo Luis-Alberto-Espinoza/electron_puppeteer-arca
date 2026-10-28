@@ -10,7 +10,7 @@
  *   │ ☑ Mostrar navegador                          │
  *   │                   [ 🧪 Test ] [ 🔐 Generar ] │   ← acciones[0] (Generar) fija a la derecha;
  *   │                                              │     las siguientes van a su izquierda
- *   │                   nota (opc.)  nota (opc.)   │
+ *   │ [🧹 Limpiar]      nota (opc.)  nota (opc.)   │   ← auxiliares (opc.) a la izquierda
  *   └──────────────────────────────────────────────┘
  *
  * La vista deja un contenedor vacío (<div id="lanzadorXx"></div>) y lo llena así:
@@ -28,18 +28,26 @@
  *           rueda:     { servicio, subservicio, mensaje },                // opcional
  *           confirmarCancelar: () => ({ title, message }),               // opcional: modal antes de cancelar
  *           ejecutar:  async (datos, { visible }) => { ... }              // la corrida en sí
+ *       }],
+ *       auxiliares: [{                             // opcional: botones grises que NO lanzan nada
+ *           texto: '🧹 Limpiar formulario',
+ *           ayuda: 'Qué hace…',                    // opcional, tooltip
+ *           mostrar: () => true | false,           // opcional: se consulta en cada repintado
+ *           alHacer: () => { ... }
  *       }]
  *   });
  *   lanzador.habilitar(true | false);   // todas las acciones (mientras corre quedan bloqueadas igual)
  *   lanzador.habilitar(false, 1);       // solo la acción 1
- *   lanzador.cambiar(0, { texto, ayuda });   // ej. "Consultar deuda para 3 CUIT(s)"; tooltip con el motivo
+ *   lanzador.cambiar(0, { texto, ayuda, nota });   // ej. "Consultar deuda para 3 CUIT(s)"; tooltip con el motivo
  *   lanzador.lanzar(1, datos);          // corre la acción 1 con esos datos, sin preparar ni modal
  *                                       // (ej. reintentar un cliente desde Resultados): también se cancela
  *   lanzador.visible();                 // cómo está el switch del navegador
  *   lanzador.enCurso();                 // true mientras corre
+ *   lanzador.refrescar();               // vuelve a consultar mostrar() de los auxiliares
  *
  * Mientras corre:
- *   - el botón que se tocó pasa a "⏹ Cancelar" (rojo); las otras acciones y el switch se bloquean.
+ *   - el botón que se tocó pasa a "⏹ Cancelar" (rojo); las otras acciones, los auxiliares
+ *     y el switch se bloquean.
  *   - Cancelar queda bloqueado CANCELAR_ARMA_MS al arrancar: un doble clic no corta la corrida.
  *   - Cancelar no pide confirmación (salvo que la acción traiga confirmarCancelar, ej. Facturación:
  *     lo emitido no se deshace): llama a 'automatizacion:cancelar', que cierra el navegador,
@@ -54,7 +62,7 @@
     const CANCELAR_ARMA_MS = 1500;
 
     function crear(contenedor, opciones = {}) {
-        const { titulo, navegador = true, acciones = [] } = opciones;
+        const { titulo, navegador = true, acciones = [], auxiliares = [] } = opciones;
 
         let corriendo = null;        // índice de la acción que está corriendo
         let cancelarArmado = false;
@@ -91,16 +99,36 @@
             btn.className = `ui-btn ui-lanzador__accion ui-lanzador__accion--${accion.tipo || 'principal'}`;
             if (accion.ayuda) btn.title = accion.ayuda;
             opcion.appendChild(btn);
+            let nota = null;
             if (accion.nota) {
-                const nota = document.createElement('small');
+                nota = document.createElement('small');
                 nota.className = 'ui-modo-nota';
                 nota.textContent = accion.nota;
                 opcion.appendChild(nota);
             }
             fila.appendChild(opcion);
             btn.addEventListener('click', () => clic(i));
-            return { accion, btn, habilitado: false };
+            return { accion, btn, opcion, nota, habilitado: false };
         });
+
+        // Auxiliares: último hijo de la fila (row-reverse) → quedan a la izquierda.
+        let auxItems = [];
+        if (auxiliares.length) {
+            contenedor.classList.add('ui-lanzador--con-auxiliares');
+            const caja = document.createElement('div');
+            caja.className = 'ui-lanzador__auxiliares';
+            fila.appendChild(caja);
+            auxItems = auxiliares.map((aux) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'ui-btn ui-lanzador__auxiliar';
+                btn.textContent = aux.texto;
+                if (aux.ayuda) btn.title = aux.ayuda;
+                btn.addEventListener('click', () => { if (corriendo === null) aux.alHacer(); });
+                caja.appendChild(btn);
+                return { aux, btn };
+            });
+        }
 
         function pintar() {
             items.forEach((item, i) => {
@@ -108,12 +136,17 @@
                 const esLaQueCorre = corriendo === i;
                 btn.classList.toggle('ui-lanzador__accion--cancelar', esLaQueCorre);
                 if (esLaQueCorre) {
-                    btn.textContent = cancelando ? '⏳ Cancelando…' : '⏹ Cancelar';
+                    btn.textContent = cancelando ? 'Cancelando…' : 'Cancelar';
                     btn.disabled = !cancelarArmado || cancelando;
                 } else {
                     btn.textContent = item.accion.texto;
                     btn.disabled = corriendo !== null || !item.habilitado;
                 }
+            });
+            auxItems.forEach(({ aux, btn }) => {
+                // style, no [hidden]: .ui-btn pone display y le ganaría.
+                btn.style.display = aux.mostrar && !aux.mostrar() ? 'none' : '';
+                btn.disabled = corriendo !== null;
             });
             if (chkVisible) chkVisible.disabled = corriendo !== null;
         }
@@ -202,17 +235,26 @@
                 });
                 pintar();
             },
-            cambiar(indice, { texto, ayuda } = {}) {
+            cambiar(indice, { texto, ayuda, nota } = {}) {
                 const item = items[indice];
                 if (texto !== undefined) item.accion.texto = texto;
                 if (ayuda !== undefined) item.btn.title = ayuda || '';
+                if (nota !== undefined) {
+                    if (!item.nota) {
+                        item.nota = document.createElement('small');
+                        item.nota.className = 'ui-modo-nota';
+                        item.opcion.appendChild(item.nota);
+                    }
+                    item.nota.textContent = nota || '';
+                }
                 pintar();
             },
             lanzar(indice, datos) {
                 if (corriendo === null) return arrancar(indice, { datos });
             },
             visible,
-            enCurso: () => corriendo !== null
+            enCurso: () => corriendo !== null,
+            refrescar: pintar
         };
     }
 

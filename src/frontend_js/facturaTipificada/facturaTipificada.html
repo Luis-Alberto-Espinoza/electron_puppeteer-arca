@@ -116,7 +116,7 @@
 
                     <div class="form-row">
                         <div class="form-group" style="flex: 1;">
-                            <label for="notasExcelSelect">Excel de consulta del emisor</label>
+                            <label for="notasExcelSelect">Excel del servicio de Consulta de comprobantes</label>
                             <select id="notasExcelSelect" name="notasExcelSelect"></select>
                         </div>
                         <div class="form-group" style="align-self: flex-end;">
@@ -261,55 +261,21 @@
                     <p class="info-text">Guarda esta factura como una factura aparte y limpia el formulario para cargar otra con datos diferentes (otra fecha, otro cliente, otros montos).</p>
                 </div>
 
+                <!-- ÁREA DE RESULTADOS: arriba de los botones, se lee bajando y
+                     se termina en el lanzador (probar de nuevo / generar) -->
+                <div id="areaResultados" class="area-resultados contenido-oculto">
+                    <h3>Resultado</h3>
+                    <div id="mensajeResultado"></div>
+                </div>
+
                 <!-- BOTONES DE ACCIÓN -->
                 <div class="acciones-form">
-                    <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
-                    <label class="ui-switch">
-                        <input type="checkbox" id="chk-visible-tipificada" checked>
-                        Mostrar navegador
-                    </label>
-                    <div class="botones-container">
-                        <button type="button" id="btnCancelar" class="btn-cancelar">
-                            Cancelar
-                        </button>
-                        <!-- Modo prueba = el botón que se toca (antes era una casilla) -->
-                        <div class="ui-modo-botones">
-                            <div class="ui-modo-opcion">
-                                <button type="button" id="btnProbar" class="btn-generar btn-probar">🧪 Probar 1ra factura</button>
-                                <small class="ui-modo-nota">Sin confirmar, con captura para verificar</small>
-                            </div>
-                            <div class="ui-modo-opcion">
-                                <button type="button" id="btnGenerar" class="btn-generar">
-                                    🧾 Generar <span id="contadorFacturas">1</span> Factura(s)
-                                </button>
-                                <small class="ui-modo-nota">Factura real en AFIP</small>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Lanzador (componentes/lanzadorAutomatizacion): switch + 🧪 Probar / 🧾 Generar, ⏹ Cancelar mientras corre;
+                         auxiliares a la izquierda: 🧹 Limpiar formulario y ✖ Descartar (cuando hay algo pendiente) -->
+                    <div id="lanzadorTipificada"></div>
                 </div>
             </form>
 
-            <!-- ÁREA DE PROGRESO -->
-            <div id="areaProgreso" class="area-progreso contenido-oculto">
-                <h3>Generando Facturas...</h3>
-                <div class="progreso-general">
-                    <div class="progreso-texto">
-                        <span id="progresoActual">0</span> de <span id="progresoTotal">0</span>
-                    </div>
-                    <div class="barra-progreso">
-                        <div id="barraProgresoFill" class="barra-progreso-fill" style="width: 0%"></div>
-                    </div>
-                </div>
-                <div id="listaProgresoFacturas" class="lista-progreso">
-                    <!-- Se mostrará el estado de cada factura aquí -->
-                </div>
-            </div>
-
-            <!-- ÁREA DE RESULTADOS -->
-            <div id="areaResultados" class="area-resultados contenido-oculto">
-                <h3>Resultado</h3>
-                <div id="mensajeResultado"></div>
-            </div>
         </div>
     </div>
 </body>

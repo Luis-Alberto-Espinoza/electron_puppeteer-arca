@@ -58,6 +58,7 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
                     `AFIP ofrece: ${pv.numeros.length ? pv.numeros.join(', ') : '(ninguno)'}.`
                 );
                 error.conocido = true;
+                error.cortaLote = true; // los demás comprobantes del lote usan el mismo PDV
                 throw error;
             }
 
@@ -103,6 +104,7 @@ async function paso_0_seleccionarPuntoDeVenta(newPage, datos) {
                     ? `AFIP indica que el punto de venta ${datos.puntoVenta} es de ${letra === 'B' ? 'Responsable Inscripto (Factura B)' : 'Monotributo (Factura C)'}: no ofrece ${pedido}.`
                     : `AFIP no ofrece ${pedido} en el punto de venta ${datos.puntoVenta}. Ofrece: ${disponibles.join(', ') || '(nada)'}.`);
                 error.conocido = true;
+                error.cortaLote = true;
                 if (letra) {
                     error.codigo = 'TIPO_PDV_DISTINTO';
                     error.detalle = { puntoVenta: datos.puntoVenta, letra };

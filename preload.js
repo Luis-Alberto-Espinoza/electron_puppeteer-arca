@@ -246,8 +246,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     facturaTipificada: {
         generar: (datos) => ipcRenderer.invoke('facturaTipificada:generar', datos),
         generarLote: (datos) => ipcRenderer.invoke('facturaTipificada:generarLote', datos),
-        onFacturaTipificadaUpdate: (callback) => ipcRenderer.on('facturaTipificada:update', (_event, datos) => callback(datos)),
-        onProgreso: (callback) => ipcRenderer.on('facturaTipificada:progreso', (_event, datos) => callback(datos))
+        onFacturaTipificadaUpdate: (callback) => ipcRenderer.on('facturaTipificada:update', (_event, datos) => callback(datos))
     },
 
     // APIs para Facturas de Cliente (con progreso en tiempo real)

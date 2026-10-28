@@ -7,6 +7,7 @@ const { listarRazonesSociales, normalizarNumeroPdv, tipoContribuyenteDesdePuntos
 const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { aprenderPdvHabilitados, aprenderTipoDelPdv } = require('./aprenderPdv.js');
+const { loteEnUnaSesion } = require('./corteLote.js');
 
 // En facturas el CUIT puede venir como `cuit` o `cuil`; normalizamos acá.
 const clienteFactura = (u) => historialRepo.clienteDesdeUsuario(
@@ -336,209 +337,112 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
 
         console.log(`Generando ${grupos.length} factura(s) distinta(s), ${totalComprobantes} comprobante(s) para: ${usuario.nombre}`);
 
-        const resultados = [];
-        let indiceGlobal = 0; // 1..N a través de todos los grupos (id de progreso unico)
-        // Si AFIP corrige el tipo del PDV o no lo habilita, los comprobantes que
-        // siguen fallarían igual (un login cada uno): se corta el lote.
-        let tipoCorregido = null;
-        let pdvNoHabilitado = null;
-
-        // Recorrer cada factura distinta (cabezal propio) y dentro sus comprobantes.
-        // Cada resultado lleva su `grupo` (índice en `grupos`): si el lote se corta,
-        // el front saca los grupos ya emitidos y reintentar no los re-emite.
-        for (const [indiceGrupo, grupo] of grupos.entries()) {
-            const datosComunes = grupo.datosComunes;
-            const facturas = grupo.facturas || [];
-
-            // Credenciales por grupo: el login lo resuelve el backend (modelo plano).
-            const accesoGrupo = await repo.resolverAcceso(String(datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil), 'afip');
-            if (!accesoGrupo) {
-                return {
-                    success: false,
-                    message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante)'
-                };
-            }
-            const credenciales = {
-                usuario: accesoGrupo.loginCuit,
-                contrasena: accesoGrupo.loginClave,
-                nombreEmpresa: datosComunes.nombreEmpresa || accesoGrupo.objetivoNombre
+        // Credenciales: el emisor es el mismo en todos los grupos (cambia el
+        // cabezal / receptor, no la cuenta AFIP). El login lo resuelve el backend.
+        const primerGrupo = grupos[0].datosComunes;
+        const acceso = await repo.resolverAcceso(String(usuario.cuit || usuario.cuil), 'afip');
+        if (!acceso) {
+            return {
+                success: false,
+                message: 'El contribuyente no tiene acceso AFIP (ni clave propia ni representante)'
             };
+        }
+        const credenciales = {
+            usuario: acceso.loginCuit,
+            contrasena: acceso.loginClave,
+            nombreEmpresa: primerGrupo.nombreEmpresa || acceso.objetivoNombre
+        };
 
-            for (let i = 0; i < facturas.length; i++) {
-                indiceGlobal++;
-                const factura = facturas[i];
-                const primeraLinea = factura.lineasDetalle[0];
-                const descripcion = primeraLinea?.descripcion || 'Sin descripcion';
-
-                try {
-                    // Notificar que esta en progreso
-                    event.sender.send('facturaTipificada:progreso', {
-                        actual: indiceGlobal,
-                        total: totalComprobantes,
-                        numeroFactura: indiceGlobal,
-                        descripcion: descripcion,
-                        status: 'en_progreso',
-                        mensaje: 'Generando...'
-                    });
-
-                    console.log(`[${indiceGlobal}/${totalComprobantes}] Generando comprobante: ${descripcion}`);
-
-                    // Combinar el cabezal de ESTE grupo con las lineas de este comprobante
-                    const datosFactura = {
-                        ...datosComunes,
-                        lineasDetalle: factura.lineasDetalle,
-                        usuarioSeleccionado: datosComunes.usuarioSeleccionado,
-                        modulo: 'facturaCliente'  // Para que el unificado detecte el tipo
-                    };
-
-                    // Modo prueba: solo el primer comprobante global, sin confirmar.
-                    const usarModoTest = indiceGlobal === 1 && modoTest;
-
-                    if (usarModoTest) {
-                        console.log('🧪 MODO PRUEBA: Solo se procesará el primer comprobante sin confirmar');
-                    }
-
-                    // Generar usando el manager unificado
-                    const resultado = await facturaManagerUnificado.iniciarProceso(
-                        'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
-                        credenciales,
-                        datosFactura,
-                        usarModoTest,
-                        datosComunes.usuarioSeleccionado,
-                        // Priorizar el puntoVenta elegido en el selector frontend.
-                        datosComunes.puntoVenta || listarRazonesSociales(datosComunes.usuarioSeleccionado)[0] || '0001',
-                        null,
-                        { visible: datos.visible } // una sola elección para todo el lote
-                    );
-                    const cuitGrupo = datosComunes.usuarioSeleccionado.cuit || datosComunes.usuarioSeleccionado.cuil;
-                    // El paso 0 dejó en datosFactura lo que ofrece Comprobantes en línea.
-                    pdvNoHabilitado = await aprenderPdvHabilitados(cuitGrupo, resultado, datosFactura);
-                    tipoCorregido = await aprenderTipoDelPdv(cuitGrupo, resultado);
-
-                    // Si es modo test, cortar despues del primer comprobante
-                    if (usarModoTest) {
-                        // Si falló, NO es "revisá la captura": no se llegó a sacarla.
-                        if (!resultado || resultado.success === false) {
-                            const mensaje = resultado?.message || resultado?.error || 'La factura de prueba no se pudo generar.';
-                            console.warn(`🧪 MODO PRUEBA con error: ${mensaje}`);
-                            return { success: false, modoTest: true, message: mensaje, tipoCorregido, pdvNoHabilitado };
-                        }
-                        console.log('🧪 MODO PRUEBA completado - Revisa la captura');
-                        return {
-                            success: true,
-                            modoTest: true,
-                            message: 'Modo PRUEBA completado - Revisa la captura para verificar los datos',
-                            screenshotPath: resultado.screenshotPath,
-                            resultados: [{
-                                success: true,
-                                modoTest: true,
-                                numeroFactura: indiceGlobal,
-                                message: 'Modo prueba - factura NO confirmada'
-                            }]
-                        };
-                    }
-
-                    // IMPORTANTE: el manager NO lanza excepción cuando falla; atrapa
-                    // el error y devuelve { success:false }. Por eso hay que mirar
-                    // resultado.success en vez de asumir éxito por no haber throw.
-                    // (Si no, en un equipo donde la automatización falla —p. ej. el
-                    // .exe en Windows— se reportaba "factura realizada" sin serlo.)
-                    const detalle = resultado?.data?.resultados?.[0] || {};
-                    const pdfPath = detalle.pdfPath || resultado?.pdfPath || null;
-                    const exito = !!resultado && resultado.success === true;
-
-                    if (!exito) {
-                        const mensajeError = detalle.error
-                            || resultado?.message
-                            || 'La factura no se pudo generar (AFIP no confirmó el comprobante)';
-
-                        event.sender.send('facturaTipificada:progreso', {
-                            actual: indiceGlobal,
-                            total: totalComprobantes,
-                            numeroFactura: indiceGlobal,
-                            descripcion: descripcion,
-                            status: 'error',
-                            mensaje: mensajeError
-                        });
-
-                        console.warn(`[${indiceGlobal}/${totalComprobantes}] Comprobante NO generado: ${mensajeError}`);
-
-                        resultados.push({
-                            success: false,
-                            grupo: indiceGrupo,
-                            numeroFactura: indiceGlobal,
-                            message: mensajeError,
-                            error: mensajeError
-                        });
-
-                        if (tipoCorregido || pdvNoHabilitado) break;
-
-                        // Pausa antes del siguiente, igual que en el caso exitoso.
-                        if (indiceGlobal < totalComprobantes) {
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                        }
-                        continue;
-                    }
-
-                    // Notificar exito
-                    event.sender.send('facturaTipificada:progreso', {
-                        actual: indiceGlobal,
-                        total: totalComprobantes,
-                        numeroFactura: indiceGlobal,
-                        descripcion: descripcion,
-                        status: 'completada',
-                        mensaje: resultado.message || 'Completada',
-                        pdfPath: pdfPath
-                    });
-
-                    console.log(`[${indiceGlobal}/${totalComprobantes}] Comprobante generado exitosamente`);
-
-                    resultados.push({
-                        success: true,
-                        grupo: indiceGrupo,
-                        numeroFactura: indiceGlobal,
-                        message: resultado.message,
-                        pdfPath: pdfPath
-                    });
-
-                    // Pausa de 2 segundos entre comprobantes (excepto el ultimo)
-                    if (indiceGlobal < totalComprobantes) {
-                        console.log('Pausa de 2 segundos antes del siguiente comprobante...');
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    }
-
-                } catch (error) {
-                    console.error(`[${indiceGlobal}/${totalComprobantes}] Error en comprobante:`, error);
-
-                    // Notificar error
-                    event.sender.send('facturaTipificada:progreso', {
-                        actual: indiceGlobal,
-                        total: totalComprobantes,
-                        numeroFactura: indiceGlobal,
-                        descripcion: descripcion,
-                        status: 'error',
-                        mensaje: error.message
-                    });
-
-                    resultados.push({
-                        success: false,
-                        grupo: indiceGrupo,
-                        numeroFactura: indiceGlobal,
-                        message: error.message,
-                        error: error.toString()
-                    });
-
-                    // Continuar con el siguiente comprobante aunque este haya fallado
+        // Todos los comprobantes en orden, cada uno con su cabezal: van en UN login.
+        // Cada uno sabe su `grupo` (índice en `grupos`): si el lote se corta, el
+        // front saca los grupos ya emitidos y reintentar no los re-emite.
+        const lote = grupos.flatMap((grupo, indiceGrupo) => (grupo.facturas || []).map((factura, i) => {
+            const dc = grupo.datosComunes;
+            return {
+                grupo: indiceGrupo,
+                indiceEnGrupo: i,
+                cliente: (dc.receptor?.nombreCliente || '').trim() || dc.receptor?.numeroDocumento || '',
+                datosFactura: {
+                    ...dc,
+                    lineasDetalle: factura.lineasDetalle,
+                    usuarioSeleccionado: dc.usuarioSeleccionado,
+                    modulo: 'facturaCliente'  // Para que el unificado detecte el tipo
                 }
+            };
+        }));
+        // Modo prueba: solo el primer comprobante, sin confirmar.
+        const aCorrer = modoTest ? lote.slice(0, 1) : lote;
+        if (modoTest) console.log('🧪 MODO PRUEBA: Solo se procesará el primer comprobante sin confirmar');
+
+        const { resultados: porComprobante, cortadoPor, resultado } = await loteEnUnaSesion({
+            sender: event.sender, canal: 'facturaTipificada:update', queEs: 'Comprobante',
+            nombres: aCorrer.map(c => c.cliente),
+            correr: (enviarProgreso) => facturaManagerUnificado.iniciarProceso(
+                'https://auth.afip.gob.ar/contribuyente_/login.xhtml',
+                credenciales,
+                aCorrer.map(c => c.datosFactura),
+                modoTest,
+                usuario,
+                // Priorizar el puntoVenta elegido en el selector frontend.
+                primerGrupo.puntoVenta || listarRazonesSociales(usuario)[0] || '0001',
+                enviarProgreso,
+                { visible: datos.visible } // una sola elección para todo el lote
+            )
+        });
+
+        // Lo que el paso 0 vio de los PDV (queda en el datosFactura que pasó por ahí).
+        // Si un comprobante cortó el lote por el PDV, ese es el que manda.
+        const cuitEmisor = usuario.cuit || usuario.cuil;
+        const iCorte = porComprobante.findIndex(r => r && r.cortaLote);
+        const conPdv = iCorte >= 0 ? aCorrer[iCorte] : aCorrer.find(c => c.datosFactura.pdvHabilitadosAfip);
+        const resultadoPdv = iCorte >= 0 ? porComprobante[iCorte] : (modoTest ? resultado : { success: true });
+        const pdvNoHabilitado = conPdv ? await aprenderPdvHabilitados(cuitEmisor, resultadoPdv, conPdv.datosFactura) : null;
+        const tipoCorregido = await aprenderTipoDelPdv(cuitEmisor, resultadoPdv);
+
+        if (modoTest) {
+            if (cortadoPor) {
+                return { success: false, modoTest: true, error: resultado.error, message: resultado.message };
             }
-            if (tipoCorregido) {
-                console.warn(`Lote cortado: AFIP indica que el PDV ${tipoCorregido.puntoVenta} es ${tipoCorregido.letra}; se corrigió el cliente, revisá el tipo de comprobante y volvé a generar.`);
-                break;
+            // Si falló, NO es "revisá la captura": no se llegó a sacarla.
+            if (!resultado || resultado.success === false) {
+                const mensaje = resultado?.message || resultado?.error || 'La factura de prueba no se pudo generar.';
+                console.warn(`🧪 MODO PRUEBA con error: ${mensaje}`);
+                return { success: false, modoTest: true, message: mensaje, tipoCorregido, pdvNoHabilitado };
             }
-            if (pdvNoHabilitado) {
-                console.warn(`Lote cortado: AFIP no habilita el PDV ${pdvNoHabilitado.elegido}; ofrece ${pdvNoHabilitado.habilitados.join(', ')}.`);
-                break;
-            }
+            console.log('🧪 MODO PRUEBA completado - Revisa la captura');
+            return {
+                success: true,
+                modoTest: true,
+                message: 'Modo PRUEBA completado - Revisa la captura para verificar los datos',
+                screenshotPath: resultado.screenshotPath,
+                resultados: [{ success: true, modoTest: true, numeroFactura: 1, message: 'Modo prueba - factura NO confirmada' }]
+            };
+        }
+
+        // Un resultado por comprobante intentado (sin resultado = no se intentó).
+        const resultados = [];
+        porComprobante.forEach((r, i) => {
+            if (!r) return;
+            const c = aCorrer[i];
+            const mensaje = r.success ? 'Factura generada' : (r.error || r.message || 'La factura no se pudo generar');
+            resultados.push({
+                success: !!r.success,
+                grupo: c.grupo,
+                indiceEnGrupo: c.indiceEnGrupo,
+                numeroFactura: i + 1,
+                ...(r.success ? { pdfPath: r.pdfPath || null } : { dudosa: !!r.dudosa, error: mensaje }),
+                ...(r.cortado ? { cortado: r.cortado } : {}),
+                message: mensaje
+            });
+            console.log(`[${i + 1}/${totalComprobantes}] ${r.success ? 'Comprobante generado' : `Comprobante NO generado: ${mensaje}`}`);
+        });
+
+        if (cortadoPor) {
+            console.warn(`Lote cortado: ${cortadoPor === 'cancelado' ? 'cancelado por el usuario' : 'se cerró el navegador'}.`);
+        } else if (tipoCorregido) {
+            console.warn(`Lote cortado: AFIP indica que el PDV ${tipoCorregido.puntoVenta} es ${tipoCorregido.letra}; se corrigió el cliente, revisá el tipo de comprobante y volvé a generar.`);
+        } else if (pdvNoHabilitado) {
+            console.warn(`Lote cortado: AFIP no habilita el PDV ${pdvNoHabilitado.elegido}; ofrece ${pdvNoHabilitado.habilitados.join(', ')}.`);
         }
 
         // Resumen final
@@ -551,18 +455,24 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
         console.log(`   Fallidas: ${fallidas}\n`);
 
         // Una sola entrada-resumen por lote (no una por comprobante: sería ruido).
-        const estadoLote = fallidas === 0 ? 'exito' : (exitosas === 0 ? 'error' : 'parcial');
+        const dudosas = resultados.filter(r => r.dudosa).length;
+        const noIntentadas = totalComprobantes - resultados.length;
+        const estadoLote = (fallidas === 0 && noIntentadas === 0) ? 'exito' : (exitosas === 0 ? 'error' : 'parcial');
         historialRepo.registrar({
             dominio: 'factura', accion: 'generarLote', estado: estadoLote,
             cliente: clienteFactura(usuario),
-            resumen: `Lote de facturas: ${exitosas} ok, ${fallidas} fallida/s`,
-            detalle: { total: resultados.length, exitosas, fallidas }
+            resumen: `Lote de facturas: ${exitosas} de ${totalComprobantes} ok, ${fallidas} fallida/s`
+                + (dudosas ? `, ${dudosas} dudosa/s (revisar en Mis Comprobantes)` : '')
+                + (cortadoPor ? ` — ${cortadoPor === 'cancelado' ? 'cancelado por el usuario' : 'se cerró el navegador'}` : ''),
+            detalle: { total: totalComprobantes, exitosas, fallidas, dudosas, noIntentadas, cortadoPor }
         });
 
         return {
             success: true,
             message: `Lote procesado: ${exitosas} exitosas, ${fallidas} fallidas`,
             resultados: resultados,
+            // 'cancelado' | 'cerrado' | null: los comprobantes sin resultado no se intentaron.
+            cortadoPor,
             // AFIP corrigió el tipo del PDV: la pantalla se actualiza con esto.
             tipoCorregido,
             // AFIP no habilita el PDV elegido: { habilitados, elegido } para recargar el desplegable.

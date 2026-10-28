@@ -44,3 +44,28 @@
 /* La acción que corre pasa a "⏹ Cancelar" */
 .ui-lanzador__accion--cancelar,
 .ui-lanzador__accion--cancelar:hover:not(:disabled) { background: var(--grad-peligro); }
+
+/* Auxiliares (Limpiar, Descartar…): grises, a la izquierda de la fila, no lanzan nada */
+.ui-lanzador__auxiliares {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: flex-start;
+    margin-right: auto;
+}
+/* Si entran, los cuatro en una línea (auxiliares a la izquierda). Si no entran,
+   los auxiliares suben ARRIBA de las acciones (wrap-reverse), no abajo: las
+   acciones quedan siempre al pie, a mano. */
+.ui-lanzador--con-auxiliares .ui-modo-botones {
+    flex-wrap: wrap-reverse;
+}
+/* Mismo alto y letra que las acciones (.ui-btn), gris sólido. margin 0: la
+   regla global de button (home/index.css) le daba 10px arriba y quedaba desfasado. */
+.ui-lanzador .ui-lanzador__auxiliar {
+    margin: 0;
+    background: #6c757d;
+    color: #fff;
+}
+.ui-lanzador .ui-lanzador__auxiliar:hover:not(:disabled) {
+    background: #5a6268;
+}

@@ -76,17 +76,19 @@ const ejecutar_FacturacionUnificado = async (
         // ==========================================
         // DETECTAR MODO
         // ==========================================
-        const esModoDetallado = datos.lineasDetalle && Array.isArray(datos.lineasDetalle) && datos.lineasDetalle.length > 0;
+        // Detallado puede venir como array: varios comprobantes en esta misma sesión.
+        const muestra = Array.isArray(datos) ? (datos[0] || {}) : datos;
+        const esModoDetallado = Array.isArray(muestra.lineasDetalle) && muestra.lineasDetalle.length > 0;
         const modo = esModoDetallado ? 'DETALLADO' : 'SIMPLE';
 
         console.log(`=== MODO DETECTADO: ${modo} ===`);
-        console.log(`  - Tipo actividad: ${datos.tipoActividad}`);
-        console.log(`  - Tipo contribuyente: ${datos.tipoContribuyente}`);
+        console.log(`  - Tipo actividad: ${muestra.tipoActividad}`);
+        console.log(`  - Tipo contribuyente: ${muestra.tipoContribuyente}`);
         console.log(`  - Modo test: ${modoTest}`);
 
         if (esModoDetallado) {
-            console.log(`  - Líneas de detalle: ${datos.lineasDetalle.length}`);
-            console.log(`  - Receptor: ${datos.receptor?.numeroDocumento || 'genérico'}`);
+            console.log(`  - Comprobantes: ${Array.isArray(datos) ? datos.length : 1}`);
+            console.log(`  - Receptor: ${muestra.receptor?.numeroDocumento || 'genérico'}`);
         } else {
             console.log(`  - Facturas generadas: ${datos.montoResultados?.facturasGeneradas?.length || 0}`);
         }
@@ -309,6 +311,9 @@ const ejecutar_FacturacionUnificado = async (
             const procesarFacturaConReintento = async (facturaActual, facturaIndex, intento = 0) => {
                 // Definir clienteIdentificador FUERA del try para que esté disponible en el catch
                 const clienteIdentificador = facturaActual.receptor?.numeroDocumento || facturaActual.receptor?.nombreCliente || `Factura ${facturaIndex + 1}`;
+                // Desde el clic en Confirmar no se sabe si AFIP la grabó: si falla ahí,
+                // reintentar puede EMITIRLA DOS VECES → no se reintenta y queda dudosa.
+                let llegoAConfirmar = false;
 
                 try {
                     // Enviar progreso: iniciando factura
@@ -397,6 +402,7 @@ const ejecutar_FacturacionUnificado = async (
                     }
 
                     // ===== PASO 4: Confirmar Factura y Descargar PDF (UNIFICADO) =====
+                    llegoAConfirmar = true;
                     const resultadoConfirmacion = await ejecutarPasoConVerificacion(
                         'Confirmar Factura y Descargar PDF',
                         paso_4_ConfirmarFactura_Unificado,
@@ -435,7 +441,9 @@ const ejecutar_FacturacionUnificado = async (
 
                     // Si no hemos alcanzado el máximo de reintentos. Un error conocido
                     // (lo rechazó AFIP) va a dar lo mismo: no se reintenta.
-                    if (intento < MAX_REINTENTOS && !error.conocido) {
+                    // Navegador cerrado (cancelar / cerrado a mano): reintentar no tiene dónde.
+                    const navegadorVivo = pagePuntoDeVenta.browser().isConnected();
+                    if (intento < MAX_REINTENTOS && !error.conocido && !llegoAConfirmar && navegadorVivo) {
                         if (enviarProgreso) {
                             enviarProgreso({
                                 tipo: 'error',
@@ -466,6 +474,8 @@ const ejecutar_FacturacionUnificado = async (
                         return {
                             success: false,
                             facturaNumero: facturaIndex + 1,
+                            ...(llegoAConfirmar ? { dudosa: true } : {}),
+                            ...(error.cortaLote ? { cortaLote: true } : {}),
                             error: error.message,
                             ...(error.codigo ? { codigo: error.codigo, detalle: error.detalle } : {}),
                             intentos: intento + 1,
@@ -480,6 +490,16 @@ const ejecutar_FacturacionUnificado = async (
             for (let i = 0; i < cantidad; i++) {
                 const resultado = await procesarFacturaConReintento(facturas[i], i);
                 resultadosFacturas.push(resultado);
+                // Uno por comprobante: si después se corta (cancelar / navegador
+                // cerrado), el handler ya sabe cuáles salieron.
+                if (enviarProgreso) {
+                    enviarProgreso({ tipo: 'resultado-factura', facturaActual: i + 1, totalFacturas: cantidad, resultado });
+                }
+                // El PDV no sirve (no habilitado / es de otra letra): los que siguen
+                // fallarían igual.
+                if (resultado.cortaLote) break;
+                // Cancelado / cerrado a mano: las que siguen no tienen navegador.
+                if (!pagePuntoDeVenta.browser().isConnected()) break;
 
                 // Espera entre facturas (excepto la última)
                 if (i < cantidad - 1) {
