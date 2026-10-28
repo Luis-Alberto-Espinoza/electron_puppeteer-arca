@@ -14,7 +14,7 @@ window.inicializarModuloDdjjPendientes = () => {
     // Antes que el selector: su onCambioSeleccion ya habilita el lanzador.
     const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDp'), {
         acciones: [{
-            texto: '▶ Consultar DDJJ pendientes',
+            texto: 'Consultar DDJJ pendientes',
             preparar: elegidos,
             confirmar: (contribuyentes) => ({
                 title: 'DDJJ pendientes',

@@ -26,7 +26,7 @@ window.inicializarConsultaComprobantes = () => {
 
     // Antes que el selector: su onCambioSeleccion ya habilita el lanzador.
     const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorCc'), {
-        acciones: [{ texto: '🔍 Consultar comprobantes', ejecutar: consultar }]
+        acciones: [{ texto: 'Consultar comprobantes', ejecutar: consultar }]
     });
 
     // dd/mm/aaaa de hoy, para preestablecer "Fecha hasta" y ahorrar clicks.

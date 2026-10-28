@@ -13,7 +13,7 @@ window.inicializarModuloDatosRegistrales = () => {
     // Antes que el selector: su onCambioSeleccion ya habilita el lanzador.
     const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDr'), {
         acciones: [{
-            texto: '▶ Descargar datos registrales',
+            texto: 'Descargar datos registrales',
             preparar: elegidos,
             confirmar: (contribuyentes) => ({
                 title: 'Datos registrales',

@@ -53,7 +53,7 @@ window.inicializarModuloPlanesDePago = () => {
     // =========================================================================
     const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorPlanes'), {
         acciones: [{
-            texto: '🔍 Ver planes y elegir',
+            texto: 'Ver planes y elegir',
             preparar: prepararLote,
             confirmar: ({ loteRepresentantes, opciones }) => ({
                 title: 'Ver planes',
@@ -63,7 +63,7 @@ window.inicializarModuloPlanesDePago = () => {
             rueda: { servicio: 'ARCA', subservicio: 'Plan de Pagos', mensaje: 'Leyendo los planes…' },
             ejecutar: verPlanes
         }, {
-            texto: '▶ Descargar directo',
+            texto: 'Descargar directo',
             tipo: 'secundario',
             ayuda: 'Baja todo lo que pasa el filtro, sin elegir plan por plan',
             preparar: prepararLote,
@@ -81,7 +81,7 @@ window.inicializarModuloPlanesDePago = () => {
     const lanzadorSeleccion = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorPlanesSeleccion'), {
         navegador: false,
         acciones: [{
-            texto: '▶ Descargar seleccionados',
+            texto: 'Descargar seleccionados',
             preparar: prepararSeleccion,
             confirmar: ({ totalPlanes, totalClientes }) => ({
                 title: 'Descargar planes',
@@ -802,8 +802,8 @@ window.inicializarModuloPlanesDePago = () => {
 
         // Un CUIT por fila seleccionada (modelo plano): CUITs = clientes
         const sufijo = totalCuits > 0 ? ` (${totalCuits} cliente${totalCuits === 1 ? '' : 's'})` : '';
-        lanzador.cambiar(0, { texto: `🔍 Ver planes y elegir${sufijo}` });
-        lanzador.cambiar(1, { texto: `▶ Descargar directo${sufijo}` });
+        lanzador.cambiar(0, { texto: `Ver planes y elegir${sufijo}` });
+        lanzador.cambiar(1, { texto: `Descargar directo${sufijo}` });
         lanzador.habilitar(totalCuits > 0);
     }
 
@@ -1067,7 +1067,7 @@ window.inicializarModuloPlanesDePago = () => {
             bloque.querySelector('.planes-sel-cuenta').textContent = `${n}/${casillas.length} marcados`;
         });
         resumenSeleccion.textContent = `${marcados} de ${total} plan(es) marcados · filtro: ${resumenSeleccion.dataset.filtro || ''}`;
-        lanzadorSeleccion.cambiar(0, { texto: `▶ Descargar seleccionados (${marcados})` });
+        lanzadorSeleccion.cambiar(0, { texto: `Descargar seleccionados (${marcados})` });
         lanzadorSeleccion.habilitar(marcados > 0);
     }
 

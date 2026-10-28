@@ -100,7 +100,7 @@ export class AuthManager {
 
         this.lanzador = window.lanzadorAutomatizacion.crear(this.contenedor, {
             acciones: [{
-                texto: '🔐 Facturar en AFIP',
+                texto: 'Facturar en AFIP',
                 tipo: 'principal',
                 nota: 'Facturación real',
                 preparar: () => this._preparar(),
@@ -120,7 +120,7 @@ export class AuthManager {
                 rueda: rueda(false),
                 ejecutar: (datos, { visible }) => this._correr(false, visible, datos.desde)
             }, {
-                texto: '🧪 Modo Test',
+                texto: 'Modo Test',
                 tipo: 'prueba',
                 nota: 'Prueba: no confirma la factura',
                 preparar: () => this._preparar(),

@@ -43,7 +43,7 @@ window.inicializarModuloImportarLibroIva = () => {
     const RUEDA = { servicio: 'ARCA', subservicio: 'Portal IVA', mensaje: 'Iniciando sesión en AFIP…' };
     const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorIl'), {
         acciones: [{
-            texto: '▶ Cargar Libro IVA',
+            texto: 'Cargar Libro IVA',
             preparar: prepararCarga,
             confirmar: confirmarCarga,
             rueda: RUEDA,
