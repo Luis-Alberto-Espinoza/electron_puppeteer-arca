@@ -1,0 +1,32 @@
+/**
+ * TEMA ATM — verde, igual mecanismo que AFIP
+ * ------------------------------------------------------------
+ * Pedido del usuario (2026-10-28): que ATM se distinga como AFIP con su violeta. El fondo
+ * de la app queda azul; el recuadro de ATM toma un verde oscuro y todo lo de adentro
+ * (paneles, cajas de texto, bordes) son escalones de ese verde.
+ *
+ * Cómo funciona:
+ *  1. #atmsDiv lleva la clase "tema-vista" (home/index.html): con eso hereda de
+ *     tema_afip.css las superficies --v-* calculadas del tono, las cajas de texto oscuras,
+ *     el foco amarillo, las letras blancas, el switch y las tablas.
+ *  2. Acá: el tono (--tono-atm de tokens.css) y el marco de la vista.
+ *  3. La hoja de la vista (ATM_f/ATM_vistas/atm_lote.css) usa var(--v-xxx, COLOR_ORIGINAL).
+ */
+
+#atmsDiv {
+    --vista-tono: var(--tono-atm);
+    --v-acento: color-mix(in srgb, var(--vista-tono), white 45%);
+    background: var(--vista-tono);
+    border-radius: var(--radio);
+    box-shadow: var(--sombra);
+    padding: 20px;
+    margin: 16px auto;
+    max-width: var(--ancho-max);
+}
+
+/* El selector de clientes, con el tono de la vista como en AFIP (su verde propio de
+   servicio-atm, --c-atm-1, es más azulado y no combinaba con el marco). Solo acá: el
+   selector ATM de otras pantallas (lanzador de sesión) conserva el suyo. */
+#atmsDiv .selector-usuarios-container.servicio-atm {
+    --sel-tono: var(--vista-tono);
+}

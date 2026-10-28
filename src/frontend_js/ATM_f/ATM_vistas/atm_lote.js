@@ -935,6 +935,12 @@ window.inicializarModuloLoteATM = () => {
     // =========================================================================
     const userDivMap = new Map();
 
+    // El nombre como lo muestra el selector de clientes (SelectorUsuarios.formatearNombreCompleto):
+    // cada palabra con mayúscula inicial. ATM y AFIP lo mandan en mayúsculas.
+    const nombreVisible = (texto) => String(texto || '').split(' ')
+        .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+        .join(' ');
+
     // Los 5 subservicios mandan el aviso con el contrato de la rueda (backend/comun/avisoProgreso.js):
     // { tipo, id, cuit, nombre, estado, mensaje, procesados, total, ...files/downloadDir/resumen }
     const manejarActualizacionProgreso = (datos) => {
@@ -962,7 +968,7 @@ window.inicializarModuloLoteATM = () => {
             userDivMap.set(idUsuario, userDiv);
 
             const userHeader = document.createElement('h4');
-            userHeader.textContent = nombre;
+            userHeader.textContent = nombreVisible(nombre);
             userDiv.appendChild(userHeader);
 
             const messageContainer = document.createElement('div');
@@ -1007,7 +1013,10 @@ window.inicializarModuloLoteATM = () => {
                     : cantidadArchivos === 0
                     ? '<span class="badge bg-secondary">SIN DATOS</span>'
                     : `<span class="badge bg-success">Éxito - ${cantidadArchivos} archivo(s)</span>`;
-            userDiv.querySelector('h4').innerHTML = `${nombre} ${badge}`;
+            userDiv.querySelector('h4').innerHTML = `${nombreVisible(nombre)} ${badge}`;
+            // Barrita de color a la izquierda (atm_lote.css). "SIN DATOS" va gris, como su etiqueta.
+            const sinDatos = !esFallo && !['rechazada', 'parcial'].includes(estadoFinal) && cantidadArchivos === 0;
+            userDiv.dataset.estado = sinDatos ? 'sin_datos' : estadoFinal;
 
             // Apremios: una línea por impuesto consultado (también cuando todos fallaron)
             if (Array.isArray(detalleApremios) && detalleApremios.length > 0) {

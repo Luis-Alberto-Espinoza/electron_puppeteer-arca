@@ -85,6 +85,10 @@
   --tono-ddjj-pendientes: hsl(282 34% 40%);
   --tono-importar-libro-iva: hsl(250 38% 41%);
 
+  /* ===== Tono de ATM (ver estilos/tema_atm.css) =====
+     Verde bosque oscuro, de la familia de los botones verdes que ya tenía ATM. */
+  --tono-atm:             hsl(150 38% 30%);
+
   /* ===== Tonos de las herramientas (ver estilos/tema_herramientas.css) =====
      Cada una con su PROPIA familia (ni violeta AFIP ni verde ATM): otra zona. */
   --tono-pdf:             hsl(350 42% 36%);   /* bordó */

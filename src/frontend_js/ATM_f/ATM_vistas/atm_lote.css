@@ -1,10 +1,7 @@
 /* --- Tema Oscuro para Módulo de Lote ATM (Azul y Amarillo) --- */
 
 /* Estilos generales del contenedor del módulo */
-#atmsDiv {
-    --vista-tono: var(--c-atm-1);  /* lo usan los modales globales (confirmModal) */
-    padding: 20px;
-}
+/* El tono y el marco de #atmsDiv están en estilos/tema_atm.css. */
 
 .lote-header {
     display: flex;
@@ -16,15 +13,15 @@
 
 .lote-container h2 {
     color: #f6e05e; /* Acento amarillo para títulos */
-    border-bottom: 1px solid #4a5568;
+    border-bottom: 1px solid var(--v-borde, #4a5568);
     padding-bottom: 15px;
     margin-bottom: 20px;
 }
 
 /* Estilo para la lista de selección de usuarios */
 #listaUsuariosLote {
-    background-color: #2d3748;
-    border: 1px solid #4a5568;
+    background-color: var(--v-panel, #2d3748);
+    border: 1px solid var(--v-borde, #4a5568);
     border-radius: 8px;
     padding: 10px;
     max-height: 300px;
@@ -42,12 +39,12 @@
 
 /* Efecto hover para toda la fila del usuario */
 .usuario-item:hover {
-    background-color: #4a5568;
+    background-color: var(--v-panel-2, #4a5568);
 }
 
 .usuario-item label {
     margin-left: 12px;
-    color: #e2e8f0;
+    color: var(--v-texto, #e2e8f0);
     flex-grow: 1;
 }
 
@@ -79,20 +76,28 @@
 }
 
 .progreso-usuario {
-    background-color: #2d3748;
-    border: 1px solid #4a5568;
+    /* Más oscura que los paneles: con el tema verde, el verde de "Éxito" y de los
+       botones se perdía sobre un fondo verde medio. */
+    background-color: var(--v-input, #2d3748);
+    border: 1px solid var(--v-borde, #4a5568);
+    border-left: 5px solid var(--v-borde, #4a5568);
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 15px;
 }
+/* Barrita a la izquierda con el color del resultado (data-estado lo pone atm_lote.js) */
+.progreso-usuario:is([data-estado="exito"], [data-estado="exito_final"]) { border-left-color: #48bb78; }
+.progreso-usuario:is([data-estado="parcial"], [data-estado="rechazada"],
+    [data-estado="no_habilitado"], [data-estado="no_cumple"], [data-estado="cancelado"]) { border-left-color: #f6e05e; }
+.progreso-usuario[data-estado="error"] { border-left-color: #fc8181; }
 
 .progreso-usuario h4 {
-    color: #e2e8f0;
+    color: var(--v-texto, #e2e8f0);
     font-weight: 600;
 }
 
 .message-container {
-    color: #a0aec0;
+    color: var(--v-texto-2, #a0aec0);
     font-family: monospace;
     font-size: 0.9em;
     margin-top: 8px;
@@ -100,8 +105,8 @@
 
 /* Recuadro de resumen de deudas (ya lo teníamos) */
 .resumen-deudas-container {
-    background-color: #1a202c;
-    border: 1px solid #4a5568;
+    background-color: var(--v-input, #1a202c);
+    border: 1px solid var(--v-borde, #4a5568);
     border-radius: 8px;
     padding: 16px;
     margin-top: 15px;
@@ -109,7 +114,7 @@
 
 .resumen-deudas-container h6 {
     color: #f6e05e;
-    border-bottom: 1px solid #4a5568;
+    border-bottom: 1px solid var(--v-borde, #4a5568);
     padding-bottom: 10px;
     margin-bottom: 10px;
     font-weight: 600;
@@ -118,7 +123,7 @@
 .resumen-total {
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #4a5568;
+    border-top: 1px solid var(--v-borde, #4a5568);
     display: flex;
     justify-content: space-between;
     font-size: 1.15em;
@@ -130,12 +135,12 @@
     background-color: transparent !important;
     border: none !important;
     padding: 8px 4px !important;
-    color: #e2e8f0;
+    color: var(--v-texto, #e2e8f0);
 }
 
 .resumen-deudas-container .badge {
     font-size: 0.9em;
-    background-color: #4a5568 !important;
+    background-color: var(--v-panel-2, #4a5568) !important;
 }
 
 /* ========================================
@@ -206,9 +211,9 @@
     flex: 1;
     min-width: 130px;
     padding: 12px 16px;
-    background-color: #2d3748;
-    color: #a0aec0;
-    border: 2px solid #4a5568;
+    background-color: var(--v-panel, #2d3748);
+    color: var(--v-texto-2, #a0aec0);
+    border: 2px solid var(--v-borde, #4a5568);
     border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
@@ -217,13 +222,13 @@
 }
 
 .btn-sub:hover {
-    border-color: #63b3ed;
-    color: #e2e8f0;
+    border-color: var(--v-acento, #63b3ed);
+    color: var(--v-texto, #e2e8f0);
 }
 
 .btn-sub-activo {
-    background-color: #2b6cb0;
-    border-color: #63b3ed;
+    background-color: color-mix(in srgb, var(--vista-tono, #2b6cb0), white 18%);
+    border-color: var(--c-acento, #63b3ed);
     color: #fff;
 }
 
@@ -232,8 +237,8 @@
    ======================================== */
 
 .lote-seccion {
-    background-color: #2d3748;
-    border: 1px solid #4a5568;
+    background-color: var(--v-panel, #2d3748);
+    border: 1px solid var(--v-borde, #4a5568);
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 16px;
@@ -249,7 +254,7 @@
 }
 
 .lote-hint {
-    color: #718096;
+    color: var(--v-texto-2, #718096);
     font-weight: 400;
     text-transform: none;
     font-size: 12px;
@@ -265,7 +270,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    color: #e2e8f0;
+    color: var(--v-texto, #e2e8f0);
     font-size: 14px;
     cursor: pointer;
 }
@@ -294,7 +299,7 @@
 .impuestos-plan[open] summary::before { transform: rotate(90deg); }
 .impuestos-plan summary .lote-seccion-titulo { margin-bottom: 0; }
 .impuestos-plan-resumen {
-    color: #e2e8f0;
+    color: var(--v-texto, #e2e8f0);
     font-weight: 600;
     font-size: 14px;
 }
@@ -309,7 +314,7 @@
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: 6px;
-    color: #f7fafc;
+    color: var(--v-texto, #f7fafc);
     font-size: 13px;
     font-weight: 600;
     padding: 4px 10px;
@@ -326,7 +331,7 @@
     background: transparent;
     border: 1px solid #cbd5e0;
     border-radius: 4px;
-    color: #f7fafc;
+    color: var(--v-texto, #f7fafc);
     font-size: 12px;
     padding: 1px 8px;
     cursor: pointer;
@@ -341,12 +346,12 @@
 }
 
 .periodo-label {
-    color: #a0aec0;
+    color: var(--v-texto-2, #a0aec0);
     font-size: 13px;
 }
 
 .periodo-resumen {
-    color: #718096;
+    color: var(--v-texto-2, #718096);
     font-size: 12px;
     margin-top: 8px;
 }
@@ -358,9 +363,9 @@
 /* Campos de período (calendario común, mm/aaaa) */
 .lote-select-periodo {
     cursor: pointer;
-    background-color: #1a202c;
-    color: #e2e8f0;
-    border: 1px solid #4a5568;
+    background-color: var(--v-input, #1a202c);
+    color: var(--v-texto, #e2e8f0);
+    border: 1px solid var(--v-borde, #4a5568);
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 14px;
@@ -378,9 +383,9 @@
 .lote-select-lista {
     flex: 1;
     min-width: 180px;
-    background-color: #1a202c;
-    color: #e2e8f0;
-    border: 1px solid #4a5568;
+    background-color: var(--v-input, #1a202c);
+    color: var(--v-texto, #e2e8f0);
+    border: 1px solid var(--v-borde, #4a5568);
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 14px;
@@ -388,8 +393,8 @@
 
 .btn-lista {
     padding: 8px 14px;
-    background-color: #4a5568;
-    color: #e2e8f0;
+    background-color: var(--v-panel-2, #4a5568);
+    color: var(--v-texto, #e2e8f0);
     border: none;
     border-radius: 6px;
     font-size: 13px;
@@ -432,18 +437,15 @@
 
 .lote-input-nombre {
     flex: 1;
-    background-color: #1a202c;
-    color: #e2e8f0;
-    border: 1px solid #63b3ed;
+    background-color: var(--v-input, #1a202c);
+    color: var(--v-texto, #e2e8f0);
+    border: 1px solid var(--v-borde, #63b3ed);
     border-radius: 6px;
     padding: 8px 12px;
     font-size: 14px;
 }
 
-.lote-input-nombre:focus {
-    outline: none;
-    border-color: #90cdf4;
-}
+/* El foco (aro amarillo) lo pone el tema: estilos/tema_afip.css, igual que en AFIP. */
 
 .input-error {
     border-color: #fc8181 !important;
@@ -459,20 +461,15 @@
 /* Textarea */
 #textareaNombres {
     width: 100%;
-    background-color: #1a202c;
-    color: #e2e8f0;
-    border: 1px solid #4a5568;
+    background-color: var(--v-input, #1a202c);
+    color: var(--v-texto, #e2e8f0);
+    border: 1px solid var(--v-borde, #4a5568);
     border-radius: 6px;
     padding: 10px 12px;
     font-size: 14px;
     font-family: monospace;
     resize: vertical;
     box-sizing: border-box;
-}
-
-#textareaNombres:focus {
-    outline: none;
-    border-color: #63b3ed;
 }
 
 .textarea-acciones {
@@ -483,8 +480,8 @@
 
 .btn-buscar-seleccionar {
     padding: 9px 18px;
-    background-color: #2b6cb0;
-    color: #bee3f8;
+    background-color: color-mix(in srgb, var(--vista-tono, #2b6cb0), white 18%);
+    color: #fff;
     border: none;
     border-radius: 6px;
     font-size: 13px;
@@ -494,7 +491,7 @@
 }
 
 .btn-buscar-seleccionar:hover {
-    background-color: #2c5282;
+    background-color: color-mix(in srgb, var(--vista-tono, #2c5282), white 30%);
 }
 
 .btn-guardar-lista {
@@ -530,14 +527,6 @@
 }
 
 /* Botón procesar */
-/* Lanzador (componentes/lanzadorAutomatizacion): la vista ATM no tiene tema (tema_afip.css),
-   así que se le dan los tonos de las secciones de acá. */
-#lanzadorAtmLote {
-    --v-panel: #2d3748;
-    --v-borde: #4a5568;
-    color: #e2e8f0;
-}
-
 /* ========================================
    APREMIOS - IMPUESTOS POR CLIENTE
    ======================================== */
@@ -546,13 +535,13 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
-    color: #e2e8f0;
+    color: var(--v-texto, #e2e8f0);
 }
 
 .tabla-apremios th,
 .tabla-apremios td {
     padding: 6px 8px;
-    border-bottom: 1px solid #4a5568;
+    border-bottom: 1px solid var(--v-borde, #4a5568);
     text-align: center;
 }
 
@@ -562,14 +551,14 @@
 }
 
 .tabla-apremios th {
-    color: #a0aec0;
+    color: var(--v-texto-2, #a0aec0);
     font-weight: 600;
 }
 
 .tabla-apremios .fila-todos td {
     color: #f6e05e;
     font-weight: 600;
-    background-color: #1a202c;
+    background-color: var(--v-input, #1a202c);
 }
 
 .tabla-apremios input[type="checkbox"] {
@@ -589,12 +578,13 @@
     font-size: 13px;
 }
 
-.detalle-apremios .apremio-ok,
-.detalle-apremios .apremio-vacio { color: #68d391; }
+/* "sin apremios" no es un logro, es "no hay nada": texto común, no verde */
+.detalle-apremios .apremio-ok { color: #68d391; }
+.detalle-apremios .apremio-vacio { color: var(--v-texto-2, #a0aec0); }
 .detalle-apremios .apremio-con_saldo { color: #f6ad55; }
 .detalle-apremios .apremio-error { color: #fc8181; }
 
 .tabla-apremios .celda-todos,
 .tabla-apremios th:nth-child(2) {
-    border-right: 1px solid #4a5568;
+    border-right: 1px solid var(--v-borde, #4a5568);
 }
