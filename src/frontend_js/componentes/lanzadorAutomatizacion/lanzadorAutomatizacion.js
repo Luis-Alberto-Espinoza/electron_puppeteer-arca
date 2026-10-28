@@ -26,7 +26,7 @@
  *           preparar:  () => datos | null,         // opcional: null = no arranca
  *           confirmar: (datos) => ({ title, message, confirmBtnClass }),  // opcional: sin él no hay modal
  *           rueda:     { servicio, subservicio, mensaje },                // opcional
- *           confirmarCancelar: () => ({ title, message }),               // opcional: modal antes de cancelar
+ *           confirmarCancelar: () => ({ title, message }) | null,        // opcional: modal antes de cancelar (null = sin modal)
  *           ejecutar:  async (datos, { visible }) => { ... }              // la corrida en sí
  *       }],
  *       auxiliares: [{                             // opcional: botones grises que NO lanzan nada
@@ -200,13 +200,14 @@
         async function cancelar() {
             if (!cancelarArmado || cancelando) return;
             const { confirmarCancelar } = items[corriendo].accion;
-            if (confirmarCancelar) {
+            const modal = confirmarCancelar && confirmarCancelar();
+            if (modal) {
                 const confirmado = await showConfirmModal({
                     icon: '⏹',
                     confirmText: 'Cancelar igual',
                     cancelText: 'Seguir',
                     confirmBtnClass: 'danger',
-                    ...confirmarCancelar()
+                    ...modal
                 });
                 // Pudo terminar sola mientras el modal estaba abierto
                 if (!confirmado || corriendo === null || cancelando) return;

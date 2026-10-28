@@ -58,9 +58,6 @@
             <h3 class="ddjj-paso-titulo">2 · ¿Ya hay una cargada?</h3>
             <p class="ddjj-hint">Recuperá, mirá o borrá una DDJJ que ya esté cargada en AFIP para este período.</p>
             <div class="ddjj-buscar-fila">
-                <button id="ddjj-btn-buscar" class="ui-btn ui-btn--ghost" type="button" disabled>
-                    🔎 Buscar borrador existente
-                </button>
                 <span class="ddjj-buscar-accion">
                     <label class="ddjj-hint" for="ddjj-accion">Si encuentra 1:</label>
                     <select id="ddjj-accion" class="ddjj-select">
@@ -70,6 +67,8 @@
                     </select>
                 </span>
             </div>
+            <!-- Buscar ↔ Cancelar: componentes/lanzadorAutomatizacion (sin switch: DDJJ va siempre visible) -->
+            <div id="lanzadorDdjjBuscar"></div>
         </div>
 
         <!-- Paso 3: cargar una nueva -->
@@ -107,7 +106,7 @@
             <div id="ddjj-retenciones-lista"></div>
         </div>
 
-            <!-- Opciones del servicio + fila de lanzar (la reemplaza el futuro componente común) -->
+            <!-- Opciones del servicio (Grabar / Reemplazar): cambian el texto del lanzador -->
         <div class="ddjj-opciones">
             <label class="ddjj-check">
                 <input type="checkbox" id="ddjj-grabar" />
@@ -119,17 +118,14 @@
             </label>
         </div>
 
-            <div class="ddjj-procesar">
-                <button id="btnProcesarDj" class="ui-btn ui-btn--accion" disabled>
-                    ▶ Simular carga
-                </button>
-            </div>
-            <p class="ddjj-nota">El navegador queda abierto al terminar, para revisar o seguir en AFIP.</p>
+            <!-- Resultados ARRIBA del lanzador (como Tipificada y ATM): al terminar, el lanzador queda al pie -->
+            <div id="ddjj-estado" class="ddjj-estado" style="display:none;"></div>
+
+            <!-- Totales que AFIP calculó por deducción (se llena al terminar la carga) -->
+            <div id="ddjj-deducciones" class="ddjj-deducciones" style="display:none;"></div>
+
+            <!-- Cargar ↔ Cancelar + Limpiar / Descartar: componentes/lanzadorAutomatizacion -->
+            <div id="lanzadorDdjj"></div>
         </div>
     </div>
-
-    <div id="ddjj-estado" class="ddjj-estado" style="display:none;"></div>
-
-    <!-- Totales que AFIP calculó por deducción (se llena al terminar la carga) -->
-    <div id="ddjj-deducciones" class="ddjj-deducciones" style="display:none;"></div>
 </div>

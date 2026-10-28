@@ -84,7 +84,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
     ipcMain.handle('declaracionJurada:cargar', async (event, datos) => {
         console.log('[DeclaracionJurada] cargar recibido:', datos && datos.cliente && datos.cliente.id);
         try {
-            const { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, archivo, hoja, fechaPago, grabar = false, reemplazarBorrador = false } = datos || {};
+            const { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, archivo, hoja, fechaPago, grabar = false, reemplazarBorrador = false, visible } = datos || {};
 
             if (!cliente || !cliente.id) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario seleccionado.' };
@@ -129,7 +129,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
                 URL_LOGIN_AFIP,
                 credenciales,
                 { cliente, empresaObjetivo, organismo, formulario, periodo, retenciones, modelo, fechaPago, grabar, reemplazarBorrador,
-                  avisar: avisarProgreso(event, cliente) },
+                  visible, avisar: avisarProgreso(event, cliente) },
                 'nuevo',
                 downloadsPath,
                 !grabar   // "modoPrueba" del manager = simulación (sin grabar) — solo afecta el log
@@ -165,7 +165,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
     ipcMain.handle('declaracionJurada:buscar', async (event, datos) => {
         console.log('[DeclaracionJurada] buscar recibido:', datos && datos.cliente && datos.cliente.id);
         try {
-            const { cliente, empresaObjetivo, organismo, formulario, periodo, accion } = datos || {};
+            const { cliente, empresaObjetivo, organismo, formulario, periodo, accion, visible } = datos || {};
             if (!cliente || !cliente.id) {
                 return { success: false, error: 'MISSING_USER', message: 'Falta el usuario seleccionado.' };
             }
@@ -176,7 +176,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
             return await declaracionJuradaManager.iniciarProceso(
                 URL_LOGIN_AFIP,
                 credenciales,
-                { cliente, empresaObjetivo, organismo, formulario, periodo, accion, avisar: avisarProgreso(event, cliente) },
+                { cliente, empresaObjetivo, organismo, formulario, periodo, accion, visible, avisar: avisarProgreso(event, cliente) },
                 'buscar',
                 app.getPath('downloads'),
                 true

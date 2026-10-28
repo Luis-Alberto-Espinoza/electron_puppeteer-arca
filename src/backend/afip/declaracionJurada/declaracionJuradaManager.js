@@ -9,6 +9,7 @@
 const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const loginManager = require('../../puppeteer/afip/archivosComunes/login/login_arca.js');
 const { avisarEnNavegador } = require('../../puppeteer/archivos_comunes/navegador/avisarEnNavegador.js');
+const { resolverHeadless } = require('../../puppeteer/archivos_comunes/navegador/browserLauncher.js');
 
 const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
@@ -32,6 +33,9 @@ async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo,
     console.log(`[DeclaracionJurada Manager] Iniciando proceso modo=${modo} (modoPrueba=${modoPrueba})`);
 
     const avisar = (payload && payload.avisar) || (() => {});
+    // Switch "Mostrar navegador" del lanzador. Oculto: no queda abierto al terminar (nadie lo
+    // ve) ni se inyecta el aviso de "navegador a tu disposición".
+    const visible = !(payload && payload.visible === false);
 
     return await puppeteerManager.ejecutar(async (browser, page) => {
         avisar('Iniciando sesión en AFIP…');
@@ -68,16 +72,14 @@ async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo,
                 if (resultado.resumen && borrado && borrado.resumen) resultado.resumen = borrado.resumen + '\n\n' + resultado.resumen;
             }
 
-            console.log('[DeclaracionJurada Manager] >>> Inyectando aviso en el navegador (modo nuevo)...');
-            await avisarEnNavegador(await pestanaFinal(browser, page), 'La carga automática terminó. El navegador quedó a tu disposición para revisar o completar a mano. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
+            if (visible) await avisarEnNavegador(await pestanaFinal(browser, page), 'La carga automática terminó. El navegador quedó a tu disposición para revisar o completar a mano. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
             return resultado;
         }
 
         if (modo === 'buscar') {
             const flujo = require('../../puppeteer/afip/DECLARACION_JURADA/flujos/flujo_buscar.js');
             const resultado = await flujo.ejecutar(page, payload, credenciales);
-            console.log('[DeclaracionJurada Manager] >>> Inyectando aviso en el navegador (modo buscar)...');
-            await avisarEnNavegador(await pestanaFinal(browser, page), 'La búsqueda terminó. El navegador quedó a tu disposición. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
+            if (visible) await avisarEnNavegador(await pestanaFinal(browser, page), 'La búsqueda terminó. El navegador quedó a tu disposición. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
             return resultado;
         }
 
@@ -85,7 +87,7 @@ async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo,
 
         // TODO producción: cerrar el navegador al terminar. Por ahora (desarrollo) lo
         // dejamos abierto SIEMPRE para poder inspeccionar el resultado del Aceptar.
-    }, { headless: false, dejarAbiertoEnError: true, dejarAbiertoSiempre: true });
+    }, { headless: resolverHeadless(visible), dejarAbiertoEnError: visible, dejarAbiertoSiempre: visible });
 }
 
 module.exports = {

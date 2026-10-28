@@ -32,6 +32,18 @@
 }
 .ui-lanzador .ui-modo-opcion {
     flex: 0 0 auto;
+    /* La columna de base.css estira al botón al ancho de su nota: con una nota larga
+       (ej. DDJJ) el botón salía más ancho que en los demás servicios. Botón del ancho
+       de su texto; la nota abajo, alineada a la derecha. */
+    align-items: flex-end;
+}
+/* La nota no cuenta para el ancho (contain: inline-size): toma el ancho de su botón y,
+   si es larga, baja de renglón. Si contara, una nota larga (DDJJ) ensanchaba la columna
+   y los auxiliares ya no entraban en la misma línea que las acciones. */
+.ui-lanzador .ui-modo-nota {
+    contain: inline-size;
+    align-self: stretch;
+    text-align: right;
 }
 .ui-lanzador .ui-modo-opcion > button {
     width: auto;
@@ -41,6 +53,12 @@
 .ui-lanzador__accion--principal { background: var(--c-accion); }
 .ui-lanzador__accion--principal:hover:not(:disabled) { background: var(--c-accion-hover); }
 .ui-lanzador__accion--prueba { background: var(--grad-ok); }
+/* Secundario: el tono de la vista aclarado (como .ui-btn--ghost en AFIP); sin esta regla
+   caía en el degradé genérico de .ui-btn y no se parecía a nada. */
+.ui-lanzador__accion--secundario {
+    background: color-mix(in srgb, var(--vista-tono, #6b46c1), white 18%);
+    border: 1px solid var(--v-borde, transparent);
+}
 /* La acción que corre pasa a "⏹ Cancelar" */
 .ui-lanzador__accion--cancelar,
 .ui-lanzador__accion--cancelar:hover:not(:disabled) { background: var(--grad-peligro); }

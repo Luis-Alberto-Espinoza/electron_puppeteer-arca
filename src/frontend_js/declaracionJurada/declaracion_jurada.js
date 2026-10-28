@@ -25,6 +25,9 @@ let retencionesArchivos = {};      // { [etiqueta]: rutaTxt }
 let carpetaRetenciones = null;     // carpeta elegida a mano (pisa la del cliente en el auto-detect)
 let ultimaCarga = null;            // datos de la última carga (para escribir los totales de AFIP al Excel)
 let enCurso = false;               // hay una automatización corriendo (cargar o buscar): botones bloqueados
+let corridaGraba = false;          // la carga en curso graba en AFIP (Cancelar pide confirmación)
+let lanzadorCarga = null;          // Cargar ↔ Cancelar + Limpiar / Descartar (paso 3)
+let lanzadorBuscar = null;         // Buscar borrador ↔ Cancelar (paso 2)
 
 window.inicializarDeclaracionJurada = inicializarDeclaracionJurada;
 
@@ -45,14 +48,7 @@ function inicializarDeclaracionJurada() {
     montarRetenciones();
     pintarCarpetaRetenciones();
 
-    const btnProcesar = document.getElementById('btnProcesarDj');
-
-    if (btnProcesar) {
-        btnProcesar.addEventListener('click', () => procesar(btnProcesar));
-    }
-
-    const btnBuscar = document.getElementById('ddjj-btn-buscar');
-    if (btnBuscar) btnBuscar.addEventListener('click', () => buscarBorrador(btnBuscar));
+    crearLanzadores();
 
     // "Reemplazar borrador" solo tiene sentido si se graba: sin Grabar queda deshabilitado.
     const chkGrabar = document.getElementById('ddjj-grabar');
@@ -446,11 +442,11 @@ function poblarEmpresas(usuario) {
     });
 }
 
+// Cargar y Buscar abren AFIP los dos: mientras corre uno, el otro queda bloqueado.
 function actualizarBotonCargar() {
-    const btn = document.getElementById('btnProcesarDj');
-    if (btn) btn.disabled = enCurso || !clienteSeleccionado;
-    const btnB = document.getElementById('ddjj-btn-buscar');
-    if (btnB) btnB.disabled = enCurso || !clienteSeleccionado;
+    const habilitado = !enCurso && !!clienteSeleccionado;
+    if (lanzadorCarga) lanzadorCarga.habilitar(habilitado);
+    if (lanzadorBuscar) lanzadorBuscar.habilitar(habilitado);
 }
 
 function esGrabar() {
@@ -473,16 +469,57 @@ function actualizarOpcionesCorrida() {
 }
 
 function actualizarLabelBoton() {
-    const btn = document.getElementById('btnProcesarDj');
-    if (!btn || enCurso) return;   // corriendo: queda "⏳ Cargando…"
-    if (esReemplazar()) btn.textContent = '🗑️ Borrar, cargar y grabar';
-    else btn.textContent = esGrabar() ? '💾 Cargar y grabar borrador' : '▶ Simular carga';
+    if (!lanzadorCarga) return;
+    const texto = esReemplazar() ? 'Borrar, cargar y grabar'
+        : esGrabar() ? 'Cargar y grabar borrador' : 'Simular carga';
+    lanzadorCarga.cambiar(0, { texto });
+}
+
+// ---------- Lanzadores (componentes/lanzadorAutomatizacion) ----------
+// Con el switch "Mostrar navegador" como todos: visible, el navegador queda abierto al
+// terminar para seguir a mano; oculto, se cierra solo.
+
+function crearLanzadores() {
+    lanzadorCarga = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDdjj'), {
+        acciones: [{
+            texto: 'Simular carga',
+            preparar: prepararCarga,
+            confirmar: confirmarCarga,
+            // Si graba, lo que ya llegó a AFIP queda: se pregunta antes de cortar.
+            confirmarCancelar: () => corridaGraba ? {
+                title: 'Cancelar la carga',
+                message: 'Si ya llegó a grabar, el borrador queda en AFIP (cancelar no lo deshace). Revisalo después con "Buscar borrador existente".\n\n¿Cancelar igual?'
+            } : null,
+            ejecutar: ejecutarCarga
+        }],
+        auxiliares: [{
+            texto: 'Limpiar formulario',
+            ayuda: 'Vuelve el paso 3 a como recién entrado (el cliente queda elegido)',
+            alHacer: limpiarFormulario
+        }, {
+            texto: 'Descartar',
+            ayuda: 'Saca el resultado de la pantalla',
+            mostrar: hayResultadoALaVista,
+            alHacer: descartarResultado
+        }]
+    });
+    lanzadorBuscar = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDdjjBuscar'), {
+        acciones: [{
+            texto: 'Buscar borrador existente',
+            tipo: 'secundario',
+            preparar: prepararBuscar,
+            ejecutar: ejecutarBuscar
+        }]
+    });
+    actualizarLabelBoton();
+    actualizarBotonCargar();
 }
 
 // ---------- Disparo del flujo ----------
 
-async function procesar(btnProcesar) {
-    if (!clienteSeleccionado) return;
+// Valida y arma la carga (null = no arranca). El modal lo pone el lanzador con confirmarCarga.
+function prepararCarga() {
+    if (!clienteSeleccionado) return null;
 
     const empresaObjetivo = (document.getElementById('ddjj-empresa') || {}).value || '';
     const organismo = (document.getElementById('ddjj-organismo') || {}).value || '';
@@ -496,7 +533,7 @@ async function procesar(btnProcesar) {
     const fechaPagoOk = calFechaPago ? calFechaPago.validar() : true;
     if (!periodoOk || !fechaPagoOk) {
         setEstado('error', '❌ Revisá los campos marcados en rojo.');
-        return;
+        return null;
     }
 
     // Fecha de pago: el calendario da ISO (AAAA-MM-DD); AFIP la quiere DD/MM/AAAA.
@@ -506,7 +543,7 @@ async function procesar(btnProcesar) {
     if (fechaPagoISO < hoyISO) {
         if (calFechaPago) calFechaPago.mostrarError('La fecha de pago no puede ser anterior a hoy.');
         setEstado('error', '❌ Revisá los campos marcados en rojo.');
-        return;
+        return null;
     }
     const fechaPago = isoADDMMAAAA(fechaPagoISO);   // 2026-04-15 → 15/04/2026
 
@@ -515,7 +552,7 @@ async function procesar(btnProcesar) {
     const ajenos = retencionesDeOtroCuit();
     if (ajenos.length) {
         setEstado('error', `🚨 No puedo avanzar: hay ${ajenos.length} archivo(s) de retención de OTRO CUIT (${ajenos.map(a => a.nombre).join(', ')}). Quitalos o elegí la carpeta del cliente correcto.`);
-        return;
+        return null;
     }
 
     const cliente = {
@@ -530,25 +567,30 @@ async function procesar(btnProcesar) {
     const cantidadTxt = Object.values(retencionesArchivos).reduce((n, v) => n + (Array.isArray(v) ? v.length : (v ? 1 : 0)), 0);
     const mesAnio = `${periodo.slice(4)}/${periodo.slice(0, 4)}`;
 
-    // Confirmación antes de lanzar (igual que los lotes): qué se va a hacer y si persiste.
-    const confirmado = await showConfirmModal({
+    return {
+        cliente, empresaObjetivo, organismo, formulario, periodo, fechaPago, grabar, reemplazarBorrador,
+        hoja, cantidadTxt, mesAnio
+    };
+}
+
+// Confirmación antes de lanzar (igual que los lotes): qué se va a hacer y si persiste.
+function confirmarCarga({ cliente, empresaObjetivo, mesAnio, fechaPago, hoja, cantidadTxt, grabar, reemplazarBorrador }) {
+    return {
         title: 'Declaración Jurada',
-        icon: '🚀',
         message: `Cliente: ${cliente.nombre}\nEmpresa: ${empresaObjetivo || '—'}\nPeríodo: ${mesAnio} · Pago: ${fechaPago}`
             + `\nExcel: ${archivoExcel ? `${archivoExcel.split(/[\\/]/).pop()} (${hoja})` : 'sin Excel'}`
             + `\nRetenciones: ${cantidadTxt} archivo(s) .txt`
             + `\n\n${grabar ? '💾 Se GRABA el borrador en AFIP (persiste).' : '🧪 Simulación: carga todo pero no graba.'}`
-            + (reemplazarBorrador ? `\n\n🗑️ ATENCIÓN: si ya hay un borrador de ${mesAnio}, se BORRA en AFIP y se carga de nuevo.` : '')
-            + '\n\n¿Desea continuar?',
-        confirmText: 'Iniciar',
+            + (reemplazarBorrador ? `\n\n🗑️ ATENCIÓN: si ya hay un borrador de ${mesAnio}, se BORRA en AFIP y se carga de nuevo.` : ''),
         confirmBtnClass: reemplazarBorrador ? 'danger' : 'tono'
-    });
-    if (!confirmado) return;
+    };
+}
 
+async function ejecutarCarga({ cliente, empresaObjetivo, organismo, formulario, periodo, fechaPago, grabar, reemplazarBorrador }, { visible }) {
     setEstado('cargando', `⏳ ${grabar ? 'Cargar y GRABAR' : 'Simular carga (sin grabar)'}: login → Nuevo → cargar... (el captcha puede requerir tu intervención)`);
     ocultarResultado();
     enCurso = true;
-    if (btnProcesar) btnProcesar.textContent = '⏳ Cargando…';
+    corridaGraba = grabar;
     actualizarBotonCargar();
     if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
         servicio: 'ARCA', subservicio: 'Declaración Jurada', mensaje: 'Iniciando sesión en AFIP…'
@@ -564,9 +606,14 @@ async function procesar(btnProcesar) {
             hoja: hojaExcel || null,
             fechaPago,                        // DD/MM/AAAA → solapa Liquidación
             grabar,
-            reemplazarBorrador               // borrar el borrador existente y cargar de nuevo
+            reemplazarBorrador,              // borrar el borrador existente y cargar de nuevo
+            visible                          // switch "Mostrar navegador"
         });
 
+        if (r && r.error === 'CANCELADO') {
+            setEstado('cancelado', `⏹ Cancelado por el usuario.${grabar ? ' Si llegó a grabar, el borrador quedó en AFIP: revisalo con "Buscar borrador existente".' : ''}`);
+            return;
+        }
         if (!r || r.success === false) {
             setEstado('error', `❌ ${r?.message || 'Error desconocido'}`);
             return;
@@ -576,9 +623,9 @@ async function procesar(btnProcesar) {
         const reemplazo = r.reemplazo;   // solo viene si se intentó borrar el borrador anterior
         let simulacionOk = false;
         if (reemplazo && !reemplazo.borrado) {
-            setEstado('error', `⚠️ Había un BORRADOR y no se pudo borrar: ${reemplazo.motivo}. Revisalo con "🔎 Buscar borrador".`);
+            setEstado('error', `⚠️ Había un BORRADOR y no se pudo borrar: ${reemplazo.motivo}. Revisalo con "Buscar borrador existente".`);
         } else if (st === 'borrador-existente') {
-            setEstado('error', '⚠️ Ya existe un BORRADOR para ese período. Recuperalo con "🔎 Buscar borrador" o tildá "borrarlo y cargar de nuevo".');
+            setEstado('error', '⚠️ Ya existe un BORRADOR para ese período. Recuperalo con "Buscar borrador existente" o tildá "borrarlo y cargar de nuevo".');
         } else if (st === 'ya-presentado') {
             setEstado('error', '⚠️ Ese período ya está PRESENTADO en AFIP: para cambiarlo hay que hacer una rectificativa.');
         } else if (st === 'error') {
@@ -599,7 +646,7 @@ async function procesar(btnProcesar) {
         };
         mostrarResultado(r.resumen || JSON.stringify(r, null, 2));
         mostrarDeducciones(r.deducciones);
-        if (simulacionOk) mostrarPopupNavegador('Simulación terminada');
+        if (simulacionOk && visible) mostrarPopupNavegador('Simulación terminada');
 
     } catch (err) {
         console.error('❌ Error en cargar DDJJ:', err);
@@ -607,15 +654,15 @@ async function procesar(btnProcesar) {
     } finally {
         if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
         enCurso = false;
-        actualizarLabelBoton();
+        corridaGraba = false;
         actualizarBotonCargar();
     }
 }
 
 // ---------- Buscar borrador existente (recuperar) ----------
 
-async function buscarBorrador(btn) {
-    if (!clienteSeleccionado) return;
+function prepararBuscar() {
+    if (!clienteSeleccionado) return null;
     const empresaObjetivo = (document.getElementById('ddjj-empresa') || {}).value || '';
     const organismo = (document.getElementById('ddjj-organismo') || {}).value || '';
     const formulario = (document.getElementById('ddjj-formulario') || {}).value || '';
@@ -628,18 +675,23 @@ async function buscarBorrador(btn) {
     };
 
     const accion = (document.getElementById('ddjj-accion') || {}).value || 'editar';
+    return { cliente, empresaObjetivo, organismo, formulario, periodo, accion };
+}
 
+async function ejecutarBuscar({ cliente, empresaObjetivo, organismo, formulario, periodo, accion }, { visible }) {
     setEstado('cargando', '⏳ Login → "Mis Aplicaciones Web" → Buscar borradores...');
     ocultarResultado();
     enCurso = true;
-    const textoBuscar = btn ? btn.textContent : '';
-    if (btn) btn.textContent = '⏳ Buscando…';
     actualizarBotonCargar();
     if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
         servicio: 'ARCA', subservicio: 'Declaración Jurada · Buscar', mensaje: 'Iniciando sesión en AFIP…'
     });
     try {
-        const r = await window.electronAPI.declaracionJurada.buscar({ cliente, empresaObjetivo, organismo, formulario, periodo, accion });
+        const r = await window.electronAPI.declaracionJurada.buscar({ cliente, empresaObjetivo, organismo, formulario, periodo, accion, visible });
+        if (r && r.error === 'CANCELADO') {
+            setEstado('cancelado', '⏹ Cancelado por el usuario.');
+            return;
+        }
         if (!r || r.success === false) {
             setEstado('error', `❌ ${r?.message || 'Error desconocido'}`);
             return;
@@ -650,14 +702,13 @@ async function buscarBorrador(btn) {
         else setEstado('ok', `✅ ${n} resultado(s). ${n > 1 ? 'Elegí de la lista (refiná filtros para auto-aplicar).' : ''}`);
         mostrarResultado(r.resumen || JSON.stringify(r, null, 2));
         // "Editar" recupera el borrador y deja el navegador abierto en el form → avisar al usuario.
-        if (accion === 'editar' && n >= 1) mostrarPopupNavegador('Borrador abierto para editar');
+        if (accion === 'editar' && n >= 1 && visible) mostrarPopupNavegador('Borrador abierto para editar');
     } catch (err) {
         console.error('❌ Error en buscar borrador:', err);
         setEstado('error', `❌ ${err?.message || err}`);
     } finally {
         if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
         enCurso = false;
-        if (btn) btn.textContent = textoBuscar;
         actualizarBotonCargar();
     }
 }
@@ -744,6 +795,7 @@ function setEstado(clase, texto) {
     el.classList.remove('ddjj-estado-resaltado');
     void el.offsetWidth;   // reinicia la animación si ya estaba
     el.classList.add('ddjj-estado-resaltado');
+    if (lanzadorCarga) lanzadorCarga.refrescar();   // Descartar aparece
 }
 
 // El detalle técnico ya no se muestra en pantalla (caja negra oculta, pedido del usuario):
@@ -755,6 +807,69 @@ function mostrarResultado(texto) {
 function ocultarResultado() {
     const ded = document.getElementById('ddjj-deducciones');
     if (ded) ded.style.display = 'none';
+}
+
+// ---------- Auxiliares del lanzador: Descartar y Limpiar ----------
+
+function hayResultadoALaVista() {
+    return ['ddjj-estado', 'ddjj-deducciones'].some(id => {
+        const el = document.getElementById(id);
+        return el && el.style.display !== 'none';
+    });
+}
+
+// Descartar: saca el cartel de estado y los totales de AFIP (el formulario queda como está).
+function descartarResultado() {
+    const estado = document.getElementById('ddjj-estado');
+    if (estado) estado.style.display = 'none';
+    ocultarResultado();
+    ultimaCarga = null;
+    if (lanzadorCarga) lanzadorCarga.refrescar();
+}
+
+// Limpiar: el paso 3 vuelve a como recién entrado. El cliente, la empresa y el paso 1
+// quedan; el período vuelve al mes anterior y la fecha de pago a hoy.
+async function limpiarFormulario() {
+    const ok = await showConfirmModal({
+        title: 'Limpiar formulario',
+        icon: '🧹',
+        message: 'Se borran el Excel, los .txt de retenciones y las opciones (Grabar / Reemplazar); el período vuelve al mes anterior y la fecha de pago a hoy. El cliente queda elegido.\n\n¿Desea continuar?',
+        confirmText: 'Limpiar',
+        confirmBtnClass: 'tono'
+    });
+    if (!ok) return;
+
+    archivoExcel = null;
+    const lblNombre = document.getElementById('ddjj-excel-nombre');
+    if (lblNombre) lblNombre.textContent = 'Ningún archivo elegido';
+    const selHoja = document.getElementById('ddjj-hoja');
+    if (selHoja) selHoja.innerHTML = '';
+    const wrap = document.getElementById('ddjj-hoja-wrap');
+    if (wrap) wrap.style.display = 'none';
+    const preview = document.getElementById('ddjj-preview');
+    if (preview) preview.style.display = 'none';
+
+    retencionesArchivos = {};
+    carpetaRetenciones = null;
+    TIPOS_RETENCION.forEach(pintarRetencion);
+    pintarCarpetaRetenciones();
+
+    const periodo = document.getElementById('ddjj-periodo');
+    if (periodo && periodo._flatpickr) periodo._flatpickr.setDate(periodoMesAnterior(), false);
+    const fechaPago = document.getElementById('ddjj-fecha-pago');
+    if (fechaPago && fechaPago._flatpickr) fechaPago._flatpickr.setDate(new Date(), false);
+
+    ['ddjj-grabar', 'ddjj-reemplazar-borrador'].forEach(id => {
+        const chk = document.getElementById(id);
+        if (chk) chk.checked = false;
+    });
+    actualizarOpcionesCorrida();
+    descartarResultado();
+
+    // A empezar de nuevo: arriba del formulario, con el foco en el período.
+    const config = document.getElementById('ddjj-config');
+    if (config) config.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (periodo && periodo._flatpickr) periodo._flatpickr.altInput.focus({ preventScroll: true });
 }
 
 /** Muestra los importes que AFIP calculó por deducción (Total de Deducciones destacado). */
@@ -799,6 +914,7 @@ function mostrarDeducciones(deducciones) {
         <p class="ddjj-hint">${aviso}</p>
         ${btnExcel}`;
     cont.style.display = 'block';
+    if (lanzadorCarga) lanzadorCarga.refrescar();
     const b = document.getElementById('ddjj-btn-escribir-excel');
     if (b) b.addEventListener('click', () => escribirExcelConDeducciones(b));
     cont.scrollIntoView({ behavior: 'smooth', block: 'center' });
