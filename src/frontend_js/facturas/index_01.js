@@ -3,18 +3,10 @@ import { AuthManager } from '../autenticacion/auth.js';
 
 // Exporta una función que inicializa todo
 export function inicializarFacturas() {
-    // Agregar verificación para flatpickr
-    if (typeof flatpickr === 'undefined') {
-        console.warn('Flatpickr no está cargado, esperando...');
-        setTimeout(inicializarFacturas, 500);
-        return;
-    }
-
     // === Referencias generales ===
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
-    const fechasFacturas = document.getElementById('fechasFacturas');
-    const datepicker = document.getElementById('datepicker');
+    const periodoFactura = document.getElementById('periodoFactura');
     const montoManualRadio = document.getElementById('montoManual');
     const montoTotalRadio = document.getElementById('montoTotal');
     const textareaContainer = document.getElementById('textareaContainer');
@@ -24,20 +16,6 @@ export function inicializarFacturas() {
     const ingresoMasivo = document.getElementById('ingresoMasivo');
     const seccionManual = document.getElementById('seccionManual');
     const seccionMasiva = document.getElementById('seccionMasiva');
-    let flatpickrInstance;
-
-    // === Inicialización de Flatpickr ===
-    if (datepicker) {
-        flatpickrInstance = flatpickr(datepicker, {
-            mode: "multiple",
-            dateFormat: "Y-m-d",
-            onChange: function (selectedDates) {
-                fechasFacturas.value = selectedDates.map(date => date.toISOString().split('T')[0]).join(', ');
-            }
-        });
-    } else {
-        console.error('El elemento con ID "datepicker" no existe.');
-    }
 
     // Mostrar/ocultar secciones según el método de ingreso seleccionado
     function actualizarMetodoIngreso() {
@@ -53,61 +31,27 @@ export function inicializarFacturas() {
     ingresoManual.addEventListener('change', actualizarMetodoIngreso);
     ingresoMasivo.addEventListener('change', actualizarMetodoIngreso);
 
-    // === Generar Selects de Meses y Años ===
-    if (selectMes && selectAnio) {
-        const meses = [
-            'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-        ];
-
-        meses.forEach((mes, index) => {
-            const option = document.createElement('option');
-            option.value = index + 1;
-            option.textContent = mes;
-            selectMes.appendChild(option);
-        });
-
+    // === Período (mes y año) ===
+    // Calendario común en modo período. El formulario sigue mandando "mes" (1..12, sin cero)
+    // y "anio" en los dos ocultos #selectMes / #selectAnio; al cambiarlos se avisa con
+    // 'change' para que interfazFacturas.js mueva el calendario de varios días a ese mes.
+    if (periodoFactura && selectMes && selectAnio) {
         const anioActual = new Date().getFullYear();
-        for (let i = -1; i < 4; i++) {  // Comienza en -1 para incluir año anterior
-            const option = document.createElement('option');
-            const anio = anioActual + i;
-            option.value = anio;
-            option.textContent = anio;
-            
-            // Seleccionar el año actual (i = 0)
-            if (i === 0) {
-                option.selected = true;
-            }
-            
-            selectAnio.appendChild(option);
-        }
-
-        // Preseleccionar mes actual
-        const mesActual = new Date().getMonth() + 1;
-        selectMes.value = mesActual;
-        // Preseleccionar año actual
-        selectAnio.value = anioActual;
-    }
-
-    // Función para actualizar la vista inicial del calendario
-    function actualizarCalendario() {
-        const mes = selectMes.value;
-        const anio = selectAnio.value;
-
-        if (mes && anio && flatpickrInstance && flatpickrInstance.config) {
-            // En lugar de jumpToDate, usar changeMonth
-            const nuevaFecha = new Date(parseInt(anio), parseInt(mes) - 1, 1);
-            flatpickrInstance.currentYear = parseInt(anio);
-            flatpickrInstance.currentMonth = parseInt(mes) - 1;
-            flatpickrInstance.redraw();
-        }
-    }
-
-    // Listeners para los selects de mes y año
-    if (selectMes && selectAnio) {
-        selectMes.addEventListener('change', actualizarCalendario);
-        selectAnio.addEventListener('change', actualizarCalendario);
-        if (flatpickrInstance) actualizarCalendario();
+        const ponerPeriodo = (fecha) => {
+            if (!fecha) return;
+            const mes = String(fecha.getMonth() + 1);
+            const anio = String(fecha.getFullYear());
+            if (selectMes.value !== mes) { selectMes.value = mes; selectMes.dispatchEvent(new Event('change')); }
+            if (selectAnio.value !== anio) { selectAnio.value = anio; selectAnio.dispatchEvent(new Event('change')); }
+        };
+        crearCalendario(periodoFactura, {
+            modo: 'periodo', formato: 'Y-m', ver: 'F Y', inicial: 'hoy',
+            // Mismo rango que tenía la lista de años: el anterior y tres para adelante
+            anioMin: anioActual - 1, anioMax: anioActual + 3,
+            minimo: `${anioActual - 1}-01`, maximo: `${anioActual + 3}-12`,
+            onChange: (fechas) => ponerPeriodo(fechas[0])
+        });
+        ponerPeriodo(new Date());
     }
 
     // === Manejo de los Montos ===
@@ -135,8 +79,5 @@ export function inicializarFacturas() {
     const authManager = new AuthManager();
     authManager.inicializar();
 
-    return {
-        authManager,
-        flatpickrInstance
-    };
+    return { authManager };
 }

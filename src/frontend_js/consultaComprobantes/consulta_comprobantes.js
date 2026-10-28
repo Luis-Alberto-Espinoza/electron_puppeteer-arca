@@ -37,19 +37,12 @@ window.inicializarConsultaComprobantes = () => {
         return `${dia}/${mes}/${d.getFullYear()}`;
     }
 
-    // ===== Flatpickr para fechas (si está disponible) =====
+    // ===== Calendarios comunes (componentes/calendario) =====
     // "Fecha hasta" arranca en el día de hoy: es el caso más común y evita
     // que el usuario tenga que abrir el calendario y tipear la fecha.
-    if (typeof flatpickr === 'function') {
-        const cfg = {
-            dateFormat: 'd/m/Y',
-            allowInput: true,
-            locale: (typeof flatpickr.l10ns !== 'undefined' && flatpickr.l10ns.es) ? flatpickr.l10ns.es : undefined
-        };
-        flatpickr(inputDesde, cfg);
-        flatpickr(inputHasta, { ...cfg, defaultDate: new Date() });
-    } else {
-        // Sin flatpickr igual dejamos la fecha de hoy escrita en el input.
+    crearCalendario(inputDesde, { formato: 'd/m/Y', inicial: null });
+    if (!crearCalendario(inputHasta, { formato: 'd/m/Y', inicial: 'hoy' })) {
+        // Sin calendario igual dejamos la fecha de hoy escrita en el input.
         inputHasta.value = hoyDDMMYYYY();
     }
 

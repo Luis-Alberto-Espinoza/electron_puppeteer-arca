@@ -786,89 +786,20 @@ function inicializarEventListeners() {
 }
 
 /**
- * Inicializa los datepickers usando flatpickr
+ * Inicializa los calendarios con el componente común (componentes/calendario).
  */
 function inicializarDatePickers() {
     const fechaActual = obtenerFechaActual();
-
-    const camposFecha = [
-        'fechaComprobanteTipificada',
-        'fechaDesde',
-        'fechaHasta',
-        'fechaVtoPago'
-    ];
-
-    // Función para intentar inicializar flatpickr
-    const intentarInicializarFlatpickr = (intentos = 0, maxIntentos = 10) => {
-        console.log(`🔍 [Intento ${intentos + 1}/${maxIntentos}] Verificando flatpickr...`);
-        console.log(`🔍 typeof flatpickr: ${typeof flatpickr}`);
-
-        if (typeof flatpickr !== 'undefined') {
-            console.log('✅ flatpickr está disponible, inicializando calendarios...');
-
-            // flatpickr está disponible, inicializar
-            camposFecha.forEach((id, index) => {
-                const elemento = document.getElementById(id);
-                console.log(`🔍 Buscando elemento #${id}:`, elemento ? 'ENCONTRADO' : 'NO ENCONTRADO');
-
-                if (elemento) {
-                    console.log(`🔍 Elemento #${id} - readOnly: ${elemento.readOnly}, disabled: ${elemento.disabled}`);
-                    console.log(`🔍 Elemento #${id} - parentElement:`, elemento.parentElement);
-
-                    // Verificar si ya tiene flatpickr inicializado
-                    if (elemento._flatpickr) {
-                        console.log(`⚠ #${id} ya tiene flatpickr, destruyendo instancia anterior...`);
-                        elemento._flatpickr.destroy();
-                    }
-
-                    // Primero establecer el valor por defecto
-                    elemento.value = fechaActual;
-
-                    try {
-                        // Luego inicializar flatpickr con ese valor
-                        const fp = flatpickr(elemento, {
-                            dateFormat: "d/m/Y",
-                            locale: "es",
-                            defaultDate: fechaActual,
-                            allowInput: true
-                        });
-
-                        console.log(`✅ Datepicker inicializado correctamente en #${id}`);
-                        console.log(`🔍 Instancia flatpickr #${id}:`, fp);
-                    } catch (error) {
-                        console.error(`❌ Error al inicializar flatpickr en #${id}:`, error);
-                    }
-                } else {
-                    console.error(`❌ No se encontró el elemento #${id} en el DOM`);
-                }
-            });
-            console.log('✅ Proceso de inicialización completado. Fecha:', fechaActual);
-        } else if (intentos < maxIntentos) {
-            // flatpickr no está disponible aún, reintentar
-            console.log(`⏳ flatpickr no disponible, reintentando en 300ms...`);
-            setTimeout(() => {
-                intentarInicializarFlatpickr(intentos + 1, maxIntentos);
-            }, 300); // Reintentar cada 300ms
-        } else {
-            // flatpickr no se cargó después de múltiples intentos
-            console.error('❌ flatpickr no está disponible después de', maxIntentos, 'intentos');
-            console.error('❌ Asegúrate de que flatpickr esté incluido en el HTML principal');
-
-            // Establecer valores por defecto en los inputs
-            camposFecha.forEach(id => {
-                const elemento = document.getElementById(id);
-                if (elemento) {
-                    elemento.value = fechaActual;
-                }
-            });
-
-            // Mostrar alerta al usuario
-            alert('El calendario no se pudo cargar. Puedes ingresar fechas manualmente en formato DD/MM/YYYY');
+    ['fechaComprobanteTipificada', 'fechaDesde', 'fechaHasta', 'fechaVtoPago'].forEach(id => {
+        const elemento = document.getElementById(id);
+        if (!elemento) {
+            console.error(`❌ No se encontró el elemento #${id} en el DOM`);
+            return;
         }
-    };
-
-    // Iniciar el proceso de inicialización
-    intentarInicializarFlatpickr();
+        elemento.value = fechaActual;
+        // Sin calendario (no debería pasar: flatpickr ya es local) igual se puede tipear DD/MM/YYYY.
+        crearCalendario(elemento, { formato: 'd/m/Y', inicial: fechaActual });
+    });
 }
 
 /**

@@ -59,18 +59,12 @@
     cursor: not-allowed;
 }
 
-/* Período: mes / año, cada uno con ↑ ↓ */
-.ddjj-periodo-fila {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.ddjj-periodo-fila .ddjj-periodo-mes { width: 80px; }
-.ddjj-periodo-fila .ddjj-periodo-anio { width: 100px; }
-.ddjj-periodo-barra { font-size: 18px; opacity: 0.7; }
+/* Período: un campo mm/aaaa (calendario común), con ↑ ↓ para mover el mes */
+input.ddjj-periodo { width: 130px; cursor: pointer; }
 
-/* Fecha de pago: todo el campo abre el calendario */
-#ddjj-fecha-pago { cursor: pointer; }
+/* Fecha de pago: todo el campo abre el calendario (el que se ve es el del calendario
+   común, que copia las clases del original pero no el id) */
+.ddjj-select.flatpickr-input { cursor: pointer; }
 
 .ddjj-grid {
     display: grid;

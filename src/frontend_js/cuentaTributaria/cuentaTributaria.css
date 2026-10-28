@@ -883,6 +883,8 @@
     box-sizing: border-box;
 }
 
+.contenedor-principal-ct .input-periodo-directo { cursor: pointer; }
+
 .contenedor-principal-ct .input-periodo-directo::placeholder,
 .contenedor-principal-ct .input-impuesto-custom::placeholder {
     color: var(--v-texto-2, #9ca3af);

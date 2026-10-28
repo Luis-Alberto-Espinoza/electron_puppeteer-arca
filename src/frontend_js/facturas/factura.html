@@ -56,12 +56,12 @@
         <div id="seccionManual">
             <div class="periodo-selects">
                 <div>
-                    <label for="selectMes">Mes:</label>
-                    <select name="mes" id="selectMes"></select>
-                </div>
-                <div>
-                    <label for="selectAnio">Año:</label>
-                    <select name="anio" id="selectAnio"></select>
+                    <label for="periodoFactura">Período:</label>
+                    <!-- Calendario común en modo período (lo arma index_01.js). El formulario
+                         sigue mandando mes y anio: los dos ocultos los llena el calendario. -->
+                    <input type="text" id="periodoFactura" placeholder="mes y año">
+                    <input type="hidden" name="mes" id="selectMes">
+                    <input type="hidden" name="anio" id="selectAnio">
                 </div>
             </div>
             <!-- crear un div con el titulo "Preseleccion de fechas que abarque a los tres name="periodoFacturacion" " -->

@@ -226,21 +226,21 @@ window.inicializarModuloLoteATM = () => {
             .replace(/[\u0300-\u036f]/g, '');
     }
 
-    function generarOpcionesPeriodo() {
-        const hoy        = new Date();
-        const mesActual  = hoy.getMonth();
-        const anioActual = hoy.getFullYear();
-        const opciones   = [];
-
-        for (let i = 0; i < 24; i++) {
-            let mes  = mesActual - i;
-            let anio = anioActual;
-            while (mes < 0) { mes += 12; anio -= 1; }
-            const mesStr = (mes + 1).toString().padStart(2, '0');
-            opciones.push(`${mesStr}/${anio}`);
-        }
-        return opciones;
-    }
+    // Período: calendario común en modo período. .value queda "MM/AAAA", igual que el
+    // value de las viejas listas; se puede elegir de hace 23 meses hasta el mes actual.
+    const MESES_ATRAS = 23;
+    const mesDe = (fecha) => `${String(fecha.getMonth() + 1).padStart(2, '0')}/${fecha.getFullYear()}`;
+    const aFecha = (periodoMMYYYY) => {
+        const [mes, anio] = periodoMMYYYY.split('/').map(Number);
+        return new Date(anio, mes - 1, 1);
+    };
+    const hoyPeriodo = new Date();
+    const primerPeriodo = new Date(hoyPeriodo.getFullYear(), hoyPeriodo.getMonth() - MESES_ATRAS, 1);
+    [selectPeriodo, selectPeriodoHasta].forEach(input => crearCalendario(input, {
+        modo: 'periodo', formato: 'm/Y', inicial: null,
+        minimo: mesDe(primerPeriodo), maximo: mesDe(hoyPeriodo),
+        anioMin: primerPeriodo.getFullYear(), anioMax: hoyPeriodo.getFullYear()
+    }));
 
     // Convierte "04/2026" → "2026-04" (formato que espera el backend)
     function periodoParaBackend(periodoMMYYYY) {
@@ -248,29 +248,29 @@ window.inicializarModuloLoteATM = () => {
         return `${anio}-${mes}`;
     }
 
-    // Las opciones van del mes más nuevo (índice 0) al más viejo (índice 23),
-    // así que el "desde" siempre tiene un índice mayor o igual que el "hasta".
+    // Todos los meses de "desde" a "hasta" (ambos incluidos), del más viejo al más nuevo.
     function expandirRangoPeriodos() {
-        const idxDesde = selectPeriodo.selectedIndex;
-        const idxHasta = selectPeriodoHasta.selectedIndex;
-
-        if (idxDesde < 0 || idxHasta < 0 || idxDesde < idxHasta) return [];
+        if (!selectPeriodo.value || !selectPeriodoHasta.value) return [];
+        const desde = aFecha(selectPeriodo.value);
+        const hasta = aFecha(selectPeriodoHasta.value);
+        if (desde > hasta) return [];
 
         const periodos = [];
-        for (let i = idxDesde; i >= idxHasta; i--) {
-            periodos.push(periodoParaBackend(selectPeriodo.options[i].value));
+        for (const mes = new Date(desde); mes <= hasta; mes.setMonth(mes.getMonth() + 1)) {
+            periodos.push(periodoParaBackend(mesDe(mes)));
         }
-        return periodos; // del más viejo al más nuevo
+        return periodos;
     }
 
     // Si el usuario deja el rango al revés, lo emparejamos en vez de bloquearlo.
     function corregirRango(origen) {
-        if (selectPeriodo.selectedIndex >= selectPeriodoHasta.selectedIndex) return;
+        if (!selectPeriodo.value || !selectPeriodoHasta.value) return;
+        if (aFecha(selectPeriodo.value) <= aFecha(selectPeriodoHasta.value)) return;
 
         if (origen === 'desde') {
-            selectPeriodoHasta.selectedIndex = selectPeriodo.selectedIndex;
+            selectPeriodoHasta._flatpickr.setDate(selectPeriodo.value, false);
         } else {
-            selectPeriodo.selectedIndex = selectPeriodoHasta.selectedIndex;
+            selectPeriodo._flatpickr.setDate(selectPeriodoHasta.value, false);
         }
     }
 
@@ -396,17 +396,6 @@ window.inicializarModuloLoteATM = () => {
 
         // Poblar periodo si aún no fue poblado
         if (config.tienePeriodo) {
-            if (selectPeriodo.options.length === 0) {
-                generarOpcionesPeriodo().forEach(p => {
-                    [selectPeriodo, selectPeriodoHasta].forEach(select => {
-                        const opt = document.createElement('option');
-                        opt.value = p;
-                        opt.textContent = p;
-                        select.appendChild(opt);
-                    });
-                });
-            }
-
             // El "hasta" solo tiene sentido en los subservicios que aceptan rango
             const mostrarHasta = !!config.rangoPeriodo;
             labelPeriodoDesde.style.display  = mostrarHasta ? '' : 'none';
@@ -415,9 +404,10 @@ window.inicializarModuloLoteATM = () => {
 
             // Por defecto, desde y hasta apuntan al mismo mes: un solo periodo,
             // igual que antes. El rango es opcional.
-            const indiceDefault = config.periodoDefault === 'previous' ? 1 : 0;
-            selectPeriodo.selectedIndex      = indiceDefault;
-            selectPeriodoHasta.selectedIndex = indiceDefault;
+            const mesesAtras = config.periodoDefault === 'previous' ? 1 : 0;
+            const periodoDefault = new Date(hoyPeriodo.getFullYear(), hoyPeriodo.getMonth() - mesesAtras, 1);
+            selectPeriodo._flatpickr.setDate(periodoDefault, false);
+            selectPeriodoHasta._flatpickr.setDate(periodoDefault, false);
 
             actualizarResumenPeriodo();
         }

@@ -1273,41 +1273,24 @@ th br {
     border: 2px solid var(--v-borde, #d1d5db);
     border-radius: 6px;
     font-size: 14px;
-    font-family: monospace;
     transition: all 0.2s;
     background: var(--v-panel, white);
     color: var(--v-texto, var(--texto-1)); /* Color del texto */
 }
 
-/* Estilos específicos para inputs nativos type="month" y type="date" */
-.campo-formulario-deuda input[type="month"],
-.campo-formulario-deuda input[type="date"] {
+/* Período y fecha: los muestra el calendario común (componentes/calendario) */
+.campo-formulario-deuda input.input-periodo-deuda,
+.campo-formulario-deuda input.input-fecha-deuda {
     font-size: 15px;
     font-weight: 500;
     cursor: pointer;
     padding: 14px 16px;
 }
 
-/* Estilos para el calendario/picker al hacer hover */
-.campo-formulario-deuda input[type="month"]:hover,
-.campo-formulario-deuda input[type="date"]:hover {
+.campo-formulario-deuda input.input-periodo-deuda:hover,
+.campo-formulario-deuda input.input-fecha-deuda:hover {
     border-color: var(--texto-3);
     background: var(--v-panel-2, var(--fondo-claro));
-}
-
-/* Estilos cuando está abierto el picker */
-.campo-formulario-deuda input[type="month"]::-webkit-calendar-picker-indicator,
-.campo-formulario-deuda input[type="date"]::-webkit-calendar-picker-indicator {
-    cursor: pointer;
-    padding: 4px;
-    margin-left: 8px;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.campo-formulario-deuda input[type="month"]::-webkit-calendar-picker-indicator:hover,
-.campo-formulario-deuda input[type="date"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
 }
 
 .campo-formulario-deuda input:focus {

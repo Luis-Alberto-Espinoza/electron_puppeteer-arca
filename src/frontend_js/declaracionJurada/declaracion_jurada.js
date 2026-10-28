@@ -64,21 +64,15 @@ function inicializarDeclaracionJurada() {
     // Período: mes + año (default: mes anterior, lo que se suele declarar).
     montarPeriodo();
 
-    // Fecha de pago: por defecto HOY y no se puede elegir una fecha anterior (min = hoy).
+    // Fecha de pago: por defecto HOY y no se puede elegir una fecha anterior (mínimo = hoy).
+    // Calendario común: .value sigue en ISO (AAAA-MM-DD), en pantalla se ve dd/mm/aaaa.
     const inputFechaPago = document.getElementById('ddjj-fecha-pago');
     if (inputFechaPago) {
-        const hoyISO = new Date().toLocaleDateString('en-CA');   // AAAA-MM-DD en hora local
-        inputFechaPago.min = hoyISO;
-        if (!inputFechaPago.value) inputFechaPago.value = hoyISO;
-        // Clic en cualquier parte del campo abre el calendario (no solo el ícono). Si el campo
-        // ya tenía el foco (ej. recién se cerró el calendario), el clic edita día/mes/año a mano.
-        let yaTeniaFoco = false;
-        inputFechaPago.addEventListener('mousedown', () => {
-            yaTeniaFoco = document.activeElement === inputFechaPago;
-        });
-        inputFechaPago.addEventListener('click', () => {
-            if (yaTeniaFoco) return;
-            try { inputFechaPago.showPicker(); } catch (_) { /* sin soporte: queda el ícono */ }
+        crearCalendario(inputFechaPago, {
+            formato: 'Y-m-d', ver: 'd/m/Y',
+            inicial: inputFechaPago.value || 'hoy',
+            minimo: 'today',
+            obligatorio: true, mensajeObligatorio: 'La fecha de pago es requerida.'
         });
     }
 
@@ -398,8 +392,8 @@ function mostrarConfig(usuario) {
     if (config) config.style.display = 'block';
     // Un cliente por vez: elegido el cliente, el foco pasa a lo siguiente a completar (el período).
     if (config) config.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    const inputMes = document.getElementById('ddjj-periodo-mes');
-    if (inputMes) inputMes.focus({ preventScroll: true });
+    const periodo = document.getElementById('ddjj-periodo');
+    if (periodo && periodo._flatpickr) periodo._flatpickr.altInput.focus({ preventScroll: true });
     poblarEmpresas(usuario);
     actualizarBotonCargar();
     // Cambió el cliente → arrancar de cero: borrar los .txt del cliente anterior (si no, se
@@ -495,21 +489,23 @@ async function procesar(btnProcesar) {
     const formulario = (document.getElementById('ddjj-formulario') || {}).value || '';
     const periodo = ((document.getElementById('ddjj-periodo') || {}).value || '').trim();
 
-    if (!/^\d{6}$/.test(periodo)) {
-        setEstado('error', '❌ Período inválido. Completá mes (1 a 12) y año.');
+    // Período y fecha de pago (requeridos): si faltan, el aviso sale debajo de cada calendario.
+    const calPeriodo = (document.getElementById('ddjj-periodo') || {})._flatpickr;
+    const calFechaPago = (document.getElementById('ddjj-fecha-pago') || {})._flatpickr;
+    const periodoOk = calPeriodo ? calPeriodo.validar() : /^\d{6}$/.test(periodo);
+    const fechaPagoOk = calFechaPago ? calFechaPago.validar() : true;
+    if (!periodoOk || !fechaPagoOk) {
+        setEstado('error', '❌ Revisá los campos marcados en rojo.');
         return;
     }
 
-    // Fecha de pago (requerida): el <input type=date> da ISO (AAAA-MM-DD); AFIP la quiere DD/MM/AAAA.
+    // Fecha de pago: el calendario da ISO (AAAA-MM-DD); AFIP la quiere DD/MM/AAAA.
     const fechaPagoISO = (document.getElementById('ddjj-fecha-pago') || {}).value || '';
-    if (!fechaPagoISO) {
-        setEstado('error', '❌ La fecha de pago es requerida (elegila en el calendario).');
-        return;
-    }
     // No se puede pagar con fecha anterior a hoy (por si tipearon una fecha vieja a mano).
     const hoyISO = new Date().toLocaleDateString('en-CA');
     if (fechaPagoISO < hoyISO) {
-        setEstado('error', '❌ La fecha de pago no puede ser anterior a hoy.');
+        if (calFechaPago) calFechaPago.mostrarError('La fecha de pago no puede ser anterior a hoy.');
+        setEstado('error', '❌ Revisá los campos marcados en rojo.');
         return;
     }
     const fechaPago = isoADDMMAAAA(fechaPagoISO);   // 2026-04-15 → 15/04/2026
@@ -677,51 +673,28 @@ function isoADDMMAAAA(iso) {
 // ---------- Período (mes + año → AAAAMM oculto) ----------
 
 function montarPeriodo() {
-    const inputMes = document.getElementById('ddjj-periodo-mes');
-    const inputAnio = document.getElementById('ddjj-periodo-anio');
-    if (!inputMes || !inputAnio) return;
-    if (!inputMes.value || !inputAnio.value) {
-        const periodo = periodoMesAnterior();
-        inputAnio.value = periodo.slice(0, 4);
-        inputMes.value = String(Number(periodo.slice(4)));
-    }
-    armarPeriodo();
-
-    // Al entrar al campo queda todo seleccionado: se escribe encima o se usa ↑ ↓.
-    [inputMes, inputAnio].forEach((input) => {
-        input.addEventListener('focus', () => input.select());
-        input.addEventListener('input', armarPeriodo);
+    const input = document.getElementById('ddjj-periodo');
+    if (!input) return;
+    const fp = crearCalendario(input, {
+        modo: 'periodo', formato: 'Ym', ver: 'm/Y',
+        inicial: input.value || periodoMesAnterior(),
+        obligatorio: true,
+        onChange: () => previsualizarHoja()
     });
-    // En el mes, ↑ ↓ dan la vuelta: bajar de 1 pasa a 12 del año anterior (y al revés).
-    inputMes.addEventListener('keydown', (e) => {
+    previsualizarHoja();
+    if (!fp) return;
+
+    // ↑ ↓ en el campo: mes siguiente / anterior (bajar de 1 pasa a 12 del año anterior).
+    fp.altInput.addEventListener('keydown', (e) => {
         if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
         e.preventDefault();
-        moverMes(e.key === 'ArrowUp' ? 1 : -1);
+        moverMes(fp, e.key === 'ArrowUp' ? 1 : -1);
     });
 }
 
-function moverMes(paso) {
-    const inputMes = document.getElementById('ddjj-periodo-mes');
-    const inputAnio = document.getElementById('ddjj-periodo-anio');
-    let mes = Number(inputMes.value) || 1;
-    let anio = Number(inputAnio.value) || new Date().getFullYear();
-    mes += paso;
-    if (mes < 1) { mes = 12; anio--; }
-    if (mes > 12) { mes = 1; anio++; }
-    inputMes.value = String(mes);
-    inputAnio.value = String(anio);
-    inputMes.select();
-    armarPeriodo();
-}
-
-/** Escribe el AAAAMM en el campo oculto (vacío si mes/año no son válidos) y refresca la vista previa. */
-function armarPeriodo() {
-    const mes = Number((document.getElementById('ddjj-periodo-mes') || {}).value);
-    const anio = Number((document.getElementById('ddjj-periodo-anio') || {}).value);
-    const valido = Number.isInteger(mes) && mes >= 1 && mes <= 12 && Number.isInteger(anio) && anio >= 2000 && anio <= 2100;
-    const oculto = document.getElementById('ddjj-periodo');
-    if (oculto) oculto.value = valido ? `${anio}${String(mes).padStart(2, '0')}` : '';
-    previsualizarHoja();
+function moverMes(fp, paso) {
+    const actual = fp.selectedDates[0] || new Date();
+    fp.setDate(new Date(actual.getFullYear(), actual.getMonth() + paso, 1), true);
 }
 
 function periodoMesAnterior() {

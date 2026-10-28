@@ -355,7 +355,9 @@
     color: #fc8181;
 }
 
+/* Campos de período (calendario común, mm/aaaa) */
 .lote-select-periodo {
+    cursor: pointer;
     background-color: #1a202c;
     color: #e2e8f0;
     border: 1px solid #4a5568;
