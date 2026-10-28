@@ -150,6 +150,9 @@
         overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
         overlay.querySelector('.lanzador-cerrar').addEventListener('click', cerrar);
         onTeclaLanzador = (e) => {
+            // Ctrl+K: el buscador global (buscadorGlobal.js) ya se abrió con esta misma tecla,
+            // pero queda DEBAJO del lanzador → se cierra el lanzador para ir a otro servicio.
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') return cerrar();
             if (e.key !== 'Escape') return;
             // Si el diálogo de clave está abierto encima, el Esc es para él, no para el lanzador.
             if (document.querySelector('.ac-overlay')) return;
