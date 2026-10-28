@@ -245,13 +245,6 @@
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
-/* 🧹 Limpiar formulario arriba a la izquierda; abajo el lanzador (switch + 🧪 Probar / 🧾 Generar) */
-.acciones-form {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 2px solid var(--v-borde, #e9ecef);
-}
-
 /* Siguiente paso / dudosas / corte en el resumen del lote */
 .resumen-lote .resumen-siguiente { margin-top: 12px; font-weight: 600; }
 .resumen-lote .resumen-dudosa,

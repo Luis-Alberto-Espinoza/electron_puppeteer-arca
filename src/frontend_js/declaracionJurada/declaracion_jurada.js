@@ -513,7 +513,7 @@ function crearLanzadores() {
             ejecutar: ejecutarCarga
         }],
         auxiliares: [{
-            texto: 'Limpiar',   // corto: así entran los 4 botones en una línea en este panel
+            texto: 'Limpiar',
             ayuda: 'Vuelve el paso 3 a como recién entrado (el cliente queda elegido)',
             alHacer: limpiarFormulario
         }, {

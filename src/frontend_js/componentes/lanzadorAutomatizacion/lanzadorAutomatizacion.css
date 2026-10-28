@@ -1,5 +1,5 @@
 /* Lanzador de automatización (componentes/lanzadorAutomatizacion/lanzadorAutomatizacion.js).
-   Recuadro con título · switch · fila de acciones a la derecha (.ui-modo-botones de base.css).
+   Recuadro (sin título) · switch · fila de acciones a la derecha (.ui-modo-botones de base.css).
    Lo mismo en todos los servicios: tamaños y colores de las acciones salen de acá. */
 .ui-lanzador {
     display: flex;
@@ -10,12 +10,6 @@
     background: var(--v-panel);
     border: 1px solid var(--v-borde);
     border-radius: var(--radio-sm);
-}
-.ui-lanzador__titulo {
-    margin: 0;
-    padding-left: 10px;
-    border-left: 4px solid var(--v-borde);
-    font-size: 18px;
 }
 
 /* Botones del ancho de su texto (como #btnProcesarDp), no estirados a todo el renglón.
@@ -37,16 +31,27 @@
        de su texto; la nota abajo, alineada a la derecha. */
     align-items: flex-end;
 }
-/* La nota no cuenta para el ancho (contain: inline-size): toma el ancho de su botón y,
-   si es larga, baja de renglón. Si contara, una nota larga (DDJJ) ensanchaba la columna
-   y los auxiliares ya no entraban en la misma línea que las acciones. */
-.ui-lanzador .ui-modo-nota {
-    contain: inline-size;
-    align-self: stretch;
-    text-align: right;
-}
 .ui-lanzador .ui-modo-opcion > button {
     width: auto;
+}
+/* Botones del lanzador (acciones y auxiliares): la mitad del relleno lateral de .ui-btn
+   (24px → 12px). El alto no cambia. */
+.ui-lanzador .ui-btn {
+    padding-left: 12px;
+    padding-right: 12px;
+}
+/* El switch en un recuadro del alto de un botón (como un botón con el switch adentro).
+   Alto = relleno vertical de .ui-btn (12+12) + una línea de su letra (15px) → 1lh. */
+.ui-lanzador > .ui-switch {
+    box-sizing: border-box;
+    height: calc(24px + 1lh);
+    padding: 0 12px;
+    margin: 0;
+    font-size: 15px;
+    color: var(--v-texto, var(--texto-2));   /* el gris de base.css no se lee en vistas oscuras */
+    border: 1px solid var(--v-borde);
+    border-radius: var(--radio-sm);
+    background: color-mix(in srgb, var(--v-panel), black 12%);
 }
 
 /* Colores por tipo de acción, no por servicio */
@@ -63,38 +68,50 @@
 .ui-lanzador__accion--cancelar,
 .ui-lanzador__accion--cancelar:hover:not(:disabled) { background: var(--grad-peligro); }
 
-/* Auxiliares (Limpiar, Descartar…): grises, no lanzan nada. Columna izquierda, apilados:
-   el 1º en el renglón del switch, el 2º en el de las acciones. Sin renglones nuevos:
-   la caja es display:contents y cada botón es celda de la grilla del recuadro. */
+/* Auxiliares (Limpiar, Descartar…): grises, no lanzan nada. Van en el renglón de las
+   acciones, a la izquierda; el switch queda solo arriba a la derecha:
+     [ switch ]                       (renglón 1, derecha)
+     [Limpiar][Descartar]   [Test][Generar]   (renglón 2)
+   La caja es hija directa del recuadro (grilla de 2 columnas). */
 .ui-lanzador--con-auxiliares {
     display: grid;
     grid-template-columns: auto 1fr;
     grid-template-areas:
-        "aux1 switch"
-        "aux2 botones";
+        ".   switch"
+        "aux botones";
     column-gap: 12px;
-    align-items: center;
-}
-.ui-lanzador--con-auxiliares:has(> .ui-lanzador__titulo) {
-    grid-template-areas:
-        "titulo titulo"
-        "aux1 switch"
-        "aux2 botones";
 }
 .ui-lanzador--con-auxiliares:not(:has(> .ui-switch)) {
-    grid-template-areas: "aux1 botones" "aux2 .";
+    grid-template-areas: "aux botones";
 }
-.ui-lanzador--con-auxiliares > .ui-lanzador__titulo { grid-area: titulo; }
-/* En grilla: justify-self = horizontal, align-self = vertical. El align-self: flex-end de
-   arriba (pensado para flex en columna) acá lo pegaba al FONDO del renglón → centrado,
-   a la altura del primer auxiliar. */
-.ui-lanzador--con-auxiliares > .ui-switch { grid-area: switch; justify-self: end; align-self: center; margin-bottom: 0; }
-.ui-lanzador--con-auxiliares > .ui-modo-botones { grid-area: botones; align-self: start; }
-.ui-lanzador__auxiliares { display: contents; }
-.ui-lanzador__auxiliar:nth-child(1) { grid-area: aux1; }
-.ui-lanzador__auxiliar:nth-child(2) { grid-area: aux2; align-self: start; }
-/* Mismo ancho los dos (el del más largo) */
-.ui-lanzador--con-auxiliares .ui-lanzador__auxiliar { justify-self: stretch; }
+/* En grilla: justify-self = horizontal (a la derecha). */
+.ui-lanzador--con-auxiliares > .ui-switch { grid-area: switch; justify-self: end; }
+.ui-lanzador--con-auxiliares > .ui-modo-botones { grid-area: botones; }
+.ui-lanzador__auxiliares {
+    grid-area: aux;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+}
+/* Ventana angosta (el .js pone la clase si no entran en un renglón): el ÚLTIMO auxiliar
+   (Descartar) sube al renglón del switch; el primero (Limpiar) queda con las acciones,
+   que siguen juntas en su renglón:
+     [Descartar]              [switch]
+     [Limpiar]       [Simular] [Grabar]
+   La caja pasa a display:contents → cada auxiliar es celda de la grilla. */
+.ui-lanzador--apilado {
+    grid-template-areas:
+        "auxArriba switch"
+        "auxAbajo  botones";
+}
+.ui-lanzador--apilado:not(:has(> .ui-switch)) {
+    grid-template-areas:
+        "auxArriba ."
+        "auxAbajo  botones";
+}
+.ui-lanzador--apilado .ui-lanzador__auxiliares { display: contents; }
+.ui-lanzador--apilado .ui-lanzador__auxiliar { grid-area: auxAbajo; justify-self: stretch; }
+.ui-lanzador--apilado .ui-lanzador__auxiliar:last-child:not(:first-child) { grid-area: auxArriba; }
 /* Mismo alto y letra que las acciones (.ui-btn), gris sólido. margin 0: la
    regla global de button (home/index.css) le daba 10px arriba y quedaba desfasado. */
 .ui-lanzador .ui-lanzador__auxiliar {
@@ -105,7 +122,4 @@
 .ui-lanzador .ui-lanzador__auxiliar:hover:not(:disabled) {
     background: #5a6268;
 }
-/* cambiar(i, { nota: '' }) borra la nota: sin texto no ocupa lugar */
-.ui-lanzador .ui-modo-nota:empty {
-    display: none;
-}
+

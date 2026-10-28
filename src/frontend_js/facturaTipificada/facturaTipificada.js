@@ -1127,7 +1127,7 @@ function crearLanzador() {
             ejecutar: (lote, { visible }) => correrLote(lote, true, visible)
         }],
         auxiliares: [{
-            texto: 'Limpiar formulario',
+            texto: 'Limpiar',
             ayuda: 'Borra los datos cargados y las facturas distintas guardadas',
             alHacer: cancelarFormulario
         }, {

@@ -508,12 +508,6 @@
     text-align: center;
 }
 
-/* Switch "Mostrar navegador": la vista es oscura, el gris de base.css no se lee */
-.planes-procesar .ui-switch {
-    color: var(--v-texto, #e0e0e0);
-    margin-right: 16px;
-}
-
 /* Filtros: dos filas horizontales (casillas / rango de fechas).
    Cada fila mide lo que su contenido (fit-content) y se centra como bloque.
    Si la ventana es angosta y la fila se parte, los renglones arrancan del
