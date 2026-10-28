@@ -11,7 +11,7 @@
         <div id="ddjj-selector-usuarios"></div>
     </div>
 
-    <!-- Aparece al elegir cliente. Tres pasos: datos de la declaración → ¿ya hay una? → cargar una nueva -->
+    <!-- Aparece al elegir cliente. Tres pasos: datos de la declaración → declaración ya cargada → cargar una nueva -->
     <div id="ddjj-config" style="display:none;">
 
         <!-- Paso 1: identifica la DDJJ (lo usan Buscar y Cargar) -->
@@ -55,21 +55,27 @@
 
         <!-- Paso 2: recuperar / ver / borrar una ya cargada (antes de cargar una nueva) -->
         <div class="ddjj-panel ddjj-buscar">
-            <h3 class="ddjj-paso-titulo">2 · ¿Ya hay una cargada?</h3>
-            <p class="ddjj-hint">Recuperá, mirá o borrá una DDJJ que ya esté cargada en AFIP para este período.</p>
-            <div class="ddjj-buscar-fila">
-                <span class="ddjj-buscar-accion">
-                    <label class="ddjj-hint" for="ddjj-accion">Si encuentra 1:</label>
-                    <select id="ddjj-accion" class="ddjj-select">
-                        <option value="editar" selected>Editar (recuperar)</option>
-                        <option value="ver">Ver estado</option>
-                        <option value="borrar">Borrar</option>
-                    </select>
-                </span>
+            <h3 class="ddjj-paso-titulo">2 · Declaración ya cargada</h3>
+            <!-- Dos columnas: textos + select a la izquierda, lanzador a la derecha (ancho de su contenido).
+                 En ventana angosta el lanzador baja abajo de los textos. -->
+            <div class="ddjj-buscar-cuerpo">
+                <div class="ddjj-buscar-textos">
+                    <p class="ddjj-hint">Recuperá, mirá o borrá una DDJJ que ya esté cargada en AFIP para este período.</p>
+                    <div class="ddjj-buscar-fila">
+                        <span class="ddjj-buscar-accion">
+                            <label class="ddjj-hint" for="ddjj-accion">Si encuentra 1:</label>
+                            <select id="ddjj-accion" class="ddjj-select">
+                                <option value="editar" selected>Editar (recuperar)</option>
+                                <option value="ver">Ver estado</option>
+                                <option value="borrar">Borrar</option>
+                            </select>
+                        </span>
+                    </div>
+                    <p id="ddjj-accion-ayuda" class="ddjj-hint ddjj-accion-ayuda"></p>
+                </div>
+                <!-- Buscar ↔ Cancelar: componentes/lanzadorAutomatizacion (el switch depende de la acción) -->
+                <div id="lanzadorDdjjBuscar"></div>
             </div>
-            <p id="ddjj-accion-ayuda" class="ddjj-hint ddjj-accion-ayuda"></p>
-            <!-- Buscar ↔ Cancelar: componentes/lanzadorAutomatizacion (el switch depende de la acción) -->
-            <div id="lanzadorDdjjBuscar"></div>
             <!-- Resultado de la búsqueda: queda en la sección 2, no abajo de todo -->
             <div id="ddjj-buscar-resultado" class="ddjj-buscar-resultado" style="display:none;"></div>
         </div>

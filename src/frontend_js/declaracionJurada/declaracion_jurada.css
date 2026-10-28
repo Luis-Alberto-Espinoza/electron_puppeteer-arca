@@ -146,6 +146,19 @@ input.ddjj-periodo { width: 130px; cursor: pointer; }
 .ddjj-buscar-accion .ddjj-select { width: auto; }
 .ddjj-buscar .ddjj-accion-ayuda { margin: 6px 0 0; }
 
+/* Sección 2 en dos columnas: la vista solo ubica el lugar del lanzador (ancho de su contenido);
+   cómo se ve por dentro es del componente (docs/vistas/componente_lanzador.md §1.1). */
+.ddjj-buscar-cuerpo {
+    display: flex;
+    flex-wrap: wrap;            /* angosta: el lanzador baja abajo de los textos */
+    align-items: stretch;       /* lado a lado: el lanzador ocupa todo el alto de la columna de textos */
+    gap: 16px;
+}
+/* Reparto del sobrante 999 a 1: lado a lado, los textos se lo llevan casi todo (el lanzador
+   queda del ancho de su contenido); solo en su renglón, el lanzador crece a todo el ancho. */
+.ddjj-buscar-textos { flex: 999 1 280px; }
+.ddjj-buscar-cuerpo > #lanzadorDdjjBuscar { flex: 1 0 auto; }
+
 /* Resultado de "Buscar" (dentro de la sección 2) */
 .ddjj-buscar-resultado {
     margin-top: 12px;
@@ -359,6 +372,9 @@ input.ddjj-periodo { width: 130px; cursor: pointer; }
     display: flex;
     flex-direction: column;
     gap: 6px;
+    margin-top: 18px;
+    padding-top: 4px;
+    border-top: 1px solid var(--v-borde, #e5e7eb);   /* misma línea que Excel y Retenciones */
 }
 
 /* Cartel de estado recién aparecido: un destello para que se note */

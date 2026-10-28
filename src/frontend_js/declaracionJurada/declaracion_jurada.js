@@ -524,6 +524,7 @@ function crearLanzadores() {
         }]
     });
     lanzadorBuscar = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDdjjBuscar'), {
+        marco: false,   // secundario, dentro de la sección 2
         acciones: [{
             texto: 'Buscar borrador existente',
             tipo: 'secundario',
@@ -783,7 +784,8 @@ function actualizarAccionBuscar() {
     const accion = (document.getElementById('ddjj-accion') || {}).value || 'editar';
     const ayuda = document.getElementById('ddjj-accion-ayuda');
     if (ayuda) ayuda.textContent = AYUDA_ACCION_BUSCAR[accion] || '';
-    if (lanzadorBuscar) lanzadorBuscar.fijarNavegador(accion === 'editar', accion === 'editar');
+    // Editar: prendido y bloqueado (se sigue a mano). Ver/Borrar: prendido por defecto, el usuario puede apagarlo.
+    if (lanzadorBuscar) lanzadorBuscar.fijarNavegador(true, accion === 'editar');
 }
 
 /** Qué pasó con la acción, en criollo. La acción solo se aplica si hubo UN resultado. */

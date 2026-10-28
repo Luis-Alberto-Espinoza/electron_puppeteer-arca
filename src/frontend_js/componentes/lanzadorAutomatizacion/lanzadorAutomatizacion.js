@@ -26,6 +26,8 @@
  *
  *   const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorXx'), {
  *       navegador: true,                           // false = sin switch (el servicio no deja ocultarlo)
+ *       marco: true,                               // false = sin recuadro: lanzador SECUNDARIO dentro de una
+ *                                                  //   sección (el switch arriba y los botones abajo, sueltos)
  *       acciones: [{
  *           texto: '🔍 Consultar comprobantes',
  *           tipo: 'principal',                     // 'principal' (azul) | 'prueba' (verde) | 'secundario' (tono del servicio)
@@ -72,7 +74,7 @@
     const CANCELAR_ARMA_MS = 1500;
 
     function crear(contenedor, opciones = {}) {
-        const { navegador = true, acciones = [], auxiliares = [] } = opciones;
+        const { navegador = true, marco = true, acciones = [], auxiliares = [] } = opciones;
 
         let corriendo = null;        // índice de la acción que está corriendo
         let cancelarArmado = false;
@@ -80,6 +82,7 @@
         let navegadorFijo = false;   // fijarNavegador(valor, true): el usuario no puede tocar el switch
 
         contenedor.classList.add('ui-lanzador');
+        if (!marco) contenedor.classList.add('ui-lanzador--sin-marco');
         contenedor.innerHTML = '';
 
         let chkVisible = null;
