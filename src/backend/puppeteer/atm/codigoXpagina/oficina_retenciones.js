@@ -102,6 +102,8 @@ async function navegarARetenciones(page, submenuIndex = 3) {
             return; // Éxito, salir de la función
 
         } catch (error) {
+            // Navegador cerrado ("⏹ Cancelar" o a mano): reintentar sobre él no tiene sentido.
+            if (!page.browser().isConnected() || page.isClosed()) throw error;
             console.error(`Error al navegar a retenciones (intento ${intento}/${MAX_INTENTOS}):`, error.message);
 
             if (intento < MAX_INTENTOS) {

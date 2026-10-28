@@ -3,6 +3,7 @@ const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.j
 const { navegarARetenciones } = require('../codigoXpagina/oficina_retenciones.js');
 const { descargarRetencionGenerico } = require('../codigoXpagina/retenciones_generico.js');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const puppeteerManager = require('../../archivos_comunes/navegador/puppeteer-manager.js'); // "⏹ Cancelar" del lanzador
 const { resumirConsultas } = require('../../../atm/retenciones/resumenConsultas.js');
 
 /**
@@ -62,6 +63,7 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
         // y aplica el viewport por defecto.
         const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         browser = lanzado.browser;
+        puppeteerManager.registrar(browser);
         const page = lanzado.page;
 
         // PASO 1: Navegar a la URL de login de ATM
@@ -99,7 +101,14 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
         };
 
         // PASO 4: Iterar por cada tipo de retención (SECUENCIAL, uno a la vez)
+        // Navegador cerrado ("⏹ Cancelar" o a mano): cortar acá, no seguir con los reintentos
+        // y las resincronizaciones de cada tipo y periodo sobre un navegador que ya no existe.
+        const cortarSiSeCerro = () => {
+            if (browser.isConnected?.() === false) throw new Error('Se cerró el navegador antes de terminar.');
+        };
+
         for (const tipoRetencion of tiposRetenciones) {
+            cortarSiSeCerro();
 
             // Navegar UNA sola vez al tipo de retención; los periodos se recorren adentro
             try {
@@ -131,6 +140,7 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
 
             // PASO 4.b: Recorrer los periodos dentro del mismo tipo de retención
             for (let indicePeriodo = 0; indicePeriodo < listaPeriodos.length; indicePeriodo++) {
+                cortarSiSeCerro();
                 const periodoActual = listaPeriodos[indicePeriodo];
                 const esUltimoPeriodo = indicePeriodo === listaPeriodos.length - 1;
 
@@ -184,6 +194,7 @@ async function flujoDescargaRetenciones(credencialesATM, nombreUsuario, download
                         }
 
                     } catch (errorTipo) {
+                        cortarSiSeCerro();
                         console.error(`[${tipoRetencion.nombre}] [${periodoActual}] Error en intento ${intento + 1}:`, errorTipo.message);
                         intento++;
 
