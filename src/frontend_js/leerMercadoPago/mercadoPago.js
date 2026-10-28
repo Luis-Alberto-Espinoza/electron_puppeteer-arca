@@ -127,7 +127,60 @@ function injectMercadoPagoCSS() {
     head.appendChild(link);
 }
 
-initializeMercadoPago();
+let selectorUsuariosMP = null;
+let plantillaMP = '';  // HTML del formulario tal como vino de mercadoPago_leer.html
+
+/**
+ * Entrada de la vista (la llama el controlador cada vez que se entra): arranca
+ * sin cliente; el formulario se arma recién al elegir uno.
+ */
+export function inicializarVistaMercadoPago() {
+    const div = document.getElementById('leerMercadoPagoDiv');
+    if (!div) {
+        console.error('No se encontró leerMercadoPagoDiv');
+        return;
+    }
+    plantillaMP = div.innerHTML;
+    div.innerHTML = '';
+    div.classList.add('contenido-oculto');
+    window.usuarioSeleccionado = null;
+    montarSelectorUsuarios();
+}
+
+function montarSelectorUsuarios() {
+    selectorUsuariosMP = new SelectorUsuarios('mp-selector-usuarios', {
+        mostrarTablaSeleccionados: false,
+        seleccionUnica: true,
+
+        // Modelo plano: el backend ya computó puedeOperar para 'facturacion'
+        // (acceso AFIP propio o por representante + ≥1 PDV).
+        fuente: 'contribuyentes',
+        servicio: 'facturacion',
+        // Botón "Clave": la corrige y la verifica ahí mismo (trae también los puntos de venta).
+        ...(window.opcionesClaveEnSelector
+            ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosMP, { verificar: 'facturacion' })
+            : {}),
+
+        onCambioSeleccion: (seleccionados) => elegirCliente(seleccionados[0] || null)
+    });
+}
+
+// Cada cliente arranca con el formulario de cero (no arrastra datos del anterior).
+// El mismo cliente otra vez (ej. tras corregir su clave) no borra lo cargado.
+function elegirCliente(usuario) {
+    const div = document.getElementById('leerMercadoPagoDiv');
+    const mismoCliente = usuario && window.usuarioSeleccionado
+        && String(usuario.id) === String(window.usuarioSeleccionado.id);
+    window.usuarioSeleccionado = usuario;
+    if (mismoCliente) return;
+    div.innerHTML = usuario ? plantillaMP : '';
+    div.classList.toggle('contenido-oculto', !usuario);
+    if (!usuario) return;
+    initializeMercadoPago();
+    inicializarUsuarioEmpresaActividadMP();
+    const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
+    if (fechaComprobanteMP) crearCalendario(fechaComprobanteMP, { formato: 'd/m/Y', inicial: null });
+}
 
 function initializeMercadoPago() {
     injectMercadoPagoCSS(); // <-- Inyectar el CSS específico del módulo
@@ -459,14 +512,6 @@ function inicializarUsuarioEmpresaActividadMP() {
         window.actividadElegidaMP = checkedRadio.value;
     }
 }
-
-// Llama a la función al cargar el DOM
-document.addEventListener('DOMContentLoaded', () => {
-    inicializarUsuarioEmpresaActividadMP();
-    // Inicializar flatpickr para fechaComprobanteMP
-    const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
-    if (fechaComprobanteMP) crearCalendario(fechaComprobanteMP, { formato: 'd/m/Y', inicial: null });
-});
 
 // Asegura que la inicialización se ejecute también después de cargar el HTML dinámicamente
 window.configurarUsuarioMercadoPago = inicializarUsuarioEmpresaActividadMP;

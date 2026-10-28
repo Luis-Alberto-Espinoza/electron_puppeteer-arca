@@ -6,6 +6,12 @@
     <title>Facturas Tipificadas</title>
 </head>
 <body>
+<!-- Vista: elegir el cliente; el formulario aparece debajo recién con un cliente elegido -->
+<div class="vista-facturacion-cliente">
+    <h2 class="vista-facturacion-titulo">Facturar tipificada</h2>
+    <div id="tipificada-selector-usuarios"></div>
+</div>
+<div id="facturasTipificadasDiv" class="contenido-oculto">
     <div class="factura-tipificada-container">
         <div class="header">
             <h2>Generar Factura Tipificada</h2>
@@ -276,5 +282,6 @@
              Lanzador: switch + Probar / Generar, Cancelar mientras corre; auxiliares: Limpiar y Descartar -->
         <div id="lanzadorTipificada"></div>
     </div>
+</div><!-- /#facturasTipificadasDiv -->
 </body>
 </html>

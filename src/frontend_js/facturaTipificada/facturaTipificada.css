@@ -117,7 +117,7 @@
 /* La global de home/index.css le da margin 10px a input[type=text]/select/textarea
    pero no a input[type=number]: en una fila (Unidad | Cantidad | Precio) quedaban
    desfasados. Con el contenedor adelante para ganarle. El foco va en tema_afip.css. */
-#facturasTipificadasSeccion .form-group :is(input, select, textarea) {
+#facturaTipificadaDiv .form-group :is(input, select, textarea) {
     margin: 0;
 }
 

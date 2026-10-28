@@ -17,11 +17,9 @@
 
 /* ===== 1. Tono de cada servicio (por contenedor) ===== */
 #homeAfipDiv                  { --vista-tono: var(--tono-afip-inicio); }
-#selectorUsuarioDiv,
-#modulosAfipDiv,
-#facturasSeccion              { --vista-tono: var(--tono-facturacion); }
-#facturasTipificadasSeccion   { --vista-tono: var(--tono-tipificada); }
-#lectorMpSeccion              { --vista-tono: var(--tono-mercadopago); }
+#facturacionDiv               { --vista-tono: var(--tono-facturacion); }
+#facturaTipificadaDiv         { --vista-tono: var(--tono-tipificada); }
+#mercadoPagoDiv               { --vista-tono: var(--tono-mercadopago); }
 #generarVEPDiv                { --vista-tono: var(--tono-vep); }
 #cuentaTributariaDiv          { --vista-tono: var(--tono-cuenta-trib); }
 #consultaComprobantesDiv      { --vista-tono: var(--tono-comprobantes); }
@@ -32,11 +30,9 @@
 #importarLibroIvaDiv          { --vista-tono: var(--tono-importar-libro-iva); }
 
 /* ===== 2. Superficies y textos derivados del tono =====
-   Se recalculan en CADA elemento que cambia de tono (por eso las secciones de
-   facturación también están en la lista). .tema-vista = componentes sueltos
+   Se recalculan en CADA elemento que cambia de tono. .tema-vista = componentes sueltos
    (lanzador, diálogo de clave) que traen su propio --vista-tono. */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) {
     --v-panel:    color-mix(in srgb, var(--vista-tono), black 18%);  /* lo que era blanco */
@@ -60,7 +56,7 @@
 }
 
 /* ===== 3. El marco de cada vista: su tono, mismo ancho en todas ===== */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv) {
     background: var(--vista-tono);
@@ -71,20 +67,12 @@
     max-width: var(--ancho-max);
 }
 
-/* Secciones de facturación: cada una con su tono, dentro del marco de Facturación */
-:is(#facturasSeccion, #facturasTipificadasSeccion, #lectorMpSeccion) {
-    background: var(--vista-tono);
-    border: 1px solid var(--v-borde);
-    border-radius: var(--radio-sm);
-}
-#modulosAfipDiv :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv) {
+/* Facturación, Tipificada y Mercado Pago: el formulario (debajo del selector) en un panel */
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv) {
     background: var(--v-panel);
     max-width: none;
     margin: 12px 0 0;
     box-shadow: none;
-    color: var(--v-texto);
-}
-#modulosAfipDiv #infoUsuarioSeleccionado {
     color: var(--v-texto);
 }
 
@@ -92,7 +80,6 @@
    Antes cada vista tenía su propio ancho (700, 760, 800, 900, 950, 1100, 1200px):
    por eso el buscador de clientes medía distinto en cada una. */
 #homeAfipDiv .contenedor-home-afip,
-#selectorUsuarioDiv .selector-usuario,
 #generarVEPDiv .contenedor-principal-vep,
 #cuentaTributariaDiv .contenedor-principal-ct,
 #consultaComprobantesDiv .cc-contenedor,
@@ -101,8 +88,8 @@
 #datosRegistralesDiv .dr-container,
 #ddjjPendientesDiv .dp-container,
 #importarLibroIvaDiv .il-container,
-#facturasTipificadasSeccion .factura-tipificada-container,
-#lectorMpSeccion .inicio-container {
+#facturaTipificadaDiv .factura-tipificada-container,
+#mercadoPagoDiv .inicio-container {
     max-width: none;
     width: 100%;
     margin: 0;
@@ -112,19 +99,19 @@
 }
 
 /* ===== 4. Textos genéricos (títulos, etiquetas) ===== */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) :is(h1, h2, h3, h4, h5, h6, label, legend, th) {
     color: var(--v-texto);
 }
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) :is(.text-muted, .text-secondary, small) {
     color: var(--v-texto-2) !important;
 }
 
 /* ===== 5. Cajas de texto y desplegables: oscuras con letra blanca ===== */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista)
     :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]),
@@ -136,7 +123,7 @@
 /* Foco: uno solo para todos los controles. El azul viejo (#007bff + sombra al
    10%) no se veía sobre el violeta, y cada vista/control tenía el suyo (o el
    del navegador). Aro amarillo (--c-acento de tokens.css), igual en todo AFIP. */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista)
     :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]),
@@ -145,39 +132,39 @@
     border-color: var(--c-acento, #f6e05e);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-acento, #f6e05e), transparent 40%);
 }
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) :is(input, textarea)::placeholder {
     color: rgba(255, 255, 255, 0.55);
 }
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) :is(input, select, textarea):disabled {
     opacity: 0.6;
 }
 /* Las opciones de un <select> abierto también: si no, lista blanca con letra blanca */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) option {
     background-color: var(--v-input);
     color: var(--v-texto);
 }
 /* El ícono del calendario de los input date viene negro: lo invertimos */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) input::-webkit-calendar-picker-indicator {
     filter: invert(1);
 }
 
 /* ===== 6. Piezas de Bootstrap que traen blanco de fábrica ===== */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) :is(.card, .list-group-item, .bg-white, .bg-light, .modal-content) {
     background-color: var(--v-panel) !important;
     color: var(--v-texto);
     border-color: var(--v-borde);
 }
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) .table {
     --bs-table-bg: transparent;
@@ -226,42 +213,36 @@ html {
 ::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--c-primario-1), white 35%); }
 
 /* ===== 10. Botones y acentos azules de la paleta vieja → tono del servicio ===== */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv) {
     --v-acento: color-mix(in srgb, var(--vista-tono), white 45%);   /* barritas y subrayados */
 }
-:is(#facturasSeccion, #facturasTipificadasSeccion, #lectorMpSeccion) {
-    --v-acento: color-mix(in srgb, var(--vista-tono), white 45%);
-}
-#modulosAfipDiv .btn-principal {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) .btn-principal {
     background: color-mix(in srgb, var(--vista-tono), white 18%);
     border: 1px solid var(--v-borde);
     color: #ffffff;
     font-weight: 600;
 }
-#modulosAfipDiv .btn-principal:hover {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) .btn-principal:hover {
     background: color-mix(in srgb, var(--vista-tono), white 30%);
 }
 /* Botón secundario (.ui-btn--ghost): el de base.css es para fondo claro (letra oscura,
    hover blanco). En AFIP: relleno con el tono y letra blanca; el hover no cambia el color,
    solo sube con sombra como el resto de los .ui-btn. */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv) .ui-btn--ghost {
     background: color-mix(in srgb, var(--vista-tono), white 18%);
     border: 1px solid var(--v-borde);
     color: var(--v-texto);
 }
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv) .ui-btn--ghost:hover:not(:disabled) {
     background: color-mix(in srgb, var(--vista-tono), white 18%);
 }
-#modulosAfipDiv .seccion h2 {
-    border-bottom-color: var(--v-acento);
-}
-#modulosAfipDiv .usuario-seleccionado-factura {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) .usuario-seleccionado-factura {
     background-color: var(--v-input) !important;
     color: var(--c-acento) !important;
     font-size: 1.1em !important;
@@ -272,7 +253,7 @@ html {
    Se toma como modelo la tipificada (títulos de sección con barrita al costado,
    etiquetas en negrita de 14px, cajas de 14px). Antes la normal y Mercado Pago
    usaban los títulos gigantes por defecto. */
-#modulosAfipDiv :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv) :is(h2, h3) {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv) :is(h2, h3) {
     font-size: 20px;
     font-weight: 600;
     color: var(--v-texto);
@@ -282,12 +263,12 @@ html {
     margin: 24px 0 14px;
     text-align: left;
 }
-#modulosAfipDiv :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv) label {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv) label {
     font-size: 14px;
     font-weight: 600;
     color: var(--v-texto);
 }
-#modulosAfipDiv :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv)
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) :is(#facturasDiv, #facturasTipificadasDiv, #leerMercadoPagoDiv)
     :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
     font-size: 14px;
     padding: 10px 12px;
@@ -300,21 +281,18 @@ html {
    fondo 109,75,160). Apagado = el tono del servicio oscurecido, como las cajas
    de texto; prendido = verde, igual en todos los servicios. ATM no tiene tema
    y conserva su switch. */
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) .ui-switch {
     color: var(--v-texto-2);
 }
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) .ui-switch input {
     background: var(--v-input);
     box-shadow: inset 0 0 0 1px var(--v-borde);
 }
-:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #facturasSeccion,
-    #facturasTipificadasSeccion, #lectorMpSeccion, #generarVEPDiv,
+:is(#homeAfipDiv, #facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) .ui-switch input:checked {
     background: #43e97b;
@@ -324,7 +302,7 @@ html {
 /* ===== 13. Aviso del PDV (Facturación normal y Mercado Pago) =====
    Vuelta de AFIP: PDV no habilitado o de otra letra. Recuadro amarillo para que no
    se confunda con un texto más del formulario; el desplegable de PDV queda marcado. */
-#modulosAfipDiv :is(#facturasDiv, #leerMercadoPagoDiv) .aviso-pdv-factura {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) :is(#facturasDiv, #leerMercadoPagoDiv) .aviso-pdv-factura {
     margin: 0 0 12px;
     padding: 12px 14px;
     border-radius: var(--radio);
@@ -335,10 +313,10 @@ html {
     font-size: 1rem;
     line-height: 1.4;
 }
-#modulosAfipDiv :is(#facturasDiv, #leerMercadoPagoDiv) .aviso-pdv-factura::before {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) :is(#facturasDiv, #leerMercadoPagoDiv) .aviso-pdv-factura::before {
     content: "⚠️ ";
 }
-#modulosAfipDiv :is(#facturasDiv, #leerMercadoPagoDiv) .pdv-a-revisar select {
+:is(#facturacionDiv, #facturaTipificadaDiv, #mercadoPagoDiv) :is(#facturasDiv, #leerMercadoPagoDiv) .pdv-a-revisar select {
     outline: 2px solid var(--c-acento);
     outline-offset: 2px;
 }

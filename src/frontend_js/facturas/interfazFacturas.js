@@ -10,27 +10,64 @@ let datosMasivos = [];
 let datosValidados = false;
 let flatpickrFechaComprobante; // Para la fecha del comprobante
 let flatpickrDatepicker;       // Para la selección múltiple de fechas
+let selectorUsuariosFactura = null;
+let plantillaFormulario = '';  // HTML del formulario tal como vino de factura.html
+let escuchandoCodigo = false;  // el listener de IPC se registra una sola vez
 
-export async function inicializarInterfazFacturas() {
+/**
+ * Entrada de la vista (la llama el controlador cada vez que se entra): arranca
+ * sin cliente; el formulario se arma recién al elegir uno.
+ */
+export function inicializarVistaFacturacion() {
     const facturasDiv = document.getElementById('facturasDiv');
-    const facturasBtn = document.getElementById('facturasBtn');
-
-    if (!facturasBtn || !facturasDiv) {
-        console.error("No se encontraron los elementos facturasBtn o facturasDiv");
+    if (!facturasDiv) {
+        console.error('No se encontró facturasDiv');
         return;
     }
+    plantillaFormulario = facturasDiv.innerHTML;
+    facturasDiv.innerHTML = '';
+    facturasDiv.classList.add('contenido-oculto');
+    window.usuarioSeleccionado = null;
+    montarSelectorUsuarios();
+}
 
-    // 1. Cargar el componente de facturas.html en facturasDiv primero
-    try {
-        const response = await fetch('../facturas/factura.html');
-        const html = await response.text();
-        facturasDiv.innerHTML = html;
-        const selectPdvFactura = document.getElementById('selectPuntoDeVentaFactura');
-        if (selectPdvFactura) selectPdvFactura.addEventListener('change', alCambiarPdvFactura);
-    } catch (err) {
-        console.error('Error al cargar facturas.html:', err);
-        return;
-    }
+function montarSelectorUsuarios() {
+    selectorUsuariosFactura = new SelectorUsuarios('facturacion-selector-usuarios', {
+        mostrarTablaSeleccionados: false,
+        seleccionUnica: true,
+
+        // Modelo plano: el backend ya computó puedeOperar para 'facturacion'
+        // (acceso AFIP propio o por representante + ≥1 PDV).
+        fuente: 'contribuyentes',
+        servicio: 'facturacion',
+        // Botón "Clave": la corrige y la verifica ahí mismo (trae también los puntos de venta).
+        ...(window.opcionesClaveEnSelector
+            ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosFactura, { verificar: 'facturacion' })
+            : {}),
+
+        onCambioSeleccion: (seleccionados) => elegirCliente(seleccionados[0] || null)
+    });
+}
+
+// Cada cliente arranca con el formulario de cero (no arrastra datos del anterior).
+// El mismo cliente otra vez (ej. tras corregir su clave) no borra lo cargado.
+function elegirCliente(usuario) {
+    const facturasDiv = document.getElementById('facturasDiv');
+    const mismoCliente = usuario && window.usuarioSeleccionado
+        && String(usuario.id) === String(window.usuarioSeleccionado.id);
+    window.usuarioSeleccionado = usuario;
+    if (mismoCliente) return;
+    facturasDiv.innerHTML = usuario ? plantillaFormulario : '';
+    facturasDiv.classList.toggle('contenido-oculto', !usuario);
+    if (usuario) inicializarInterfazFacturas();
+}
+
+function inicializarInterfazFacturas() {
+    datosMasivos = [];
+    datosValidados = false;
+
+    const selectPdvFactura = document.getElementById('selectPuntoDeVentaFactura');
+    if (selectPdvFactura) selectPdvFactura.addEventListener('change', alCambiarPdvFactura);
 
     // 2. Ahora busca los elementos dentro de facturasDiv
     const fechaComprobante = document.getElementById('fechaComprobante');
@@ -58,13 +95,6 @@ export async function inicializarInterfazFacturas() {
     const facturasForm = document.getElementById('facturasForm');
 
     inicializarFacturas();
-    facturasDiv.style.display = 'none'; // Inicialmente oculto
-
-    facturasBtn.addEventListener('click', () => {
-        const isVisible = facturasDiv.style.display === 'block';
-        facturasDiv.style.display = isVisible ? 'none' : 'block';
-        //realizarAccionFacturacion();
-    });
 
     // Calendarios comunes (componentes/calendario): mismo formato d/m/Y que leía la pantalla
     if (fechaComprobante) {
@@ -205,10 +235,13 @@ export async function inicializarInterfazFacturas() {
     if (hacerFacturaDiv) hacerFacturaDiv.classList.add('hidden');
     if (botonesPuppeteer) botonesPuppeteer.classList.add('hidden');
 
-    window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
-        implementarSeguro('respuesta', codigo);
-        configurarBotonesExpandirTablas(); 
-    });
+    if (!escuchandoCodigo) {
+        escuchandoCodigo = true;
+        window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
+            implementarSeguro('respuesta', codigo);
+            configurarBotonesExpandirTablas(); 
+        });
+    }
 
     configurarUsuarioEnFacturas();
     configurarEmpresasDisponibles(); 

@@ -397,8 +397,59 @@ function obtenerFechaActual() {
     return `${dia}/${mes}/${anio}`;
 }
 
+let selectorUsuariosTipificada = null;
+let plantillaTipificada = '';  // HTML del formulario tal como vino de facturaTipificada.html
+
 /**
- * Inicializa el módulo de facturas tipificadas
+ * Entrada de la vista (la llama el controlador cada vez que se entra): arranca
+ * sin cliente; el formulario se arma recién al elegir uno.
+ */
+function inicializarVistaTipificada() {
+    const div = document.getElementById('facturasTipificadasDiv');
+    if (!div) {
+        console.error('No se encontró facturasTipificadasDiv');
+        return;
+    }
+    plantillaTipificada = div.innerHTML;
+    div.innerHTML = '';
+    div.classList.add('contenido-oculto');
+    window.usuarioSeleccionado = null;
+    montarSelectorTipificada();
+}
+
+function montarSelectorTipificada() {
+    selectorUsuariosTipificada = new SelectorUsuarios('tipificada-selector-usuarios', {
+        mostrarTablaSeleccionados: false,
+        seleccionUnica: true,
+
+        // Modelo plano: el backend ya computó puedeOperar para 'facturacion'
+        // (acceso AFIP propio o por representante + ≥1 PDV).
+        fuente: 'contribuyentes',
+        servicio: 'facturacion',
+        // Botón "Clave": la corrige y la verifica ahí mismo (trae también los puntos de venta).
+        ...(window.opcionesClaveEnSelector
+            ? window.opcionesClaveEnSelector('afip', () => selectorUsuariosTipificada, { verificar: 'facturacion' })
+            : {}),
+
+        onCambioSeleccion: (seleccionados) => elegirClienteTipificada(seleccionados[0] || null)
+    });
+}
+
+// Cada cliente arranca con el formulario de cero (no arrastra datos del anterior).
+// El mismo cliente otra vez (ej. tras corregir su clave) no borra lo cargado.
+function elegirClienteTipificada(usuario) {
+    const div = document.getElementById('facturasTipificadasDiv');
+    const mismoCliente = usuario && window.usuarioSeleccionado
+        && String(usuario.id) === String(window.usuarioSeleccionado.id);
+    window.usuarioSeleccionado = usuario;
+    if (mismoCliente) return;
+    div.innerHTML = usuario ? plantillaTipificada : '';
+    div.classList.toggle('contenido-oculto', !usuario);
+    if (usuario) inicializarFacturasTipificadas();
+}
+
+/**
+ * Inicializa el formulario de facturas tipificadas (con el cliente ya elegido)
  */
 async function inicializarFacturasTipificadas() {
     console.log('🔵 Inicializando módulo de Facturas Tipificadas...');
@@ -2203,6 +2254,7 @@ function mostrarResultadoModoPrueba(resultado) {
 }
 
 // Exponer funciones globalmente
+window.inicializarVistaTipificada = inicializarVistaTipificada;
 window.inicializarFacturasTipificadas = inicializarFacturasTipificadas;
 window.eliminarFactura = eliminarFactura;
 window.eliminarLineaDeFactura = eliminarLineaDeFactura;
