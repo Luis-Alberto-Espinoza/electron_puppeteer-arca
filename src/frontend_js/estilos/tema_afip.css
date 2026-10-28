@@ -133,6 +133,18 @@
     color: var(--v-texto);
     border-color: var(--v-borde);
 }
+/* Foco: uno solo para todos los controles. El azul viejo (#007bff + sombra al
+   10%) no se veía sobre el violeta, y cada vista/control tenía el suyo (o el
+   del navegador). Aro amarillo (--c-acento de tokens.css), igual en todo AFIP. */
+:is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
+    #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
+    #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista)
+    :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="button"]):not([type="submit"]),
+        select, textarea, .form-control, .form-select):focus {
+    outline: none;
+    border-color: var(--c-acento, #f6e05e);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-acento, #f6e05e), transparent 40%);
+}
 :is(#homeAfipDiv, #selectorUsuarioDiv, #modulosAfipDiv, #generarVEPDiv,
     #cuentaTributariaDiv, #consultaComprobantesDiv, #declaracionJuradaDiv,
     #planesDePagoDiv, #datosRegistralesDiv, #ddjjPendientesDiv, #importarLibroIvaDiv, .tema-vista) :is(input, textarea)::placeholder {
