@@ -18,57 +18,6 @@
     margin-bottom: 20px;
 }
 
-/* Estilo para la lista de selección de usuarios */
-#listaUsuariosLote {
-    background-color: var(--v-panel, #2d3748);
-    border: 1px solid var(--v-borde, #4a5568);
-    border-radius: 8px;
-    padding: 10px;
-    max-height: 300px;
-    overflow-y: auto;
-}
-
-.usuario-item {
-    display: flex;
-    align-items: center;
-    padding: 12px;
-    border-radius: 6px;
-    transition: background-color 0.2s ease-in-out;
-    cursor: pointer;
-}
-
-/* Efecto hover para toda la fila del usuario */
-.usuario-item:hover {
-    background-color: var(--v-panel-2, #4a5568);
-}
-
-.usuario-item label {
-    margin-left: 12px;
-    color: var(--v-texto, #e2e8f0);
-    flex-grow: 1;
-}
-
-/* Checkboxes más grandes */
-.usuario-item input[type="checkbox"] {
-    transform: scale(1.4);
-    margin-left: 5px;
-    cursor: pointer;
-}
-
-/* Botones de acción */
-.lote-acciones .btn {
-    margin-right: 10px;
-    background-color: #4299e1; /* Azul de acento */
-    color: #fff;
-    border: none;
-    transition: background-color 0.3s, transform 0.2s;
-}
-
-.lote-acciones .btn:hover {
-    background-color: #63b3ed;
-    transform: translateY(-2px);
-}
-
 /* Paneles de resultados */
 #lote-resultados-container h3 {
     color: #f6e05e;
@@ -170,11 +119,6 @@
 .badge-invalido {
     background-color: #fee2e2;
     color: #dc2626;
-}
-
-.badge-sin-validar {
-    background-color: #fef3c7;
-    color: #92400e;
 }
 
 /* Asegurar alineación a la izquierda en tabla de seleccionados */

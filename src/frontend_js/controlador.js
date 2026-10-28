@@ -11,8 +11,6 @@ function ocultarSubmodulos() {
         const el = document.getElementById(id);
         if (el) el.classList.add('contenido-oculto');
     });
-    // Si tienes submódulos en ATM, agrégalos aquí
-    // ['atmSubmodulo1', 'atmSubmodulo2'].forEach(...)
 }
 
 /**
