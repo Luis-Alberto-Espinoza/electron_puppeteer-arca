@@ -23,9 +23,14 @@
 // final: true marca el aviso con el resultado del cliente. La pantalla pasa la tarjeta a
 // "Finalizados" SOLO con ese: un 'exito' o 'error' de mitad de camino no la mueve.
 //   aviso.finalizado('Proceso terminado.');
+//
+// Con { corrida } (puppeteerManager.nuevaCorrida, "⏹ Cancelar" del lanzador): tras cancelar,
+// los avisos del cliente que se estaba procesando ya no salen (su flujo muere por detrás) y
+// aviso.cancelado(cliente) le pone CANCELADO a él y a los que faltaban.
 
-function crearAvisoProgreso(enviar, total) {
+function crearAvisoProgreso(enviar, total, { corrida } = {}) {
     let procesados = 0;
+    const cerrados = new Set();   // ids que ya recibieron su resultado
 
     const mandar = (aviso) => {
         try {
@@ -50,6 +55,8 @@ function crearAvisoProgreso(enviar, total) {
          */
         paraCliente({ id, cuit, nombre } = {}) {
             const avisar = (estado, mensaje, datosExtra = {}, final = false) => {
+                if (corrida && corrida.cancelada()) return;
+                if (final) cerrados.add(id);
                 // Los datos extra (files, downloadDir, el resultado del flujo...) PUEDEN pisar
                 // estado y mensaje, como antes (ej. Constancia: el flujo trae "procesada (sin
                 // deuda)" y eso es lo que se muestra). Lo que NO pueden pisar: cliente, contador y final.
@@ -65,6 +72,20 @@ function crearAvisoProgreso(enviar, total) {
             const avisarCliente = (estado, mensaje, datosExtra) => avisar(estado, mensaje, datosExtra, false);
             avisarCliente.final = (estado, mensaje, datosExtra) => avisar(estado, mensaje, datosExtra, true);
             return avisarCliente;
+        },
+
+        /** CANCELADO para el cliente, salvo que ya tuviera su resultado. */
+        cancelado({ id, cuit, nombre, apellido } = {}) {
+            const idAviso = id || cuit;
+            if (cerrados.has(idAviso)) return;
+            cerrados.add(idAviso);
+            mandar({
+                estado: 'cancelado', mensaje: 'Cancelado por el usuario',
+                tipo: 'progreso',
+                id: idAviso, cuit, nombre: `${nombre || ''} ${apellido || ''}`.trim() || String(cuit),
+                procesados, total,
+                final: true
+            });
         },
 
         clienteTerminado() {

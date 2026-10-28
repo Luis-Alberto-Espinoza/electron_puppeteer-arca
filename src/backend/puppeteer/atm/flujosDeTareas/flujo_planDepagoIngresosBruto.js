@@ -9,6 +9,7 @@ const { entrarPlanDePago } = require('../codigoXpagina/oficina-planDePago.js');
 const { elegirImpuesto, descargarPlanPorIndice, contarPlanes, diagnosticarPantalla } = require('../codigoXpagina/planDePago_impuestos.js');
 const { convertirPdfAExcel } = require('../../../tablasPdf/convertirPdfAExcel.js');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
+const puppeteerManager = require('../../archivos_comunes/navegador/puppeteer-manager.js'); // "⏹ Cancelar" del lanzador
 
 function encontrarNumeroDeBoleto(datosPdf) {
     // El orquestador ahora devuelve las filas crudas en la propiedad 'allFilas'
@@ -86,6 +87,7 @@ async function flujoPlanDePago(credencialesATM, nombreUsuario, downloadsPath, en
         enviarProgreso('info', 'Iniciando navegador...');
         const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         browser = lanzado.browser;
+        puppeteerManager.registrar(browser);
         const page = lanzado.page;
 
         enviarProgreso('info', 'Navegando a la página de login de ATM...');

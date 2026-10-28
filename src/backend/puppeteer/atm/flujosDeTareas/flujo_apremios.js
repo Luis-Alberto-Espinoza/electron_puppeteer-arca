@@ -4,6 +4,7 @@
 // Un impuesto que falla no corta a los demás: queda marcado en su hoja y en el resultado.
 
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const puppeteerManager = require('../../archivos_comunes/navegador/puppeteer-manager.js'); // "⏹ Cancelar" del lanzador
 const { exigirLoginATM } = require('../codigoXpagina/login_atm.js');
 const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.js');
 const { entrarApremios, aceptarAviso, consultarImpuesto } = require('../codigoXpagina/oficina_apremios.js');
@@ -29,6 +30,7 @@ async function flujoApremios({ credenciales, contribuyente, impuestos, downloads
         enviarProgreso('info', 'Iniciando navegador...');
         const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         browser = lanzado.browser;
+        puppeteerManager.registrar(browser);
         const page = lanzado.page;
 
         enviarProgreso('info', 'Iniciando sesión en ATM...');

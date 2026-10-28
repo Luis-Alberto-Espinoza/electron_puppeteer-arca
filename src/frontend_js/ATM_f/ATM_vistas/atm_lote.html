@@ -103,26 +103,21 @@
             </table>
         </div>
 
-        <!-- Procesar -->
-        <div class="lote-procesar">
-            <!-- Visible u oculto: se elige una vez para todo el lote. No se guarda. -->
-            <label class="ui-switch">
-                <input type="checkbox" id="chk-visible-lote" checked>
-                Mostrar navegador
-            </label>
-            <button id="btnProcesar" class="btn btn-procesar" disabled>▶ Procesar</button>
+        <!-- Resultados ARRIBA del lanzador (como Factura Tipificada): tras un corte, el
+             lanzador queda abajo con "Procesar los N restantes" -->
+        <div id="lote-resultados-container">
+            <div id="lote-procesando-ahora" class="lote-procesando">
+                <h3>Procesando Usuario Actual:</h3>
+            </div>
+            <div id="lote-finalizados-container" class="lote-finalizados">
+                <h3>Finalizados</h3>
+                <div id="lote-finalizados"></div>
+            </div>
         </div>
+
+        <!-- Procesar: componentes/lanzadorAutomatizacion (switch del navegador + Procesar ↔ Cancelar) -->
+        <div id="lanzadorAtmLote"></div>
 
     </div>
 
-    <!-- Panel de resultados (igual que antes) -->
-    <div id="lote-resultados-container">
-        <div id="lote-procesando-ahora" class="lote-procesando">
-            <h3>Procesando Usuario Actual:</h3>
-        </div>
-        <div id="lote-finalizados-container" class="lote-finalizados">
-            <h3>Finalizados</h3>
-            <div id="lote-finalizados"></div>
-        </div>
-    </div>
 </div>

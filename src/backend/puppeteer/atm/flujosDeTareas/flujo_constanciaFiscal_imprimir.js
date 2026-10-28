@@ -3,6 +3,7 @@ const { entrarOficinaVirtual } = require('../codigoXpagina/home-oficinaVirtual.j
 const { navegarACumplimientoFiscal, navegarAInscripcionIIBB } = require('../codigoXpagina/oficina_constanciaFiscal.js');
 const { carpetaConstancias, hayResultadoControl, leerResultadoControl, seleccionarPrimeraFila, descargarPdfDeBoton } = require('../codigoXpagina/constanciaFiscal.js');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js'); // Importar el lanzador autónomo
+const puppeteerManager = require('../../archivos_comunes/navegador/puppeteer-manager.js'); // "⏹ Cancelar" del lanzador
 const { getFilename } = require('../../../utils/fileManager.js');
 const procesarPdfConFallback = require('../../../extraerTablasPdf/extraerTablas_B_Manager.js');
 const { generarExcelDeuda } = require('../../../atm/constanciaFiscal/excelDeuda.js');
@@ -47,6 +48,7 @@ async function flujoConstanciaFiscal(credencialesATM, nombreUsuario, downloadsPa
         enviarProgreso('info', 'Iniciando navegador...');
         const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         browser = lanzado.browser;
+        puppeteerManager.registrar(browser);
         const page = lanzado.page;
 
         await page.goto('https://atm.mendoza.gov.ar/portalatm/misTramites/misTramitesLogin.jsp');

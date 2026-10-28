@@ -69,3 +69,7 @@
 .ui-lanzador .ui-lanzador__auxiliar:hover:not(:disabled) {
     background: #5a6268;
 }
+/* cambiar(i, { nota: '' }) borra la nota: sin texto no ocupa lugar */
+.ui-lanzador .ui-modo-nota:empty {
+    display: none;
+}

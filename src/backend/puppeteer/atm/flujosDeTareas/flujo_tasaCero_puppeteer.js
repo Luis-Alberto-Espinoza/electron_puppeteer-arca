@@ -11,6 +11,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const os = require('os');
 const { launchBrowserAndPage, resolverHeadless } = require('../../archivos_comunes/navegador/browserLauncher.js');
+const puppeteerManager = require('../../archivos_comunes/navegador/puppeteer-manager.js'); // "⏹ Cancelar" del lanzador
 const { loginATM } = require('../codigoXpagina/login_atm.js');
 const { navegarATasaCero, SERVICIO_NO_HABILITADO } = require('../codigoXpagina/aplicativos-tasaCero.js');
 const {
@@ -71,6 +72,7 @@ async function ejecutarFlujoPuppeteerTasaCero(opciones) {
         // la sesión: cada cliente corre en su propio navegador efímero.
         const lanzado = await launchBrowserAndPage({ headless: resolverHeadless(visible) });
         navegador = lanzado.browser;
+        puppeteerManager.registrar(navegador);
         paginaLogin = lanzado.page;
 
         console.log(`[Flujo Tasa Cero - ${nombreCliente}] Navegador iniciado`);

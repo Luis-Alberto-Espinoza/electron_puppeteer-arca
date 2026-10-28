@@ -7,6 +7,7 @@ const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
 const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
+const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 const { IMPUESTO_POR_ID, normalizarImpuestos } = require('./tablaApremios.js');
 
 const PAUSA_ENTRE_CLIENTES = 1000;
@@ -31,20 +32,32 @@ function describirResultado(r) {
  * @param {Function} enviarProgreso
  */
 async function procesarLote({ clientes, downloadsPath, visible }, enviarProgreso) {
+    const corrida = puppeteerManager.nuevaCorrida();   // "⏹ Cancelar" del lanzador
     // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
-    const aviso = crearAvisoProgreso(enviarProgreso, clientes.length);
+    const aviso = crearAvisoProgreso(enviarProgreso, clientes.length, { corrida });
     aviso.general(`Iniciando Apremios ATM para ${clientes.length} cliente(s).`);
 
-    for (let i = 0; i < clientes.length; i++) {
-        await procesarCliente(clientes[i], downloadsPath, aviso, visible);
-        aviso.clienteTerminado();
-        if (i < clientes.length - 1) await new Promise(r => setTimeout(r, PAUSA_ENTRE_CLIENTES));
+    try {
+        for (let i = 0; i < clientes.length; i++) {
+            const cliente = clientes[i];
+            if (!corrida.cancelada()) await corrida.carrera(procesarCliente(cliente, downloadsPath, aviso, visible, corrida));
+            // Cancelado: el que corría y los que faltan quedan CANCELADO (no FALLO).
+            if (corrida.cancelada()) aviso.cancelado(cliente);
+            aviso.clienteTerminado();
+
+            // Pausa entre clientes para no sobrecargar el sistema
+            if (!corrida.cancelada() && i < clientes.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, PAUSA_ENTRE_CLIENTES));
+            }
+        }
+    } finally {
+        corrida.terminar();
     }
 
     aviso.finalizado('Apremios ATM finalizado.');
 }
 
-async function procesarCliente(cliente, downloadsPath, aviso, visible) {
+async function procesarCliente(cliente, downloadsPath, aviso, visible, corrida) {
     const { cuit, id } = cliente;
     const nombreCompleto = `${cliente.nombre || ''} ${cliente.apellido || ''}`.trim() || String(cuit);
     const impuestos = normalizarImpuestos(cliente.impuestos);
@@ -72,6 +85,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
             enviarProgreso: (estado, mensaje) => enviar(estado, mensaje),
             visible
         });
+        if (corrida.cancelada()) return; // canceló mientras corría: el lote ya lo marcó
 
         const detalle = r.resultados.map(describirResultado);
         const fallidos = detalle.filter(d => d.estado === 'error');
@@ -96,6 +110,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
         });
 
     } catch (error) {
+        if (corrida.cancelada()) return; // "⏹ Cancelar": no es un error del cliente
         logErrorCliente('Apremios', nombreCompleto, error);
         enviar.final('error', error.message, { error: error.code || 'FLUJO_ERROR' });
         historialRepo.registrar({

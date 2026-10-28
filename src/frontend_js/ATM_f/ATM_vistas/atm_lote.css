@@ -530,41 +530,14 @@
 }
 
 /* Botón procesar */
-.lote-procesar {
-    margin-top: 20px;
-    text-align: center;
-}
-
-/* Switch "Mostrar navegador": la vista es oscura, el gris de base.css no se lee */
-.lote-procesar .ui-switch {
+/* Lanzador (componentes/lanzadorAutomatizacion): la vista ATM no tiene tema (tema_afip.css),
+   así que se le dan los tonos de las secciones de acá. */
+#lanzadorAtmLote {
+    --v-panel: #2d3748;
+    --v-borde: #4a5568;
     color: #e2e8f0;
-    margin-right: 16px;
 }
 
-.btn-procesar {
-    padding: 14px 40px;
-    background-color: #276749;
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s, transform 0.1s;
-    width: 100%;
-    max-width: 400px;
-}
-
-.btn-procesar:hover:not(:disabled) {
-    background-color: #2f855a;
-    transform: translateY(-1px);
-}
-
-.btn-procesar:disabled {
-    background-color: #2d3748;
-    color: #718096;
-    cursor: not-allowed;
-}
 /* ========================================
    APREMIOS - IMPUESTOS POR CLIENTE
    ======================================== */

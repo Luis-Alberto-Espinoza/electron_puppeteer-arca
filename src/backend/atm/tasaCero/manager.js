@@ -6,6 +6,7 @@ const { getContribuyenteRepo } = require('../../cliente/contribuyenteStore.js');
 const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
 const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
+const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 
 // Constantes de configuración
 const CONSTANTS = {
@@ -21,20 +22,26 @@ const CONSTANTS = {
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
 async function procesarLote({ clientes, downloadsPath, visible }, enviarProgreso) {
+    const corrida = puppeteerManager.nuevaCorrida();   // "⏹ Cancelar" del lanzador
     // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
-    const aviso = crearAvisoProgreso(enviarProgreso, clientes.length);
+    const aviso = crearAvisoProgreso(enviarProgreso, clientes.length, { corrida });
     aviso.general(`Iniciando proceso de Tasa Cero para ${clientes.length} cliente(s).`);
 
-    for (let i = 0; i < clientes.length; i++) {
-        const cliente = clientes[i];
+    try {
+        for (let i = 0; i < clientes.length; i++) {
+            const cliente = clientes[i];
+            if (!corrida.cancelada()) await corrida.carrera(procesarCliente(cliente, downloadsPath, aviso, visible, corrida));
+            // Cancelado: el que corría y los que faltan quedan CANCELADO (no FALLO).
+            if (corrida.cancelada()) aviso.cancelado(cliente);
+            aviso.clienteTerminado();
 
-        await procesarCliente(cliente, downloadsPath, aviso, visible);
-        aviso.clienteTerminado();
-
-        // Pausa entre clientes para no sobrecargar el sistema
-        if (i < clientes.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, CONSTANTS.PAUSA_ENTRE_CLIENTES));
+            // Pausa entre clientes para no sobrecargar el sistema
+            if (!corrida.cancelada() && i < clientes.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, CONSTANTS.PAUSA_ENTRE_CLIENTES));
+            }
         }
+    } finally {
+        corrida.terminar();
     }
 
     aviso.finalizado('El proceso de Tasa Cero ha finalizado para todos los clientes.');
@@ -43,7 +50,7 @@ async function procesarLote({ clientes, downloadsPath, visible }, enviarProgreso
 /**
  * Procesa un único cliente
  */
-async function procesarCliente(cliente, downloadsPath, aviso, visible) {
+async function procesarCliente(cliente, downloadsPath, aviso, visible, corrida) {
     const { cuit, nombre = '', apellido = '', id, periodo } = cliente;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -74,6 +81,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
             constants: CONSTANTS,
             visible
         });
+        if (corrida.cancelada()) return; // canceló mientras corría: el lote ya lo marcó
 
         const clienteHist = historialRepo.clienteDesdeUsuario({ id: id || cuit, nombre: nombreCompleto, cuit });
 
@@ -120,6 +128,7 @@ async function procesarCliente(cliente, downloadsPath, aviso, visible) {
         }
 
     } catch (error) {
+        if (corrida.cancelada()) return; // "⏹ Cancelar": no es un error del cliente
         logErrorCliente('Tasa Cero', nombreCompleto, error);
 
         // Categorizar el error

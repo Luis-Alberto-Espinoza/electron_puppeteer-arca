@@ -4,6 +4,8 @@ const { launchBrowserAndPage } = require('./browserLauncher');
 // el usuario mandó cerrar con "⏹ Cancelar" (componentes/lanzadorAutomatizacion → 'automatizacion:cancelar').
 const navegadoresActivos = new Map();
 const cancelados = new WeakSet();
+// Lotes que abren su navegador por fuera de ejecutar() (ATM): ver registrar() y nuevaCorrida().
+const corridas = new Set();
 
 const RESULTADO_CANCELADO = Object.freeze({
     success: false,
@@ -92,14 +94,63 @@ async function ejecutar(callback, opciones = {}) {
 async function cancelar() {
     const abiertos = [...navegadoresActivos];
     console.log(`[PuppeteerManager] Cancelado por el usuario: cerrando ${abiertos.length} navegador(es)`);
+    for (const corrida of corridas) {
+        corrida.cancelada = true;
+        corrida.cortar();
+    }
     for (const [browser, cortarEspera] of abiertos) {
-        cancelados.add(browser);
         navegadoresActivos.delete(browser);
         cortarEspera();
-        try { browser.process()?.kill('SIGKILL'); } catch (e) { /* ya estaba cerrado */ }
-        browser.close().catch(() => { /* ya estaba cerrado */ });
+        matar(browser);
     }
     return abiertos.length;
 }
 
-module.exports = { ejecutar, cancelar, RESULTADO_CANCELADO };
+function matar(browser) {
+    cancelados.add(browser);
+    try { browser.process()?.kill('SIGKILL'); } catch (e) { /* ya estaba cerrado */ }
+    browser.close().catch(() => { /* ya estaba cerrado */ });
+}
+
+/**
+ * Para los flujos que abren el navegador ellos mismos (launchBrowserAndPage, ej. ATM):
+ * así "⏹ Cancelar" también lo cierra. Si la corrida ya se canceló (el clic llegó mientras
+ * el navegador arrancaba), se cierra en el acto.
+ */
+function registrar(browser) {
+    if ([...corridas].some(c => c.cancelada)) return matar(browser);
+    navegadoresActivos.set(browser, () => {});
+    browser.once?.('disconnected', () => navegadoresActivos.delete(browser));
+}
+
+/**
+ * Un lote que no pasa por ejecutar() (ATM): cancelar() lo marca para que no arranque
+ * el cliente siguiente.
+ *
+ *   const corrida = puppeteerManager.nuevaCorrida();
+ *   try {
+ *       for (...) {
+ *           if (!corrida.cancelada()) await corrida.carrera(procesarCliente(...));
+ *           if (corrida.cancelada()) ...   // el que corría y los que faltan: cancelados
+ *       }
+ *   } finally { corrida.terminar(); }
+ *
+ * carrera() vuelve apenas se cancela: el flujo muere solo por detrás (sus avisos y su
+ * historial hay que ignorarlos con corrida.cancelada()).
+ */
+function nuevaCorrida() {
+    let cortar;
+    const corte = new Promise(resolve => { cortar = resolve; });
+    const corrida = { cancelada: false, cortar };
+    corridas.add(corrida);
+    return {
+        cancelada: () => corrida.cancelada,
+        carrera(tarea) {
+            tarea.catch(() => { /* si se canceló, su error ya no le importa a nadie */ });
+            return Promise.race([tarea, corte]);
+        },
+        terminar: () => corridas.delete(corrida)
+    };
+}
+
+module.exports = { ejecutar, cancelar, registrar, nuevaCorrida, RESULTADO_CANCELADO };

@@ -86,8 +86,6 @@ window.inicializarModuloLoteATM = () => {
     const textareaNombres     = document.getElementById('textareaNombres');
     const btnBuscar           = document.getElementById('btnBuscarSeleccionar');
     const btnGuardar          = document.getElementById('btnGuardarLista');
-    const btnProcesar         = document.getElementById('btnProcesar');
-    const chkVisible          = document.getElementById('chk-visible-lote');
     const matchResultado      = document.getElementById('match-resultado');
     const procesandoContainer = document.getElementById('lote-procesando-ahora');
     const finalizadosContainer= document.getElementById('lote-finalizados-container');
@@ -323,6 +321,65 @@ window.inicializarModuloLoteATM = () => {
         return;
     }
 
+    // Tras un lote CANCELADO: los que quedaron sin salir (cancelados y con error), por clave
+    // de cliente. El lanzador pasa a "Procesar los N restantes". Se olvida al tocar la
+    // selección, al cambiar de subservicio o con Descartar (que además saca los resultados).
+    let restantes = null;
+    const resultadoPorCliente = new Map();   // clave → estado final de la última corrida
+    const claveCliente = (c) => String(c.id || c.cuit);
+
+    // Procesar ↔ ⏹ Cancelar + switch del navegador (componentes/lanzadorAutomatizacion).
+    // Un solo botón para los 5 subservicios: su texto dice cuál y cuántos clientes.
+    const lanzador = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorAtmLote'), {
+        acciones: [{
+            texto: 'Procesar',
+            preparar: prepararProceso,
+            confirmar: (datos) => ({ title: datos.config.label, message: datos.mensaje }),
+            ejecutar: procesar
+        }],
+        auxiliares: [{
+            texto: 'Descartar',
+            ayuda: 'Saca los resultados de la pantalla y olvida los restantes: el botón vuelve a procesar todos los seleccionados',
+            mostrar: () => !!restantes || hayResultadosALaVista(),
+            alHacer: descartar
+        }]
+    });
+
+    function actualizarLanzador() {
+        const n = selectorUsuarios ? selectorUsuarios.obtenerSeleccionados().length : 0;
+        lanzador.habilitar(n > 0);
+        if (restantes) {
+            lanzador.cambiar(0, {
+                texto: `Procesar ${restantes.size === 1 ? 'el restante' : `los ${restantes.size} restantes`}`,
+                nota: 'Los que salieron bien no se repiten'
+            });
+        } else {
+            const label = subservicioActivo ? ` ${CONFIG_SUB[subservicioActivo].label}` : '';
+            lanzador.cambiar(0, { texto: `Procesar${label}${n ? ` (${n})` : ''}`, nota: '' });
+        }
+        lanzador.refrescar();
+    }
+
+    function fijarRestantes(lista) {
+        restantes = lista && lista.length ? new Set(lista.map(claveCliente)) : null;
+        actualizarLanzador();
+    }
+
+    function hayResultadosALaVista() {
+        return finalizadosContainer.style.display !== 'none' || procesandoContainer.style.display !== 'none';
+    }
+
+    // Descartar: la pantalla vuelve a como estaba antes de procesar (la selección queda).
+    function descartar() {
+        procesandoContainer.style.display  = 'none';
+        finalizadosContainer.style.display = 'none';
+        finalizadosDiv.innerHTML = '';
+        userDivMap.clear();
+        resultadoPorCliente.clear();
+        restantes = null;
+        actualizarLanzador();
+    }
+
     selectorUsuarios = new SelectorUsuarios('selector-usuarios-atm', {
         // Modelo plano: el backend ya computó puedeOperar para 'atm' (clave ATM
         // propia validada). Los que no pueden operar no se listan; ya no usamos
@@ -346,10 +403,8 @@ window.inicializarModuloLoteATM = () => {
         headersColumnasExtras: ['Estado'],
         onCambioSeleccion: (seleccionados) => {
             renderizarPanelApremios(seleccionados);
-            btnProcesar.disabled = seleccionados.length === 0;
-            btnProcesar.textContent = subservicioActivo
-                ? `▶ Procesar ${CONFIG_SUB[subservicioActivo].label} (${seleccionados.length})`
-                : '▶ Procesar';
+            restantes = null;
+            actualizarLanzador();
         }
     });
 
@@ -390,10 +445,6 @@ window.inicializarModuloLoteATM = () => {
         impuestosPorCliente.clear();
         renderizarPanelApremios([]);
 
-        // Switch visible/oculto: vuelve a "visible" al cambiar de subservicio
-        // (no se guarda preferencia).
-        chkVisible.checked = true;
-
         // Poblar periodo si aún no fue poblado
         if (config.tienePeriodo) {
             // El "hasta" solo tiene sentido en los subservicios que aceptan rango
@@ -416,8 +467,8 @@ window.inicializarModuloLoteATM = () => {
         cargarListas(sub);
 
         // Actualizar botón procesar
-        btnProcesar.disabled = true;
-        btnProcesar.textContent = `▶ Procesar ${config.label}`;
+        restantes = null;
+        actualizarLanzador();
 
         console.log(`Subservicio activo: ${sub}`);
     }
@@ -758,11 +809,13 @@ window.inicializarModuloLoteATM = () => {
     // =========================================================================
     // PROCESAR
     // =========================================================================
-    btnProcesar.addEventListener('click', async () => {
-        if (!subservicioActivo) { alert('Seleccione un subservicio primero.'); return; }
+    // Valida y arma lo que se manda (null = no arranca); el modal lo pone el lanzador.
+    function prepararProceso() {
+        if (!subservicioActivo) { alert('Seleccione un subservicio primero.'); return null; }
 
-        const clientes = selectorUsuarios.obtenerSeleccionados();
-        if (clientes.length === 0) { alert('No hay clientes seleccionados.'); return; }
+        let clientes = selectorUsuarios.obtenerSeleccionados();
+        if (restantes) clientes = clientes.filter(c => restantes.has(claveCliente(c)));
+        if (clientes.length === 0) { alert('No hay clientes seleccionados.'); return null; }
 
         const config = CONFIG_SUB[subservicioActivo];
 
@@ -771,13 +824,13 @@ window.inicializarModuloLoteATM = () => {
 
         if (config.tienePeriodo) {
             const periodoSeleccionado = selectPeriodo.value;
-            if (!periodoSeleccionado) { alert('Seleccione un periodo.'); return; }
+            if (!periodoSeleccionado) { alert('Seleccione un periodo.'); return null; }
 
             if (config.rangoPeriodo) {
                 const periodos = expandirRangoPeriodos();
                 if (periodos.length === 0) {
                     alert('El periodo "desde" no puede ser posterior al "hasta".');
-                    return;
+                    return null;
                 }
                 // periodo (singular) se manda igual por compatibilidad con el backend viejo
                 clientes.forEach(c => { c.periodos = periodos; c.periodo = periodos[0]; });
@@ -799,7 +852,7 @@ window.inicializarModuloLoteATM = () => {
             });
             if (sinImpuestos.length > 0) {
                 alert(`Estos clientes no tienen ningún impuesto marcado:\n\n - ${sinImpuestos.join('\n - ')}`);
-                return;
+                return null;
             }
         }
 
@@ -807,7 +860,7 @@ window.inicializarModuloLoteATM = () => {
         let documentos;
         if (config.eligeDocumentos) {
             const marcados = Array.from(panelDocumentos.querySelectorAll('.chk-documento:checked'));
-            if (marcados.length === 0) { alert('Marque al menos un documento para descargar.'); return; }
+            if (marcados.length === 0) { alert('Marque al menos un documento para descargar.'); return null; }
             documentos = marcados.map(chk => chk.value);
             textoPeriodos += `\n\nDescargar: ${marcados.map(chk => chk.parentElement.textContent.trim()).join(', ')}`;
         }
@@ -823,7 +876,7 @@ window.inicializarModuloLoteATM = () => {
             });
             if (sinImpuestos.length > 0) {
                 alert(`Estos clientes no tienen ningún impuesto marcado:\n\n - ${sinImpuestos.join('\n - ')}`);
-                return;
+                return null;
             }
             if (chkNoVigentesPlan.checked) textoPeriodos += '\n\nIncluye planes NO vigentes (anulados, cancelados…).';
         }
@@ -834,30 +887,36 @@ window.inicializarModuloLoteATM = () => {
                 ? ` (${c.impuestos.map(id => IMPUESTOS_APREMIOS.find(i => i.id === id).label).join(', ')})`
                 : ` (${c.impuestos.join(', ')})`;
         const nombresClientes = clientes.map(c => `${c.nombre || ''} ${c.apellido || ''}`.trim() + etiquetaImpuestos(c)).join('\n - ');
-        const confirmacion = await showConfirmModal({
-            title: config.label,
-            icon: '🚀',
-            message: `Se iniciará el proceso para ${clientes.length} cliente(s):\n\n - ${nombresClientes}${textoPeriodos}\n\n¿Desea continuar?`,
-            confirmText: 'Iniciar',
-            confirmBtnClass: 'tono'
-        });
-        if (!confirmacion) return;
+        return {
+            config, clientes, documentos, impuestosPlan,
+            incluirNoVigentes: chkNoVigentesPlan.checked,
+            mensaje: (restantes ? 'Solo los que quedaron sin salir (cancelados o con error).\n\n' : '')
+                + `Se iniciará el proceso para ${clientes.length} cliente(s):\n\n - ${nombresClientes}${textoPeriodos}`
+        };
+    }
 
+    async function procesar({ config, clientes, documentos, impuestosPlan, incluirNoVigentes }, { visible }) {
         prepararUIParaProceso();
         window.ruedaTrabajando?.mostrar({
             servicio: 'ATM', subservicio: config.label, mensaje: 'Iniciando sesión en ATM…'
         });
 
         try {
-            await config.ejecutar(clientes, { visible: chkVisible.checked, documentos, impuestos: impuestosPlan,
-                incluirNoVigentes: chkNoVigentesPlan.checked });
+            // Con "⏹ Cancelar" el backend corta el lote y vuelve: el que corría y los que
+            // faltaban llegan como 'cancelado'.
+            await config.ejecutar(clientes, { visible, documentos, impuestos: impuestosPlan, incluirNoVigentes });
         } catch (error) {
             procesandoContainer.innerHTML = `<div class="progreso-item status-error">Error de comunicación: ${error.message}</div>`;
         } finally {
             // El invoke vuelve cuando terminó el lote entero (o falló): la rueda se va siempre.
             window.ruedaTrabajando?.ocultar();
         }
-    });
+
+        // Lote cortado: el lanzador toma la posta con los que quedaron sin salir.
+        const estadoDe = (c) => resultadoPorCliente.get(claveCliente(c));
+        const cortado = clientes.some(c => estadoDe(c) === 'cancelado');
+        fijarRestantes(cortado ? clientes.filter(c => ['cancelado', 'error'].includes(estadoDe(c))) : null);
+    }
 
     function prepararUIParaProceso() {
         procesandoContainer.innerHTML = '<h3>Procesando Usuario Actual:</h3>';
@@ -865,6 +924,7 @@ window.inicializarModuloLoteATM = () => {
         // Tarjetas nuevas en cada corrida: si no, se reusa la del cliente de la corrida
         // anterior con sus archivos viejos (y parecen bajados ahora).
         userDivMap.clear();
+        resultadoPorCliente.clear();
         procesandoContainer.style.display  = 'block';
         finalizadosContainer.style.display = 'none';
         setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
@@ -915,13 +975,15 @@ window.inicializarModuloLoteATM = () => {
         const isFinalStatus = datos.final === true;
         const cantidadArchivos = files.length || (archivoPdf ? 1 : 0);
 
-        const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado' || estadoFinal === 'no_cumple';
+        const esFallo = estadoFinal === 'error' || estadoFinal === 'no_habilitado' || estadoFinal === 'no_cumple'
+            || estadoFinal === 'cancelado';
         const messageContainer = userDiv.querySelector('.message-container');
         messageContainer.innerHTML = `<div class="progreso-item">[${new Date().toLocaleTimeString()}] ${mensaje}</div>`;
         // `detalle` = el texto completo cuando el mensaje va resumido (ej. motivos de ATM): al pasar el mouse.
         if (detalle) messageContainer.firstElementChild.title = detalle;
 
         if (isFinalStatus) {
+            resultadoPorCliente.set(String(idUsuario), estadoFinal);
             finalizadosContainer.style.display = 'block';
             finalizadosDiv.appendChild(userDiv);
             if (procesandoContainer.contains(userDiv)) procesandoContainer.removeChild(userDiv);
@@ -929,6 +991,8 @@ window.inicializarModuloLoteATM = () => {
 
             let badge = estadoFinal === 'error'
                 ? '<span class="badge bg-danger">FALLO</span>'
+                : estadoFinal === 'cancelado'
+                    ? '<span class="badge bg-warning text-dark">CANCELADO</span>'
                 : estadoFinal === 'no_habilitado'
                     ? '<span class="badge bg-warning text-dark">NO HABILITADO</span>'
                 : estadoFinal === 'no_cumple'

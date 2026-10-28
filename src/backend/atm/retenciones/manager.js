@@ -7,6 +7,7 @@ const { historialRepo } = require('../../historial/historialRepo.js');
 const { logErrorCliente } = require('../logErrorCliente.js');
 const { crearAvisoProgreso } = require('../../comun/avisoProgreso.js');
 const { estadoDelCliente } = require('../../comun/estadoResultado.js');
+const puppeteerManager = require('../../puppeteer/archivos_comunes/navegador/puppeteer-manager.js');
 
 /**
  * Procesa un lote de usuarios para descargar retenciones
@@ -17,19 +18,26 @@ const { estadoDelCliente } = require('../../comun/estadoResultado.js');
  * @param {Function} enviarProgreso - Callback para reportar progreso al frontend
  */
 async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso) {
+    const corrida = puppeteerManager.nuevaCorrida();   // "⏹ Cancelar" del lanzador
     // Aviso con el contrato de la rueda (comun/avisoProgreso.js).
-    const aviso = crearAvisoProgreso(enviarProgreso, usuarios.length);
+    const aviso = crearAvisoProgreso(enviarProgreso, usuarios.length, { corrida });
     aviso.general(`Iniciando proceso de Descarga de Retenciones para ${usuarios.length} usuario(s).`);
 
-    for (let i = 0; i < usuarios.length; i++) {
-        const usuario = usuarios[i];
-        await procesarUsuario(usuario, downloadsPath, aviso, visible);
-        aviso.clienteTerminado();
+    try {
+        for (let i = 0; i < usuarios.length; i++) {
+            const usuario = usuarios[i];
+            if (!corrida.cancelada()) await corrida.carrera(procesarUsuario(usuario, downloadsPath, aviso, visible, corrida));
+            // Cancelado: el que corría y los que faltan quedan CANCELADO (no FALLO).
+            if (corrida.cancelada()) aviso.cancelado(usuario);
+            aviso.clienteTerminado();
 
-        // Pausa entre usuarios para no sobrecargar el sistema
-        if (i < usuarios.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Pausa entre clientes para no sobrecargar el sistema
+            if (!corrida.cancelada() && i < usuarios.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
         }
+    } finally {
+        corrida.terminar();
     }
 
     aviso.finalizado('El proceso de Descarga de Retenciones ha finalizado.');
@@ -38,7 +46,7 @@ async function procesarLote({ usuarios, downloadsPath, visible }, enviarProgreso
 /**
  * Procesa un único usuario
  */
-async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
+async function procesarUsuario(usuario, downloadsPath, aviso, visible, corrida) {
     const { cuit, nombre = '', apellido = '', id, periodo = '', periodos } = usuario;
     const nombreCompleto = `${nombre} ${apellido || ''}`.trim();
 
@@ -76,6 +84,7 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
             listaPeriodos,
             { visible }
         );
+        if (corrida.cancelada()) return; // canceló mientras corría: el lote ya lo marcó
 
         if (resultadoFlujo && (resultadoFlujo.exito || resultadoFlujo.success)) {
             // Que el proceso haya terminado no quiere decir que esten todos los
@@ -105,6 +114,7 @@ async function procesarUsuario(usuario, downloadsPath, aviso, visible) {
         }
 
     } catch (error) {
+        if (corrida.cancelada()) return; // "⏹ Cancelar": no es un error del cliente
         logErrorCliente('Retenciones', nombreCompleto, error);
         enviarProgresoUsuario.final('error', `Error: ${error.message}`);
         historialRepo.registrar({
