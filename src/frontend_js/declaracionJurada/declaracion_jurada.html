@@ -11,12 +11,12 @@
         <div id="ddjj-selector-usuarios"></div>
     </div>
 
-    <!-- Aparece al elegir cliente. Tres pasos: qué declaración → ¿ya hay una? → cargar una nueva -->
+    <!-- Aparece al elegir cliente. Tres pasos: datos de la declaración → ¿ya hay una? → cargar una nueva -->
     <div id="ddjj-config" style="display:none;">
 
         <!-- Paso 1: identifica la DDJJ (lo usan Buscar y Cargar) -->
         <div class="ddjj-panel">
-            <h3 class="ddjj-paso-titulo">1 · ¿Qué declaración?</h3>
+            <h3 class="ddjj-paso-titulo">1 · Datos de la declaración</h3>
             <div class="ddjj-grid">
                 <div class="ddjj-campo">
                     <label class="ddjj-label" for="ddjj-empresa">Empresa</label>
@@ -62,13 +62,16 @@
                     <label class="ddjj-hint" for="ddjj-accion">Si encuentra 1:</label>
                     <select id="ddjj-accion" class="ddjj-select">
                         <option value="editar" selected>Editar (recuperar)</option>
-                        <option value="ver">Ver (solo lectura)</option>
+                        <option value="ver">Ver estado</option>
                         <option value="borrar">Borrar</option>
                     </select>
                 </span>
             </div>
-            <!-- Buscar ↔ Cancelar: componentes/lanzadorAutomatizacion (sin switch: DDJJ va siempre visible) -->
+            <p id="ddjj-accion-ayuda" class="ddjj-hint ddjj-accion-ayuda"></p>
+            <!-- Buscar ↔ Cancelar: componentes/lanzadorAutomatizacion (el switch depende de la acción) -->
             <div id="lanzadorDdjjBuscar"></div>
+            <!-- Resultado de la búsqueda: queda en la sección 2, no abajo de todo -->
+            <div id="ddjj-buscar-resultado" class="ddjj-buscar-resultado" style="display:none;"></div>
         </div>
 
         <!-- Paso 3: cargar una nueva -->
@@ -109,23 +112,19 @@
             <!-- Opciones del servicio (Grabar / Reemplazar): cambian el texto del lanzador -->
         <div class="ddjj-opciones">
             <label class="ddjj-check">
-                <input type="checkbox" id="ddjj-grabar" />
-                💾 Grabar borrador al finalizar — <strong>persiste</strong> en AFIP. Sin tildar = simulación (carga todo pero no graba).
-            </label>
-            <label class="ddjj-check">
-                <input type="checkbox" id="ddjj-reemplazar-borrador" disabled />
-                🗑️ Si ya hay un borrador de este período, <strong>borrarlo</strong> y cargar de nuevo. Nunca toca uno PRESENTADO. (Solo con "Grabar" tildado.)
+                <input type="checkbox" id="ddjj-reemplazar-borrador" />
+                🗑️ Si ya hay un borrador de este período, <strong>borrarlo</strong> antes de grabar. Nunca toca uno PRESENTADO. (Simular lo ignora.)
             </label>
         </div>
 
             <!-- Resultados ARRIBA del lanzador (como Tipificada y ATM): al terminar, el lanzador queda al pie -->
             <div id="ddjj-estado" class="ddjj-estado" style="display:none;"></div>
 
-            <!-- Totales que AFIP calculó por deducción (se llena al terminar la carga) -->
-            <div id="ddjj-deducciones" class="ddjj-deducciones" style="display:none;"></div>
-
             <!-- Cargar ↔ Cancelar + Limpiar / Descartar: componentes/lanzadorAutomatizacion -->
             <div id="lanzadorDdjj"></div>
+
+            <!-- Totales que AFIP calculó por deducción (se llena al terminar la carga): DEBAJO del lanzador -->
+            <div id="ddjj-deducciones" class="ddjj-deducciones" style="display:none;"></div>
         </div>
     </div>
 </div>

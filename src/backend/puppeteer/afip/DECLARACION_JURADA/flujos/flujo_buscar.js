@@ -171,6 +171,9 @@ async function ejecutar(page, payload, credenciales) {
             // Red de seguridad: un PRESENTADO no se borra nunca (se rectifica).
             accion = { ok: false, motivo: 'el formulario está PRESENTADO: no se borra (para cambiarlo, rectificativa)' };
             console.warn(`[DDJJ flujo_buscar] ⛔ ${accion.motivo}`);
+        } else if (resultados.length === 1 && /ver/i.test(accionElegida) && payload.visible === false) {
+            // "Ver estado" sin navegador: alcanza con la lista, no hace falta abrir la DDJJ.
+            accion = { ok: true, soloEstado: true };
         } else if (resultados.length === 1) {
             console.log(`[DDJJ flujo_buscar] 1 resultado → acción "${accionElegida}"...`);
             accion = await abrirAccion(fenixPage, 0, accionElegida);
@@ -206,6 +209,7 @@ async function ejecutar(page, payload, credenciales) {
                 ? (accion.ok
                     ? (/borrar/i.test(accionElegida)
                         ? `Acción "borrar": ${accion.borrado ? '✅ borrado confirmado' : '⚠️ no se confirmó'} ${accion.mensaje || ''}`
+                        : accion.soloEstado ? 'Solo estado (navegador oculto): no se abrió la DDJJ.'
                         : `Acción "${accionElegida}": ✅ aplicada (abierto en el navegador)`)
                     : `Acción "${accionElegida}": ❌ ${accion.motivo}`)
                 : (resultados.length > 1 ? `${resultados.length} resultados → elegí en la lista (no se auto-aplicó acción).` : '')

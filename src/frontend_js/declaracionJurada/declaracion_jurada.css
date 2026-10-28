@@ -144,6 +144,31 @@ input.ddjj-periodo { width: 130px; cursor: pointer; }
     gap: 6px;
 }
 .ddjj-buscar-accion .ddjj-select { width: auto; }
+.ddjj-buscar .ddjj-accion-ayuda { margin: 6px 0 0; }
+
+/* Resultado de "Buscar" (dentro de la sección 2) */
+.ddjj-buscar-resultado {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+.ddjj-buscar-resultado.cargando  { background: var(--v-panel-2, #eff6ff); color: var(--v-texto, #1e40af); }
+.ddjj-buscar-resultado.ok        { background: var(--v-ok-bg, #ecfdf5); color: var(--v-txt-ok, #065f46); }
+.ddjj-buscar-resultado.error     { background: var(--v-error-bg, #fef2f2); color: var(--v-txt-error, #991b1b); }
+.ddjj-buscar-resultado.cancelado { background: var(--v-warn-bg, #fffbeb); color: var(--v-txt-warn, #92400e); }
+.ddjj-buscar-lista {
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+}
+.ddjj-buscar-lista li {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--v-borde, #e3edf9);
+    font-variant-numeric: tabular-nums;
+}
+.ddjj-buscar-lista li:last-child { border-bottom: none; }
+.ddjj-buscar-detalle { margin: 8px 0 0; font-weight: 600; }
 
 .ddjj-estado {
     margin-top: 16px;
@@ -305,6 +330,12 @@ input.ddjj-periodo { width: 130px; cursor: pointer; }
     /* Nombre COMPLETO: en vez de cortar con "…", el texto largo parte en varias líneas. */
     white-space: normal;
     word-break: break-all;
+}
+.ddjj-ret-chip--vacio {
+    background: transparent;
+    color: var(--v-texto-suave, #6b7280);
+    border-style: dashed;
+    font-weight: 500;
 }
 .ddjj-ret-quitar {
     border: none;

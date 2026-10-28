@@ -7,6 +7,7 @@
 // "Percepciones Aduaneras"). NO se clickea "Seleccionar archivo" (diálogo nativo que cuelga):
 // se usa input.uploadFile(ruta) directo. Tolerante: si una falla, sigue con la siguiente.
 
+const fs = require('fs');
 const nav = require('./_navegacion.js');
 
 const ATTR = 'data-ddjj-ret-target';
@@ -160,7 +161,10 @@ async function intentarImportar(page, ruta) {
     const sinConfirmar = fin.abierta !== false && !await cerrarPopup(page);
 
     // La tabla se refresca después del Aceptar: esperar que el total suba (si no hubo error).
+    // Si AFIP ya dijo "realizada correctamente", la tabla se refresca en 1-2 s: 30 s de espera
+    // solo se justifican sin esa señal (un .txt de otro período da OK con 0 registros).
     let filasDespues = await contarFilas(page);
+    const esperaFilas = esAvisoOk(aviso) ? 5000 : 30000;
     if (!errores.length && filasDespues <= filasAntes) {
         try {
             await page.waitForFunction((antes) => {
@@ -171,7 +175,7 @@ async function intentarImportar(page, ruta) {
                     }
                 }
                 return false;
-            }, { timeout: 30000 }, filasAntes);
+            }, { timeout: esperaFilas }, filasAntes);
         } catch (_) { /* queda delta 0 → se informa */ }
         filasDespues = await contarFilas(page);
     }
@@ -181,8 +185,9 @@ async function intentarImportar(page, ruta) {
     if (errores.length) textoError = errores.join(' — ');
     else if (fin.agotado) textoError = `AFIP siguió cargando más de ${ESPERA_CARGA_MS / 60000} min`;
     else if (aviso && !esAvisoOk(aviso)) textoError = aviso;
-    else if (delta <= 0 && !esAvisoOk(aviso)) textoError = `no agregó registros (+${delta})`;
-    return { ok: true, sinConfirmar, filasAntes, filasDespues, delta, aviso: textoError || aviso, esError: !!textoError };
+    else if (delta <= 0 && esAvisoOk(aviso)) textoError = 'AFIP dijo "realizada correctamente" pero no agregó registros (¿el .txt es de otro período?)';
+    else if (delta <= 0) textoError = `no agregó registros (+${delta})`;
+    return { ok: true, sinConfirmar, filasAntes, filasDespues, delta, aviso: textoError || aviso, esError: !!textoError, avisoOk: esAvisoOk(aviso) };
 }
 
 /**
@@ -191,7 +196,8 @@ async function intentarImportar(page, ruta) {
  */
 async function importarArchivo(page, ruta) {
     const r = await intentarImportar(page, ruta);
-    if (!r.ok || !r.esError || r.delta > 0) return r;
+    // Sin reintento si AFIP dijo OK: repetir el mismo .txt no va a agregar nada.
+    if (!r.ok || !r.esError || r.delta > 0 || r.avisoOk) return r;
     console.warn(`[DDJJ paso_18]     AFIP: ${r.aviso} → reintento una vez`);
     const r2 = await intentarImportar(page, ruta);
     return r2.ok ? { ...r2, reintentado: true } : r;
@@ -215,7 +221,17 @@ async function ejecutar(page, datos) {
     console.log(`[DDJJ paso_18] Cargando ${pendientes.length} retención(es)...`);
 
     const cargadas = [];
-    for (const [etiqueta, rutas] of pendientes) {
+    for (const [etiqueta, todas] of pendientes) {
+        // Un .txt vacío (0 bytes) = sin retenciones en el período: AFIP lo "importa
+        // correctamente" con 0 registros. No se sube y no es un problema.
+        const vacios = todas.filter(r => { try { return fs.statSync(r).size === 0; } catch (_) { return false; } })
+            .map(r => r.split(/[\\/]/).pop());
+        const rutas = todas.filter(r => !vacios.includes(r.split(/[\\/]/).pop()));
+        if (vacios.length) console.log(`[DDJJ paso_18] "${etiqueta}": ${vacios.length} archivo(s) vacío(s), no se suben: ${vacios.join(', ')}`);
+        if (!rutas.length) {
+            cargadas.push({ etiqueta, ok: true, subidos: 0, total: 0, filas: 0, vacios });
+            continue;
+        }
         console.log(`[DDJJ paso_18] === "${etiqueta}" (${rutas.length} archivo/s) ===`);
         try {
             if (!await abrirMas(page, etiqueta)) {
@@ -241,10 +257,20 @@ async function ejecutar(page, datos) {
             const okReal = subidos > 0 && !problemas.length;
             console.log(`[DDJJ paso_18] "${etiqueta}": ${subidos}/${rutas.length} archivo/s, tabla con ${filas} fila(s).`
                 + (problemas.length ? ` ❌ PROBLEMAS: ${problemas.join(' | ')}` : ' ✅'));
-            cargadas.push({ etiqueta, ok: okReal, subidos, total: rutas.length, filas, motivo: fallo, problemas });
+            cargadas.push({ etiqueta, ok: okReal, subidos, total: rutas.length, filas, motivo: fallo, problemas, vacios });
 
-            // Salir del detalle (una vez, ya con todos los archivos cargados).
-            await nav.volverDetalle(page);
+            // Salir del detalle (una vez, ya con todos los archivos cargados). Si AFIP no deja
+            // (cartel rojo de validación), seguir es trabajar sobre la página equivocada → cortar.
+            const vuelta = await nav.volverDetalle(page);
+            if (!vuelta.success) {
+                const errores = await nav.leerErroresAfip(page);
+                const mensaje = errores.length ? errores.join(' — ') : 'AFIP no dejó volver del detalle (sin mensaje).';
+                console.error(`[DDJJ paso_18] ⛔ "${etiqueta}": ${mensaje} → corto la carga.`);
+                const ultima = cargadas[cargadas.length - 1];
+                ultima.ok = false;
+                ultima.motivo = mensaje;
+                return { success: false, corte: { paso: etiqueta, mensaje }, cargadas, resumen: armarResumen(cargadas) };
+            }
         } catch (e) {
             console.error(`[DDJJ paso_18] Error cargando "${etiqueta}": ${e.message}`);
             cargadas.push({ etiqueta, ok: false, motivo: e.message });
@@ -252,16 +278,21 @@ async function ejecutar(page, datos) {
         }
     }
 
-    const resumen = ['--- paso_18 cargar retenciones ---',
+    const resumen = armarResumen(cargadas);
+    console.log('[DDJJ paso_18]\n' + resumen);
+    return { success: true, cargadas, resumen };
+}
+
+function armarResumen(cargadas) {
+    return ['--- paso_18 cargar retenciones ---',
         ...cargadas.map(c => {
             if (c.motivo) return `  ${c.etiqueta}: ❌ ${c.motivo}`;
+            if (!c.total && c.vacios && c.vacios.length) return `  ${c.etiqueta}: — archivo vacío, sin retenciones para el período (${c.vacios.join(', ')})`;
             const estado = c.ok ? '✅' : '❌';
             return `  ${c.etiqueta}: ${estado} ${c.subidos}/${c.total} archivo/s · ${c.filas} fila(s)`
                 + (c.problemas && c.problemas.length ? '\n      ❌ ' + c.problemas.join('\n      ❌ ') : '');
         })
     ].join('\n');
-    console.log('[DDJJ paso_18]\n' + resumen);
-    return { success: true, cargadas, resumen };
 }
 
 module.exports = { ejecutar };

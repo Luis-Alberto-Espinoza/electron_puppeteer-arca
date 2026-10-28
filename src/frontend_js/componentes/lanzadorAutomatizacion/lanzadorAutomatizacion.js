@@ -10,7 +10,13 @@
  *   │ ☑ Mostrar navegador                          │
  *   │                   [ 🧪 Test ] [ 🔐 Generar ] │   ← acciones[0] (Generar) fija a la derecha;
  *   │                                              │     las siguientes van a su izquierda
- *   │ [🧹 Limpiar]      nota (opc.)  nota (opc.)   │   ← auxiliares (opc.) a la izquierda
+ *   └──────────────────────────────────────────────┘
+ *
+ *   Con auxiliares, van a la izquierda y apilados: el 1º a la altura del switch,
+ *   el 2º a la de las acciones (no agregan renglones):
+ *   ┌──────────────────────────────────────────────┐
+ *   │ [Limpiar]                 ☑ Mostrar navegador │
+ *   │ [Descartar]       [ 🧪 Test ] [ 🔐 Generar ] │
  *   └──────────────────────────────────────────────┘
  *
  * La vista deja un contenedor vacío (<div id="lanzadorXx"></div>) y lo llena así:
@@ -42,6 +48,8 @@
  *   lanzador.lanzar(1, datos);          // corre la acción 1 con esos datos, sin preparar ni modal
  *                                       // (ej. reintentar un cliente desde Resultados): también se cancela
  *   lanzador.visible();                 // cómo está el switch del navegador
+ *   lanzador.fijarNavegador(true);      // prende el switch y lo bloquea (la acción necesita verse)
+ *   lanzador.fijarNavegador(false, false); // lo apaga y lo deja libre para que el usuario elija
  *   lanzador.enCurso();                 // true mientras corre
  *   lanzador.refrescar();               // vuelve a consultar mostrar() de los auxiliares
  *
@@ -67,6 +75,7 @@
         let corriendo = null;        // índice de la acción que está corriendo
         let cancelarArmado = false;
         let cancelando = false;
+        let navegadorFijo = false;   // fijarNavegador(valor, true): el usuario no puede tocar el switch
 
         contenedor.classList.add('ui-lanzador');
         contenedor.innerHTML = '';
@@ -111,13 +120,14 @@
             return { accion, btn, opcion, nota, habilitado: false };
         });
 
-        // Auxiliares: último hijo de la fila (row-reverse) → quedan a la izquierda.
+        // Auxiliares: hijos directos del recuadro (grilla de 2 columnas, ver el .css):
+        // columna izquierda, uno por renglón (el del switch y el de las acciones).
         let auxItems = [];
         if (auxiliares.length) {
             contenedor.classList.add('ui-lanzador--con-auxiliares');
             const caja = document.createElement('div');
             caja.className = 'ui-lanzador__auxiliares';
-            fila.appendChild(caja);
+            contenedor.appendChild(caja);
             auxItems = auxiliares.map((aux) => {
                 const btn = document.createElement('button');
                 btn.type = 'button';
@@ -148,7 +158,10 @@
                 btn.style.display = aux.mostrar && !aux.mostrar() ? 'none' : '';
                 btn.disabled = corriendo !== null;
             });
-            if (chkVisible) chkVisible.disabled = corriendo !== null;
+            if (chkVisible) {
+                chkVisible.disabled = corriendo !== null || navegadorFijo;
+                chkVisible.closest('label').title = navegadorFijo ? 'Esta acción necesita el navegador a la vista' : '';
+            }
         }
 
         function clic(i) {
@@ -254,6 +267,12 @@
                 if (corriendo === null) return arrancar(indice, { datos });
             },
             visible,
+            fijarNavegador(valor, fijo = true) {
+                if (!chkVisible) return;
+                chkVisible.checked = !!valor;
+                navegadorFijo = !!fijo;
+                pintar();
+            },
             enCurso: () => corriendo !== null,
             refrescar: pintar
         };

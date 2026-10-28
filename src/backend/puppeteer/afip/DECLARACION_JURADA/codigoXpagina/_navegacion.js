@@ -6,6 +6,8 @@
 //  - volcarPagina(page, etiqueta): vuelca captions/botones/inputs/campos (genérico).
 //  - siguiente(page, etiqueta):    click "Siguiente >" + espera cambio + volcado.
 //  - volverDetalle(page):          click botón de ícono volver.png (sale de un sub-detalle).
+//  - leerErroresAfip(page):        textos de error que AFIP muestra en la página (cartel rojo fijo
+//                                  .dynaForm-error-label + notificaciones Vaadin que no son de éxito).
 
 /** Vuelca la página actual (qué muestra / qué pide). Devuelve { ...data, resumen }. */
 async function volcarPagina(page, etiqueta = 'página') {
@@ -150,4 +152,21 @@ async function volverDetalle(page) {
     }
 }
 
-module.exports = { volcarPagina, siguiente, volverDetalle, esperarVaadinIdle };
+/**
+ * Errores que AFIP está mostrando AHORA en la página:
+ *  - cartel rojo fijo arriba de la grilla (.dynaForm-error-label), ej. "Los valores CUIT Agente
+ *    Percepción, ... deben informarse una única vez." Mientras está, AFIP no deja salir de la vista.
+ *  - notificación Vaadin (.v-Notification) que no sea de éxito.
+ */
+async function leerErroresAfip(page) {
+    return await page.evaluate(() => {
+        const txt = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
+        const visible = (el) => el.offsetParent !== null && getComputedStyle(el).display !== 'none';
+        const carteles = Array.from(document.querySelectorAll('.dynaForm-error-label')).filter(visible).map(txt);
+        const notis = Array.from(document.querySelectorAll('.v-Notification')).filter(visible).map(txt)
+            .filter(t => !/correctamente|realizada|exitos|se import/i.test(t));
+        return [...new Set([...carteles, ...notis])].filter(Boolean);
+    }).catch(() => []);
+}
+
+module.exports = { volcarPagina, siguiente, volverDetalle, esperarVaadinIdle, leerErroresAfip };

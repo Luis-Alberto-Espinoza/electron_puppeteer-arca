@@ -135,12 +135,12 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
                 !grabar   // "modoPrueba" del manager = simulación (sin grabar) — solo afecta el log
             );
 
-            // grabar=true → presentación real; grabar=false → simulación (no persiste).
+            // grabar=true → borrador grabado en AFIP (NO es presentar); grabar=false → simulación (no persiste).
             historialRepo.registrar({
-                dominio: 'declaracionJurada', accion: grabar ? 'presentar' : 'simular',
+                dominio: 'declaracionJurada', accion: grabar ? 'grabar' : 'simular',
                 estado: resultado?.success ? 'exito' : 'error',
                 cliente: historialRepo.clienteDesdeUsuario({ id: cliente.id, nombre: cliente.nombre, cuit: cliente.cuit || cliente.cuitLogin || cliente.cuil }),
-                resumen: `DDJJ ${grabar ? 'presentada' : 'simulada'} (${organismo} ${formulario}, ${periodo})`,
+                resumen: `DDJJ ${grabar ? 'borrador grabado' : 'simulada'} (${organismo} ${formulario}, ${periodo})`,
                 detalle: { organismo, formulario, periodo, grabar },
                 error: resultado?.success ? null : (resultado?.message || null)
             });
@@ -150,7 +150,7 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
         } catch (error) {
             console.error('[DeclaracionJurada] Error en cargar:', error);
             historialRepo.registrar({
-                dominio: 'declaracionJurada', accion: (datos && datos.grabar) ? 'presentar' : 'simular', estado: 'error',
+                dominio: 'declaracionJurada', accion: (datos && datos.grabar) ? 'grabar' : 'simular', estado: 'error',
                 cliente: historialRepo.clienteDesdeUsuario(datos && datos.cliente
                     ? { id: datos.cliente.id, nombre: datos.cliente.nombre, cuit: datos.cliente.cuit || datos.cliente.cuitLogin || datos.cliente.cuil }
                     : null),
@@ -232,7 +232,8 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
             if (r.canceled || !r.filePaths || !r.filePaths.length) {
                 return { success: false, canceled: true };
             }
-            return { success: true, archivo: r.filePaths[0] };
+            const tam = (() => { try { return fs.statSync(r.filePaths[0]).size; } catch (_) { return null; } })();
+            return { success: true, archivo: r.filePaths[0], vacio: tam === 0 };
         } catch (error) {
             console.error('[DeclaracionJurada] Error en elegirTxt:', error);
             return { success: false, error: 'DIALOG_ERROR', message: error.message };
@@ -329,7 +330,12 @@ function setupDeclaracionJuradaHandlers(ipcMain, app) {
                 if (!fila) { sinMapear.push(f); continue; }
                 (sugerencias[fila] = sugerencias[fila] || []).push(path.join(dir, f));
             }
-            return { success: true, sugerencias, sinMapear, ajenos, carpeta: dir };
+            // .txt vacíos (0 bytes): período sin retenciones (ej. mes en curso). Se asignan igual
+            // y el frontend los marca "(vacío)"; paso_18 no los sube.
+            const vacios = Object.values(sugerencias).flat().filter(ruta => {
+                try { return fs.statSync(ruta).size === 0; } catch (_) { return false; }
+            });
+            return { success: true, sugerencias, sinMapear, ajenos, vacios, carpeta: dir };
         } catch (error) {
             console.error('[DeclaracionJurada] Error en sugerirRetenciones:', error);
             return { success: false, error: 'SCAN_ERROR', message: error.message };

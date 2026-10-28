@@ -28,6 +28,7 @@ let enCurso = false;               // hay una automatización corriendo (cargar 
 let corridaGraba = false;          // la carga en curso graba en AFIP (Cancelar pide confirmación)
 let lanzadorCarga = null;          // Cargar ↔ Cancelar + Limpiar / Descartar (paso 3)
 let lanzadorBuscar = null;         // Buscar borrador ↔ Cancelar (paso 2)
+const txtVacios = new Set();      // rutas de .txt de 0 bytes (chip "(vacío)"; paso_18 no los sube)
 
 window.inicializarDeclaracionJurada = inicializarDeclaracionJurada;
 
@@ -50,12 +51,9 @@ function inicializarDeclaracionJurada() {
 
     crearLanzadores();
 
-    // "Reemplazar borrador" solo tiene sentido si se graba: sin Grabar queda deshabilitado.
-    const chkGrabar = document.getElementById('ddjj-grabar');
-    if (chkGrabar) chkGrabar.addEventListener('change', actualizarOpcionesCorrida);
+    // "Reemplazar borrador" solo cuenta para Grabar (Simular lo ignora): cambia el texto del botón.
     const chkReemplazar = document.getElementById('ddjj-reemplazar-borrador');
     if (chkReemplazar) chkReemplazar.addEventListener('change', actualizarLabelBoton);
-    actualizarOpcionesCorrida();
 
     // Período: mes + año (default: mes anterior, lo que se suele declarar).
     montarPeriodo();
@@ -229,6 +227,7 @@ async function elegirTxtRetencion(etiqueta) {
         if (!r || r.canceled) return;
         if (!r.success) { setEstado('error', `❌ ${r.message || 'No se pudo abrir el archivo'}`); return; }
         (retencionesArchivos[etiqueta] = retencionesArchivos[etiqueta] || []).push(r.archivo);
+        if (r.vacio) txtVacios.add(r.archivo);
         pintarRetencion(etiqueta);
         // Aviso temprano si el .txt elegido es de otro CUIT (igual lo frena la red de seguridad al cargar).
         const ajeno = (r.archivo.split(/[\\/]/).pop().match(/(\d{11})/) || [])[1];
@@ -258,7 +257,7 @@ function pintarRetencion(etiqueta) {
         return;
     }
     cont.innerHTML = rutas.map((r, i) =>
-        `<span class="ddjj-ret-chip">${r.split(/[\\/]/).pop()}<button type="button" class="ddjj-ret-quitar" data-ret="${etiqueta}" data-idx="${i}" title="Quitar">✕</button></span>`
+        `<span class="ddjj-ret-chip${txtVacios.has(r) ? ' ddjj-ret-chip--vacio' : ''}" title="${txtVacios.has(r) ? 'Archivo vacío: sin retenciones para el período (no se sube a AFIP)' : ''}">${r.split(/[\\/]/).pop()}${txtVacios.has(r) ? ' (vacío)' : ''}<button type="button" class="ddjj-ret-quitar" data-ret="${etiqueta}" data-idx="${i}" title="Quitar">✕</button></span>`
     ).join('');
     cont.querySelectorAll('.ddjj-ret-quitar').forEach(b =>
         b.addEventListener('click', () => quitarTxtRetencion(b.getAttribute('data-ret'), Number(b.getAttribute('data-idx')))));
@@ -274,6 +273,22 @@ function retencionesDeOtroCuit() {
             const nombre = ruta.split(/[\\/]/).pop();
             const cuitArch = (nombre.match(/(\d{11})/) || [])[1] || null;
             if (cuitArch && cuitArch !== cuitCli) ajenos.push({ nombre, cuit: cuitArch });
+        }
+    }
+    return ajenos;
+}
+
+/**
+ * .txt asignados de OTRO período: el nombre trae el período ("…_IB_2026-09_2026-10-28.txt",
+ * mismo formato que lee sugerirRetenciones). Sin período en el nombre no bloquea.
+ */
+function retencionesDeOtroPeriodo(periodo) {
+    const ajenos = [];
+    for (const rutas of Object.values(retencionesArchivos)) {
+        for (const ruta of rutas) {
+            const nombre = ruta.split(/[\\/]/).pop();
+            const m = nombre.match(/_(\d{4})-(\d{2})_\d{4}-\d{2}-\d{2}/);
+            if (m && `${m[1]}${m[2]}` !== periodo) ajenos.push({ nombre, periodo: `${m[2]}/${m[1]}` });
         }
     }
     return ajenos;
@@ -328,6 +343,7 @@ async function autodetectarRetenciones(auto = false) {
         // y quedar solo con lo detectado de este período. El silencioso (auto) no borra adrede.
         if (!auto) retencionesArchivos = {};
         for (const [etiqueta, rutas] of Object.entries(sug)) retencionesArchivos[etiqueta] = [...rutas];
+        (r.vacios || []).forEach(ruta => txtVacios.add(ruta));
         TIPOS_RETENCION.forEach(pintarRetencion);
 
         // ALARMA: la carpeta tiene .txt del período pero de OTRO cliente (CUIT distinto).
@@ -341,8 +357,10 @@ async function autodetectarRetenciones(auto = false) {
         const total = Object.values(sug).reduce((a, b) => a + b.length, 0);
         if (total) {
             let msg = `✨ Auto-detectados ${total} archivo(s) para ${periodo}.`;
+            if (r.vacios && r.vacios.length) msg += ` ${r.vacios.length} vacío(s): sin retenciones, no se suben.`;
             if (r.sinMapear && r.sinMapear.length) msg += ` ⚠️ ${r.sinMapear.length} sin mapear (revisalos a mano).`;
-            setEstado('ok', msg);
+            // Auto (al elegir cliente): avisar sin llevarse la pantalla; el foco queda en el paso 1.
+            setEstado('ok', msg, { scroll: !auto });
         } else if (!auto) {
             setEstado('error', `No encontré .txt de ${periodo} en ${carpetaRetenciones ? 'la carpeta elegida' : 'la carpeta del cliente'}.`);
         }
@@ -376,6 +394,7 @@ function montarSelectorUsuarios() {
                 if (selectorUsuariosDDJJ.actualizarVista) selectorUsuariosDDJJ.actualizarVista();
             }
             clienteSeleccionado = usuario;
+            ocultarResultadoBuscar();   // el de otro cliente ya no corresponde
             mostrarConfig(usuario);
         }
     });
@@ -397,6 +416,15 @@ function mostrarConfig(usuario) {
     retencionesArchivos = {};
     TIPOS_RETENCION.forEach(pintarRetencion);
     // Auto-sugerir las retenciones del período (silencioso si no encuentra nada).
+    autodetectarRetenciones(true);
+}
+
+// Cambió el período: los .txt asignados son del período anterior (AFIP los "importa
+// correctamente" con 0 registros) → limpiar y volver a auto-detectar.
+function redetectarRetenciones() {
+    if (!clienteSeleccionado) return;
+    retencionesArchivos = {};
+    TIPOS_RETENCION.forEach(pintarRetencion);
     autodetectarRetenciones(true);
 }
 
@@ -449,51 +477,43 @@ function actualizarBotonCargar() {
     if (lanzadorBuscar) lanzadorBuscar.habilitar(habilitado);
 }
 
-function esGrabar() {
-    const chk = document.getElementById('ddjj-grabar');
-    return chk ? chk.checked : false;
-}
-
 function esReemplazar() {
     const chk = document.getElementById('ddjj-reemplazar-borrador');
-    return esGrabar() && !!(chk && chk.checked);
-}
-
-function actualizarOpcionesCorrida() {
-    const chk = document.getElementById('ddjj-reemplazar-borrador');
-    if (chk) {
-        chk.disabled = !esGrabar();
-        if (chk.disabled) chk.checked = false;
-    }
-    actualizarLabelBoton();
+    return !!(chk && chk.checked);
 }
 
 function actualizarLabelBoton() {
     if (!lanzadorCarga) return;
-    const texto = esReemplazar() ? 'Borrar, cargar y grabar'
-        : esGrabar() ? 'Cargar y grabar borrador' : 'Simular carga';
-    lanzadorCarga.cambiar(0, { texto });
+    lanzadorCarga.cambiar(0, { texto: esReemplazar() ? 'Borrar, cargar y grabar' : 'Grabar borrador' });
 }
 
 // ---------- Lanzadores (componentes/lanzadorAutomatizacion) ----------
 // Con el switch "Mostrar navegador" como todos: visible, el navegador queda abierto al
 // terminar para seguir a mano; oculto, se cierra solo.
+// Paso 3 = mismo esquema que Facturación: Grabar (persiste, con modal) + Simular (modo prueba).
 
 function crearLanzadores() {
     lanzadorCarga = window.lanzadorAutomatizacion.crear(document.getElementById('lanzadorDdjj'), {
         acciones: [{
-            texto: 'Simular carga',
-            preparar: prepararCarga,
+            texto: 'Grabar borrador',
+            nota: 'Persiste en AFIP',
+            preparar: () => prepararCarga(true),
             confirmar: confirmarCarga,
-            // Si graba, lo que ya llegó a AFIP queda: se pregunta antes de cortar.
-            confirmarCancelar: () => corridaGraba ? {
+            // Lo que ya llegó a AFIP queda: se pregunta antes de cortar.
+            confirmarCancelar: () => ({
                 title: 'Cancelar la carga',
                 message: 'Si ya llegó a grabar, el borrador queda en AFIP (cancelar no lo deshace). Revisalo después con "Buscar borrador existente".\n\n¿Cancelar igual?'
-            } : null,
+            }),
+            ejecutar: ejecutarCarga
+        }, {
+            texto: 'Simular carga',
+            tipo: 'prueba',
+            nota: 'Carga todo, no graba',
+            preparar: () => prepararCarga(false),
             ejecutar: ejecutarCarga
         }],
         auxiliares: [{
-            texto: 'Limpiar formulario',
+            texto: 'Limpiar',   // corto: así entran los 4 botones en una línea en este panel
             ayuda: 'Vuelve el paso 3 a como recién entrado (el cliente queda elegido)',
             alHacer: limpiarFormulario
         }, {
@@ -511,6 +531,9 @@ function crearLanzadores() {
             ejecutar: ejecutarBuscar
         }]
     });
+    const selAccion = document.getElementById('ddjj-accion');
+    if (selAccion) selAccion.addEventListener('change', actualizarAccionBuscar);
+    actualizarAccionBuscar();
     actualizarLabelBoton();
     actualizarBotonCargar();
 }
@@ -518,7 +541,7 @@ function crearLanzadores() {
 // ---------- Disparo del flujo ----------
 
 // Valida y arma la carga (null = no arranca). El modal lo pone el lanzador con confirmarCarga.
-function prepararCarga() {
+function prepararCarga(grabar) {
     if (!clienteSeleccionado) return null;
 
     const empresaObjetivo = (document.getElementById('ddjj-empresa') || {}).value || '';
@@ -555,14 +578,25 @@ function prepararCarga() {
         return null;
     }
 
+    const deOtroPeriodo = retencionesDeOtroPeriodo(periodo);
+    if (deOtroPeriodo.length) {
+        setEstado('error', `🚨 No puedo avanzar: hay ${deOtroPeriodo.length} archivo(s) de retención de OTRO período (${deOtroPeriodo.map(a => `${a.nombre} → ${a.periodo}`).join(', ')}). Quitalos o tocá "Auto-detectar".`);
+        return null;
+    }
+
+    // Sin Excel no hay base imponible: el flujo caería en la base fija de desarrollo (de otro cliente).
+    if (!archivoExcel) {
+        setEstado('error', '❌ Elegí el Excel de liquidación: de ahí salen la base imponible y la alícuota de cada actividad.');
+        return null;
+    }
+
     const cliente = {
         id: clienteSeleccionado.id,
         nombre: [clienteSeleccionado.nombre, clienteSeleccionado.apellido].filter(Boolean).join(' ').trim(),
         cuitLogin: clienteSeleccionado.cuit || clienteSeleccionado.cuil || ''
     };
 
-    const grabar = esGrabar();
-    const reemplazarBorrador = esReemplazar();
+    const reemplazarBorrador = grabar && esReemplazar();   // Simular lo ignora
     const hoja = (document.getElementById('ddjj-hoja') || {}).value || '';
     const cantidadTxt = Object.values(retencionesArchivos).reduce((n, v) => n + (Array.isArray(v) ? v.length : (v ? 1 : 0)), 0);
     const mesAnio = `${periodo.slice(4)}/${periodo.slice(0, 4)}`;
@@ -614,6 +648,13 @@ async function ejecutarCarga({ cliente, empresaObjetivo, organismo, formulario, 
             setEstado('cancelado', `⏹ Cancelado por el usuario.${grabar ? ' Si llegó a grabar, el borrador quedó en AFIP: revisalo con "Buscar borrador existente".' : ''}`);
             return;
         }
+        if (r && r.corte) {
+            // AFIP rechazó algo a mitad de la carga: se cortó ahí y no se grabó nada.
+            setEstado('error', `❌ AFIP rechazó la carga en "${r.corte.paso}": ${r.corte.mensaje}`
+                + ` No se grabó nada.${visible ? ' El navegador quedó abierto para que lo revises.' : ''}`);
+            mostrarResultado(r.resumen || '');
+            return;
+        }
         if (!r || r.success === false) {
             setEstado('error', `❌ ${r?.message || 'Error desconocido'}`);
             return;
@@ -625,7 +666,7 @@ async function ejecutarCarga({ cliente, empresaObjetivo, organismo, formulario, 
         if (reemplazo && !reemplazo.borrado) {
             setEstado('error', `⚠️ Había un BORRADOR y no se pudo borrar: ${reemplazo.motivo}. Revisalo con "Buscar borrador existente".`);
         } else if (st === 'borrador-existente') {
-            setEstado('error', '⚠️ Ya existe un BORRADOR para ese período. Recuperalo con "Buscar borrador existente" o tildá "borrarlo y cargar de nuevo".');
+            setEstado('error', '⚠️ Ya existe un BORRADOR para ese período. Recuperalo con "Buscar borrador existente" o tildá "borrarlo antes de grabar" y apretá Grabar borrador.');
         } else if (st === 'ya-presentado') {
             setEstado('error', '⚠️ Ese período ya está PRESENTADO en AFIP: para cambiarlo hay que hacer una rectificativa.');
         } else if (st === 'error') {
@@ -636,7 +677,17 @@ async function ejecutarCarga({ cliente, empresaObjetivo, organismo, formulario, 
             setEstado('ok', `🧪 ${reemplazo ? 'Borrador anterior borrado. ' : ''}DDJJ simulada (cargada, sin grabar — no persiste). ${r.url || ''}`);
             simulacionOk = true;
         }
-        // Guardar lo necesario para escribir los totales de AFIP al Excel (botón en la caja).
+        // Retenciones con problema (ej. AFIP dijo OK pero no agregó registros): no corta, pero
+        // el ✅ no puede quedar solo.
+        const conProblema = ((r.retenciones && r.retenciones.cargadas) || []).filter(c => !c.ok);
+        if (conProblema.length && !st?.startsWith?.('borrador') && st !== 'ya-presentado' && st !== 'error') {
+            const el = document.getElementById('ddjj-estado');
+            if (el) {
+                el.className = 'ddjj-estado error';
+                el.textContent += ` ⚠️ Revisá retenciones: ${conProblema.map(c => `${c.etiqueta}: ${c.motivo || (c.problemas || []).join(' | ') || 'no se cargó'}`).join(' · ')}`;
+            }
+        }
+                // Guardar lo necesario para escribir los totales de AFIP al Excel (botón en la caja).
         ultimaCarga = {
             archivo: archivoExcel || null,
             hoja: hojaExcel || null,
@@ -679,8 +730,7 @@ function prepararBuscar() {
 }
 
 async function ejecutarBuscar({ cliente, empresaObjetivo, organismo, formulario, periodo, accion }, { visible }) {
-    setEstado('cargando', '⏳ Login → "Mis Aplicaciones Web" → Buscar borradores...');
-    ocultarResultado();
+    pintarResultadoBuscar('cargando', '⏳ Login → "Mis Aplicaciones Web" → buscando…');
     enCurso = true;
     actualizarBotonCargar();
     if (window.ruedaTrabajando) window.ruedaTrabajando.mostrar({
@@ -689,28 +739,113 @@ async function ejecutarBuscar({ cliente, empresaObjetivo, organismo, formulario,
     try {
         const r = await window.electronAPI.declaracionJurada.buscar({ cliente, empresaObjetivo, organismo, formulario, periodo, accion, visible });
         if (r && r.error === 'CANCELADO') {
-            setEstado('cancelado', '⏹ Cancelado por el usuario.');
+            pintarResultadoBuscar('cancelado', '⏹ Cancelado por el usuario.');
             return;
         }
         if (!r || r.success === false) {
-            setEstado('error', `❌ ${r?.message || 'Error desconocido'}`);
+            pintarResultadoBuscar('error', `❌ ${r?.message || 'Error desconocido'}`);
             return;
         }
-        const n = (r.resultados || []).length;
-        if (n === 0) setEstado('error', `No encontré borradores para ${periodo || 'esos filtros'}.`);
-        else if (n === 1 && r.accion && r.accion.ok) setEstado('ok', `✅ 1 resultado → "${accion}" aplicado (abierto en el navegador).`);
-        else setEstado('ok', `✅ ${n} resultado(s). ${n > 1 ? 'Elegí de la lista (refiná filtros para auto-aplicar).' : ''}`);
         mostrarResultado(r.resumen || JSON.stringify(r, null, 2));
+        const resultados = r.resultados || [];
+        if (!resultados.length) {
+            pintarResultadoBuscar('error', `No hay ninguna DDJJ cargada para ${formatearPeriodo(periodo) || 'esos filtros'}.`);
+            return;
+        }
+        const detalle = detalleAccionBuscar(accion, resultados, r.accion);
+        pintarResultadoBuscar(detalle.clase,
+            `${resultados.length === 1 ? 'Encontré 1 DDJJ' : `Encontré ${resultados.length} DDJJ`} para ${formatearPeriodo(periodo)}:`,
+            resultados, detalle.texto);
         // "Editar" recupera el borrador y deja el navegador abierto en el form → avisar al usuario.
-        if (accion === 'editar' && n >= 1 && visible) mostrarPopupNavegador('Borrador abierto para editar');
+        if (accion === 'editar' && r.accion && r.accion.ok && visible) mostrarPopupNavegador('Borrador abierto para editar');
     } catch (err) {
         console.error('❌ Error en buscar borrador:', err);
-        setEstado('error', `❌ ${err?.message || err}`);
+        pintarResultadoBuscar('error', `❌ ${err?.message || err}`);
     } finally {
         if (window.ruedaTrabajando) window.ruedaTrabajando.ocultar();
         enCurso = false;
         actualizarBotonCargar();
+        if (lanzadorCarga) lanzadorCarga.refrescar();   // Descartar aparece
     }
+}
+
+// ---------- Paso 2: acción elegida y resultado de la búsqueda ----------
+
+const AYUDA_ACCION_BUSCAR = {
+    editar: 'Abre el borrador en el navegador para que lo sigas a mano.',
+    ver: 'Te dice si hay una cargada y en qué estado está.',
+    borrar: 'Borra el borrador si existe. Una presentada no se borra.'
+};
+
+// Editar se hace a mano en el navegador: el switch queda prendido y bloqueado.
+// Ver estado y Borrar no necesitan verse: arrancan con el navegador oculto.
+function actualizarAccionBuscar() {
+    const accion = (document.getElementById('ddjj-accion') || {}).value || 'editar';
+    const ayuda = document.getElementById('ddjj-accion-ayuda');
+    if (ayuda) ayuda.textContent = AYUDA_ACCION_BUSCAR[accion] || '';
+    if (lanzadorBuscar) lanzadorBuscar.fijarNavegador(accion === 'editar', accion === 'editar');
+}
+
+/** Qué pasó con la acción, en criollo. La acción solo se aplica si hubo UN resultado. */
+function detalleAccionBuscar(accion, resultados, r) {
+    if (resultados.length > 1) {
+        return { clase: 'ok', texto: accion === 'ver' ? '' : `Hay más de una: no apliqué "${accion}". Hacelo a mano en AFIP.` };
+    }
+    const presentada = /presentad/i.test(resultados[0].estado || '');
+    if (accion === 'ver') return { clase: 'ok', texto: '' };
+    if (r && r.ok) {
+        if (accion === 'borrar') {
+            return r.borrado
+                ? { clase: 'ok', texto: '🗑️ Borrador borrado.' }
+                : { clase: 'error', texto: `⚠️ AFIP no confirmó el borrado. ${r.mensaje || ''}`.trim() };
+        }
+        return { clase: 'ok', texto: '✏️ Abierta en el navegador para editar.' };
+    }
+    if (accion === 'borrar' && presentada) {
+        return { clase: 'error', texto: '⛔ No se puede borrar: está presentada (para cambiarla hace falta una rectificativa).' };
+    }
+    return { clase: 'error', texto: `❌ No pude aplicar "${accion}": ${(r && r.motivo) || 'sin detalle'}` };
+}
+
+function pintarResultadoBuscar(clase, titulo, resultados = [], detalle = '') {
+    const caja = document.getElementById('ddjj-buscar-resultado');
+    if (!caja) return;
+    caja.className = `ddjj-buscar-resultado ${clase}`;
+    caja.innerHTML = '';
+    const t = document.createElement('div');
+    t.textContent = titulo;
+    caja.appendChild(t);
+    if (resultados.length) {
+        const ul = document.createElement('ul');
+        ul.className = 'ddjj-buscar-lista';
+        resultados.forEach(d => {
+            const li = document.createElement('li');
+            const partes = [`📄 ${formatearPeriodo(d.periodo)}`, d.formulario, (d.estado || '?').toUpperCase()];
+            if (d.fechaMod) partes.push(`modificada ${d.fechaMod.replace(/-/g, '/')}`);
+            li.textContent = partes.filter(Boolean).join(' · ');
+            ul.appendChild(li);
+        });
+        caja.appendChild(ul);
+    }
+    if (detalle) {
+        const p = document.createElement('p');
+        p.className = 'ddjj-buscar-detalle';
+        p.textContent = detalle;
+        caja.appendChild(p);
+    }
+    caja.style.display = 'block';
+    caja.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function ocultarResultadoBuscar() {
+    const caja = document.getElementById('ddjj-buscar-resultado');
+    if (caja) caja.style.display = 'none';
+}
+
+/** "202609" → "09/2026" (si no tiene esa forma, lo deja como está). */
+function formatearPeriodo(p) {
+    const m = String(p || '').match(/^(\d{4})(\d{2})$/);
+    return m ? `${m[2]}/${m[1]}` : String(p || '');
 }
 
 // ---------- Helpers ----------
@@ -730,7 +865,7 @@ function montarPeriodo() {
         modo: 'periodo', formato: 'Ym', ver: 'm/Y',
         inicial: input.value || periodoMesAnterior(),
         obligatorio: true,
-        onChange: () => previsualizarHoja()
+        onChange: () => { ocultarResultadoBuscar(); previsualizarHoja(); redetectarRetenciones(); }
     });
     previsualizarHoja();
     if (!fp) return;
@@ -784,14 +919,14 @@ function mostrarPopupNavegador(titulo) {
     overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
 }
 
-function setEstado(clase, texto) {
+function setEstado(clase, texto, { scroll = true } = {}) {
     const el = document.getElementById('ddjj-estado');
     if (!el) return;
     el.className = `ddjj-estado ${clase}`;
     el.textContent = texto;
     el.style.display = 'block';
     // Que se vea: el cartel aparece abajo y sin esto nadie se entera (hay que scrollear).
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (scroll) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     el.classList.remove('ddjj-estado-resaltado');
     void el.offsetWidth;   // reinicia la animación si ya estaba
     el.classList.add('ddjj-estado-resaltado');
@@ -812,7 +947,7 @@ function ocultarResultado() {
 // ---------- Auxiliares del lanzador: Descartar y Limpiar ----------
 
 function hayResultadoALaVista() {
-    return ['ddjj-estado', 'ddjj-deducciones'].some(id => {
+    return ['ddjj-estado', 'ddjj-deducciones', 'ddjj-buscar-resultado'].some(id => {
         const el = document.getElementById(id);
         return el && el.style.display !== 'none';
     });
@@ -823,6 +958,7 @@ function descartarResultado() {
     const estado = document.getElementById('ddjj-estado');
     if (estado) estado.style.display = 'none';
     ocultarResultado();
+    ocultarResultadoBuscar();
     ultimaCarga = null;
     if (lanzadorCarga) lanzadorCarga.refrescar();
 }
@@ -833,7 +969,7 @@ async function limpiarFormulario() {
     const ok = await showConfirmModal({
         title: 'Limpiar formulario',
         icon: '🧹',
-        message: 'Se borran el Excel, los .txt de retenciones y las opciones (Grabar / Reemplazar); el período vuelve al mes anterior y la fecha de pago a hoy. El cliente queda elegido.\n\n¿Desea continuar?',
+        message: 'Se borran el Excel, los .txt de retenciones y la opción de borrar el borrador; el período vuelve al mes anterior y la fecha de pago a hoy. El cliente queda elegido.\n\n¿Desea continuar?',
         confirmText: 'Limpiar',
         confirmBtnClass: 'tono'
     });
@@ -859,11 +995,9 @@ async function limpiarFormulario() {
     const fechaPago = document.getElementById('ddjj-fecha-pago');
     if (fechaPago && fechaPago._flatpickr) fechaPago._flatpickr.setDate(new Date(), false);
 
-    ['ddjj-grabar', 'ddjj-reemplazar-borrador'].forEach(id => {
-        const chk = document.getElementById(id);
-        if (chk) chk.checked = false;
-    });
-    actualizarOpcionesCorrida();
+    const chkReemplazar = document.getElementById('ddjj-reemplazar-borrador');
+    if (chkReemplazar) chkReemplazar.checked = false;
+    actualizarLabelBoton();
     descartarResultado();
 
     // A empezar de nuevo: arriba del formulario, con el foco en el período.

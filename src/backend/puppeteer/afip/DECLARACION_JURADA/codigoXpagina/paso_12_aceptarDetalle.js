@@ -43,6 +43,16 @@ async function ejecutar(page) {
         if (!volvio) { console.warn(`[DDJJ paso_12] no cambió la vista (intento ${intento}/3), reintento...`); await new Promise(r => setTimeout(r, 500)); }
     }
 
+    // "Cambió la vista" también pasa cuando AFIP abre su popup de error ("La Base Imponible
+    // es obligatoria."): leer el cartel antes de dar el Aceptar por bueno.
+    await nav.esperarVaadinIdle(page);
+    const errores = await nav.leerErroresAfip(page);
+    if (errores.length) {
+        const mensaje = errores.join(' — ');
+        console.error(`[DDJJ paso_12] ⛔ AFIP rechazó el detalle: ${mensaje}`);
+        return { success: false, volvio: false, errores, mensaje, url: page.url(), resumen: `Aceptar detalle: ❌ ${mensaje}` };
+    }
+
     console.log(volvio ? '[DDJJ paso_12] Volvió a la vista anterior.' : '[DDJJ paso_12] ⚠️ No se confirmó el cambio de vista tras "Aceptar".');
     return { success: true, volvio, url: page.url(), resumen: `Aceptar detalle: ${volvio ? '✅ volvió a la vista anterior' : '⚠️ no se confirmó el cambio'}` };
 }

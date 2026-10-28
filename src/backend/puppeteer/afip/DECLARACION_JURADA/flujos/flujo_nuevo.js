@@ -20,6 +20,7 @@ const paso12 = require('../codigoXpagina/paso_12_aceptarDetalle.js');
 const paso13 = require('../codigoXpagina/paso_13_completarTotales.js');
 const paso14 = require('../codigoXpagina/paso_14_siguiente.js');
 const paso18 = require('../codigoXpagina/paso_18_cargarRetenciones.js');
+const nav = require('../codigoXpagina/_navegacion.js');
 const pasoLiq = require('../codigoXpagina/paso_completarLiquidacion.js');
 const pasoLeerDed = require('../codigoXpagina/paso_leerDeducciones.js');
 const paso17 = require('../codigoXpagina/paso_17_siguiente.js');
@@ -94,6 +95,7 @@ async function ejecutar(page, payload, credenciales) {
         let resDeducciones = null;
         let resSiguiente2 = null;
         let resGrabar = null;
+        let corte = null;   // { paso, mensaje }: AFIP rechazó algo → no se sigue (y NUNCA se graba)
         {
             resAceptar = await paso7.ejecutar(fenixPage);
 
@@ -112,7 +114,14 @@ async function ejecutar(page, payload, credenciales) {
                         continue;
                     }
                     const rc = await paso11.ejecutar(fenixPage, act);
-                    await paso12.ejecutar(fenixPage);   // Aceptar el detalle → vuelve a Determinación
+                    const ra = await paso12.ejecutar(fenixPage);   // Aceptar el detalle → vuelve a Determinación
+                    if (ra.success === false) {
+                        // AFIP rechazó el detalle (ej. "La Base Imponible es obligatoria."): seguir es
+                        // cargar sobre su popup de error → cortar acá.
+                        cargas.push({ codigo: act.codigo, actividad: act.actividad, ok: false, motivo: ra.mensaje });
+                        corte = { paso: `Actividad ${act.codigo || act.actividad}`, mensaje: ra.mensaje };
+                        break;
+                    }
                     cargas.push({ codigo: act.codigo, actividad: act.actividad, ok: !!(rc && rc.success), impuesto: rc && rc.impuestoCalculado });
                 }
                 const basesOk = cargas.filter(c => c.ok).length;
@@ -123,11 +132,14 @@ async function ejecutar(page, payload, credenciales) {
                 };
 
                 // Si se cargó al menos una actividad, seguimos con totales/Liquidación/retenciones.
-                if (resCarga.success) {
+                if (resCarga.success && !corte) {
                     resTotales = await paso13.ejecutar(fenixPage, datosManuales);
                     resSiguiente = await paso14.ejecutar(fenixPage);          // → Liquidación
                     avisar('Subiendo retenciones y percepciones (con archivos grandes AFIP tarda)…');
                     resRetenciones = await paso18.ejecutar(fenixPage, datosRetenciones); // loop "+" + IMPORTAR
+                    if (resRetenciones.corte) corte = resRetenciones.corte;
+                }
+                if (resCarga.success && !corte) {
                     avisar('Completando Liquidación…');
                     // Campos editables de Liquidación: fecha de pago (frontend) + saldo a favor
                     // anterior (Excel). Se hace acá, ya cargadas las retenciones, antes de avanzar.
@@ -138,12 +150,18 @@ async function ejecutar(page, payload, credenciales) {
                     // Leer (read-only) los importes que AFIP calculó por deducción, antes de avanzar.
                     resDeducciones = await pasoLeerDed.ejecutar(fenixPage);
                     resSiguiente2 = await paso17.ejecutar(fenixPage);         // → Consistencia IVA
+                    if (resSiguiente2.success === false || resSiguiente2.avanzo === false) {
+                        const errores = await nav.leerErroresAfip(fenixPage);
+                        corte = { paso: 'Liquidación', mensaje: errores.length ? errores.join(' — ') : 'no se pudo avanzar a Consistencia IVA' };
+                    }
+                }
+                if (resCarga.success && !corte) {
                     // Grabar el BORRADOR solo si el usuario lo pidió (persiste en AFIP).
                     if (grabar) {
                         avisar('Grabando el borrador…');
                         resGrabar = await paso19.ejecutar(fenixPage);
                     }
-                    else console.log('[DDJJ flujo_nuevo] No se graba (checkbox Grabar desactivado).');
+                    else console.log('[DDJJ flujo_nuevo] No se graba (simulación).');
                 }
             }
         }
@@ -170,10 +188,24 @@ async function ejecutar(page, payload, credenciales) {
             resLiquidacion ? '\n' + resLiquidacion.resumen : '',
             resDeducciones ? '\n' + resDeducciones.resumen : '',
             resSiguiente2 ? '\n' + resSiguiente2.resumen : '',
-            resGrabar ? '\n' + resGrabar.resumen : ''
+            resGrabar ? '\n' + resGrabar.resumen : '',
+            corte ? `\n⛔ CORTADO en "${corte.paso}": ${corte.mensaje}${grabar ? ' (NO se grabó)' : ''}` : ''
         ].join('\n');
 
         console.log('[DDJJ flujo_nuevo]\n' + resumen);
+
+        if (corte) {
+            return {
+                success: false,
+                error: 'AFIP_RECHAZO',
+                message: `AFIP rechazó la carga en "${corte.paso}": ${corte.mensaje}`,
+                corte,
+                cliente: payload && payload.cliente,
+                url: fenixPage.url(),
+                retenciones: resRetenciones,
+                resumen
+            };
+        }
 
         return {
             success: true,

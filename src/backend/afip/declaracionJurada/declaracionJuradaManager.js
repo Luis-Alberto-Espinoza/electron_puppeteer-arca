@@ -72,13 +72,14 @@ async function iniciarProcesoDeclaracionJurada(url, credenciales, payload, modo,
                 if (resultado.resumen && borrado && borrado.resumen) resultado.resumen = borrado.resumen + '\n\n' + resultado.resumen;
             }
 
-            if (visible) await avisarEnNavegador(await pestanaFinal(browser, page), 'La carga automática terminó. El navegador quedó a tu disposición para revisar o completar a mano. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
+            if (visible && resultado && resultado.corte) await avisarEnNavegador(await pestanaFinal(browser, page), `⛔ La carga se cortó en "${resultado.corte.paso}": ${resultado.corte.mensaje} Revisalo acá; no se grabó nada.`, { log: '[DeclaracionJurada Manager]' });
+            else if (visible) await avisarEnNavegador(await pestanaFinal(browser, page), 'La carga automática terminó. El navegador quedó a tu disposición para revisar o completar a mano. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
             return resultado;
         }
 
         if (modo === 'buscar') {
             const flujo = require('../../puppeteer/afip/DECLARACION_JURADA/flujos/flujo_buscar.js');
-            const resultado = await flujo.ejecutar(page, payload, credenciales);
+            const resultado = await flujo.ejecutar(page, { ...payload, visible }, credenciales);
             if (visible) await avisarEnNavegador(await pestanaFinal(browser, page), 'La búsqueda terminó. El navegador quedó a tu disposición. ⏱️ La sesión de AFIP dura un tiempo limitado.', { log: '[DeclaracionJurada Manager]' });
             return resultado;
         }
