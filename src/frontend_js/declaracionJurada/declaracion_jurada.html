@@ -44,15 +44,11 @@
                 </div>
 
                 <div class="ddjj-campo">
-                    <label class="ddjj-label" for="ddjj-periodo-mes">Período Fiscal</label>
-                    <div class="ddjj-periodo-fila">
-                        <input id="ddjj-periodo-mes" class="ddjj-select ddjj-periodo-mes" type="number" min="1" max="12" placeholder="Mes" aria-label="Mes" />
-                        <span class="ddjj-periodo-barra">/</span>
-                        <input id="ddjj-periodo-anio" class="ddjj-select ddjj-periodo-anio" type="number" min="2000" max="2100" placeholder="Año" aria-label="Año" />
-                    </div>
-                    <!-- AAAAMM armado con mes + año (es lo que lee el resto del código) -->
-                    <input id="ddjj-periodo" type="hidden" />
-                    <p class="ddjj-hint">Con ↑ ↓ o escribiendo. Bajar de 1 pasa a 12 del año anterior.</p>
+                    <label class="ddjj-label" for="ddjj-periodo">Período Fiscal</label>
+                    <!-- Calendario común en modo período: .value es AAAAMM (lo que lee el resto
+                         del código); en pantalla se ve mm/aaaa. -->
+                    <input id="ddjj-periodo" class="ddjj-select ddjj-periodo" type="text" placeholder="mm/aaaa" aria-label="Período fiscal" />
+                    <p class="ddjj-hint">Con ↑ ↓, escribiendo (mm/aaaa) o en el calendario. Bajar de 1 pasa a 12 del año anterior.</p>
                 </div>
             </div>
         </div>
@@ -82,7 +78,7 @@
             <div class="ddjj-grid">
                 <div class="ddjj-campo">
                     <label class="ddjj-label" for="ddjj-fecha-pago">Fecha de Pago</label>
-                    <input id="ddjj-fecha-pago" class="ddjj-select" type="date" />
+                    <input id="ddjj-fecha-pago" class="ddjj-select" type="text" />
                     <p class="ddjj-hint">Requerida. Se carga en la solapa Liquidación (DD/MM/AAAA).</p>
                 </div>
             </div>

@@ -763,6 +763,10 @@ window.inicializarModuloPlanesDePago = () => {
     const inputRangoDesde = document.getElementById('input-rango-desde-planes');
     const inputRangoHasta = document.getElementById('input-rango-hasta-planes');
     const rangoNoVigentes = document.getElementById('rangoNoVigentesPlanes');
+    // Calendario común en modo período: la pantalla sigue leyendo 'AAAA-MM' en .value
+    // (como el viejo input month); en pantalla se ve mm/aaaa.
+    [inputRangoDesde, inputRangoHasta].forEach(input =>
+        crearCalendario(input, { modo: 'periodo', formato: 'Y-m', ver: 'm/Y', inicial: null }));
     const sincronizarRango = () => {
         const activo = chkNoVigentes.checked;
         inputRangoDesde.disabled = !activo;

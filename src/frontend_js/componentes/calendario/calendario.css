@@ -1,0 +1,157 @@
+/* ===== Calendario (componente común) =====
+   Va DESPUÉS de flatpickr.min.css y del style.css de monthSelect: pisa lo necesario para
+   que el calendario sea de la familia de la página que lo abre.
+
+   Fondo = tono del servicio (--calendario-tono, lo pone calendario.js desde --vista-tono)
+   GIRADO --calendario-giro grados en el círculo de color (sigue siendo de la familia pero
+   se distingue de la página) y aclarado --calendario-aclarado. Letra blanca; lo elegido en
+   el amarillo de acento, el opuesto del violeta. Sin vista con tono, el primario.
+   Para ajustar TODOS los calendarios: cambiar --calendario-giro / --calendario-aclarado acá. */
+.flatpickr-calendar {
+    --calendario-tono: var(--c-primario-2);
+    --calendario-giro: -35;         /* grados (sin "deg": el h de hsl(from ...) es un número) */
+    --calendario-aclarado: 12%;
+    --calendario-girado: hsl(from var(--calendario-tono) calc(h + var(--calendario-giro)) s l);
+    --calendario-fondo: color-mix(in srgb, var(--calendario-girado), white var(--calendario-aclarado));
+    --calendario-elegido: var(--c-acento);
+    --calendario-elegido-texto: var(--texto-1);
+    --calendario-texto: #ffffff;
+    --calendario-suave: rgba(255, 255, 255, 0.15);   /* hover */
+    --calendario-apagado: rgba(255, 255, 255, 0.4);  /* días de otro mes */
+    background: var(--calendario-fondo);
+    border: 1px solid color-mix(in srgb, var(--calendario-girado), white 40%);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    font-family: inherit;
+    color: var(--calendario-texto);
+}
+
+/* El piquito que apunta al campo, del mismo color que el fondo */
+.flatpickr-calendar.arrowTop::before { border-bottom-color: color-mix(in srgb, var(--calendario-girado), white 40%); }
+.flatpickr-calendar.arrowTop::after { border-bottom-color: var(--calendario-fondo); }
+.flatpickr-calendar.arrowBottom::before { border-top-color: color-mix(in srgb, var(--calendario-girado), white 40%); }
+.flatpickr-calendar.arrowBottom::after { border-top-color: var(--calendario-fondo); }
+
+/* ----- Cabecera: flechas, mes y año ----- */
+.flatpickr-months .flatpickr-month,
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month {
+    color: var(--calendario-texto);
+    fill: var(--calendario-texto);
+}
+.flatpickr-months .flatpickr-prev-month:hover svg,
+.flatpickr-months .flatpickr-next-month:hover svg {
+    fill: var(--calendario-elegido);
+}
+
+/* Mes y año lado a lado, como dos listas iguales */
+.flatpickr-current-month {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding-top: 4px;
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--calendario-texto);
+    background: transparent;
+    border-radius: 6px;
+    padding: 2px 4px;
+}
+.flatpickr-current-month .flatpickr-monthDropdown-months:hover {
+    background: var(--calendario-suave);
+}
+/* La lista abierta (mes y año): mismo fondo que el calendario. En Windows/Linux Chromium
+   respeta estos colores; la barra del elegido es del sistema y no se puede pintar.
+   .flatpickr-calendar delante: flatpickr pone transparent a .flatpickr-monthDropdown-month
+   con 3 clases, y hay que ganarle. */
+.flatpickr-calendar .flatpickr-current-month .flatpickr-monthDropdown-months option {
+    color: var(--calendario-texto);
+    background: var(--calendario-fondo);
+}
+
+/* ----- Grilla de días ----- */
+span.flatpickr-weekday {
+    color: var(--calendario-texto);
+    opacity: 0.75;
+}
+.flatpickr-day {
+    color: var(--calendario-texto);
+}
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay,
+.flatpickr-day.flatpickr-disabled {
+    color: var(--calendario-apagado);
+}
+.flatpickr-day:hover,
+.flatpickr-day:focus,
+.flatpickr-day.prevMonthDay:hover,
+.flatpickr-day.nextMonthDay:hover {
+    background: var(--calendario-suave);
+    border-color: transparent;
+}
+.flatpickr-day.today {
+    border-color: var(--calendario-texto);
+}
+.flatpickr-day.today:hover {
+    background: var(--calendario-suave);
+    color: var(--calendario-texto);
+}
+.flatpickr-day.selected,
+.flatpickr-day.selected:hover,
+.flatpickr-day.selected:focus,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange {
+    background: var(--calendario-elegido);
+    border-color: var(--calendario-elegido);
+    color: var(--calendario-elegido-texto);
+    font-weight: 700;
+}
+
+/* ----- Modo período: grilla de 12 meses (plugin monthSelect) ----- */
+.flatpickr-monthSelect-month {
+    color: var(--calendario-texto);
+}
+.flatpickr-monthSelect-month:hover,
+.flatpickr-monthSelect-month:focus,
+.flatpickr-monthSelect-month.inRange {
+    background: var(--calendario-suave);
+    border-color: transparent;
+}
+.flatpickr-monthSelect-month.today {
+    border-color: var(--calendario-texto);
+}
+.flatpickr-monthSelect-month.today:hover,
+.flatpickr-monthSelect-month.today:focus {
+    background: var(--calendario-suave);
+    border-color: var(--calendario-texto);
+    color: var(--calendario-texto);
+}
+.flatpickr-monthSelect-month.selected,
+.flatpickr-monthSelect-month.selected:hover,
+.flatpickr-monthSelect-month.selected:focus {
+    background: var(--calendario-elegido);
+    border-color: var(--calendario-elegido);
+    color: var(--calendario-elegido-texto);
+    font-weight: 700;
+}
+
+/* ----- Mensaje debajo del campo (lo crea calendario.js solo cuando hay algo que decir) -----
+   Va en la página, no en el calendario: rojo sobre el fondo del servicio. flex-basis 100%
+   para que en filas flex (ATM, Planes) baje a su propio renglón en vez de quedar al lado. */
+.calendario-mensaje {
+    flex-basis: 100%;
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: color-mix(in srgb, var(--c-peligro-1), white 35%);
+}
+.calendario-mensaje::before {
+    content: "⚠ ";
+}
+input.calendario-con-error {
+    border-color: var(--c-peligro-1) !important;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--c-peligro-1), transparent 70%);
+}

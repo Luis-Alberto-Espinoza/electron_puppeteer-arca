@@ -32,6 +32,8 @@ window.inicializarModuloImportarLibroIva = () => {
     const hoy = new Date();
     const anterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
     inpPeriodo.value = `${anterior.getFullYear()}-${String(anterior.getMonth() + 1).padStart(2, '0')}`;
+    // Calendario común en modo período: .value sigue siendo 'AAAA-MM'; en pantalla, mm/aaaa.
+    crearCalendario(inpPeriodo, { modo: 'periodo', formato: 'Y-m', ver: 'm/Y', inicial: null });
 
     // Preparación por CUIT. Sobrevive a sacar y volver a elegir un cliente (no se pierden los archivos).
     const prep = new Map();   // cuit → { origen, rutas, validacion, validando, turno, campos, nodo, ... }

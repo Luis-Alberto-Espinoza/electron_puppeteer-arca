@@ -567,9 +567,10 @@
     min-width: 3.2em;
 }
 
-.planes-rango input[type="month"] {
-    /* Letra fija: si no, hereda la de la vista (~19px en la app) y el campo
-       crece. Sin width: Chrome lo mide para que entre "septiembre de 2025". */
+.planes-rango .planes-rango-campo input {
+    /* Letra fija: si no, hereda la de la vista (~19px en la app) y el campo crece.
+       El que se ve es el del calendario común (mm/aaaa): entra justo con este ancho. */
+    width: 7.5em;
     font-size: 15px;
     padding: 4px 6px;
     border-radius: 6px;

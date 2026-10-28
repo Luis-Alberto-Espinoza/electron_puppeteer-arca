@@ -66,40 +66,22 @@ export async function inicializarInterfazFacturas() {
         //realizarAccionFacturacion();
     });
 
-    // Inicializar flatpickr para fechaComprobante
+    // Calendarios comunes (componentes/calendario): mismo formato d/m/Y que leía la pantalla
     if (fechaComprobante) {
-        flatpickrFechaComprobante = flatpickr(fechaComprobante, {
-            mode: "single",
-            dateFormat: "d/m/Y",
-            defaultDate: "today", // arranca con la fecha de hoy (AFIP la necesita sí o sí)
-            onChange: function (selectedDates) {
-                if (selectedDates.length > 0) {
-                    const date = selectedDates[0];
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const year = date.getFullYear();
-                    fechaComprobante.value = `${day}/${month}/${year}`;
-                }
-            }
-        });
+        // Arranca con hoy: AFIP la necesita sí o sí
+        flatpickrFechaComprobante = crearCalendario(fechaComprobante, { formato: 'd/m/Y', inicial: 'hoy' });
     } else {
         console.error('El elemento con ID "fechaComprobante" no existe.');
     }
 
     if (datepicker) {
-        flatpickrDatepicker = flatpickr(datepicker, {
-            mode: "multiple",
-            dateFormat: "d/m/Y",
-            onChange: function (selectedDates) {
+        flatpickrDatepicker = crearCalendario(datepicker, {
+            modo: 'varios',
+            formato: 'd/m/Y',
+            inicial: null,
+            onChange: (_fechas, texto) => {
                 const fechasFacturas = document.getElementById('fechasFacturas');
-                if (fechasFacturas) {
-                    fechasFacturas.value = selectedDates.map(date => {
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const year = date.getFullYear();
-                        return `${day}/${month}/${year}`;
-                    }).join(', ');
-                }
+                if (fechasFacturas) fechasFacturas.value = texto;
             }
         });
     }

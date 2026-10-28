@@ -68,8 +68,8 @@
     flex-shrink: 0;
 }
 
-/* Letra en px (en la app los input heredan ~21px); sin width: Chrome lo calcula para el mes.
-   Colores de la caja y del calendario: los pone tema_afip.css. */
+/* Letra en px (en la app los input heredan ~21px). El campo lo muestra el calendario común
+   (mm/aaaa): con este ancho entra justo. Colores de la caja: los pone tema_afip.css. */
 .il-periodo {
     display: flex;
     align-items: center;
@@ -77,6 +77,7 @@
     font-size: 14px;
 }
 .il-periodo input {
+    width: 7.5em;
     font-size: 14px;
     padding: 4px 8px;
     border: 1px solid var(--v-borde);

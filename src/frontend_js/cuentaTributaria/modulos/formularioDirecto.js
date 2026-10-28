@@ -123,7 +123,10 @@ export function resetFormularioDirecto() {
     estado.grupos = {};
     estado.gruposActivos.clear();
     const contenedor = document.getElementById(ID_CONTENEDOR);
-    if (contenedor) contenedor.innerHTML = '';
+    if (contenedor) {
+        soltarCalendarios(contenedor);
+        contenedor.innerHTML = '';
+    }
     notificarCambio();
 }
 
@@ -364,6 +367,7 @@ function renderizar() {
     const cont = document.getElementById(ID_CONTENEDOR);
     if (!cont) return;
 
+    soltarCalendarios(cont);
     const claves = Object.keys(estado.grupos);
     if (claves.length === 0) {
         cont.innerHTML = `
@@ -376,7 +380,23 @@ function renderizar() {
     }
 
     cont.innerHTML = claves.map(k => renderGrupo(k, estado.grupos[k])).join('');
+    montarCalendarios(cont);
     notificarCambio();
+}
+
+// Período con el calendario común (MM/AAAA, lo que ya entiende normalizarPeriodo).
+// Al elegir, flatpickr dispara 'input' en el campo → onInputContenedor guarda el valor.
+function montarCalendarios(cont) {
+    cont.querySelectorAll('.input-periodo-directo').forEach(input => {
+        crearCalendario(input, { modo: 'periodo', formato: 'm/Y', inicial: null });
+    });
+}
+
+// Cada re-render pisa el HTML: antes se sueltan los calendarios viejos (viven en <body>).
+function soltarCalendarios(cont) {
+    cont.querySelectorAll('.input-periodo-directo').forEach(input => {
+        if (input._flatpickr) input._flatpickr.destroy();
+    });
 }
 
 function renderGrupo(groupKey, g) {
@@ -393,7 +413,7 @@ function renderGrupo(groupKey, g) {
                 <table class="tabla-entradas-directo">
                     <thead>
                         <tr>
-                            <th class="col-periodo-directo">Período (MM/AAAA o AAAAMM)</th>
+                            <th class="col-periodo-directo">Período</th>
                             <th class="col-impuesto-directo">Impuesto</th>
                             <th class="col-acciones-directo"></th>
                         </tr>
@@ -441,7 +461,7 @@ function renderEntrada(groupKey, e) {
                        data-group-key="${escapeAttr(groupKey)}"
                        data-entry-id="${escapeAttr(e.id)}"
                        value="${escapeAttr(e.periodo)}"
-                       placeholder="ej: 12/2024" />
+                       placeholder="mm/aaaa" />
             </td>
             <td class="col-impuesto-directo">
                 <select class="select-impuesto-directo"

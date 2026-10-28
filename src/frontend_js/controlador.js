@@ -1569,12 +1569,7 @@ function inicializarMercadoPago() {
 
                     // Inicializar selector de fechas si está disponible
                     const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
-                    if (fechaComprobanteMP && typeof flatpickr !== 'undefined') {
-                        flatpickr(fechaComprobanteMP, {
-                            mode: "single",
-                            dateFormat: "d/m/Y"
-                        });
-                    }
+                    if (fechaComprobanteMP) crearCalendario(fechaComprobanteMP, { formato: 'd/m/Y', inicial: null });
                 };
 
                 document.head.appendChild(script);

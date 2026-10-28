@@ -19,7 +19,10 @@
     <!-- Tema AFIP: cada servicio con su tono, sin blancos (va después de base y de index.css) -->
     <link rel="stylesheet" href="../estilos/tema_afip.css">
     <link rel="stylesheet" href="../estilos/tema_herramientas.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- Calendario: flatpickr local (pnpm, anda sin internet) + nuestro componente encima -->
+    <link rel="stylesheet" href="../../../node_modules/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="../../../node_modules/flatpickr/dist/plugins/monthSelect/style.css">
+    <link rel="stylesheet" href="../componentes/calendario/calendario.css">
     <!-- Componente reutilizable: Modal de confirmación -->
     <link rel="stylesheet" href="../utils/confirmModal.css">
     <!-- Componente reutilizable: Lanzador de sesión (abrir navegador logueado) -->
@@ -35,8 +38,11 @@
     <link rel="stylesheet" href="../componentes/gestionGrupos/gestionGrupos.css">
     <link rel="stylesheet" href="../componentes/archivoResultado/archivoResultado.css">
     <link rel="stylesheet" href="../componentes/lanzadorAutomatizacion/lanzadorAutomatizacion.css">
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+    <script src="../../../node_modules/flatpickr/dist/flatpickr.min.js"></script>
+    <script src="../../../node_modules/flatpickr/dist/l10n/es.js"></script>
+    <script src="../../../node_modules/flatpickr/dist/plugins/monthSelect/index.js"></script>
+    <!-- Componente reutilizable: Calendario (expone window.crearCalendario) -->
+    <script src="../componentes/calendario/calendario.js"></script>
 </head>
 
 <body>

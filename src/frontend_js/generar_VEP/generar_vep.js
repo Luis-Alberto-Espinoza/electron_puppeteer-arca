@@ -1044,7 +1044,8 @@ function renderizarFormulariosDeuda() {
     const anioActual = hoy.getFullYear();
     const diaActual = String(hoy.getDate()).padStart(2, '0');
 
-    // Formato para inputs nativos: YYYY-MM para type="month", YYYY-MM-DD para type="date"
+    // Valores en el formato de los viejos inputs nativos (YYYY-MM y YYYY-MM-DD): el calendario
+    // común los guarda igual en .value y muestra mm/aaaa y dd/mm/aaaa
     const periodoDesdeDefault = '2022-01';
     const periodoHastaDefault = `${anioActual}-${mesActual}`;
     const fechaCalculoDefault = `${anioActual}-${mesActual}-${diaActual}`;
@@ -1070,13 +1071,11 @@ function renderizarFormulariosDeuda() {
                         <div class="campo-formulario-deuda">
                             <label for="desde-${usuario.id}">Período Desde</label>
                             <input
-                                type="month"
+                                type="text"
                                 id="desde-${usuario.id}"
                                 data-usuario-id="${usuario.id}"
                                 data-campo="desde"
                                 value="${datosGuardados.desde || periodoDesdeDefault}"
-                                min="2022-01"
-                                max="${periodoHastaDefault}"
                                 class="input-periodo-deuda"
                             />
                             <span class="mensaje-error-campo">Seleccione un período válido</span>
@@ -1085,13 +1084,11 @@ function renderizarFormulariosDeuda() {
                         <div class="campo-formulario-deuda">
                             <label for="hasta-${usuario.id}">Período Hasta</label>
                             <input
-                                type="month"
+                                type="text"
                                 id="hasta-${usuario.id}"
                                 data-usuario-id="${usuario.id}"
                                 data-campo="hasta"
                                 value="${datosGuardados.hasta || periodoHastaDefault}"
-                                min="2022-01"
-                                max="${periodoHastaDefault}"
                                 class="input-periodo-deuda"
                             />
                             <span class="mensaje-error-campo">Seleccione un período válido</span>
@@ -1100,7 +1097,7 @@ function renderizarFormulariosDeuda() {
                         <div class="campo-formulario-deuda">
                             <label for="fecha-${usuario.id}">Fecha de Cálculo</label>
                             <input
-                                type="date"
+                                type="text"
                                 id="fecha-${usuario.id}"
                                 data-usuario-id="${usuario.id}"
                                 data-campo="fecha"
@@ -1115,23 +1112,19 @@ function renderizarFormulariosDeuda() {
         `;
     }).join('');
 
-    // Agregar event listeners para validación en tiempo real
+    // Calendario común + validación en tiempo real. El calendario avisa con 'input' y
+    // 'change' sobre ESTE input (el que guarda el valor), aunque en pantalla se vea otro.
     contenedor.querySelectorAll('.input-periodo-deuda, .input-fecha-deuda').forEach(input => {
+        if (input.classList.contains('input-periodo-deuda')) {
+            crearCalendario(input, {
+                modo: 'periodo', formato: 'Y-m', ver: 'm/Y', inicial: null,
+                minimo: '2022-01', maximo: periodoHastaDefault, anioMin: 2022, anioMax: anioActual
+            });
+        } else {
+            crearCalendario(input, { formato: 'Y-m-d', ver: 'd/m/Y', inicial: null });
+        }
         input.addEventListener('input', validarCampoDeuda);
-        input.addEventListener('blur', guardarDatosFormularioDeuda);
-
-        // Abrir el calendario al hacer clic en cualquier parte del input
-        input.addEventListener('click', (e) => {
-            try {
-                // showPicker() abre el selector de fecha/mes nativo del navegador
-                if (input.showPicker) {
-                    input.showPicker();
-                }
-            } catch (error) {
-                // Fallback: algunos navegadores no soportan showPicker aún
-                // El input ya tiene focus por el click, lo cual abre el picker en la mayoría de navegadores
-            }
-        });
+        input.addEventListener('change', guardarDatosFormularioDeuda);
     });
 
     actualizarEstadoConsultaDeuda(usuariosSeleccionados.length);
@@ -1148,8 +1141,7 @@ function validarCampoDeuda(e) {
     let esValido = false;
 
     if (esPeriodo) {
-        // Para type="month": formato YYYY-MM
-        // El navegador ya valida el formato automáticamente
+        // Formato YYYY-MM (lo deja el calendario común)
         if (valor) {
             const [anio, mes] = valor.split('-').map(Number);
             const anioMin = 2022;
@@ -1168,8 +1160,7 @@ function validarCampoDeuda(e) {
             }
         }
     } else {
-        // Para type="date": formato YYYY-MM-DD
-        // El navegador ya valida el formato automáticamente
+        // Formato YYYY-MM-DD (lo deja el calendario común)
         if (valor) {
             // Crear fecha desde el valor del input (YYYY-MM-DD)
             const [anio, mes, dia] = valor.split('-').map(Number);
@@ -1234,7 +1225,8 @@ function prepararConsultaDeuda() {
 
     // Validar todos los formularios
     let todosValidos = true;
-    const inputs = document.querySelectorAll('.input-periodo-deuda, .input-fecha-deuda');
+    // [data-campo]: solo los inputs que guardan el valor (el que se ve copia las clases)
+    const inputs = document.querySelectorAll('.input-periodo-deuda[data-campo], .input-fecha-deuda[data-campo]');
 
     inputs.forEach(input => {
         const evento = { target: input };
@@ -1257,9 +1249,8 @@ function prepararConsultaDeuda() {
         const inputHasta = document.getElementById(`hasta-${u.id}`);
         const inputFecha = document.getElementById(`fecha-${u.id}`);
 
-        // Convertir formatos de inputs nativos al formato esperado por el backend
-        // type="month" devuelve "YYYY-MM", backend espera "MM/AAAA"
-        // type="date" devuelve "YYYY-MM-DD", backend espera "DD/MM/AAAA"
+        // Convertir al formato esperado por el backend
+        // período "YYYY-MM" → "MM/AAAA"; fecha "YYYY-MM-DD" → "DD/MM/AAAA"
         const convertirPeriodo = (valorMonth) => {
             if (!valorMonth) return '';
             const [anio, mes] = valorMonth.split('-');

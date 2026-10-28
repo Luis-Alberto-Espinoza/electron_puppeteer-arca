@@ -461,12 +461,7 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarUsuarioEmpresaActividadMP();
     // Inicializar flatpickr para fechaComprobanteMP
     const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
-    if (fechaComprobanteMP && typeof flatpickr !== 'undefined') {
-        flatpickr(fechaComprobanteMP, {
-            mode: "single",
-            dateFormat: "d/m/Y"
-        });
-    }
+    if (fechaComprobanteMP) crearCalendario(fechaComprobanteMP, { formato: 'd/m/Y', inicial: null });
 });
 
 // Asegura que la inicialización se ejecute también después de cargar el HTML dinámicamente
