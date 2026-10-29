@@ -45,6 +45,7 @@ export class AuthManager {
         this.lanzador = null;
         this.contenedor = null;
         this.paquete = null;      // lo que devolvió factura:calcular (lo que se va a facturar)
+        this.aviso = null;        // advertencia de ese cálculo que se suma al modal de Facturar (no frena)
         this.pdvAnclaId = null;
         this.nombreServicio = 'Facturación';
         this.servicio = 'factura';
@@ -56,7 +57,6 @@ export class AuthManager {
      * @param {string} [config.pdvAnclaId]     ver registrarManejadorPdv
      * @param {string} [config.nombreServicio] título de la rueda: "ARCA · Facturación"
      * @param {string} [config.servicio]       'factura' | 'mercadopago' (para el historial)
-     * @param {string} [config.avisoAlEmitir]  advertencia que se suma al modal de Facturar (no frena)
      * @param {function} [config.limpiar]      auxiliar "Limpiar": solo la pantalla con formulario propio
      */
     inicializar(config = {}) {
@@ -65,7 +65,6 @@ export class AuthManager {
             pdvAnclaId = 'selectPuntoDeVentaFactura',
             nombreServicio = 'Facturación',
             servicio = 'factura',
-            avisoAlEmitir = null,
             limpiar = null
         } = config;
 
@@ -94,7 +93,7 @@ export class AuthManager {
                     confirmText: 'Emitir',
                     message: `Vas a emitir ${this._cantidad()} factura(s) REALES en AFIP.\n`
                         + 'Una factura emitida no se deshace: se anula con nota de crédito.'
-                        + (avisoAlEmitir ? `\n\n⚠ ${avisoAlEmitir}` : '')
+                        + (this.aviso ? `\n\n⚠ ${this.aviso}` : '')
                 }),
                 confirmarCancelar: () => ({
                     title: '¿Cancelar la facturación?',
@@ -131,8 +130,10 @@ export class AuthManager {
     }
 
     // Datos nuevos de la pantalla: el resultado anterior (y su "Reintentar") era de los otros.
-    cargarCalculo(paquete) {
+    // aviso: advertencia que se suma al modal de Facturar (ej. MP: ventas de otro mes).
+    cargarCalculo(paquete, aviso = null) {
         this.paquete = paquete;
+        this.aviso = aviso;
         this._limpiarResultado();
     }
 

@@ -205,6 +205,23 @@ class PDFProcessorService {
         return { transferencias, liquidaciones, rendimientos };
     }
 
+    // Control: lo leído tiene que dar lo mismo que las "Entradas" del encabezado del
+    // resumen. Si no, hay movimientos de un tipo que el lector no reconoce (o de más).
+    // null = el PDF no trae esa línea (resumen viejo u otro formato): no se controla.
+    controlarEntradas(text, totalLeido) {
+        const m = text.match(/Entradas:\s*\$\s*(-?[\d.]+,\d{2})/);
+        if (!m) return null;
+        const entradasPdf = this.limpiarMonto(m[1]);
+        const diferencia = Math.round((entradasPdf - totalLeido) * 100) / 100 || 0;   // sin -0
+        return {
+            entradasPdf,
+            entradasPdfFormateado: this.formatearMonto(entradasPdf),
+            diferencia,
+            diferenciaFormateado: this.formatearMonto(diferencia),
+            coincide: diferencia === 0
+        };
+    }
+
     // Buscar elemento más cercano de un tipo específico
     buscarElementoCercano(elementos, posicionRef, tipo, rangoInicio, rangoFin) {
         const candidatos = elementos.filter(e => 
@@ -410,6 +427,7 @@ class PDFProcessorService {
                     totalTransferencias: transferenciasRecibidas.length,
                     totalLiquidaciones: liquidacionesDetalle.length,
                     totalRendimientos: rendimientosDetalle.length,
+                    controlEntradas: this.controlarEntradas(text, granTotalGeneral),
                     totalDias: fechasUnificadas.length,
                     totalMeses: mesesUnicos.length,
                     elementosEncontrados: elementos.length,

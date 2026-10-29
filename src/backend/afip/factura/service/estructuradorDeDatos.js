@@ -26,6 +26,9 @@ function ordenarPorFecha(pares) {
         .map(x => x.par);
 }
 
+// Montos reales (Excel, Mercado Pago) se facturan exactos, con centavos.
+const aCentavos = (n) => Math.round(n * 100) / 100;
+
 function procesarDatos(montoFactura) {
     let ProcesarDatos = {};
     montoFactura = ordenarPorFecha(montoFactura);
@@ -47,18 +50,18 @@ function procesarDatos(montoFactura) {
 
                 while (resto > configuracion.montoMaximo) {
                     let nuevaFactura = Math.random() * (0.2 * configuracion.montoMaximo) + 0.8 * configuracion.montoMaximo;
-                    nuevaFactura = Math.round(nuevaFactura / 5) * 5;
+                    nuevaFactura = Math.round(nuevaFactura / 5) * 5;   // parte inventada: número redondo
                     subFacturas.push(nuevaFactura);
-                    resto -= nuevaFactura;
+                    resto = aCentavos(resto - nuevaFactura);
                 }
 
                 if (resto > 0) {
-                    subFacturas.push(Math.round(resto / 5) * 5);
+                    subFacturas.push(resto);
                 }
 
                 arrayFacturasGeneradas.push(subFacturas);
             } else {
-                arrayFacturasGeneradas.push([fecha, Math.round(monto / 5) * 5]);
+                arrayFacturasGeneradas.push([fecha, aCentavos(monto)]);
             }
         }
     }

@@ -304,6 +304,10 @@ html {
 #facturacionDiv #facturasDiv .columnas-pegado textarea {
     width: 100%;
 }
+/* Facturar Mercado Pago: la fecha del comprobante, angosta como en Facturar */
+#mercadoPagoDiv #fechaComprobanteMP {
+    width: 18ch;
+}
 
 /* ===== 12. Switch "Mostrar navegador" (.ui-switch de base.css) =====
    En base.css el switch prendido es --c-primario-2 (violeta): sobre el fondo

@@ -456,8 +456,9 @@ async function mostrarPdvHabilitadosFactura(habilitados, elegido) {
     }
 }
 
+// Solo los de esta vista: MP tiene los suyos (con la misma clase) y no hay que sumarles listeners.
 function configurarBotonesExpandirTablas() {
-    const botonesExpandir = document.querySelectorAll('.btn-expandir');
+    const botonesExpandir = document.querySelectorAll('#facturasDiv .btn-expandir');
     botonesExpandir.forEach(boton => {
         boton.addEventListener('click', function() {
             const tipoTabla = this.getAttribute('data-tabla');

@@ -21,6 +21,10 @@ module.exports = function setupMercadoPagoHandlers(ipcMain, mainWindow, dialog) 
                 throw new Error('No se recibió una ruta válida para procesar');
             }
 
+            // Archivo de ENTRADA al log del día (el de salida lo arma la app): en el
+            // portable de Windows es lo primero que hay que saber si algo sale raro.
+            console.log(`[Mercado Pago] Archivo de entrada: ${ruta}`);
+
             if (!fs.existsSync(ruta)) {
                 throw new Error(`El archivo PDF no existe en la ruta: ${ruta}`);
             }

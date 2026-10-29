@@ -1,9 +1,14 @@
 import { AuthManager, registrarManejadorPdv } from '../autenticacion/auth.js';
 import { pdvOfrecibles } from '../facturas/pdvOfrecibles.js';
+import { avisar } from '../facturas/facturas.js';
+
+// Todo lo de esta pantalla se busca adentro de su div: Facturar usa las mismas
+// clases (.btn-expandir) y no hay que tocar las suyas.
+const enVista = (selector) => document.querySelector(`#leerMercadoPagoDiv ${selector}`);
 
 function mostrarTablas(datos) {
     // Actualizar tabla de fechas (totales diarios)
-    const tablaFechas = document.querySelector('.table-box:first-child');
+    const tablaFechas = enVista('.table-box:first-child');
     if (tablaFechas) {
         let htmlFechas = `
             <div class="tabla-header">
@@ -14,7 +19,7 @@ function mostrarTablas(datos) {
                 </button>
             </div>
         `;
-        
+
         htmlFechas += '<div class="tabla-scroll tabla-colapsada" id="tabla-fechas-content">';
         htmlFechas += '<table class="tabla-datos">';
         htmlFechas += '<thead><tr><th>Fecha</th><th>Transferencias</th><th>Liquidaciones</th><th>Total</th></tr></thead>';
@@ -36,7 +41,7 @@ function mostrarTablas(datos) {
     }
 
     // Actualizar tabla de montos (totales mensuales)
-    const tablaMontos = document.querySelector('.table-box:last-child');
+    const tablaMontos = enVista('.table-box:last-child');
     if (tablaMontos) {
         let htmlMontos = `
             <div class="tabla-header">
@@ -47,7 +52,7 @@ function mostrarTablas(datos) {
                 </button>
             </div>
         `;
-        
+
         htmlMontos += '<div class="tabla-scroll tabla-colapsada" id="tabla-montos-content">';
         htmlMontos += '<table class="tabla-datos">';
         htmlMontos += '<thead><tr><th>Mes</th><th>Transferencias</th><th>Liquidaciones</th><th>Total</th></tr></thead>';
@@ -73,7 +78,7 @@ function mostrarTablas(datos) {
 
 
 function configurarBotonesExpandirTablas() {
-    const botonesExpandir = document.querySelectorAll('.btn-expandir');
+    const botonesExpandir = document.querySelectorAll('#leerMercadoPagoDiv .btn-expandir');
 
     botonesExpandir.forEach(boton => {
         boton.addEventListener('click', function () {
@@ -101,12 +106,6 @@ function configurarBotonesExpandirTablas() {
     });
 }
 
-// Función adicional para mostrar detalles de transferencias si es necesario
-function mostrarDetalleTransferencias(transferencias) {
-    console.log('Transferencias detalladas:', transferencias);
-    // Esta función se puede expandir para mostrar una tabla detallada de todas las transferencias
-}
-
 
 function injectMercadoPagoCSS() {
     const cssFileId = 'mercado-pago-styles';
@@ -128,6 +127,7 @@ function injectMercadoPagoCSS() {
 
 let selectorUsuariosMP = null;
 let plantillaMP = '';  // HTML del formulario tal como vino de mercadoPago_leer.html
+let authManager = null;  // lanzador de esta pantalla (uno por formulario armado)
 
 /**
  * Entrada de la vista (la llama el controlador cada vez que se entra): arranca
@@ -172,253 +172,171 @@ function elegirCliente(usuario) {
         && String(usuario.id) === String(window.usuarioSeleccionado.id);
     window.usuarioSeleccionado = usuario;
     if (mismoCliente) return;
-    div.innerHTML = usuario ? plantillaMP : '';
     div.classList.toggle('contenido-oculto', !usuario);
-    if (!usuario) return;
-    initializeMercadoPago();
-    inicializarUsuarioEmpresaActividadMP();
+    if (usuario) armarFormulario();
+    else div.innerHTML = '';
+}
+
+// Formulario de cero (el de mercadoPago_leer.html) para el cliente elegido.
+function armarFormulario() {
+    document.getElementById('leerMercadoPagoDiv').innerHTML = plantillaMP;
+    injectMercadoPagoCSS();
     const fechaComprobanteMP = document.getElementById('fechaComprobanteMP');
-    if (fechaComprobanteMP) crearCalendario(fechaComprobanteMP, { formato: 'd/m/Y', inicial: null });
+    // Arranca con hoy, como en Facturar: AFIP la necesita sí o sí
+    if (fechaComprobanteMP) crearCalendario(fechaComprobanteMP, { formato: 'd/m/Y', inicial: 'hoy' });
+    configurarArchivo();
+
+    authManager = new AuthManager();
+    authManager.inicializar({
+        contenedorId: 'lanzadorFacturaMP',
+        pdvAnclaId: 'selectPuntoDeVentaMP',
+        nombreServicio: 'Mercado Pago',
+        servicio: 'mercadopago',
+        limpiar: limpiarFormulario
+    });
+
+    // Recién con los PDV cargados se sabe qué campo está habilitado.
+    inicializarUsuarioEmpresaMP().then(enfocarPrimerCampo);
 }
 
-function initializeMercadoPago() {
-    injectMercadoPagoCSS(); // <-- Inyectar el CSS específico del módulo
-    try {
-        // Pequeña pausa para asegurar que el DOM esté listo
-        setTimeout(() => {
-            const btnSeleccionarArchivo = document.getElementById('btn-seleccionar-archivo');
-            const rutaSeleccionadaContainer = document.getElementById('ruta-seleccionada-container');
-            const rutaSeleccionadaInput = document.getElementById('ruta-seleccionada-input');
-            const btnProcesarArchivo = document.getElementById('btn-procesar-archivo');
-            const resultadosContainer = document.getElementById('resultados-container');
-            const tablasContainer = document.getElementById('tablas-container');
-
-            // Verificar que los elementos existen
-            if (!btnSeleccionarArchivo) {
-                console.error('No se encontró el botón seleccionar archivo');
-                return;
-            }
-
-            // PASO 1: Inicializar interfaz - Solo mostrar botón de seleccionar archivo
-            inicializarInterfaz();
-
-            // PASO 2: Event listener para seleccionar archivo
-            btnSeleccionarArchivo.addEventListener('click', async () => {
-                try {
-                    // Verificar si window.electronAPI.mercadoPago existe
-                    if (!window.electronAPI || !window.electronAPI.mercadoPago) {
-                        console.error('MercadoPago API no está disponible');
-                        alert('Error: API de MercadoPago no disponible');
-                        return;
-                    }
-
-                    const archivos = await window.electronAPI.mercadoPago.seleccionarArchivo();
-
-                    if (archivos && archivos.length > 0) {
-                        const archivoSeleccionado = archivos[0];
-
-                        // Verificar que la ruta no esté vacía
-                        if (!archivoSeleccionado || archivoSeleccionado.trim() === '') {
-                            console.error('La ruta del archivo está vacía');
-                            alert('Error: La ruta del archivo está vacía');
-                            return;
-                        }
-
-                        // MOSTRAR PASO 2: Archivo seleccionado + botón procesar
-                        rutaSeleccionadaInput.value = archivoSeleccionado;
-                        mostrarPaso2_ArchivoSeleccionado();
-
-                    } else {
-                        alert('No se seleccionó ningún archivo');
-                    }
-                } catch (error) {
-                    console.error('Error al seleccionar archivo:', error);
-                    alert('Error al seleccionar archivo: ' + error.message);
-                }
-            });
-
-            // PASO 3: Event listener para procesar archivo
-            btnProcesarArchivo.addEventListener('click', async () => {
-                const ruta = rutaSeleccionadaInput.value;
-
-                if (!ruta || ruta.trim() === '') {
-                    console.error('No hay archivo seleccionado o ruta vacía');
-                    alert('No hay archivo seleccionado');
-                    return;
-                }
-
-                try {
-                    // Verificar APIs disponibles
-                    if (!window.electronAPI?.mercadoPago?.procesarArchivo) {
-                        console.error('Función procesarArchivo de MercadoPago no disponible');
-                        alert('Error: Función de procesamiento no disponible');
-                        return;
-                    }
-
-                    // Mostrar indicador de carga
-                    btnProcesarArchivo.textContent = 'Procesando...';
-                    btnProcesarArchivo.disabled = true;
-
-                    const resultado = await window.electronAPI.mercadoPago.procesarArchivo(ruta);
-
-                    if (resultado.success) {
-                        // MOSTRAR PASO 3: Resultados + botones de autenticación
-                        mostrarPaso3_ResultadosYAutenticacion(resultado);
-                    } else {
-                        console.error('Error en el procesamiento:', resultado.error);
-                        mostrarError(resultado);
-                    }
-
-                } catch (error) {
-                    console.error('Error al procesar archivo:', error);
-                    alert('Error al procesar archivo: ' + error.message);
-                } finally {
-                    // Restaurar botón
-                    btnProcesarArchivo.textContent = 'Procesar Archivo';
-                    btnProcesarArchivo.disabled = false;
-                }
-            });
-
-        }, 100); // Pequeña pausa de 100ms
-
-    } catch (error) {
-        console.error('Error en la inicialización de MercadoPago:', error);
-    }
+// Elegido el cliente, se sigue en el formulario (no en el selector).
+function enfocarPrimerCampo() {
+    const campo = enVista(':is(select, input:not([type=hidden])):not(:disabled)');
+    if (campo) campo.focus();
 }
 
-// ========================================
-// FUNCIONES PARA MOSTRAR PASOS PROGRESIVAMENTE
-// ========================================
+// Auxiliar "Limpiar" del lanzador: mismo cliente, formulario de cero.
+async function limpiarFormulario() {
+    const ok = await showConfirmModal({
+        title: 'Limpiar formulario',
+        icon: '🧹',
+        confirmText: 'Limpiar',
+        message: 'Se borran los datos cargados, el archivo elegido y lo procesado. El cliente queda elegido.\n\n¿Desea continuar?'
+    });
+    if (ok) armarFormulario();
+}
 
-function inicializarInterfaz() {
+function configurarArchivo() {
+    const btnSeleccionarArchivo = document.getElementById('btn-seleccionar-archivo');
+    const rutaSeleccionadaInput = document.getElementById('ruta-seleccionada-input');
+    const btnProcesarArchivo = document.getElementById('btn-procesar-archivo');
 
-    // Ocultar todos los elementos excepto el botón de seleccionar archivo
-    const elementosAOcultar = [
-        'ruta-seleccionada-container',
-        'btn-procesar-archivo',
-        'resultados-container',
-        'tablas-container',
-        'hacerFactura',
-        'botones-container'
-    ];
-
-    elementosAOcultar.forEach(id => {
-        const elemento = document.getElementById(id);
-        if (elemento) {
-            elemento.classList.add('hidden');
-        } else {
-            console.warn(`Elemento ${id} no encontrado`);
+    // Elegir el PDF: aparece la ruta y el botón Procesar
+    btnSeleccionarArchivo.addEventListener('click', async () => {
+        try {
+            const archivos = await window.electronAPI.mercadoPago.seleccionarArchivo();
+            const archivoSeleccionado = archivos && archivos[0];
+            if (!archivoSeleccionado || archivoSeleccionado.trim() === '') return;   // cerró el diálogo
+            rutaSeleccionadaInput.value = archivoSeleccionado;
+            document.getElementById('ruta-seleccionada-container').classList.remove('hidden');
+            btnProcesarArchivo.classList.remove('hidden');
+        } catch (error) {
+            console.error('Error al seleccionar archivo:', error);
+            avisar('Error al seleccionar archivo: ' + error.message, 'No se pudo elegir el archivo');
         }
     });
 
-    // Limpiar contenido de las tablas para que no muestren títulos vacíos
-    limpiarTablas();
+    // Procesar = leer el PDF + calcular las facturas; si sale bien aparece el lanzador
+    btnProcesarArchivo.addEventListener('click', async () => {
+        btnProcesarArchivo.textContent = 'Procesando...';
+        btnProcesarArchivo.disabled = true;
+        try {
+            await procesar(rutaSeleccionadaInput.value);
+        } catch (error) {
+            console.error('Error al procesar archivo:', error);
+            dejarSinCalculo();
+            avisar('Error al procesar archivo: ' + error.message, 'No se pudo procesar');
+        } finally {
+            btnProcesarArchivo.textContent = 'Procesar';
+            btnProcesarArchivo.disabled = false;
+        }
+    });
 }
 
-function mostrarPaso2_ArchivoSeleccionado() {
-
-    // Mostrar la ruta seleccionada y el botón procesar
-    const rutaContainer = document.getElementById('ruta-seleccionada-container');
-    const btnProcesar = document.getElementById('btn-procesar-archivo');
-
-    if (rutaContainer) {
-        rutaContainer.classList.remove('hidden');
-    }
-
-    if (btnProcesar) {
-        btnProcesar.classList.remove('hidden');
-    }
+// El lanzador se ve solo con algo para facturar (si algo falla, no queda el cálculo anterior).
+function dejarSinCalculo() {
+    authManager.cargarCalculo(null);
+    document.getElementById('lanzadorFacturaMP').classList.add('contenido-oculto');
+    document.getElementById('avisosMP').innerHTML = '';
+    enVista('#tablas-container').classList.add('hidden');
 }
 
-function mostrarPaso3_ResultadosYAutenticacion(resultado) {
-
-    // Mostrar resultados
-    mostrarResultados(resultado);
-
-    // Mostrar containers de resultados y tablas
-    const resultadosContainer = document.getElementById('resultados-container');
-    const tablasContainer = document.getElementById('tablas-container');
-
-    if (resultadosContainer) {
-        resultadosContainer.classList.remove('hidden');
-    }
-
-    if (tablasContainer) {
-        tablasContainer.classList.remove('hidden');
-    }
-
-    // Mostrar botón "Hacer Factura" y preparar datos
-    mostrarBotonHacerFactura(resultado);
-}
-
-function mostrarBotonHacerFactura(resultado) {
-
-    const hacerFacturaContainer = document.getElementById('hacerFactura');
-    if (!hacerFacturaContainer) {
-        console.error('No se encontró el contenedor hacerFactura');
+async function procesar(ruta) {
+    const radioActividad = enVista('input[name="ActividadMP"]:checked');
+    const fechaComprobante = (document.getElementById('fechaComprobanteMP').value || '').trim();
+    const errores = [];
+    if (!ruta || ruta.trim() === '') errores.push('Elegí el resumen de Mercado Pago.');
+    if (!fechaComprobante) errores.push('Elegí la fecha del comprobante.');
+    if (!radioActividad) errores.push('Debe seleccionar un tipo de Actividad.');
+    if (errores.length > 0) {
+        avisar(errores.join('\n'));
         return;
     }
-    hacerFacturaContainer.classList.remove('hidden');
-    hacerFacturaContainer.innerHTML = `
-        <button id="btn-hacer-factura" class="btn-hacer-factura">
-            Hacer Factura
-        </button>
+
+    dejarSinCalculo();
+    const resultado = await window.electronAPI.mercadoPago.procesarArchivo(ruta);
+    if (!resultado.success) {
+        console.error('Error en el procesamiento:', resultado.error);
+        mostrarError(resultado);
+        return;
+    }
+    mostrarResultados(resultado, fechaComprobante);
+    enVista('#resultados-container').classList.remove('hidden');
+    enVista('#tablas-container').classList.remove('hidden');
+
+    const datosDiarios = datosDiariosDe(resultado);
+    const usuario = window.usuarioSeleccionado || {};
+    const selectPdvMP = document.getElementById('selectPuntoDeVentaMP');
+    const calculo = await window.electronAPI.factura.calcular({
+        modulo: 'mercadopago',
+        Actividad: radioActividad.value,
+        tipoContribuyente: usuario.tipoContribuyente || 'C',
+        datos: datosDiarios,
+        fechaComprobante,
+        metodoIngreso: 'masivo',
+        servicio: 'factura',
+        empresaElegida: document.getElementById('selectEmpresaDisponibleMP').value,
+        puntoVenta: selectPdvMP && selectPdvMP.value ? selectPdvMP.value : null,
+        usuario
+    });
+    if (!calculo.success) {
+        avisar(calculo.error);
+        return;
+    }
+
+    const avisos = [avisoEntradas(resultado.estadisticas.controlEntradas), avisoFechas(datosDiarios, fechaComprobante)].filter(Boolean);
+    document.getElementById('avisosMP').innerHTML = `
+        <div class="success-message">
+            <p><strong>✅ Datos listos para facturación:</strong> ${datosDiarios.length} registros procesados</p>
+        </div>
+        ${avisos.map(a => `<div class="aviso-fechas-mp">⚠ ${a}</div>`).join('')}
     `;
-    let datosDiarios = [];
-    resultado.datos.totalesDiarios.forEach(item => {
+    authManager.cargarCalculo(calculo.paquete, avisos.join('\n\n⚠ ') || null);
+    document.getElementById('lanzadorFacturaMP').classList.remove('contenido-oculto');
+}
+
+// Totales diarios del resumen → [{ fecha: 'dd/mm/aaaa', monto }] redondeado a centavos.
+function datosDiariosDe(resultado) {
+    return resultado.datos.totalesDiarios.map(item => {
         item.totalFormateado = item.total.toLocaleString('es-AR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2
         });
         item.total = parseFloat(item.totalFormateado.replace(/\./g, '').replace(/,/g, '.'));
-        datosDiarios.push({
+        return {
             fecha: item.fecha.replace(/-/g, '/'),
             monto: item.total
-        });
+        };
     });
+}
 
-    const btnHacerFactura = document.getElementById('btn-hacer-factura');
-    if (btnHacerFactura) {
-        btnHacerFactura.addEventListener('click', async () => {
-            const selectEmpresa = document.getElementById('selectEmpresaDisponibleMP');
-            const empresaElegida = selectEmpresa ? selectEmpresa.value : '';
-
-            const selectPdvMP = document.getElementById('selectPuntoDeVentaMP');
-            const puntoVenta = selectPdvMP && selectPdvMP.value ? selectPdvMP.value : null;
-
-            const radioActividad = document.querySelector('input[name="ActividadMP"]:checked');
-            const actividadElegida = radioActividad ? radioActividad.value : 'Servicio';
-
-            const usuarioSeleccionado = window.usuarioSeleccionado || {};
-
-            const fechaComprobanteInput = document.getElementById('fechaComprobanteMP');
-            let fechaComprobante = '';
-            if (fechaComprobanteInput && fechaComprobanteInput.value) {
-                fechaComprobante = fechaComprobanteInput.value;
-            }
-
-            window.fechaComprobanteMP = fechaComprobante;
-
-            const datosParaEnviar = {
-                modulo: 'mercadopago',
-                Actividad: actividadElegida,
-                tipoContribuyente: usuarioSeleccionado.tipoContribuyente || 'C',
-                datos: datosDiarios,
-                fechaComprobante,
-                metodoIngreso: 'masivo',
-                servicio: "factura",
-                empresaElegida,
-                puntoVenta,
-                usuario: usuarioSeleccionado
-            };
-            const calculo = await window.electronAPI.factura.calcular(datosParaEnviar);
-            if (!calculo.success) {
-                alert(calculo.error);
-                return;
-            }
-            mostrarPaso4_BotonesAutenticacion(datosDiarios, avisoFechas(datosDiarios, fechaComprobante), calculo.paquete);
-        });
-    }
+// No frena nada: avisa si lo leído no da lo mismo que las "Entradas" del encabezado
+// del resumen (hay movimientos de un tipo que el lector no reconoce, o de más).
+function avisoEntradas(control) {
+    if (!control || control.coincide) return null;
+    return `El resumen dice Entradas ${control.entradasPdfFormateado} y el lector sumó otra cosa `
+        + `(diferencia ${control.diferenciaFormateado}). Puede haber movimientos que no se reconocieron: `
+        + 'revisá el resumen antes de facturar.';
 }
 
 // "27/10/2026" → "10/2026"; otra cosa → null
@@ -430,9 +348,6 @@ function mesDe(fecha) {
 // No frena nada: avisa si las ventas del resumen no son del mes de la fecha del
 // comprobante (ej. resumen de agosto facturado con fecha de octubre).
 function avisoFechas(datosDiarios, fechaComprobante) {
-    if (!fechaComprobante) {
-        return 'No elegiste la fecha del comprobante.';
-    }
     const mesComprobante = mesDe(fechaComprobante);
     const mesesVentas = [...new Set(datosDiarios.map(d => mesDe(d.fecha)).filter(Boolean))];
     const distintos = mesesVentas.filter(m => m !== mesComprobante);
@@ -441,37 +356,8 @@ function avisoFechas(datosDiarios, fechaComprobante) {
         + 'Revisá que sea el período que querés facturar.';
 }
 
-function mostrarPaso4_BotonesAutenticacion(datosDiarios, aviso, paquete) {
-
-    const botonesContainer = document.getElementById('botones-container');
-    if (!botonesContainer) {
-        console.error('No se encontró el contenedor botones-container');
-        return;
-    }
-
-    botonesContainer.classList.remove('hidden');
-    botonesContainer.innerHTML = `
-        <div class="success-message">
-            <p><strong>✅ Datos listos para facturación:</strong> ${datosDiarios.length} registros procesados</p>
-        </div>
-        ${aviso ? `<div class="aviso-fechas-mp">⚠ ${aviso}</div>` : ''}
-        <div id="lanzadorFacturaMP"></div>
-    `;
-
-    const authManager = new AuthManager();
-    authManager.inicializar({
-        contenedorId: 'lanzadorFacturaMP',
-        pdvAnclaId: 'selectPuntoDeVentaMP',
-        nombreServicio: 'Mercado Pago',
-        servicio: 'mercadopago',
-        avisoAlEmitir: aviso
-    });
-    authManager.cargarCalculo(paquete);
-}
-
-// === NUEVO: Inicialización de usuario, empresa y actividad para MercadoPago ===
-function inicializarUsuarioEmpresaActividadMP() {
-    // Usuario activo
+// Usuario activo, empresa (modelo plano: el contribuyente ES la empresa) y sus PDV.
+function inicializarUsuarioEmpresaMP() {
     const usuario = window.usuarioSeleccionado;
     const usuarioMP = document.getElementById('selectUsuariosMP');
     if (usuario && usuarioMP) {
@@ -485,40 +371,18 @@ function inicializarUsuarioEmpresaActividadMP() {
         usuarioMP.style.fontWeight = 'bold';
     }
 
-    // Empresas disponibles — modelo plano: el contribuyente ES la empresa.
     // Una sola opción = su razón social (no hay cascada empresa→PDV).
     const selectEmpresaMP = document.getElementById('selectEmpresaDisponibleMP');
-    if (selectEmpresaMP && usuario) {
-        const razonSocial = usuario.razonSocial || usuario.nombre || '';
-        selectEmpresaMP.innerHTML = '';
-        const option = document.createElement('option');
-        option.value = razonSocial;
-        option.textContent = razonSocial || 'Sin razón social';
-        selectEmpresaMP.appendChild(option);
-        selectEmpresaMP.disabled = true;   // nada que elegir: es el contribuyente
-        window.empresaElegidaMP = razonSocial;
-        popularPuntosDeVentaMP(usuario.cuit);
-    }
-
-    // Tipo de actividad
-    const actividadRadios = document.querySelectorAll('input[name="ActividadMP"]');
-    window.actividadElegidaMP = null;
-    actividadRadios.forEach(radio => {
-        radio.addEventListener('change', () => {
-            if (radio.checked) {
-                window.actividadElegidaMP = radio.value;
-            }
-        });
-    });
-    // Si hay uno seleccionado por defecto
-    const checkedRadio = Array.from(actividadRadios).find(r => r.checked);
-    if (checkedRadio) {
-        window.actividadElegidaMP = checkedRadio.value;
-    }
+    if (!selectEmpresaMP || !usuario) return Promise.resolve();
+    const razonSocial = usuario.razonSocial || usuario.nombre || '';
+    selectEmpresaMP.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = razonSocial;
+    option.textContent = razonSocial || 'Sin razón social';
+    selectEmpresaMP.appendChild(option);
+    selectEmpresaMP.disabled = true;   // nada que elegir: es el contribuyente
+    return popularPuntosDeVentaMP(usuario.cuit);
 }
-
-// Asegura que la inicialización se ejecute también después de cargar el HTML dinámicamente
-window.configurarUsuarioMercadoPago = inicializarUsuarioEmpresaActividadMP;
 
 /**
  * Pobla el <select id="selectPuntoDeVentaMP"> con los PDV que se pueden ofrecer
@@ -544,7 +408,6 @@ async function popularPuntosDeVentaMP(cuit, habilitadosForzados = null) {
         opt.textContent = '— sin puntos de venta —';
         selectPdv.appendChild(opt);
         selectPdv.disabled = true;
-        window.puntoVentaElegidoMP = '';
         return;
     }
 
@@ -556,12 +419,8 @@ async function popularPuntosDeVentaMP(cuit, habilitadosForzados = null) {
     });
     selectPdv.disabled = false;
     selectPdv.selectedIndex = 0;
-    window.puntoVentaElegidoMP = selectPdv.value;
 
-    selectPdv.onchange = () => {
-        window.puntoVentaElegidoMP = selectPdv.value;
-        mostrarAvisoPdvMP(null);
-    };
+    selectPdv.onchange = () => mostrarAvisoPdvMP(null);
 }
 
 // Aviso dentro del formulario, pegado al desplegable de PDV (null = sacarlo).
@@ -622,7 +481,6 @@ async function mostrarTipoCorregidoMP(detalle) {
     await popularPuntosDeVentaMP(usuario.cuit);
     if (selectPdv && elegido && Array.from(selectPdv.options).some(o => o.value === elegido)) {
         selectPdv.value = elegido;
-        window.puntoVentaElegidoMP = elegido;
     }
     const nombre = detalle.letra === 'B' ? 'Responsable Inscripto' : 'Monotributo';
     mostrarAvisoPdvMP(
@@ -642,32 +500,12 @@ registrarManejadorPdv('selectPuntoDeVentaMP', {
 // FUNCIONES AUXILIARES
 // ========================================
 
-function limpiarTablas() {
-    // Limpiar el contenido de las tablas para que no muestren títulos vacíos
-    const tablaFechas = document.querySelector('.table-box:first-child');
-    const tablaMontos = document.querySelector('.table-box:last-child');
-
-    if (tablaFechas) {
-        tablaFechas.innerHTML = '';
-    }
-
-    if (tablaMontos) {
-        tablaMontos.innerHTML = '';
-    }
-
-    // Remover event listeners existentes si los hay
-    const botonesExpandirExistentes = document.querySelectorAll('.btn-expandir');
-    botonesExpandirExistentes.forEach(boton => {
-        boton.removeEventListener('click', configurarBotonesExpandirTablas);
-    });
-}
-
 function mostrarError(resultado) {
-    const resultadosContainer = document.getElementById('resultados-container');
+    const resultadosContainer = enVista('#resultados-container');
     if (resultadosContainer) {
         resultadosContainer.classList.remove('hidden');
 
-        const resultBox = document.querySelector('.result-box');
+        const resultBox = enVista('.result-box');
         if (resultBox) {
             resultBox.innerHTML = `
                 <div class="error-message">
@@ -680,23 +518,19 @@ function mostrarError(resultado) {
     }
 }
 
-function mostrarResultados(resultado) {
+function mostrarResultados(resultado, fechaComprobante) {
     console.log("Resultado completo:", resultado);
 
-    const resultBox = document.querySelector('.result-box');
+    const resultBox = enVista('.result-box');
     if (!resultBox) {
         console.error('No se encontró .result-box');
-        return;
-    }
-
-    if (!resultado.success) {
-        mostrarError(resultado);
         return;
     }
 
     // Mostrar resultados exitosos
     const datos = resultado.datos;
     const estadisticas = resultado.estadisticas;
+    const empresa = document.getElementById('selectEmpresaDisponibleMP').value;
 
     resultBox.innerHTML = `
         <div class="resultado-exitoso">
@@ -705,27 +539,23 @@ function mostrarResultados(resultado) {
                 <p><strong>Archivo:</strong> ${resultado.archivo}</p>
                 <p><strong>Procesado:</strong> ${new Date(resultado.procesadoEn).toLocaleString('es-AR')}</p>
             </div>
-            
+
             <div class="resumen-general">
                 <h5>📊 Resumen General</h5>
                 <div class="resumen-grid">
                     <div class="resumen-item">
                         <span class="label">Empresa Elegida:</span>
-                        <span class="value">${window.empresaElegidaMP || ''}</span>
+                        <span class="value">${empresa}</span>
                     </div>
                     <div class="resumen-item">
                         <span class="label">Fecha de Comprobante:</span>
-                        <span class="value">${window.fechaComprobanteMP.value || ''}</span>
+                        <span class="value">${fechaComprobante}</span>
                     </div>
                     <br>
                     <div class="resumen-item">
                         <span class="label">Total Transferencias:</span>
                         <span class="value">${datos.resumenGeneral.transferenciasRecibidas.totalFormateado}</span>
                         <span class="count">(${datos.resumenGeneral.transferenciasRecibidas.cantidad} transferencias)</span>
-                    </div>
-                    <div class="resumen-item">
-                        <span class="label">Total Transferencias Recibidas:</span>
-                        <span class="value">${datos.resumenGeneral.transferenciasRecibidas.totalFormateado}</span>
                     </div>
                     <div class="resumen-item">
                         <span class="label">Total Liquidaciones:</span>

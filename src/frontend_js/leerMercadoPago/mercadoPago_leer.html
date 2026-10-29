@@ -18,13 +18,9 @@
             <label for="selectPuntoDeVentaMP">Punto de Venta:</label>
             <select id="selectPuntoDeVentaMP"></select>
         </div>
-        <div id="periodoAFacturarDiv">
-            <h2>Periodo a Facturar</h2>
-
-            <div id="fechaDelComprobanteMP" style="display: block;">
-                <h3>Seleccionar Fecha Del Comprobante</h3>
-                <input type="text" id="fechaComprobanteMP" name="fechaComprobanteMP" placeholder="Selecciona un día">
-            </div>
+        <div id="fechaDelComprobanteMP">
+            <h2>Fecha del comprobante</h2>
+            <input type="text" id="fechaComprobanteMP" name="fechaComprobanteMP" placeholder="Selecciona un día">
         </div>
         <div id="tipoActividadDivMP">
             <h2>Tipo de Actividad</h2>
@@ -46,7 +42,7 @@
             <div id="ruta-seleccionada-container" class="ruta-container hidden">
                 <input type="text" id="ruta-seleccionada-input" class="input-ruta" readonly>
             </div>
-            <button id="btn-procesar-archivo" class="btn hidden">Procesar Archivo</button>
+            <button id="btn-procesar-archivo" class="btn hidden">Procesar</button>
         </div>
         <div id="resultados-container" class="resultados-container hidden">
             <h2 class="subtitle">Resultados y Estadisticas</h2>
@@ -61,13 +57,9 @@
             </div>
         </div>
     </div>
-    <div class="container">
-        <div id="hacerFactura" class="hacerFactura hidden">
-            <!-- El botón de hacer factura se generará dinámicamente -->
-        </div>
-        <div id="botones-container" class="ejecutaNavegador hidden">
-            <!-- Los botones de autenticación se generarán dinámicamente -->
-        </div>
-    </div>
-    <!-- <script type="module" src="../../frontend_js/leerMercadoPago/mercadoPago.js"></script> -->
+    <!-- Lo que se va a facturar y el aviso de fechas: lo arma Procesar -->
+    <div id="avisosMP"></div>
+    <!-- Lanzador (componentes/lanzadorAutomatizacion) lo arma autenticacion/auth.js;
+         aparece cuando Procesar sale bien -->
+    <div id="lanzadorFacturaMP" class="contenido-oculto"></div>
 </div><!-- /#leerMercadoPagoDiv -->

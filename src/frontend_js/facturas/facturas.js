@@ -1,8 +1,8 @@
 import { validarFormularioFacturaManual } from './validacionesFacturas.js';
 
 // Aviso con el modal de la app (con el tono del servicio), en lugar del alert() nativo.
-export function avisar(mensaje) {
-    return showConfirmModal({ title: 'Revisá el formulario', icon: '⚠️', message: mensaje, confirmText: 'Entendido', confirmBtnClass: 'tono', soloAceptar: true });
+export function avisar(mensaje, titulo = 'Revisá el formulario') {
+    return showConfirmModal({ title: titulo, icon: '⚠️', message: mensaje, confirmText: 'Entendido', confirmBtnClass: 'tono', soloAceptar: true });
 }
 
 // Arma los datos para factura:calcular; null si el formulario tiene errores (ya avisó).
