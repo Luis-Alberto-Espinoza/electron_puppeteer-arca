@@ -1,4 +1,3 @@
-import { mercadoPagoFacturas } from '../facturas/facturas.js';
 import { AuthManager, registrarManejadorPdv } from '../autenticacion/auth.js';
 import { pdvOfrecibles } from '../facturas/pdvOfrecibles.js';
 
@@ -380,7 +379,7 @@ function mostrarBotonHacerFactura(resultado) {
 
     const btnHacerFactura = document.getElementById('btn-hacer-factura');
     if (btnHacerFactura) {
-        btnHacerFactura.addEventListener('click', () => {
+        btnHacerFactura.addEventListener('click', async () => {
             const selectEmpresa = document.getElementById('selectEmpresaDisponibleMP');
             const empresaElegida = selectEmpresa ? selectEmpresa.value : '';
 
@@ -412,8 +411,12 @@ function mostrarBotonHacerFactura(resultado) {
                 puntoVenta,
                 usuario: usuarioSeleccionado
             };
-            mercadoPagoFacturas(datosParaEnviar);
-            mostrarPaso4_BotonesAutenticacion(datosDiarios, avisoFechas(datosDiarios, fechaComprobante));
+            const calculo = await window.electronAPI.factura.calcular(datosParaEnviar);
+            if (!calculo.success) {
+                alert(calculo.error);
+                return;
+            }
+            mostrarPaso4_BotonesAutenticacion(datosDiarios, avisoFechas(datosDiarios, fechaComprobante), calculo.paquete);
         });
     }
 }
@@ -438,7 +441,7 @@ function avisoFechas(datosDiarios, fechaComprobante) {
         + 'Revisá que sea el período que querés facturar.';
 }
 
-function mostrarPaso4_BotonesAutenticacion(datosDiarios, aviso) {
+function mostrarPaso4_BotonesAutenticacion(datosDiarios, aviso, paquete) {
 
     const botonesContainer = document.getElementById('botones-container');
     if (!botonesContainer) {
@@ -463,6 +466,7 @@ function mostrarPaso4_BotonesAutenticacion(datosDiarios, aviso) {
         servicio: 'mercadopago',
         avisoAlEmitir: aviso
     });
+    authManager.cargarCalculo(paquete);
 }
 
 // === NUEVO: Inicialización de usuario, empresa y actividad para MercadoPago ===

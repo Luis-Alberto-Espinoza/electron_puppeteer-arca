@@ -1,5 +1,11 @@
 import { validarFormularioFacturaManual } from './validacionesFacturas.js';
 
+// Aviso con el modal de la app (con el tono del servicio), en lugar del alert() nativo.
+export function avisar(mensaje) {
+    return showConfirmModal({ title: 'Revisá el formulario', icon: '⚠️', message: mensaje, confirmText: 'Entendido', confirmBtnClass: 'tono', soloAceptar: true });
+}
+
+// Arma los datos para factura:calcular; null si el formulario tiene errores (ya avisó).
 export function procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados) {
     event.preventDefault();
     console.log("Procesando formulario de factura...");
@@ -23,14 +29,14 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
     }
     if (data.metodoIngreso === 'masivo') {
         if (!datosValidados || datosMasivos.length === 0) {
-            alert('Debe procesar los datos antes de enviarlos.');
-            return;
+            avisar('Debe procesar los datos antes de enviarlos.');
+            return null;
         }
         if (!data.tipoContribuyenteElegido) errores.push("Debe seleccionar un tipo de contribuyente.");
         if (!data.Actividad) errores.push("Debe seleccionar un tipo de Actividad.");
         if (errores.length > 0) {
-            alert(errores.join('\n'));
-            return;
+            avisar(errores.join('\n'));
+            return null;
         }
         const datosMasivosParaEnviar = {
             servicio: 'factura', // agrega el titulo del formulario
@@ -45,15 +51,14 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
             puntoVenta
         };
         console.log("Datos masivos para enviar:", datosMasivosParaEnviar);
-        window.electronAPI.sendFormData(datosMasivosParaEnviar);
-        return;
+        return datosMasivosParaEnviar;
     }
 
     errores = validarFormularioFacturaManual(data);
 
     if (errores.length > 0) {
-        alert(errores.join('\n'));
-        return;
+        avisar(errores.join('\n'));
+        return null;
     }
 
     let validador = false;
@@ -70,12 +75,5 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
 
     datosParaEnviar.servicio = 'factura';
     console.log("Datos finales para enviar:", datosParaEnviar);
-    window.electronAPI.sendFormData(datosParaEnviar);
-}
-
-
-//crear una funcion mercadoPagoFacturas
-
-export function mercadoPagoFacturas(datosMasivosParaEnviar) {
-    window.electronAPI.sendFormData(datosMasivosParaEnviar);
+    return datosParaEnviar;
 }

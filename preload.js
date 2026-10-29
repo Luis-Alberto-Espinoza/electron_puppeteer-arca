@@ -4,20 +4,14 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
     // APIs existentes
 
-    // API para manejar facturas
-    sendFormData: (data) => ipcRenderer.send('formulario-enviado', data),
-    onFormularioRecibido: (callback) => ipcRenderer.on('formulario-recibido', callback),
-    onCodigoLocalStorageGenerado: (callback) => {
-        ipcRenderer.on('codigoLocalStorageGenerado', (_event, codigo) => callback(codigo));
+    // Facturar y Facturar Mercado Pago: calcular devuelve un paquete que se manda entero a emitir
+    factura: {
+        calcular: (datos) => ipcRenderer.invoke('factura:calcular', datos),
+        // { paquete, test, visible, desde, servicio: 'factura' | 'mercadopago' } (desde = reintento: saltea las N que ya salieron)
+        emitir: (opciones) => ipcRenderer.invoke('factura:emitir', opciones)
     },
-
-    // manejo de seciones claves .env
-    // extra = { servicio: 'factura' | 'mercadopago', desde: N } (desde = reintento: saltea las N que ya salieron)
-    iniciarSesion: (url, credenciales, test, visible, extra = {}) => ipcRenderer.send('iniciar-proceso-afip', { url, credenciales, test, visible, ...extra }),
     // Avisos de progreso de la corrida (contrato de la rueda: { tipo:'progreso', mensaje, procesados, total, nombre, cuit })
     onFacturaUpdate: (callback) => ipcRenderer.on('factura:update', (_event, aviso) => callback(aviso)),
-    // Fin del proceso de iniciarSesion (éxito o error): el backend SIEMPRE contesta por acá.
-    onFinProcesoAfip: (callback) => ipcRenderer.on('login-automatizado', (_event, resultado) => callback(resultado)),
     
     // APIs de MercadoPago
     mercadoPago: {

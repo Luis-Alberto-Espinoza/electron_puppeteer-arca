@@ -1,19 +1,15 @@
 // auth.js - Lanzador de Facturación, compartido por Facturas y Mercado Pago.
 //
-// Las dos pantallas arman los datos a su manera y los mandan con sendFormData; el
-// backend los guarda procesados (resultadoCodigo) y los devuelve por
-// 'codigoLocalStorageGenerado'. Desde ahí, lanzar es igual en las dos: el
-// componente lanzadorAutomatizacion (switch + 🔐 Facturar / 🧪 Simular factura, ⏹ Cancelar)
-// y abajo el resultado de la corrida, con "Reintentar las que faltan".
+// Las dos pantallas arman los datos a su manera, los pasan por factura.calcular y
+// le dan el paquete que vuelve a SU AuthManager (cargarCalculo). Desde ahí, lanzar
+// es igual en las dos: el componente lanzadorAutomatizacion (switch + 🔐 Facturar /
+// 🧪 Simular factura, ⏹ Cancelar) manda ese paquete a factura.emitir y abajo
+// muestra el resultado de la corrida, con "Reintentar las que faltan".
 //
-// Los listeners de IPC se registran UNA sola vez para todo el módulo: Facturas y
+// El listener de progreso se registra UNA sola vez para todo el módulo: Facturar y
 // Mercado Pago crean cada uno su AuthManager, y si cada uno se suscribiera, se acumularían.
 
-const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
-
 let escuchando = false;
-let ultimoCodigo = null;     // lo último que procesó el backend (lo que se va a facturar)
-let finPendiente = null;     // resolve de la corrida en curso (el fin llega por 'login-automatizado')
 
 // Pantallas que saben responder a los avisos de PDV del paso 0. Cada una se
 // registra con el id de su desplegable de PDV (el "ancla"): auth.js no conoce
@@ -32,24 +28,9 @@ export function registrarManejadorPdv(anclaId, manejador) {
 function escuchar() {
     if (escuchando || !window.electronAPI) return;
     escuchando = true;
-    window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
-        ultimoCodigo = codigo;
-        // Datos nuevos: el resultado (y su "Reintentar") era de los anteriores.
-        document.querySelectorAll('.factura-resultado').forEach(div => div.remove());
-    });
-    // El backend contesta SIEMPRE por acá (éxito, error o cancelado).
-    window.electronAPI.onFinProcesoAfip((resultado) => {
-        const resolver = finPendiente;
-        finPendiente = null;
-        if (resolver) resolver(resultado);
-    });
     window.electronAPI.onFacturaUpdate((aviso) => {
         if (window.ruedaTrabajando) window.ruedaTrabajando.recibirAviso(aviso);
     });
-}
-
-function cantidadFacturas() {
-    return ultimoCodigo?.montoResultados?.facturasGeneradas?.length || 0;
 }
 
 function el(tag, clase, texto) {
@@ -63,6 +44,7 @@ export class AuthManager {
     constructor() {
         this.lanzador = null;
         this.contenedor = null;
+        this.paquete = null;      // lo que devolvió factura:calcular (lo que se va a facturar)
         this.pdvAnclaId = null;
         this.nombreServicio = 'Facturación';
         this.servicio = 'factura';
@@ -75,6 +57,7 @@ export class AuthManager {
      * @param {string} [config.nombreServicio] título de la rueda: "ARCA · Facturación"
      * @param {string} [config.servicio]       'factura' | 'mercadopago' (para el historial)
      * @param {string} [config.avisoAlEmitir]  advertencia que se suma al modal de Facturar (no frena)
+     * @param {function} [config.limpiar]      auxiliar "Limpiar": solo la pantalla con formulario propio
      */
     inicializar(config = {}) {
         const {
@@ -82,7 +65,8 @@ export class AuthManager {
             pdvAnclaId = 'selectPuntoDeVentaFactura',
             nombreServicio = 'Facturación',
             servicio = 'factura',
-            avisoAlEmitir = null
+            avisoAlEmitir = null,
+            limpiar = null
         } = config;
 
         this.pdvAnclaId = pdvAnclaId;
@@ -108,7 +92,7 @@ export class AuthManager {
                     title: 'Facturar en AFIP',
                     icon: '🔐',
                     confirmText: 'Emitir',
-                    message: `Vas a emitir ${cantidadFacturas()} factura(s) REALES en AFIP.\n`
+                    message: `Vas a emitir ${this._cantidad()} factura(s) REALES en AFIP.\n`
                         + 'Una factura emitida no se deshace: se anula con nota de crédito.'
                         + (avisoAlEmitir ? `\n\n⚠ ${avisoAlEmitir}` : '')
                 }),
@@ -126,26 +110,47 @@ export class AuthManager {
                 preparar: () => this._preparar(),
                 rueda: rueda(true),
                 ejecutar: (datos, { visible }) => this._correr(true, visible, 0)
-            }]
+            }],
+            // Criterio común de los lanzadores: Limpiar si hay formulario propio,
+            // Descartar si quedó un resultado a la vista.
+            auxiliares: [
+                limpiar && {
+                    texto: 'Limpiar',
+                    ayuda: 'Borra lo cargado en el formulario y lo procesado. El cliente queda elegido.',
+                    alHacer: limpiar
+                },
+                {
+                    texto: 'Descartar',
+                    ayuda: 'Deja de lado el resultado y lo que quedó pendiente. No toca AFIP ni el formulario.',
+                    mostrar: () => this._hayResultado(),
+                    alHacer: () => this._limpiarResultado()
+                }
+            ].filter(Boolean)
         });
         this.lanzador.habilitar(true);
     }
 
+    // Datos nuevos de la pantalla: el resultado anterior (y su "Reintentar") era de los otros.
+    cargarCalculo(paquete) {
+        this.paquete = paquete;
+        this._limpiarResultado();
+    }
+
+    _cantidad() {
+        return this.paquete?.codigo?.montoResultados?.facturasGeneradas?.length || 0;
+    }
+
     _preparar() {
-        if (cantidadFacturas() > 0) return { desde: 0 };
+        if (this._cantidad() > 0) return { desde: 0 };
         this._mostrarResultado({ success: false, message: 'Primero procesá los datos: no hay facturas para emitir.' }, false);
         return null;
     }
 
     async _correr(esTest, visible, desde) {
         this._limpiarResultado();
-        const usuario = window.usuarioSeleccionado || {};
-        // La clave la resuelve el backend (resolverAcceso): acá solo viaja el CUIT.
-        const credenciales = { usuario: usuario.cuit || usuario.cuil };
-        const resultado = await new Promise((resolve) => {
-            finPendiente = resolve;
-            window.electronAPI.iniciarSesion(URL_LOGIN_AFIP, credenciales, esTest, visible,
-                { servicio: this.servicio, desde });
+        // La clave la resuelve el backend (resolverAcceso) con el CUIT del paquete.
+        const resultado = await window.electronAPI.factura.emitir({
+            paquete: this.paquete, test: esTest, visible, desde, servicio: this.servicio
         });
         this._terminar(resultado || {}, esTest);
     }
@@ -170,9 +175,14 @@ export class AuthManager {
         this._mostrarResultado(resultado, esTest);
     }
 
-    _limpiarResultado() {
+    _hayResultado() {
         const div = this.contenedor && this.contenedor.nextElementSibling;
-        if (div && div.classList.contains('factura-resultado')) div.remove();
+        return !!(div && div.classList.contains('factura-resultado'));
+    }
+
+    _limpiarResultado() {
+        if (this._hayResultado()) this.contenedor.nextElementSibling.remove();
+        if (this.lanzador) this.lanzador.refrescar();   // Descartar se va con el resultado
     }
 
     // Bloque abajo del lanzador: qué pasó, cuántas salieron y, si faltan, el reintento.
@@ -181,6 +191,7 @@ export class AuthManager {
         if (!this.contenedor) return;
         const div = el('div', 'factura-resultado');
         this.contenedor.insertAdjacentElement('afterend', div);
+        if (this.lanzador) this.lanzador.refrescar();   // aparece Descartar
 
         if (resultado.success && resultado.modoTest) {
             div.classList.add('factura-resultado--prueba');
@@ -192,11 +203,10 @@ export class AuthManager {
             if (p.total > 1) {
                 div.appendChild(el('p', null, `Si está bien, "🔐 Facturar en AFIP" emite las ${p.total} facturas.`));
             }
+            // Captura de la prueba: componente común (componentes/archivoResultado), como Tipificada.
             if (resultado.captura) {
-                const ver = el('button', 'ui-btn ui-btn--ghost', '🖼 Ver captura de la confirmación');
-                ver.type = 'button';
-                ver.addEventListener('click', () => window.electronAPI.abrirArchivo(resultado.captura));
-                div.appendChild(ver);
+                div.appendChild(window.archivoResultado.crearBloque(resultado.captura,
+                    { titulo: 'Captura de la confirmación', etiquetaAbrir: 'Ver captura' }));
             }
             return;
         }

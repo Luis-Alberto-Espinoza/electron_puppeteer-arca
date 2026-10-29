@@ -14,12 +14,7 @@ const clienteFactura = (u) => historialRepo.clienteDesdeUsuario(
     u ? { id: u.id, nombre: u.nombre, cuit: u.cuit || u.cuil } : null
 );
 
-// Variables de estado (antes globales en main.js)
-// Usadas por el flujo antiguo de facturacion
-let resultadoCodigo = null;
-let usuarioSeleccionado = null;
-let empresaElegida = null;
-let ultimaEmpresaElegida = null;
+const URL_LOGIN_AFIP = 'https://auth.afip.gob.ar/contribuyente_/login.xhtml';
 
 // Copia del código procesado sin las primeras `desde` facturas (las que ya salieron).
 function recortarDesde(codigo, desde) {
@@ -59,26 +54,25 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
     const repo = getContribuyenteRepo();
 
     // ========================================
-    // FLUJO ANTIGUO DE FACTURACION
+    // FACTURAR y FACTURAR MERCADO PAGO
     // ========================================
+    // Dos pasos SIN estado en el backend: `calcular` devuelve un "paquete" y el
+    // front lo manda entero a `emitir`. Así cada pantalla factura lo SUYO (antes
+    // Facturar y MP compartían variables acá y una podía emitir lo de la otra).
 
-    // Handler: formulario-enviado
-    // Procesa datos del formulario y los guarda para el siguiente paso
-    ipcMain.on('formulario-enviado', async (event, data) => {
-        console.log("Formulario enviado desde el frontend:", data, '\nfinal\n');
-        if (data.empresaElegida) {
-            ultimaEmpresaElegida = data.empresaElegida;
-        }
-        if (data.servicio === 'factura') {
+    // factura:calcular → { success, paquete: { codigo, usuario, empresaElegida } }
+    ipcMain.handle('factura:calcular', async (event, data) => {
+        try {
             // El tipo (B/C) lo decide el backend con el cliente GUARDADO, no lo que
             // trae el front. Manda el sistema del PDV elegido: un mismo cliente puede
             // tener PDV de los dos sistemas (ej. pasó de RI a Monotributo y conserva
             // los viejos) y AFIP emite la letra de ESE PDV. Si el PDV no trae sistema,
             // queda el tipo del cliente (cargado o deducido de sus PDV).
-            const cuit = data.usuario && (data.usuario.cuit || data.usuario.cuil);
+            const usuario = data.usuario || {};
+            const cuit = usuario.cuit || usuario.cuil;
             const guardado = cuit ? await repo.getByCuit(String(cuit)) : null;
             //
-            // Si viene del form de Facturas (`tipoContribuyenteElegido`, siempre visible
+            // Si viene del form de Facturar (`tipoContribuyenteElegido`, siempre visible
             // y ya ajustado a la letra del PDV), manda lo que eligió el usuario y se
             // guarda en el cliente. Mercado Pago no lo manda: sigue el orden de antes.
             const elegido = (data.tipoContribuyenteElegido === 'B' || data.tipoContribuyenteElegido === 'C')
@@ -88,52 +82,50 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                 const pdv = (guardado.puntosDeVenta || []).find(p => p.numero === numeroPdv);
                 const tipo = elegido || tipoContribuyenteDesdePuntosDeVenta(pdv ? [pdv] : []) || guardado.tipoContribuyente;
                 if (tipo) {
-                    data.usuario.tipoContribuyente = tipo;
+                    usuario.tipoContribuyente = tipo;
                     data.tipoContribuyente = tipo;
                 }
                 if (elegido && elegido !== guardado.tipoContribuyente) {
                     await repo.actualizar(guardado.cuit, { tipoContribuyente: elegido });
-                    console.log(`Tipo de contribuyente de ${guardado.cuit}: ${guardado.tipoContribuyente || '(vacío)'} → ${elegido} (elegido en Facturas).`);
+                    console.log(`Tipo de contribuyente de ${guardado.cuit}: ${guardado.tipoContribuyente || '(vacío)'} → ${elegido} (elegido en Facturar).`);
                 }
             }
-            if (data.tipoContribuyente == null) {
-                data.tipoContribuyente = data.usuario.tipoContribuyente;
-            }
+            if (data.tipoContribuyente == null) data.tipoContribuyente = usuario.tipoContribuyente;
 
-            // Guardamos el resultado en la variable para que el siguiente paso lo pueda usar
-            resultadoCodigo = comunicacionConFactura(data);
-            event.reply('codigoLocalStorageGenerado', resultadoCodigo);
+            const codigo = comunicacionConFactura(data);
+            if (!codigo || !(codigo.montoResultados?.facturasGeneradas?.length > 0)) {
+                return { success: false, error: 'No salió ninguna factura con esos datos: revisá el período y el monto.' };
+            }
+            return { success: true, paquete: { codigo, usuario, empresaElegida: data.empresaElegida || null } };
+        } catch (error) {
+            console.error('Error en factura:calcular:', error);
+            return { success: false, error: error.message };
         }
-        usuarioSeleccionado = data.usuario;
-        empresaElegida = data.empresaElegida;
     });
 
-    // Handler: iniciar-proceso-afip
-    // Inicia el proceso de facturacion usando los datos guardados
-    ipcMain.on('iniciar-proceso-afip', async (event, data) => {
+    // factura:emitir({ paquete, test, visible, desde, servicio }) → resultado final
+    // (siempre contesta: éxito, error, cancelado o navegador cerrado)
+    ipcMain.handle('factura:emitir', async (event, { paquete, test, visible, desde, servicio } = {}) => {
         try {
-            if (!data.credenciales.nombreEmpresa && ultimaEmpresaElegida) {
-                data.credenciales.nombreEmpresa = ultimaEmpresaElegida;
+            const usuario = (paquete && paquete.usuario) || {};
+            const cuitObjetivo = usuario.cuit || usuario.cuil;
+            if (!paquete || !paquete.codigo || !cuitObjetivo) {
+                return { success: false, error: 'Faltan los datos a facturar: volvé a procesar el formulario.' };
             }
-
-            // Modelo plano: el LOGIN lo resuelve el backend con resolverAcceso (no
-            // se confía en la clave que mandó el frontend → además deja de viajar
-            // por el renderer). Para un representado entra por su representante.
-            const cuitObjetivo = (usuarioSeleccionado && usuarioSeleccionado.cuit) || data.credenciales.usuario;
             // Sin tipo (B/C) el flujo no sabe qué comprobante emitir y abortaba recién
             // adentro de AFIP. Se frena antes de abrir el navegador.
-            const tipo = usuarioSeleccionado && usuarioSeleccionado.tipoContribuyente;
+            const tipo = usuario.tipoContribuyente;
             if (tipo !== 'B' && tipo !== 'C') {
                 const error = `Falta el tipo de contribuyente (B = Responsable Inscripto / C = Monotributo) del cliente ${cuitObjetivo}: cargalo en Clientes o volvé a analizarlo.`;
                 console.warn(`✗ ${error}`);
-                event.reply('login-automatizado', { success: false, error });
-                return;
+                return { success: false, error };
             }
 
+            // Modelo plano: el LOGIN lo resuelve el backend con resolverAcceso (la
+            // clave no viaja por el renderer). Para un representado entra por su representante.
             const acceso = await repo.resolverAcceso(String(cuitObjetivo), 'afip');
             if (!acceso) {
-                event.reply('login-automatizado', { success: false, error: `El contribuyente ${cuitObjetivo} no tiene acceso AFIP (ni clave propia ni representante)` });
-                return;
+                return { success: false, error: `El contribuyente ${cuitObjetivo} no tiene acceso AFIP (ni clave propia ni representante)` };
             }
             const credenciales = {
                 usuario: acceso.loginCuit,
@@ -143,7 +135,7 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                 // pero AFIP lista a las personas físicas como "APELLIDO NOMBRE": si le
                 // pasamos ese, el selector de empresa no matchea. objetivoNombre sale
                 // de nombreDe() → razón social, que es exactamente el texto del botón.
-                nombreEmpresa: acceso.objetivoNombre || data.credenciales.nombreEmpresa
+                nombreEmpresa: acceso.objetivoNombre || paquete.empresaElegida
             };
 
             // Log de inicio SIN clave (la consola se guarda en logs/AAAA-MM-DD.log).
@@ -151,43 +143,38 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
             const viaRepresentante = String(acceso.loginCuit) !== String(cuitObjetivo);
             console.log(`Iniciando proceso AFIP: cliente ${cuitObjetivo} → login con ${acceso.loginCuit}`
                 + `${viaRepresentante ? ' (representante)' : ''}, empresa "${credenciales.nombreEmpresa}"`
-                + `, modo prueba: ${data.test ? 'sí' : 'no'}`);
-
-            // El paso 0 deja acá lo que ofrece Comprobantes en línea; se limpia para
-            // no arrastrar el de una corrida anterior.
-            if (resultadoCodigo) delete resultadoCodigo.pdvHabilitadosAfip;
+                + `, modo prueba: ${test ? 'sí' : 'no'}`);
 
             // Reintento: `desde` = cuántas ya salieron en la corrida anterior; se
             // factura solo el resto (los índices del flujo quedan alineados).
-            const datos = recortarDesde(resultadoCodigo, data.desde);
+            const datos = recortarDesde(paquete.codigo, desde);
             const avance = {
                 desde: datos.desde,
                 total: datos.total,
                 emitidas: 0,
                 confirmando: null
             };
-            const cliente = clienteFactura(usuarioSeleccionado) || {};
+            const cliente = clienteFactura(usuario) || {};
             const enviarProgreso = (aviso) => {
                 if (aviso.tipo === 'confirmando') avance.confirmando = aviso.indice;
                 else if (aviso.tipo === 'emitida') { avance.emitidas++; avance.confirmando = null; }
-                else if (aviso.tipo === 'progreso' && mainWindow) {
-                    mainWindow.webContents.send('factura:update', {
+                else if (aviso.tipo === 'progreso' && !event.sender.isDestroyed()) {
+                    event.sender.send('factura:update', {
                         ...aviso, nombre: cliente.nombre || '', cuit: cuitObjetivo
                     });
                 }
             };
 
-            // Usamos el manager unificado con resultadoCodigo ya procesado
-            // Nota: resultadoCodigo ya viene procesado, el unificado lo detectará como 'simple'
+            // El código ya viene procesado: el unificado lo detecta como 'simple'.
             const resultado = await facturaManagerUnificado.iniciarProceso(
-                data.url,
+                URL_LOGIN_AFIP,
                 credenciales,
-                datos.codigo,  // datos ya procesados
-                data.test,
-                usuarioSeleccionado,
-                empresaElegida,
+                datos.codigo,
+                test,
+                usuario,
+                paquete.empresaElegida,
                 enviarProgreso,
-                { visible: data.visible } // false = navegador oculto
+                { visible } // false = navegador oculto
             );
             await aprenderPdvHabilitados(cuitObjetivo, resultado, datos.codigo);
             await aprenderTipoDelPdv(cuitObjetivo, resultado);
@@ -206,10 +193,10 @@ function setupFacturaHandlers(ipcMain, mainWindow) {
                     dudosa: dudosa ? avance.desde + avance.confirmando + 1 : null   // n° de factura (1..N)
                 }
             };
-            if (!data.test) registrarCorrida(data.servicio, cliente, final);
-            event.reply('login-automatizado', final);
+            if (!test) registrarCorrida(servicio, cliente, final);
+            return final;
         } catch (error) {
-            event.reply('login-automatizado', { success: false, error: error.message });
+            return { success: false, error: error.message };
         }
     });
 

@@ -1,5 +1,5 @@
 import { procesarDatosTextareas } from './procesarDatosMasivos.js';
-import { procesarFormularioFactura } from './facturas.js'; // Removida la importación de realizarAccionFacturacion
+import { procesarFormularioFactura, avisar } from './facturas.js'; // Removida la importación de realizarAccionFacturacion
 import { implementarSeguro } from './paraStorage.js';
 import { inicializarFacturas } from './index_01.js';
 import { pdvOfrecibles } from './pdvOfrecibles.js';
@@ -12,7 +12,6 @@ let flatpickrFechaComprobante; // Para la fecha del comprobante
 let flatpickrDatepicker;       // Para la selección múltiple de fechas
 let selectorUsuariosFactura = null;
 let plantillaFormulario = '';  // HTML del formulario tal como vino de factura.html
-let escuchandoCodigo = false;  // el listener de IPC se registra una sola vez
 
 /**
  * Entrada de la vista (la llama el controlador cada vez que se entra): arranca
@@ -57,9 +56,26 @@ function elegirCliente(usuario) {
         && String(usuario.id) === String(window.usuarioSeleccionado.id);
     window.usuarioSeleccionado = usuario;
     if (mismoCliente) return;
-    facturasDiv.innerHTML = usuario ? plantillaFormulario : '';
     facturasDiv.classList.toggle('contenido-oculto', !usuario);
-    if (usuario) inicializarInterfazFacturas();
+    if (usuario) armarFormulario();
+    else facturasDiv.innerHTML = '';
+}
+
+// Formulario de cero (el de factura.html) para el cliente elegido.
+function armarFormulario() {
+    document.getElementById('facturasDiv').innerHTML = plantillaFormulario;
+    inicializarInterfazFacturas();
+}
+
+// Auxiliar "Limpiar" del lanzador: mismo cliente, formulario de cero.
+async function limpiarFormulario() {
+    const ok = await showConfirmModal({
+        title: 'Limpiar formulario',
+        icon: '🧹',
+        confirmText: 'Limpiar',
+        message: 'Se borran los datos cargados y lo procesado. El cliente queda elegido.\n\n¿Desea continuar?'
+    });
+    if (ok) armarFormulario();
 }
 
 function inicializarInterfazFacturas() {
@@ -87,7 +103,7 @@ function inicializarInterfazFacturas() {
     const fechasText = document.getElementById('fechasFacturas');
     const facturasForm = document.getElementById('facturasForm');
 
-    inicializarFacturas();
+    const { authManager } = inicializarFacturas({ limpiar: limpiarFormulario });
 
     // Calendarios comunes (componentes/calendario): mismo formato d/m/Y que leía la pantalla
     if (fechaComprobante) {
@@ -163,13 +179,13 @@ function inicializarInterfazFacturas() {
     ingresoManual.addEventListener('change', actualizarMetodoIngreso);
     ingresoMasivo.addEventListener('change', actualizarMetodoIngreso);
 
-    facturasForm.addEventListener('submit', (event) => {
+    facturasForm.addEventListener('submit', async (event) => {
         // Pegado desde Excel: el mismo "Procesar" valida las columnas antes de calcular.
         if (ingresoMasivo.checked) {
             const resultado = procesarDatosTextareas(textareaFechas, textareaMontos);
             if (resultado.errores.length > 0) {
                 event.preventDefault();
-                alert(resultado.errores.join('\n'));
+                avisar(resultado.errores.join('\n'));
                 return;
             }
             datosMasivos = resultado.datos;
@@ -185,43 +201,30 @@ function inicializarInterfazFacturas() {
         // Guardar la empresa elegida en window para que facturas.js la pueda usar
         window.empresaElegida = empresaElegida;
 
-        procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados); // Llama a la función
-
-        // Mostrar el botón "Hacer Factura" al procesar el formulario
-        const hacerFacturaDiv = document.getElementById('hacerFacturaFacturas');
-        const botonesPuppeteer = document.getElementById('botones-puppeteer');
-        if (hacerFacturaDiv) hacerFacturaDiv.classList.remove('hidden');
-        // Ocultar los botones de puppeteer hasta que se haga click en "Hacer Factura"
-        if (botonesPuppeteer) botonesPuppeteer.classList.add('hidden');
+        const datos = procesarFormularioFactura(event, facturasForm, datosMasivos, datosValidados);
+        if (!datos) return;
+        const calculo = await window.electronAPI.factura.calcular(datos);
+        // El lanzador se ve solo con algo para facturar (si falla, no queda el cálculo anterior).
+        const lanzador = document.getElementById('lanzadorFactura');
+        authManager.cargarCalculo(calculo.success ? calculo.paquete : null);
+        lanzador.classList.toggle('contenido-oculto', !calculo.success);
+        if (!calculo.success) {
+            avisar(calculo.error);
+            return;
+        }
+        implementarSeguro('respuesta', calculo.paquete.codigo);
+        configurarBotonesExpandirTablas();
     });
 
-    // Mostrar los botones de puppeteer al hacer click en "Hacer Factura"
-    const habilitarBtnAFIP = document.getElementById('habilitarBtnAFIP');
-    if (habilitarBtnAFIP) {
-        habilitarBtnAFIP.addEventListener('click', () => {
-            const botonesPuppeteer = document.getElementById('botones-puppeteer');
-            if (botonesPuppeteer) {
-                botonesPuppeteer.classList.remove('hidden');
-            }
-        });
-    }
-
-    // Ocultar "Hacer Factura" y "botones-puppeteer" al abrir el módulo
-    const hacerFacturaDiv = document.getElementById('hacerFacturaFacturas');
-    const botonesPuppeteer = document.getElementById('botones-puppeteer');
-    if (hacerFacturaDiv) hacerFacturaDiv.classList.add('hidden');
-    if (botonesPuppeteer) botonesPuppeteer.classList.add('hidden');
-
-    if (!escuchandoCodigo) {
-        escuchandoCodigo = true;
-        window.electronAPI.onCodigoLocalStorageGenerado((codigo) => {
-            implementarSeguro('respuesta', codigo);
-            configurarBotonesExpandirTablas(); 
-        });
-    }
-
     configurarUsuarioEnFacturas();
-    configurarEmpresasDisponibles(); 
+    // Recién con los PDV cargados se sabe qué campo está habilitado.
+    configurarEmpresasDisponibles().then(enfocarPrimerCampo);
+}
+
+// Elegido el cliente, se sigue escribiendo en el formulario (no en el selector).
+function enfocarPrimerCampo() {
+    const campo = document.querySelector('#facturasDiv :is(select, input:not([type=hidden]), textarea):not(:disabled)');
+    if (campo) campo.focus();
 }
 
 function configurarUsuarioEnFacturas() {

@@ -64,7 +64,7 @@ async function paso_4_ConfirmarFactura_Unificado(newPage, modoTest, usuarioSelec
             // el código de abajo (que sí confirma) cae igual en un waitForNavigation
             // esperando una navegación que nunca ocurre (no se clickeó confirmar) →
             // el frame se desprende y tira "Navigating frame was detached".
-            return { success: true, message: "Modo test: captura realizada", pdfPath: null };
+            return { success: true, message: "Modo test: captura realizada", pdfPath: null, captura: screenshotPath };
         }
 
         // ==========================================

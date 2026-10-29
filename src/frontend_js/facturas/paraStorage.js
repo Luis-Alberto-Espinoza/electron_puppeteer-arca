@@ -1,29 +1,6 @@
 // paraStorage.js - Versión simplificada y limpia// paraStorage.js - Versión que NO se rompe
 export function pStorage(data) {
-
-    console.log("Generando código para localStorage...");
-    console.log("Contenido de data:", data);
-    let arrayDatos = data.arrayResultante;
-    let datosDeEmision = data.tipoActividad;
-    let datosDeOperacion = data.tipoContribuyente;
-
-    const codigoLocalStorage = `
-    let iterador = localStorage.getItem('iterador');
-    if (iterador === null || isNaN(parseInt(iterador))) {
-        iterador = 0;
-    } else {
-        iterador = parseInt(iterador);
-    }
-    localStorage.setItem('arrayDatos', ${JSON.stringify(data.montoResultados?.facturasGeneradas || [])});
-    localStorage.setItem('datosDeEmision', '${datosDeEmision}');
-    localStorage.setItem('datosDeOperacion', '${datosDeOperacion}');
-    if (localStorage.getItem('iterador') === null || localStorage.getItem('iterador') !== '0') {
-        localStorage.setItem('iterador', 0);
-    };
-    `;
-
     return {
-        codigoLocalStorage,
         htmlSimple: generarHtmlQueNoSeRompe(data)
     };
 }

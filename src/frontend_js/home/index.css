@@ -269,25 +269,6 @@ form>div {
     margin: 20px auto;
 }
 
-#ejecutaNavegador {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    margin-top: 20px;
-    width: 100%;
-}
-
-#copiarCodigo {
-    background-color: #ffc107;
-    /* Amarillo */
-    color: var(--v-texto, #333);
-}
-
-#copiarCodigo:hover {
-    background-color: #e0a800;
-}
-
 .hidden {
     display: none !important;
 }

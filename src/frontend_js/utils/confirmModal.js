@@ -91,6 +91,7 @@ function tonoVistaActiva() {
  * @param {string} options.confirmText - Texto del botón de confirmar (default: "Confirmar")
  * @param {string} options.cancelText - Texto del botón de cancelar (default: "Cancelar")
  * @param {string} options.confirmBtnClass - Clase CSS del botón confirmar: 'danger', 'success' u otro valor = tono del servicio (default: 'danger')
+ * @param {boolean} options.soloAceptar - Aviso: sin botón Cancelar (reemplaza al alert() nativo)
  * @param {Function} options.onConfirm - Callback al confirmar (opcional)
  * @param {Function} options.onCancel - Callback al cancelar (opcional)
  *
@@ -154,6 +155,7 @@ function showConfirmModal(options = {}) {
         modalMessage.textContent = config.message;
         confirmText.textContent = config.confirmText;
         cancelText.textContent = config.cancelText;
+        cancelBtn.hidden = !!options.soloAceptar;
 
         // Configurar clase del botón de confirmar
         confirmBtn.className = 'btn'; // Reset clases
@@ -205,6 +207,11 @@ function showConfirmModal(options = {}) {
 
         // Si cierra el modal con X o ESC, contar como cancelar
         modalElement.addEventListener('hidden.bs.modal', handleCancel, { once: true });
+
+        // Aviso: Enter lo cierra, como el alert() que reemplaza
+        if (options.soloAceptar) {
+            modalElement.addEventListener('shown.bs.modal', () => confirmBtn.focus(), { once: true });
+        }
 
         // Mostrar modal
         modal.show();

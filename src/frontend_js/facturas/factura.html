@@ -125,25 +125,10 @@
 
     <button id="procesarFacturas" type="submit">Procesar </button>
 </form>
-<div id="respuesta">
-    <textarea id="codigoLocalStorage" style="display: none; width: 100%; height: 200px; resize: vertical;"></textarea>
-    <button id="copiarCodigo" style="display: none;">Copiar Código</button>
-</div>
-<div id="ejecutaNavegador">
-    <!--
-                        <button id="testButton">Abrir AFIP en Modo Test</button>
-                        <button id="loginButton">Abrir AFIP con Puppeteer</button>
-                        -->
-</div>
-<div class="container">
-    <div id="hacerFacturaFacturas" class="hacerFacturaFacturas hidden">
-        <button id="habilitarBtnAFIP" class="btn-principal">Hacer Facturas</button>
-    </div>
-    <div id="botones-puppeteer">
-        <!-- Lanzador (componentes/lanzadorAutomatizacion) lo arma autenticacion/auth.js -->
-        <div id="lanzadorFactura"></div>
-    </div>
-</div>
+<div id="respuesta"></div>
+<!-- Lanzador (componentes/lanzadorAutomatizacion) lo arma autenticacion/auth.js;
+     aparece cuando Procesar sale bien -->
+<div id="lanzadorFactura" class="contenido-oculto"></div>
 </div><!-- /#facturasDiv -->
 </body>
 

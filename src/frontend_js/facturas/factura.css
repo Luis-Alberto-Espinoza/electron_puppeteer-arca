@@ -160,14 +160,6 @@ label {
     font-weight: 600;
 }
 
-#ejecutaNavegador {
-    display: flex;
-    justify-content: space-between;
-    gap: 15px;
-    margin-top: 25px;
-    flex-wrap: wrap;
-}
-
 #fechasFacturas,
 textarea {
     min-height: 120px;
@@ -258,9 +250,6 @@ button:active {
     }
     .periodo-selects {
         grid-template-columns: 1fr;
-    }
-    #ejecutaNavegador {
-        flex-direction: column;
     }
 }
 

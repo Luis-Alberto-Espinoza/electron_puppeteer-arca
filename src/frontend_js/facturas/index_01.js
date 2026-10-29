@@ -2,7 +2,8 @@
 import { AuthManager } from '../autenticacion/auth.js';
 
 // Exporta una función que inicializa todo
-export function inicializarFacturas() {
+// limpiar: el auxiliar "Limpiar" del lanzador (lo resuelve la vista, que tiene el formulario original)
+export function inicializarFacturas({ limpiar } = {}) {
     // === Referencias generales ===
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
@@ -55,7 +56,7 @@ export function inicializarFacturas() {
     // INICIALIZACIÓN DE AUTENTICACIÓN
     // ========================================
     const authManager = new AuthManager();
-    authManager.inicializar();
+    authManager.inicializar({ limpiar });
 
     return { authManager };
 }
