@@ -93,6 +93,8 @@ function setupNotaCreditoDebitoHandlers(ipcMain, app) {
             if (!ruta) {
                 return { success: false, error: 'MISSING_PATH', message: 'Falta la ruta del Excel.' };
             }
+            // Archivo de ENTRADA al log del día (ver nombreNuevoFlujo.md §11).
+            console.log(`[Notas de crédito/débito] Archivo de entrada: ${ruta}`);
             if (!ruta.toLowerCase().endsWith('.xlsx') || !fs.existsSync(ruta)) {
                 return { success: false, error: 'FILE_NOT_FOUND', message: 'El Excel no existe o no es un .xlsx válido.' };
             }

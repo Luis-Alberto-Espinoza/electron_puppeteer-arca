@@ -304,6 +304,10 @@ html {
 #facturacionDiv #facturasDiv .columnas-pegado textarea {
     width: 100%;
 }
+/* Facturar tipificada: las fechas, angostas como en Facturar */
+#facturaTipificadaDiv :is(#fechaComprobanteTipificada, #fechaDesde, #fechaHasta, #fechaVtoPago) {
+    width: 18ch;
+}
 /* Facturar Mercado Pago: la fecha del comprobante, angosta como en Facturar */
 #mercadoPagoDiv #fechaComprobanteMP {
     width: 18ch;

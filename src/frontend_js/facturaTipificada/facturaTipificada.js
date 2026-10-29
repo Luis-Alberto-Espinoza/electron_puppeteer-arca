@@ -445,7 +445,15 @@ function elegirClienteTipificada(usuario) {
     if (mismoCliente) return;
     div.innerHTML = usuario ? plantillaTipificada : '';
     div.classList.toggle('contenido-oculto', !usuario);
-    if (usuario) inicializarFacturasTipificadas();
+    if (!usuario) return;
+    // Elegido el cliente, se sigue en el formulario (no en el selector). Después del
+    // armado: el selector termina de repintarse en el mismo turno y se queda el foco.
+    inicializarFacturasTipificadas().then(() => setTimeout(() => {
+        const form = document.getElementById('formFacturaTipificada');
+        const primero = form && [...form.querySelectorAll('input, select, textarea')]
+            .find(el => !el.disabled && el.type !== 'hidden' && el.offsetParent !== null);
+        primero?.focus();
+    }, 0));
 }
 
 /**
@@ -1284,15 +1292,15 @@ function armarLoteFacturas() {
     const enviados = grupos.slice();
     const gruposParaEnviar = grupos.map(g => clonar(g.datos));
 
-    // Incluir el formulario actual si el usuario dejó datos cargados.
-    if (formularioTieneDatos()) {
-        if (!form.reportValidity()) return null;
+    // El formulario actual va si tiene datos; si no hay nada guardado, también se
+    // revisa (así el aviso dice qué falta en lugar de "no hay facturas").
+    if (formularioTieneDatos() || gruposParaEnviar.length === 0) {
+        const errores = revisarFormulario(form);
+        if (errores.length > 0) {
+            avisar(errores.join('\n'));
+            return null;
+        }
         gruposParaEnviar.push(recopilarDatosFormulario());
-    }
-
-    if (gruposParaEnviar.length === 0) {
-        mostrarError('No hay facturas para generar. Completá el formulario o agregá una factura distinta.');
-        return null;
     }
     const total = gruposParaEnviar.reduce((s, g) => s + (g.facturas?.length || 0), 0);
     return { nota: false, grupos: gruposParaEnviar, enviados, total };
@@ -1700,6 +1708,33 @@ function obtenerTodasLasFacturas() {
  * Indica si el formulario actual tiene al menos una línea con datos cargados
  * (descripción o precio). Sirve para decidir si guardarlo/enviarlo o ignorarlo.
  */
+// Aviso con el modal de la app (con el tono del servicio), como en Facturar.
+function avisar(mensaje) {
+    return showConfirmModal({ title: 'Revisá el formulario', icon: '⚠️', message: mensaje, confirmText: 'Entendido', confirmBtnClass: 'tono', soloAceptar: true });
+}
+
+// Qué falta, campo por campo: los obligatorios del HTML (required/min) con su
+// etiqueta, y el precio de cada línea, que tiene que ser mayor a 0.
+function revisarFormulario(form) {
+    const visible = (el) => el.offsetParent !== null;
+    const etiqueta = (el) => (form.querySelector(`label[for="${el.id}"]`)?.textContent || el.name || el.id)
+        .replace(/\*|\(\$\)/g, '').trim();
+    // descripcion_f2_l3 → "Factura 2, línea 3: "
+    const dondeEsta = (el) => {
+        const m = (el.id || '').match(/_f(\d+)_l(\d+)$/);
+        return m ? `Factura ${m[1]}, línea ${m[2]}: ` : '';
+    };
+    const errores = [...form.querySelectorAll(':invalid')]
+        .filter(el => visible(el) && el.tagName !== 'FORM' && el.tagName !== 'FIELDSET')
+        .map(el => `${dondeEsta(el)}falta ${etiqueta(el)}`);
+    form.querySelectorAll('[id^="precioUnitario_f"]').forEach(el => {
+        if (visible(el) && el.validity.valid && !(parseFloat(el.value) > 0)) {
+            errores.push(`${dondeEsta(el)}el precio tiene que ser mayor a 0`);
+        }
+    });
+    return errores;
+}
+
 function formularioTieneDatos() {
     const facturas = obtenerTodasLasFacturas();
     return facturas.some(f =>
@@ -1714,11 +1749,9 @@ function formularioTieneDatos() {
 function guardarFacturaDistinta() {
     const form = document.getElementById('formFacturaTipificada');
 
-    // Validación nativa del cabezal + líneas (required del HTML).
-    if (!form.reportValidity()) return;
-
-    if (!formularioTieneDatos()) {
-        mostrarError('Cargá al menos una línea con descripción y precio antes de agregar una factura distinta.');
+    const errores = revisarFormulario(form);
+    if (errores.length > 0) {
+        avisar(errores.join('\n'));
         return;
     }
 
@@ -2221,7 +2254,7 @@ function mostrarResultadoModoPrueba(resultado) {
         <div class="resultado-modo-prueba">
             <h4>🧪 Modo Prueba Completado</h4>
             <div class="mensaje-info">
-                <p><strong>La factura NO fue confirmada.</strong></p>
+                <p><strong>La factura NO fue confirmada, que es lo esperado ✅</strong> No se emitió nada en AFIP.</p>
                 <p>Se ha generado una captura de pantalla para que puedas verificar los datos antes de generar la factura real.</p>
                 <p>Revisa que:</p>
                 <ul>
@@ -2255,11 +2288,9 @@ function mostrarResultadoModoPrueba(resultado) {
 
 // Exponer funciones globalmente
 window.inicializarVistaTipificada = inicializarVistaTipificada;
-window.inicializarFacturasTipificadas = inicializarFacturasTipificadas;
 window.eliminarFactura = eliminarFactura;
 window.eliminarLineaDeFactura = eliminarLineaDeFactura;
 window.agregarLineaAFactura = agregarLineaAFactura;
-window.mostrarInfoUsuario = mostrarInfoUsuario; // Para actualizar cuando se cambia de usuario
 window.editarGrupo = editarGrupo;   // Facturas distintas: editar tarjeta
 window.eliminarGrupo = eliminarGrupo; // Facturas distintas: quitar tarjeta
 
