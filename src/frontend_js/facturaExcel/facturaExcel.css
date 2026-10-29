@@ -1,0 +1,93 @@
+/* Facturar desde Excel. Colores del tema AFIP (tema_afip.css, #facturaExcelDiv). */
+
+#facturaExcelDiv .fx-seccion {
+    margin: 0 0 24px;
+}
+#facturaExcelDiv #fxPuntoVenta {
+    max-width: 28rem;
+}
+#facturaExcelDiv .fx-ayuda {
+    margin: 4px 0 12px;
+    color: var(--v-texto-2);
+}
+#facturaExcelDiv .fx-botones {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+#facturaExcelDiv .fx-archivo {
+    margin: 10px 0 0;
+    font-weight: 600;
+    word-break: break-all;
+}
+#facturaExcelDiv #fxModelo:not(:empty) {
+    margin-top: 12px;
+}
+
+/* Errores del Excel: uno por renglón, con hoja y fila */
+#facturaExcelDiv .fx-errores {
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 4px solid var(--v-txt-error, #ff8a8a);
+    background: var(--v-error-bg, rgb(120 20 20 / 45%));
+    color: var(--v-txt-error, #ffd6d6);
+}
+#facturaExcelDiv .fx-errores h3 {
+    margin: 0 0 6px;
+    font-size: 1rem;
+}
+#facturaExcelDiv .fx-errores ul {
+    margin: 0;
+    padding-left: 20px;
+}
+#facturaExcelDiv .fx-resumen {
+    font-weight: 600;
+}
+
+#facturaExcelDiv .fx-tabla-scroll {
+    max-height: 26rem;
+    overflow: auto;
+    border-radius: 6px;
+}
+#facturaExcelDiv .fx-tabla {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+/* La columna "Resultado" aparece recién después de una corrida */
+#facturaExcelDiv .fx-tabla:not(.fx-con-resultado) :is(th, td):last-child {
+    display: none;
+}
+#facturaExcelDiv .fx-tabla :is(th, td) {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--v-borde, rgb(255 255 255 / 15%));
+}
+#facturaExcelDiv .fx-tabla th {
+    position: sticky;
+    top: 0;
+    background: var(--v-panel-2);
+}
+#facturaExcelDiv .fx-tabla td.fx-monto {
+    text-align: right;
+    white-space: nowrap;
+}
+#facturaExcelDiv .fx-tabla .fx-ok { color: var(--v-txt-ok, #8ee6a8); }
+#facturaExcelDiv .fx-tabla .fx-mal { color: var(--v-txt-error, #ffb3b3); }
+#facturaExcelDiv .fx-tabla .fx-duda { color: var(--v-txt-warn, #ffd27a); }
+
+/* Resultado de la corrida o de la prueba */
+#facturaExcelDiv .fx-caja {
+    padding: 12px 16px;
+    border-radius: 6px;
+    border-left: 4px solid;
+}
+#facturaExcelDiv .fx-caja h3 { margin: 0 0 6px; font-size: 1rem; }
+#facturaExcelDiv .fx-caja p { margin: 4px 0 0; }
+#facturaExcelDiv .fx-caja--ok { background: var(--v-ok-bg); color: var(--v-txt-ok); }
+#facturaExcelDiv .fx-caja--aviso { background: var(--v-warn-bg); color: var(--v-txt-warn); }
+
+#facturaExcelDiv #fxResultado:not(:empty) {
+    margin: 0 0 16px;
+}

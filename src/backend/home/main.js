@@ -23,6 +23,7 @@ const setupMercadoPagoHandlers = require('../afip/extraerDemercadoPago/handlers.
 
 // Importar handlers de AFIP por dominio
 const setupFacturaHandlers = require('../afip/factura/handlers.js');
+const setupFacturaExcelHandlers = require('../afip/facturaExcel/handlers.js');
 const setupVepHandlers = require('../afip/vep/handlers.js');
 const setupConsultaDeudaHandlers = require('../afip/consultaDeuda/handlers.js');
 const setupConsultaComprobantesHandlers = require('../afip/consultaComprobantes/handlers.js');
@@ -337,6 +338,7 @@ app.whenReady().then(async () => {
         setupDatosHandlers(ipcMain, app, dialog); // carpeta de datos (Fase 2)
         setupMercadoPagoHandlers(ipcMain, mainWindow, dialog);
         setupFacturaHandlers(ipcMain, mainWindow);
+        setupFacturaExcelHandlers(ipcMain, mainWindow, dialog, app);
         setupVepHandlers(ipcMain, mainWindow, app);
         setupConsultaDeudaHandlers(ipcMain, app);
         setupConsultaComprobantesHandlers(ipcMain, app);

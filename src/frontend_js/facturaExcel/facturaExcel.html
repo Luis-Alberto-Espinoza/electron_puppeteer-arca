@@ -1,0 +1,44 @@
+<!-- Vista: elegir el cliente; el formulario aparece debajo recién con un cliente elegido -->
+<div class="vista-facturacion-cliente">
+    <h2 class="vista-facturacion-titulo">Facturar desde Excel</h2>
+    <div id="fx-selector-usuarios"></div>
+</div>
+<div id="facturasExcelDiv" class="contenido-oculto">
+    <div class="fx-seccion">
+        <label for="fxPuntoVenta">Punto de venta</label>
+        <select id="fxPuntoVenta"></select>
+    </div>
+
+    <div class="fx-seccion">
+        <h2>Excel de facturas</h2>
+        <p class="fx-ayuda">
+            Bajá el modelo y completalo: una fila por factura en la hoja "Facturas" y sus
+            renglones en la hoja "Líneas". La hoja "Ayuda" explica cada columna.
+        </p>
+        <div class="fx-botones">
+            <button type="button" id="fxBajarModelo" class="ui-btn ui-btn--ghost">📥 Bajar modelo</button>
+            <button type="button" id="fxElegirExcel" class="ui-btn ui-btn--accion">📂 Elegir Excel</button>
+        </div>
+        <div id="fxModelo"></div>
+        <p id="fxArchivo" class="fx-archivo"></p>
+    </div>
+
+    <!-- Vista previa: lo leído, con los errores arriba. Sin errores aparece el lanzador. -->
+    <div id="fxVistaPrevia" class="fx-seccion contenido-oculto">
+        <h2>Vista previa</h2>
+        <div id="fxErrores"></div>
+        <p id="fxResumen" class="fx-resumen"></p>
+        <div class="fx-tabla-scroll">
+            <table class="fx-tabla">
+                <thead>
+                    <tr><th>N°</th><th>Fecha</th><th>Comprobante</th><th>Receptor</th><th>Líneas</th><th>Total</th><th>Resultado</th></tr>
+                </thead>
+                <tbody id="fxFilas"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="fxResultado"></div>
+    <!-- Lanzador (componentes/lanzadorAutomatizacion): aparece con un Excel sin errores -->
+    <div id="lanzadorFacturaExcel" class="contenido-oculto"></div>
+</div><!-- /#facturasExcelDiv -->

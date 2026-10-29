@@ -283,4 +283,4 @@ function validarArchivosIva(rutas, periodo) {
     };
 }
 
-module.exports = { validarArchivosIva, TIPOS };
+module.exports = { validarArchivosIva, TIPOS, cuitValido };

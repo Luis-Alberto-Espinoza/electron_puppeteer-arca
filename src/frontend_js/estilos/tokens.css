@@ -75,6 +75,7 @@
   --tono-afip-inicio:     hsl(262 46% 42%);
   --tono-facturacion:     hsl(252 52% 40%);
   --tono-tipificada:      hsl(252 42% 47%);   /* "un tono menor" que Facturación */
+  --tono-factura-excel:   hsl(246 40% 43%);   /* familia Facturación */
   --tono-mercadopago:     hsl(242 46% 44%);
   --tono-vep:             hsl(270 48% 40%);
   --tono-cuenta-trib:     hsl(280 44% 39%);

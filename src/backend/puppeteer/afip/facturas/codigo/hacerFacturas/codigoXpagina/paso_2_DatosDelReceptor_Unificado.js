@@ -25,14 +25,17 @@ async function paso_2_DatosDelReceptor_Unificado(newPage, datos) {
         return { ok: true, skipped: true };
       }
 
-      // Si no hay receptor específico, usar valores por defecto (modo normal)
+      // Si no hay receptor específico, usar valores por defecto (modo normal).
+      // Sin documento (consumidor final sin identificar) se respeta la condición de
+      // venta que venga (ej. Facturar desde Excel); si no viene, "otros" como siempre.
+      const ventasPedidas = datos.receptor && datos.receptor.condicionesVenta;
       const receptor = (datos.receptor && datos.receptor.numeroDocumento)
         ? datos.receptor
         : {
             condicionIVA: 5,
             tipoDocumento: 80,
             numeroDocumento: null,
-            condicionesVenta: ['otros']
+            condicionesVenta: (ventasPedidas && ventasPedidas.length) ? ventasPedidas : ['otros']
           };
 
       // --- Condición IVA del receptor ---

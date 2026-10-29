@@ -27,6 +27,7 @@
         { id: 'lanzadorAfip', label: 'Lanzador', grupo: 'AFIP', accion: { lanzador: 'afip' }, claves: ['sesion', 'abrir', 'login', 'clave fiscal'] },
         { id: 'facturacion', label: 'Facturar', grupo: 'AFIP', accion: { vista: 'facturacion' }, claves: ['factura', 'facturar', 'emitir', 'comprobante'] },
         { id: 'facturaTipificada', label: 'Facturar tipificada', grupo: 'AFIP', accion: { vista: 'facturaTipificada' }, claves: ['factura', 'tipificada', 'nota de credito', 'nota de debito'] },
+        { id: 'facturaExcel', label: 'Facturar desde Excel', grupo: 'AFIP', accion: { vista: 'facturaExcel' }, claves: ['excel', 'planilla', 'lote', 'factura', 'varias facturas'] },
         { id: 'mercadoPago', label: 'Facturar Mercado Pago', grupo: 'AFIP', accion: { vista: 'mercadoPago' }, claves: ['mp', 'mercadopago', 'factura', 'cobros'] },
         { id: 'vep', label: 'Generar VEP', grupo: 'AFIP', accion: { vista: 'vep' }, claves: ['volante', 'pago', 'deuda'] },
         { id: 'cuentaTributaria', label: 'Cuenta Tributaria', grupo: 'AFIP', accion: { vista: 'cuentaTributaria' }, claves: ['sct', 'saldo', 'deuda'] },

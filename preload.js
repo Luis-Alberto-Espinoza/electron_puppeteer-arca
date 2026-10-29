@@ -244,6 +244,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
 
     // APIs para Facturas de Cliente (con progreso en tiempo real)
+    // Facturar desde Excel: modelo, elegir y leer (emitir = facturaTipificada.generarLote)
+    facturaExcel: {
+        bajarModelo: (datos) => ipcRenderer.invoke('facturaExcel:bajarModelo', datos),
+        elegirExcel: () => ipcRenderer.invoke('facturaExcel:elegirExcel'),
+        leer: (datos) => ipcRenderer.invoke('facturaExcel:leer', datos)
+    },
+
     facturaCliente: {
         generar: (datos) => ipcRenderer.invoke('facturaCliente:generar', datos),
         onProgreso: (callback) => ipcRenderer.on('facturaCliente:progreso', (_event, datos) => callback(datos)),

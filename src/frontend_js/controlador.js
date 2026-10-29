@@ -50,7 +50,7 @@ function mostrarSoloModulo(idMostrar) {
     });
 
     // Ocultar módulos secundarios (que no están en MODULOS_PRINCIPALES)
-    ['portadaDiv', 'generarVEPDiv', 'facturacionDiv', 'facturaTipificadaDiv', 'mercadoPagoDiv', 'planesDePagoDiv', 'datosRegistralesDiv', 'ddjjPendientesDiv', 'importarLibroIvaDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv', 'plantillasExcelDiv'].forEach(id => {
+    ['portadaDiv', 'generarVEPDiv', 'facturacionDiv', 'facturaTipificadaDiv', 'facturaExcelDiv', 'mercadoPagoDiv', 'planesDePagoDiv', 'datosRegistralesDiv', 'ddjjPendientesDiv', 'importarLibroIvaDiv', 'cuentaTributariaDiv', 'consultaComprobantesDiv', 'declaracionJuradaDiv', 'historialDiv', 'plantillasExcelDiv'].forEach(id => {
         const elemento = document.getElementById(id);
         if (elemento) elemento.classList.add('contenido-oculto');
     });
@@ -90,6 +90,7 @@ const REGISTRO_VISTAS = {
     vep: { modulo: 'generarVEPDiv', cargar: cargarModuloGenerarVEP },
     facturacion: { modulo: 'facturacionDiv', cargar: cargarModuloFacturacion },
     facturaTipificada: { modulo: 'facturaTipificadaDiv', cargar: cargarModuloFacturaTipificada },
+    facturaExcel: { modulo: 'facturaExcelDiv', cargar: cargarModuloFacturaExcel },
     mercadoPago: { modulo: 'mercadoPagoDiv', cargar: cargarModuloMercadoPago },
     planesDePago: { modulo: 'planesDePagoDiv', cargar: cargarModuloPlanesDePago },
     datosRegistrales: { modulo: 'datosRegistralesDiv', cargar: cargarModuloDatosRegistrales },
@@ -737,6 +738,53 @@ async function cargarModuloFacturaTipificada() {
     } catch (error) {
         console.error('❌ Error cargando módulo Facturas Tipificadas:', error);
         div.innerHTML = '<div style="color:red;">Error cargando el módulo de Facturas Tipificadas.</div>';
+    }
+}
+
+/**
+ * Carga Facturar desde Excel (selector de cliente embebido). Mismo patrón que
+ * Facturas Tipificadas: HTML, CSS, SelectorUsuarios y el JS del módulo.
+ */
+async function cargarModuloFacturaExcel() {
+    mostrarSoloModulo('facturaExcelDiv');
+    const div = document.getElementById('facturaExcelDiv');
+    if (!div) return;
+    div.innerHTML = '';
+
+    try {
+        const base = '../facturaExcel/facturaExcel';
+        const selectorJsPath = '../componentes/selectorUsuarios/selectorUsuarios.js';
+
+        const response = await fetch(`${base}.html`);
+        if (!response.ok) throw new Error(`Error al cargar ${base}.html`);
+        div.innerHTML = await response.text();
+
+        [`${base}.css`, '../componentes/selectorUsuarios/selectorUsuarios.css'].forEach(href => {
+            if (document.head.querySelector(`link[href="${href}"]`)) return;
+            const l = document.createElement('link');
+            l.rel = 'stylesheet';
+            l.href = href;
+            document.head.appendChild(l);
+        });
+
+        await new Promise((resolve, reject) => {
+            if (typeof SelectorUsuarios !== 'undefined') return resolve();
+            const s = document.createElement('script');
+            s.src = selectorJsPath;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Error cargando selectorUsuarios.js'));
+            document.head.appendChild(s);
+        });
+
+        // Re-cargar siempre: el módulo se arma de cero en cada entrada.
+        document.head.querySelector(`script[src="${base}.js"]`)?.remove();
+        const script = document.createElement('script');
+        script.src = `${base}.js`;
+        script.onload = () => window.inicializarVistaFacturaExcel();
+        document.head.appendChild(script);
+    } catch (error) {
+        console.error('❌ Error cargando Facturar desde Excel:', error);
+        div.innerHTML = '<div style="color:red;">Error cargando Facturar desde Excel.</div>';
     }
 }
 
