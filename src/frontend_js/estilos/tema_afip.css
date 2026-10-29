@@ -275,6 +275,36 @@ html {
     border-radius: var(--radio-sm);
 }
 
+/* Facturar: "¿Cómo armo las facturas?" — una opción por renglón, con su explicación debajo */
+#facturacionDiv #facturasDiv .opcion-metodo {
+    display: block;
+    margin: 10px 0;
+    cursor: pointer;
+}
+#facturacionDiv #facturasDiv .opcion-metodo small {
+    display: block;
+    margin: 2px 0 0 26px;
+    font-weight: 400;
+}
+
+/* Facturar: las fechas y el período no necesitan todo el ancho (la global de
+   home/index.css les da 100%; se le gana con el contenedor). */
+#facturacionDiv #facturasDiv :is(#fechaDelComprobante, .periodo-selects, #calendario) input {
+    width: 18ch;
+}
+#facturacionDiv #facturasDiv #fechasFacturas {
+    max-width: 40rem;
+}
+/* Pegar desde Excel: fechas y montos lado a lado, angostas (son columnas de un dato) */
+#facturacionDiv #facturasDiv .columnas-pegado {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 14rem));
+    gap: 16px;
+}
+#facturacionDiv #facturasDiv .columnas-pegado textarea {
+    width: 100%;
+}
+
 /* ===== 12. Switch "Mostrar navegador" (.ui-switch de base.css) =====
    En base.css el switch prendido es --c-primario-2 (violeta): sobre el fondo
    violeta de cualquier vista AFIP se pierde (medido: pista 118,75,162 sobre

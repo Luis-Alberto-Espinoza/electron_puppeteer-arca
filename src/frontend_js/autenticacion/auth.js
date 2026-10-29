@@ -3,7 +3,7 @@
 // Las dos pantallas arman los datos a su manera y los mandan con sendFormData; el
 // backend los guarda procesados (resultadoCodigo) y los devuelve por
 // 'codigoLocalStorageGenerado'. Desde ahí, lanzar es igual en las dos: el
-// componente lanzadorAutomatizacion (switch + 🔐 Facturar / 🧪 Modo Test, ⏹ Cancelar)
+// componente lanzadorAutomatizacion (switch + 🔐 Facturar / 🧪 Simular factura, ⏹ Cancelar)
 // y abajo el resultado de la corrida, con "Reintentar las que faltan".
 //
 // Los listeners de IPC se registran UNA sola vez para todo el módulo: Facturas y
@@ -120,7 +120,7 @@ export class AuthManager {
                 rueda: rueda(false),
                 ejecutar: (datos, { visible }) => this._correr(false, visible, datos.desde)
             }, {
-                texto: 'Modo Test',
+                texto: 'Simular factura',
                 tipo: 'prueba',
                 nota: 'Prueba: no confirma la factura',
                 preparar: () => this._preparar(),

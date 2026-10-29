@@ -58,18 +58,14 @@ export function procesarFormularioFactura(event, facturasForm, datosMasivos, dat
 
     let validador = false;
     const datosParaEnviar = { ...data };
-    if (datosParaEnviar.tipoMonto !== 'montoManual')
-        datosParaEnviar.monto = datosParaEnviar.montoTotalInput;
+    datosParaEnviar.monto = datosParaEnviar.montoTotalInput;
     if (datosParaEnviar.periodoFacturacion === "habiles"
         || datosParaEnviar.periodoFacturacion === "total")
         delete datosParaEnviar.fechasFacturas;
-    if (datosParaEnviar.tipoMonto !== 'montoTotal')
-        datosParaEnviar.monto = datosParaEnviar.montoManual;
     datosParaEnviar.usuario = usuarioSeleccionado;
     datosParaEnviar.empresaElegida = empresaElegida;
     datosParaEnviar.puntoVenta = puntoVenta;
 
-    delete datosParaEnviar.montoManual;
     delete datosParaEnviar.montoTotalInput;
 
     datosParaEnviar.servicio = 'factura';

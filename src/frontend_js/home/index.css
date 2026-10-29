@@ -186,7 +186,7 @@ label {
 
 .periodo-selects>div {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
 }
 
@@ -251,10 +251,6 @@ button:hover {
 .header {
     text-align: center;
     margin-bottom: 30px;
-}
-
-#textareaContainer {
-    margin-top: 10px;
 }
 
 textarea {

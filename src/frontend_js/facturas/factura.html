@@ -48,15 +48,17 @@
             <input type="text" id="fechaComprobante" name="fechaComprobante" placeholder="Selecciona un día">
         </div>
 
-        <div>
-            <h2>Seleccionar método de ingreso de datos</h2>
-            <label>
+        <div id="metodoIngresoDiv">
+            <h2>¿Cómo armo las facturas?</h2>
+            <label class="opcion-metodo">
                 <input type="radio" name="metodoIngreso" value="manual" id="ingresoManual" checked>
-                Ingreso manual
+                Repartir un total en el mes
+                <small>Elegís el mes, qué días y el monto total: la app lo divide en una factura por día.</small>
             </label>
-            <label>
+            <label class="opcion-metodo">
                 <input type="radio" name="metodoIngreso" value="masivo" id="ingresoMasivo">
-                Carga masiva de datos
+                Pegar fechas y montos desde Excel
+                <small>Copiá las columnas de fechas y de montos de tu planilla y pegalas: una factura por fila.</small>
             </label>
         </div>
         <div id="seccionManual">
@@ -99,48 +101,24 @@
             </div>
             <div id="montoAFacturarDiv">
                 <h2>Total a facturar</h2>
-                <div>
-                    <input type="radio" name="tipoMonto" value="montoTotal" id="montoTotal">
-                    <label for="montoTotal">Ingresar un monto total de facturación</label>
-                    <div id="inputContainerTotal" style="display: none;">
-                        <br>
-                        Ingrese el monto a facturar:
-                        <input type="number" id="montoTotalInput" name="montoTotalInput" placeholder="Monto Total" />
-                    </div>
-                </div>
-                <div id="montoManualDiv" style="display: none;">
-                    <input type="radio" name="tipoMonto" value="montoManual" id="montoManual">
-                    <label for="montoManual">Ingresar manualmente el monto a facturar</label>
-                    <div id="textareaContainer" style="display: none;">
-                        <br>
-                        Ingrese los montos a facturar separados por comas:
-                        <textarea name="montoManual" id="textareaMontoManual"></textarea>
-                    </div>
+                <div id="inputContainerTotal">
+                    <input type="hidden" name="tipoMonto" value="montoTotal">
+                    <label for="montoTotalInput">Monto total del mes</label>
+                    <input type="number" id="montoTotalInput" name="montoTotalInput" placeholder="Monto Total" />
                 </div>
             </div>
         </div>
 
         <div id="seccionMasiva" style="display: none;">
-            <h4>Ingreso masivo de datos</h4>
-            <label for="textareaFechas">Fechas (una por línea):</label>
-            <textarea id="textareaFechas" rows="10" cols="30" placeholder="DD/MM/YYYY"></textarea>
-            <br>
-            <label for="textareaMontos">Montos (uno por línea):</label>
-            <textarea id="textareaMontos" rows="10" cols="30"
-                placeholder="Monto correspondiente a cada fecha"></textarea>
-            <br>
-            <button id="procesarDatos" class="btn-principal">Procesar datos</button>
-            <div id="resultadoProcesamiento" style="margin-top: 20px; display: none;">
-                <h4>Datos procesados:</h4>
-                <table border="1">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Monto</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tablaDatosProcesados"></tbody>
-                </table>
+            <div class="columnas-pegado">
+                <div>
+                    <label for="textareaFechas">Fechas (una por línea):</label>
+                    <textarea id="textareaFechas" rows="10" placeholder="DD/MM/YYYY"></textarea>
+                </div>
+                <div>
+                    <label for="textareaMontos">Montos (uno por línea):</label>
+                    <textarea id="textareaMontos" rows="10" placeholder="Monto de cada fecha"></textarea>
+                </div>
             </div>
         </div>
     </div>

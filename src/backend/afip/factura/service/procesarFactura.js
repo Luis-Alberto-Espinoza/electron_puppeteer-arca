@@ -27,10 +27,7 @@ function procesarDatosFactura(data) {
         }
 
         // Procesar los montos
-        if (data.tipoMonto === "montoManual") {
-            const monto = limpiarMontos(data.monto);
-            respuesta = procesarDatos(monto);
-        } else if (data.tipoMonto === "montoTotal") {
+        if (data.tipoMonto === "montoTotal") {
             const monto = limpiarMontos(data.monto);
             const montosGenerados = generarMontosAleatorios(monto.montos[0], fechas);
 

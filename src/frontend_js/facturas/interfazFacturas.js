@@ -75,15 +75,8 @@ function inicializarInterfazFacturas() {
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
     const periodoManual = document.getElementById('periodoManual');
-    const montoManualRadio = document.getElementById('montoManual');
-    const montoTotalRadio = document.getElementById('montoTotal');
-    const textareaContainer = document.getElementById('textareaContainer');
-    const inputContainerTotal = document.getElementById('inputContainerTotal');
-    const procesarDatosBtn = document.getElementById('procesarDatos');
     const textareaFechas = document.getElementById('textareaFechas');
     const textareaMontos = document.getElementById('textareaMontos');
-    const tablaDatosProcesados = document.getElementById('tablaDatosProcesados');
-    const resultadoProcesamiento = document.getElementById('resultadoProcesamiento');
     const ingresoManual = document.getElementById('ingresoManual');
     const ingresoMasivo = document.getElementById('ingresoMasivo');
     const seccionManual = document.getElementById('seccionManual');
@@ -156,21 +149,6 @@ function inicializarInterfazFacturas() {
     actualizarVista();
 
 
-    function handleMontoChange() {
-        if (montoManualRadio.checked) {
-            textareaContainer.style.display = 'block';
-            inputContainerTotal.style.display = 'none';
-        } else if (montoTotalRadio.checked) {
-            textareaContainer.style.display = 'none';
-            inputContainerTotal.style.display = 'block';
-        }
-    }
-
-    if (montoManualRadio && montoTotalRadio) {
-        montoManualRadio.addEventListener('change', handleMontoChange);
-        montoTotalRadio.addEventListener('change', handleMontoChange);
-        handleMontoChange();
-    }
     //Manejo de ingreso masivo y manual
     function actualizarMetodoIngreso() {
         if (ingresoManual.checked) {
@@ -185,20 +163,19 @@ function inicializarInterfazFacturas() {
     ingresoManual.addEventListener('change', actualizarMetodoIngreso);
     ingresoMasivo.addEventListener('change', actualizarMetodoIngreso);
 
-    procesarDatosBtn.addEventListener('click', () => {
-        event.preventDefault();
-        const resultado = procesarDatosTextareas(textareaFechas, textareaMontos);
-        if (resultado.errores.length > 0) {
-            alert(resultado.errores.join('\n'));
-            return;
+    facturasForm.addEventListener('submit', (event) => {
+        // Pegado desde Excel: el mismo "Procesar" valida las columnas antes de calcular.
+        if (ingresoMasivo.checked) {
+            const resultado = procesarDatosTextareas(textareaFechas, textareaMontos);
+            if (resultado.errores.length > 0) {
+                event.preventDefault();
+                alert(resultado.errores.join('\n'));
+                return;
+            }
+            datosMasivos = resultado.datos;
+            datosValidados = true;
         }
 
-        datosMasivos = resultado.datos;
-        datosValidados = true;
-        tablaDatosProcesados.innerHTML = datosMasivos.map(({ fecha, monto }) => `<tr><td>${fecha}</td><td>${monto}</td></tr>`).join('');
-        resultadoProcesamiento.style.display = 'block';
-    });
-    facturasForm.addEventListener('submit', (event) => {
         // Antes de procesar el formulario, obtener la empresa seleccionada
         const selectEmpresaDisponible = document.getElementById('selectEmpresaDisponible');
         let empresaElegida = null;

@@ -7,10 +7,6 @@ export function inicializarFacturas() {
     const selectMes = document.getElementById('selectMes');
     const selectAnio = document.getElementById('selectAnio');
     const periodoFactura = document.getElementById('periodoFactura');
-    const montoManualRadio = document.getElementById('montoManual');
-    const montoTotalRadio = document.getElementById('montoTotal');
-    const textareaContainer = document.getElementById('textareaContainer');
-    const inputContainerTotal = document.getElementById('inputContainerTotal');
     const inputMontoTotal = document.getElementById('montoTotalInput');
     const ingresoManual = document.getElementById('ingresoManual');
     const ingresoMasivo = document.getElementById('ingresoMasivo');
@@ -54,24 +50,6 @@ export function inicializarFacturas() {
         ponerPeriodo(new Date());
     }
 
-    // === Manejo de los Montos ===
-    function handleMontoChange() {
-        if (montoManualRadio.checked) {
-            textareaContainer.style.display = 'block';
-            inputContainerTotal.style.display = 'none';
-            inputMontoTotal.value = '';
-        } else if (montoTotalRadio.checked) {
-            textareaContainer.style.display = 'none';
-            inputContainerTotal.style.display = 'block';
-            document.getElementById('textareaMontoManual').value = '';
-        }
-    }
-
-    if (montoManualRadio && montoTotalRadio) {
-        montoManualRadio.addEventListener('change', handleMontoChange);
-        montoTotalRadio.addEventListener('change', handleMontoChange);
-        handleMontoChange();
-    }
 
     // ========================================
     // INICIALIZACIÓN DE AUTENTICACIÓN

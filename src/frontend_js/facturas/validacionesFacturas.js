@@ -31,8 +31,6 @@ export function validarFormularioFacturaManual(data) {
             errores.push("Debe seleccionar un tipo de monto.");
         } else if (data.tipoMonto === 'montoTotal' && !data.montoTotalInput) {
             errores.push("Debe ingresar un monto total.");
-        } else if (data.tipoMonto === 'montoManual' && !data.montoManual) {
-            errores.push("Debe ingresar montos manuales.");
         }
     } else { // Para "total" y "habiles"
         // Validación OBLIGATORIA del monto para "total" y "habiles"
@@ -40,8 +38,6 @@ export function validarFormularioFacturaManual(data) {
             errores.push("Debe seleccionar un tipo de monto.");
         } else if (data.tipoMonto === 'montoTotal' && !data.montoTotalInput) {
             errores.push("Debe ingresar un monto total.");
-        } else if (data.tipoMonto === 'montoManual' && !data.montoManual) {
-            errores.push("Debe ingresar montos manuales.");
         }
     }
 
